@@ -133,56 +133,76 @@ const Master = (() => {
       };
 
       w.innerHTML = `
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
           
           <!-- PELAYANAN -->
-          <div class="card p-16" style="border-left: 4px solid var(--utama)">
-            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('pasien', 18)} Pelayanan</h3>
-            <div class="flex items-end justify-between mt-12">
+          <div class="card" style="padding: 18px; border-left: 4px solid var(--utama); background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+              ${UI.ikon('pasien', 18)} Pelayanan
+            </h3>
+            <div class="flex items-end justify-between" style="margin-top: 16px;">
               <div>
-                <div class="text-xs text-muted mb-4">Total Pasien Terdaftar</div>
-                <div class="text-2xl font-bold">${stat.total_pasien.toLocaleString('id-ID')}</div>
+                <div class="text-xs text-muted" style="margin-bottom: 4px;">Total Pasien Terdaftar</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--ink-900); line-height: 1;">
+                  ${stat.total_pasien.toLocaleString('id-ID')}
+                </div>
               </div>
-              <div class="text-right">
-                <div class="text-xs text-muted mb-4">Kunjungan Hari Ini</div>
-                <div class="text-xl font-bold">${stat.kunjungan_hari_ini}</div>
+              <div style="text-align: right;">
+                <div class="text-xs text-muted" style="margin-bottom: 4px;">Kunjungan Hari Ini</div>
+                <div style="font-size: 22px; font-weight: 700; color: var(--utama); line-height: 1;">
+                  ${stat.kunjungan_hari_ini}
+                </div>
               </div>
             </div>
           </div>
 
           <!-- KEUANGAN -->
-          <div class="card p-16" style="border-left: 4px solid #10b981">
-            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('laporan', 18)} Pendapatan Kotor</h3>
-            <div class="text-xs text-muted mt-12 mb-4">Total Bulan Ini</div>
-            <div class="text-2xl font-bold text-green-700">${rp(stat.pendapatan_bulan_ini)}</div>
-            <div class="mt-8">${tren(stat.pendapatan_bulan_ini, stat.pendapatan_bulan_lalu)}</div>
+          <div class="card" style="padding: 18px; border-left: 4px solid #10b981; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+              ${UI.ikon('laporan', 18)} Pendapatan Kotor
+            </h3>
+            <div class="text-xs text-muted" style="margin-top: 16px; margin-bottom: 4px;">Total Tagihan Kasir Bulan Ini</div>
+            <div style="font-size: 24px; font-weight: 800; color: #047857;">
+              ${rp(stat.pendapatan_bulan_ini)}
+            </div>
+            <div style="margin-top: 10px;">
+              ${tren(stat.pendapatan_bulan_ini, stat.pendapatan_bulan_lalu)}
+            </div>
           </div>
 
           <!-- INVENTORI -->
-          <div class="card p-16" style="border-left: 4px solid #f59e0b">
-            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('stetoskop', 18)} Stok &amp; Inventori</h3>
-            <div class="flex items-center gap-12 mt-12">
-              <div class="text-3xl font-bold ${stat.stok_kritis_inventori > 0 ? 'text-orange-600' : 'text-green-600'}">
+          <div class="card" style="padding: 18px; border-left: 4px solid #f59e0b; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+              ${UI.ikon('stetoskop', 18)} Stok &amp; Inventori
+            </h3>
+            <div class="flex items-center gap-12" style="margin-top: 16px;">
+              <div style="font-size: 32px; font-weight: 800; color: ${stat.stok_kritis_inventori > 0 ? '#ea580c' : '#16a34a'}; line-height: 1;">
                 ${stat.stok_kritis_inventori}
               </div>
-              <div class="text-sm">
-                Barang inventori / reagen <b>menipis</b> (di bawah stok minimum).
-                <br><a href="#/inkaso" class="text-utama text-xs">Cek Inventori &rarr;</a>
+              <div class="text-sm" style="line-height: 1.4;">
+                Barang inventori / reagen <b>menipis</b> (di bawah stok minimum).<br>
+                <a href="#/inkaso" style="color: var(--utama); font-weight: 600; font-size: 12px; display: inline-block; margin-top: 4px; text-decoration: none;">Cek Inventori &rarr;</a>
               </div>
             </div>
           </div>
 
           <!-- HRIS -->
-          <div class="card p-16" style="border-left: 4px solid #6366f1">
-            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('jam', 18)} HRIS &amp; Karyawan</h3>
-            <div class="flex items-end justify-between mt-12">
+          <div class="card" style="padding: 18px; border-left: 4px solid #6366f1; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+              ${UI.ikon('jam', 18)} HRIS &amp; Karyawan
+            </h3>
+            <div class="flex items-end justify-between" style="margin-top: 16px;">
               <div>
-                <div class="text-xs text-muted mb-4">Hadir Hari Ini</div>
-                <div class="text-2xl font-bold">${stat.pegawai_hadir_hari_ini} <span class="text-sm font-normal text-muted">staf</span></div>
+                <div class="text-xs text-muted" style="margin-bottom: 4px;">Hadir Hari Ini</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--ink-900); line-height: 1;">
+                  ${stat.pegawai_hadir_hari_ini} <span style="font-size: 14px; font-weight: 400; color: var(--ink-500);">staf</span>
+                </div>
               </div>
-              <div class="text-right">
-                <div class="text-xs text-muted mb-4">Proyeksi Bonus Bulan Ini</div>
-                <div class="text-lg font-bold">${rp(stat.total_bonus_bulan_ini)}</div>
+              <div style="text-align: right;">
+                <div class="text-xs text-muted" style="margin-bottom: 4px;">Proyeksi Bonus Bulan Ini</div>
+                <div style="font-size: 20px; font-weight: 700; color: #4338ca; line-height: 1;">
+                  ${rp(stat.total_bonus_bulan_ini)}
+                </div>
               </div>
             </div>
           </div>
