@@ -2074,6 +2074,11 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  async function statistikEksekutif() {
+    const { data, error } = await sb.rpc('statistik_eksekutif');
+    if (error) throw error; return data;
+  }
+
   return {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
