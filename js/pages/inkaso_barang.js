@@ -157,6 +157,20 @@ const InkasoBarang = (() => {
         <div id="galatBarang"></div>
       `,
       tombol: [
+        ...(b ? [{
+          teks: 'Hapus',
+          kelas: 'btn-secondary',
+          aksi: async () => {
+            if (!await UI.konfirmasi('Hapus Barang', 'Yakin ingin menghapus barang ini secara permanen?', 'Hapus')) return false;
+            try {
+              await DB.inventoriHapus(b.id);
+              return true;
+            } catch (e) {
+              UI.toast('Gagal menghapus. Barang mungkin sudah memiliki riwayat mutasi.', 'err');
+              return false;
+            }
+          }
+        }] : []),
         { teks: 'Batal', nilai: null },
         { teks: 'Simpan', kelas: 'btn-primary', aksi: async (badan) => {
             const d = UI.nilaiForm(badan);

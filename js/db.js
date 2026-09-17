@@ -2055,6 +2055,10 @@ const DB = (() => {
     const { data, error } = await q;
     if (error) throw error; return data;
   }
+  async function inventoriHapus(id) {
+    const { error } = await sb.from('inventori_barang').delete().eq('id', id);
+    if (error) throw error;
+  }
   async function inventoriMutasi(barangId, jenis, jumlah, keterangan = null) {
     const { data, error } = await sb.from('inventori_mutasi').insert({
       barang_id: barangId, jenis, jumlah, keterangan, dicatat_oleh: _saya?.id
@@ -2135,7 +2139,7 @@ const DB = (() => {
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
-    inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat
+    inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus
   };
 })();
 
