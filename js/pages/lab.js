@@ -475,70 +475,139 @@ const Lab = (() => {
 
     const w = window.open('', '_blank', 'width=820,height=1000');
     if (!w) { UI.toast('Pop-up diblokir peramban. Izinkan untuk mencetak.', 'err'); return; }
+    
+    const dicetakOleh = App.siapa()?.nama || '';
+    const now = new Date();
+    
+    // Barcode URL
+    const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(p.no_lab)}&code=Code128&translate-esc=on&dpi=96`;
+    // QR Code URL for Verifikator
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('Verifikator: dr. Minto Rahaju Sp. PK')}`;
+
     w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8">
       <title>Hasil Laboratorium ${UI.esc(p.no_lab)}</title>
       <style>
-        body{font:12px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:28px;color:#111}
-        h1{font-size:15px;margin:0 0 2px} .sub{color:#555;font-size:11px}
-        .kop{border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:14px}
-        .id{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;margin-bottom:14px;font-size:11.5px}
-        .id b{display:inline-block;min-width:96px;font-weight:600}
-        table{width:100%;border-collapse:collapse;font-size:11.5px}
-        th{text-align:left;border-bottom:1.5px solid #111;padding:5px 6px;font-size:10.5px;
-           text-transform:uppercase;letter-spacing:.04em}
-        td{padding:4px 6px;border-bottom:1px solid #e5e5e5}
-        .grp td{background:#f2f2f2;font-weight:700;font-size:10.5px;text-transform:uppercase}
-        .num{text-align:right;font-variant-numeric:tabular-nums}
-        .tandai{font-weight:700}
-        .ttd{margin-top:36px;display:flex;justify-content:flex-end;text-align:center;font-size:11.5px}
-        .catatan{margin-top:18px;font-size:10.5px;color:#555;border-top:1px solid #ddd;padding-top:8px}
-        @page{margin:1.4cm}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 30px 40px; color: #000; line-height: 1.4; }
+        .header { display: flex; justify-content: center; align-items: flex-start; margin-bottom: 20px; position: relative; }
+        .header-logo { text-align: center; }
+        .header-logo img { width: 50px; height: auto; }
+        .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
+        .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -4px; }
+        
+        .header-text { position: absolute; right: 0; top: 10px; text-align: left; font-size: 11px; }
+        .header-text b { font-size: 12px; }
+        
+        .barcode { margin-bottom: 5px; }
+        .barcode img { height: 35px; width: auto; display: block; }
+        
+        .pj { font-weight: 700; font-size: 11px; margin-bottom: 15px; }
+        
+        .patient-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .info-grid { display: grid; grid-template-columns: 110px 10px 1fr; gap: 2px 0; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 30px; }
+        th { text-align: left; padding: 8px 4px; text-transform: uppercase; border-bottom: 1px solid #000; font-weight: 600; }
+        td { padding: 4px; vertical-align: top; }
+        .grp td { font-weight: 700; text-transform: uppercase; padding-top: 10px; }
+        
+        .signatures { display: flex; justify-content: space-between; margin-top: 40px; text-align: left; font-size: 11px; }
+        .sig-box { display: flex; flex-direction: column; align-items: flex-start; }
+        .qr-box { margin: 5px 0; }
+        .qr-box img { width: 60px; height: 60px; }
+        
+        .footer { margin-top: 50px; font-size: 9px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .footer b { display: block; font-size: 10px; margin-top: 3px; }
+        @page { margin: 0; size: A4 portrait; }
       </style></head><body>
-      <div class="kop">
-        <h1>${UI.esc(f?.nama || CONFIG.NAMA_KLINIK)}</h1>
-        <div class="sub">${UI.esc(f?.alamat || '')} ${f?.telepon ? '· Telp. ' + UI.esc(f.telepon) : ''}</div>
-        <div class="sub mt-4"><b>HASIL PEMERIKSAAN LABORATORIUM</b></div>
+      
+      <div class="header">
+        <div class="header-logo">
+          <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}logo.png" onerror="this.style.display='none'">
+          <div class="brand">UTAMA</div>
+          <div class="motto">Kepuasan Anda Prioritas Kami</div>
+        </div>
+        <div class="header-text">
+          <b>Laboratorium Medis UTAMA</b><br>
+          Jl. DI Panjaitan No. 94, Purbalingga<br>
+          Telp. 0281-6580099 / 08121482308<br>
+          Email : laboratoriumutama@yahoo.com
+        </div>
       </div>
-      <div class="id">
-        <div><b>Nama</b> ${UI.esc(p.pasien.nama)}</div>
-        <div><b>No. lembar</b> ${UI.esc(p.no_lab)}</div>
-        <div><b>No. RM</b> ${UI.esc(p.pasien.no_rm)}</div>
-        <div><b>Tanggal</b> ${UI.tglIndo(p.tanggal)}</div>
-        <div><b>Jenis kelamin</b> ${p.pasien.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}</div>
-        <div><b>Dokter</b> ${UI.esc(p.peminta?.nama || '-')}</div>
-        <div><b>Umur</b> ${UI.umurTeks(p.pasien.tanggal_lahir)}</div>
-        <div><b>Asal</b> ${p.asal === 'EKSTERNAL'
-              ? UI.esc(p.nama_lab_luar || 'Lab luar') : 'Laboratorium klinik'}</div>
+      
+      <div class="barcode">
+        <img src="${barcodeUrl}" alt="Barcode">
       </div>
-      <table><thead><tr>
-        <th class="col-w36p">Pemeriksaan</th><th class="num col-w16p">Hasil</th>
-        <th class="col-w12p">Satuan</th><th class="col-w22p">Nilai rujukan</th>
-        <th class="col-w14p">Tanda</th></tr></thead><tbody>
-        ${grup.map(g => `<tr class="grp"><td colspan="5">${UI.esc(g.kelompok)}</td></tr>
-          ${g.isi.map(h => {
-            const t = LabCore.TANDA[h.tanda] || {};
-            return `<tr>
-              <td>${UI.esc(h.nama)}</td>
-              <td class="num ${t.berat >= 2 ? 'tandai' : ''}">${UI.esc(nilaiTeks(h))}</td>
-              <td>${UI.esc(h.satuan || '')}</td>
-              <td>${UI.esc(h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '')}</td>
-              <td class="${t.berat >= 2 ? 'tandai' : ''}">${UI.esc(t.pendek || '')} ${UI.esc(t.berat ? t.label : '')}</td>
-            </tr>`;
-          }).join('')}`).join('')}
-      </tbody></table>
-      <div class="ttd"><div>
-        ${UI.esc(f?.kota || '')}${f?.kota ? ', ' : ''}${UI.tglIndo(p.waktu_selesai || p.tanggal)}<br>
-        Petugas laboratorium<br><br><br>
-        <u>${UI.esc(p.penutup?.nama || App.siapa()?.nama || '')}</u>
-      </div></div>
-      <div class="catatan">
-        Nilai rujukan yang tercetak adalah nilai yang berlaku saat pemeriksaan dilakukan.
-        Hasil laboratorium adalah penunjang; penafsirannya tetap oleh dokter dan
-        harus dibaca bersama keadaan klinis pasien.
+      
+      <div class="pj">Penanggung Jawab : dr. Minto Rahaju Sp. PK</div>
+      
+      <div class="patient-info">
+        <div class="info-grid">
+          <div>No Lab</div><div>:</div><div><b>${UI.esc(p.no_lab)}</b></div>
+          <div>Nama</div><div>:</div><div>${UI.esc(p.pasien.nama)}</div>
+          <div>Dokter Pengirim</div><div>:</div><div>${UI.esc(p.peminta?.nama || '-')}</div>
+          <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien.alamat || '-')}</div>
+        </div>
+        <div class="info-grid">
+          <div>Umur</div><div>:</div><div>${UI.umurTeks(p.pasien.tanggal_lahir)}</div>
+          <div>Jenis Kelamin</div><div>:</div><div>${p.pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan'}</div>
+          <div>Tgl. Periksa</div><div>:</div><div>${UI.tglIndo(p.tanggal)}</div>
+          <div>Instansi</div><div>:</div><div>${p.pasien.jenis_asuransi === 'UMUM' ? 'umum' : UI.esc(p.pasien.jenis_asuransi || 'umum')}</div>
+        </div>
       </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 40%">PEMERIKSAAN</th>
+            <th style="width: 15%">HASIL</th>
+            <th style="width: 30%">NILAI RUJUKAN</th>
+            <th style="width: 15%">SATUAN</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${grup.map(g => `<tr class="grp"><td colspan="4">${UI.esc(g.kelompok)}</td></tr>
+            ${g.isi.map(h => {
+              const rujukanString = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '';
+              const rujukanHtml = UI.esc(rujukanString).replace(/\\n/g, '<br>');
+              return `<tr>
+                <td>${UI.esc(h.nama)}</td>
+                <td>${UI.esc(nilaiTeks(h))}</td>
+                <td>${rujukanHtml}</td>
+                <td>${UI.esc(h.satuan || '')}</td>
+              </tr>`;
+            }).join('')}`).join('')}
+        </tbody>
+      </table>
+      
+      <div class="signatures">
+        <div class="sig-box">
+          <div>Verifikator</div>
+          <div style="height: 60px;"></div>
+          <div>${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
+          <div>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</div>
+        </div>
+        <div class="sig-box" style="align-items: flex-start;">
+          <div>Penanggung Jawab</div>
+          <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
+          <div>dr. Minto Rahaju Sp. PK</div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <div>
+          Hal. 1 dari 1 Halaman<br>
+          Jam Sampel ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
+        </div>
+        <div style="text-align: right;">
+          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}<br>
+          <b>Hasil tidak memerlukan tanda tangan karena dicetak secara elektronik. Hasil sudah di verifikasi dan divalidasi</b>
+        </div>
+      </div>
+      
       </body></html>`);
     w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 300);
+    setTimeout(() => { w.focus(); w.print(); }, 1500);
   }
 
   /* ------------------------------------------------------------------ */
