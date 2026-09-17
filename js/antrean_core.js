@@ -180,7 +180,7 @@ const AntreanCore = (() => {
 
   function urlLayar(asal, token) {
     if (!token) return '';
-    const dasar = String(asal || '').replace(/\/+$/, '').replace(/\/(app|index|demo)\.html.*$/, '');
+    const dasar = String(asal || '').replace(/\/+$/, '').replace(/\/(app|index|demo)(\.html)?([#?].*)?$/, '');
     return `${dasar}/display.html?t=${encodeURIComponent(token)}`;
   }
 
