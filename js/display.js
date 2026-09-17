@@ -174,8 +174,6 @@
 
     $('namaKlinik').textContent = d.klinik || 'Klinik';
     $('judulLayar').textContent = d.judul || 'Antrean Pasien';
-    $('logo').textContent = (d.klinik || 'K').replace(/^Klinik (Pratama )?/i, '')
-      .split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'K';
     $('teksJalan').textContent = d.teks_berjalan || '';
 
     const panggilan = Array.isArray(d.panggilan) ? d.panggilan : [];

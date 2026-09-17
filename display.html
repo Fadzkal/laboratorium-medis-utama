@@ -44,9 +44,7 @@ body{
 .merek{display:flex;align-items:center;gap:1.2vw;min-width:0}
 .logo{
   width:clamp(38px,3.4vw,64px);height:clamp(38px,3.4vw,64px);border-radius:14px;
-  background:linear-gradient(135deg,var(--sorot),var(--sorot2));
-  display:grid;place-items:center;color:#04211D;
-  font-weight:800;font-size:clamp(15px,1.5vw,26px);flex:none;
+  object-fit:contain; flex:none; background:#fff; padding:4px;
 }
 .merek h1{font-size:clamp(15px,1.7vw,30px);font-weight:700;letter-spacing:.2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -165,7 +163,7 @@ body{
 <div class="layar">
   <header class="kepala">
     <div class="merek">
-      <div class="logo" id="logo">KI</div>
+      <img src="logo.png" alt="Logo" class="logo" id="logo" onerror="this.src='favicon.svg'">
       <div style="min-width:0">
         <h1 id="namaKlinik">Klinik</h1>
         <p id="judulLayar">Antrean Pasien</p>
