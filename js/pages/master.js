@@ -5,7 +5,7 @@
    ============================================================== */
 const Master = (() => {
 
-  let tabAktif = 'obat';
+  let tabAktif = 'eksekutif';
   let cache = { obat: [], icd10: [], icd9: [], lab: [] };
 
   const GOLONGAN = ['Bebas', 'Bebas Terbatas', 'Keras', 'Narkotika', 'Psikotropika'];
@@ -86,7 +86,7 @@ const Master = (() => {
           dokter memeriksa pasien.</p>
       </div>
       <div class="tabs" id="tabsMaster">
-        ${[['obat','Obat'],['icd10','Diagnosa (ICD-10)'],['icd9','Tindakan (ICD-9-CM)'],
+        ${[['eksekutif', 'Statistik Eksekutif'],['obat','Obat'],['icd10','Diagnosa (ICD-10)'],['icd9','Tindakan (ICD-9-CM)'],
            ['lab','Pemeriksaan Lab']]
           .map(([k,t]) => `<button class="tab ${tabAktif === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('')}
       </div>
@@ -106,12 +106,91 @@ const Master = (() => {
   async function gambarTab(w) {
     w.innerHTML = UI.memuat(3);
     try {
+      if (tabAktif === 'eksekutif') return await tabEksekutif(w);
       if (tabAktif === 'obat')  return await tabObat(w);
       if (tabAktif === 'icd10') return await tabIcd10(w);
       if (tabAktif === 'icd9')  return await tabIcd9(w);
       if (tabAktif === 'lab')   return await tabLab(w);
     } catch (e) {
       w.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
+    }
+  }
+
+  /* ================================================================ *
+   *  STATISTIK EKSEKUTIF
+   * ================================================================ */
+  async function tabEksekutif(w) {
+    try {
+      const stat = await DB.statistikEksekutif();
+      
+      const rp = (n) => 'Rp ' + Number(n).toLocaleString('id-ID');
+      const tren = (skrg, lalu) => {
+        if (!lalu) return '<span class="text-muted text-sm">Tidak ada data bulan lalu</span>';
+        const pr = ((skrg - lalu) / lalu) * 100;
+        if (pr > 0) return `<span class="text-green-600 font-bold text-sm">▲ Naik ${pr.toFixed(1)}%</span> dari bulan lalu`;
+        if (pr < 0) return `<span class="text-red-600 font-bold text-sm">▼ Turun ${Math.abs(pr).toFixed(1)}%</span> dari bulan lalu`;
+        return '<span class="text-muted text-sm">Sama dengan bulan lalu</span>';
+      };
+
+      w.innerHTML = `
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+          
+          <!-- PELAYANAN -->
+          <div class="card p-16" style="border-left: 4px solid var(--utama)">
+            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('pasien', 18)} Pelayanan</h3>
+            <div class="flex items-end justify-between mt-12">
+              <div>
+                <div class="text-xs text-muted mb-4">Total Pasien Terdaftar</div>
+                <div class="text-2xl font-bold">${stat.total_pasien.toLocaleString('id-ID')}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-muted mb-4">Kunjungan Hari Ini</div>
+                <div class="text-xl font-bold">${stat.kunjungan_hari_ini}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KEUANGAN -->
+          <div class="card p-16" style="border-left: 4px solid #10b981">
+            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('laporan', 18)} Pendapatan Kotor</h3>
+            <div class="text-xs text-muted mt-12 mb-4">Total Bulan Ini</div>
+            <div class="text-2xl font-bold text-green-700">${rp(stat.pendapatan_bulan_ini)}</div>
+            <div class="mt-8">${tren(stat.pendapatan_bulan_ini, stat.pendapatan_bulan_lalu)}</div>
+          </div>
+
+          <!-- INVENTORI -->
+          <div class="card p-16" style="border-left: 4px solid #f59e0b">
+            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('stetoskop', 18)} Stok &amp; Inventori</h3>
+            <div class="flex items-center gap-12 mt-12">
+              <div class="text-3xl font-bold ${stat.stok_kritis_inventori > 0 ? 'text-orange-600' : 'text-green-600'}">
+                ${stat.stok_kritis_inventori}
+              </div>
+              <div class="text-sm">
+                Barang inventori / reagen <b>menipis</b> (di bawah stok minimum).
+                <br><a href="#/inkaso" class="text-utama text-xs">Cek Inventori &rarr;</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- HRIS -->
+          <div class="card p-16" style="border-left: 4px solid #6366f1">
+            <h3 class="mb-4 text-muted flex items-center gap-8">${UI.ikon('jam', 18)} HRIS &amp; Karyawan</h3>
+            <div class="flex items-end justify-between mt-12">
+              <div>
+                <div class="text-xs text-muted mb-4">Hadir Hari Ini</div>
+                <div class="text-2xl font-bold">${stat.pegawai_hadir_hari_ini} <span class="text-sm font-normal text-muted">staf</span></div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-muted mb-4">Proyeksi Bonus Bulan Ini</div>
+                <div class="text-lg font-bold">${rp(stat.total_bonus_bulan_ini)}</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+    } catch (e) {
+      w.innerHTML = `<div class="banner err">Gagal memuat statistik: ${UI.esc(e.message)}</div>`;
     }
   }
 

@@ -2139,7 +2139,8 @@ const DB = (() => {
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
-    inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus
+    inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
+    statistikEksekutif
   };
 })();
 
