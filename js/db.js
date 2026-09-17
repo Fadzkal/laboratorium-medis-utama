@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    DB — satu-satunya tempat aplikasi berbicara dengan Supabase.
    Semua halaman memanggil fungsi di sini, bukan memanggil Supabase
    langsung, supaya mudah diubah saat digabung dengan portal klinik.
@@ -1980,6 +1980,96 @@ const DB = (() => {
     }));
   }
 
+  /* ========================= HRIS & INVENTORY ========================== */
+
+  /* --- Absensi --- */
+  async function absensiPegawai(pegawaiId, dari, sampai) {
+    const { data, error } = await sb.from('pegawai_absensi').select('*')
+      .eq('pegawai_id', pegawaiId)
+      .gte('tanggal', dari).lte('tanggal', sampai).order('tanggal', { ascending: false });
+    if (error) throw error; return data;
+  }
+  async function absensiHariIni() {
+    const hari = UI.hariIni();
+    const { data, error } = await sb.from('pegawai_absensi').select('*')
+      .eq('pegawai_id', _saya?.id).eq('tanggal', hari).maybeSingle();
+    if (error) throw error; return data;
+  }
+  async function absensiMasuk(keterangan = null, lokasi = null) {
+    const hari = UI.hariIni();
+    const { data, error } = await sb.from('pegawai_absensi').insert({
+      pegawai_id: _saya?.id, tanggal: hari,
+      waktu_masuk: new Date().toISOString(), status: 'HADIR',
+      keterangan, lokasi_masuk: lokasi
+    }).select().single();
+    if (error) throw error; return data;
+  }
+  async function absensiKeluar(id, keterangan = null, lokasi = null) {
+    const { data, error } = await sb.from('pegawai_absensi').update({
+      waktu_keluar: new Date().toISOString(),
+      keterangan, lokasi_keluar: lokasi
+    }).eq('id', id).select().single();
+    if (error) throw error; return data;
+  }
+  async function absensiLaporan(dari, sampai) {
+    return await ambilSemua(() =>
+      sb.from('pegawai_absensi').select('*, pegawai:pegawai_id(nama,peran)')
+        .gte('tanggal', dari).lte('tanggal', sampai).order('tanggal', { ascending: false })
+    );
+  }
+
+  /* --- KPI & Bonus --- */
+  async function kpiDaftar(bulan, tahun) {
+    const { data, error } = await sb.from('pegawai_kpi')
+      .select('*, pegawai:pegawai_id(nama,peran)').eq('bulan', bulan).eq('tahun', tahun);
+    if (error) throw error; return data;
+  }
+  async function kpiSimpan(rec, id = null) {
+    const q = id ? sb.from('pegawai_kpi').update(rec).eq('id', id).select().single()
+                 : sb.from('pegawai_kpi').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+  async function bonusDaftar(bulan, tahun) {
+    const { data, error } = await sb.from('pegawai_bonus')
+      .select('*, pegawai:pegawai_id(nama,peran)').eq('bulan', bulan).eq('tahun', tahun);
+    if (error) throw error; return data;
+  }
+  async function bonusSimpan(rec, id = null) {
+    const q = id ? sb.from('pegawai_bonus').update(rec).eq('id', id).select().single()
+                 : sb.from('pegawai_bonus').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+
+  /* --- Inkaso (Inventori Umum) --- */
+  async function inventoriDaftar(kata = '') {
+    let q = sb.from('inventori_barang').select('*').order('nama');
+    if (kata && kata.trim().length >= 2) q = q.ilike('nama', `%${kata.trim()}%`);
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+  async function inventoriSimpan(rec, id = null) {
+    const q = id ? sb.from('inventori_barang').update(rec).eq('id', id).select().single()
+                 : sb.from('inventori_barang').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+  async function inventoriMutasi(barangId, jenis, jumlah, keterangan = null) {
+    const { data, error } = await sb.from('inventori_mutasi').insert({
+      barang_id: barangId, jenis, jumlah, keterangan, dicatat_oleh: _saya?.id
+    }).select().single();
+    if (error) throw error; return data;
+  }
+  async function inventoriRiwayat(barangId = null, batas = 100) {
+    let q = sb.from('inventori_mutasi')
+      .select('*, barang:barang_id(nama,kode), pegawai:dicatat_oleh(nama)')
+      .order('tanggal', { ascending: false }).limit(batas);
+    if (barangId) q = q.eq('barang_id', barangId);
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+
   return {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
@@ -2042,7 +2132,10 @@ const DB = (() => {
     kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,
     laporanKunjunganRentang, laporanRujukan,
     laporanKeuanganTagihan, laporanKeuanganPembayaran,
-    laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas
+    laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
+    absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
+    kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
+    inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat
   };
 })();
 
