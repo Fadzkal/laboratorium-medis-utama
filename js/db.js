@@ -2059,15 +2059,43 @@ const DB = (() => {
     const { error } = await sb.from('inventori_barang').delete().eq('id', id);
     if (error) throw error;
   }
-  async function inventoriMutasi(barangId, jenis, jumlah, keterangan = null) {
-    const { data, error } = await sb.from('inventori_mutasi').insert({
-      barang_id: barangId, jenis, jumlah, keterangan, dicatat_oleh: _saya?.id
-    }).select().single();
+  
+  async function inventoriBatchDaftar(barangId) {
+    const { data, error } = await sb.from('inventori_batch')
+      .select('*').eq('barang_id', barangId).order('expired_date', { ascending: true });
+    if (error) throw error; return data;
+  }
+  async function inventoriBatchSimpan(rec, id = null) {
+    const q = id ? sb.from('inventori_batch').update(rec).eq('id', id).select().single()
+                 : sb.from('inventori_batch').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+  async function labResepDaftar(labId) {
+    const { data, error } = await sb.from('lab_resep')
+      .select('*, barang:barang_id(nama,usage_unit)').eq('lab_id', labId);
+    if (error) throw error; return data;
+  }
+  async function labResepSimpan(rec, id = null) {
+    const q = id ? sb.from('lab_resep').update(rec).eq('id', id).select().single()
+                 : sb.from('lab_resep').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+  async function labResepHapus(id) {
+    const { error } = await sb.from('lab_resep').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async function inventoriMutasi(rec) {
+    // rec harus berisi: barang_id, batch_id (opt), jenis, jumlah_usage, keterangan, referensi (opt)
+    rec.dicatat_oleh = _saya?.id;
+    const { data, error } = await sb.from('inventori_mutasi').insert(rec).select().single();
     if (error) throw error; return data;
   }
   async function inventoriRiwayat(barangId = null, batas = 100) {
     let q = sb.from('inventori_mutasi')
-      .select('*, barang:barang_id(nama,kode), pegawai:dicatat_oleh(nama)')
+      .select('*, barang:barang_id(nama,kode), batch:batch_id(batch_number), pegawai:dicatat_oleh(nama)')
       .order('tanggal', { ascending: false }).limit(batas);
     if (barangId) q = q.eq('barang_id', barangId);
     const { data, error } = await q;
@@ -2145,6 +2173,7 @@ const DB = (() => {
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
+    inventoriBatchDaftar, inventoriBatchSimpan, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif
   };
 })();

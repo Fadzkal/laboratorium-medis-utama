@@ -408,10 +408,10 @@ const Master = (() => {
     if (!data.length) { UI.toast('Tidak ada data untuk diekspor.', 'warn'); return; }
     const bersih = (v) => {
       const s = (v ?? '').toString().replace(/"/g, '""');
-      return /[",\n;]/.test(s) ? `"${s}"` : s;
+      return /[",n;]/.test(s) ? `"${s}"` : s;
     };
     const isi = [KOLOM_OBAT.join(';'),
-      ...data.map(o => KOLOM_OBAT.map(k => bersih(o[k])).join(';'))].join('\r\n');
+      ...data.map(o => KOLOM_OBAT.map(k => bersih(o[k])).join(';'))].join('rn');
     const blob = new Blob(['﻿' + isi], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -424,8 +424,8 @@ const Master = (() => {
      pemisah di dalam isi sel. Menerima pemisah titik koma maupun koma. */
   function bacaCsv(teks) {
     teks = teks.replace(/^﻿/, '');
-    const pemisah = (teks.split('\n')[0].match(/;/g) || []).length >=
-                    (teks.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+    const pemisah = (teks.split('n')[0].match(/;/g) || []).length >=
+                    (teks.split('n')[0].match(/,/g) || []).length ? ';' : ',';
     const baris = []; let sel = ''; let barisIni = []; let dalamKutip = false;
 
     for (let i = 0; i < teks.length; i++) {
@@ -436,8 +436,8 @@ const Master = (() => {
         else sel += c;
       } else if (c === '"') dalamKutip = true;
       else if (c === pemisah) { barisIni.push(sel); sel = ''; }
-      else if (c === '\n') { barisIni.push(sel); baris.push(barisIni); barisIni = []; sel = ''; }
-      else if (c !== '\r') sel += c;
+      else if (c === 'n') { barisIni.push(sel); baris.push(barisIni); barisIni = []; sel = ''; }
+      else if (c !== 'r') sel += c;
     }
     if (sel !== '' || barisIni.length) { barisIni.push(sel); baris.push(barisIni); }
     return baris.filter(b => b.some(x => x.trim() !== ''));
@@ -445,7 +445,7 @@ const Master = (() => {
 
   function petakanBarisObat(baris) {
     if (!baris.length) return { data: [], galat: ['Berkas kosong.'] };
-    const judul = baris[0].map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    const judul = baris[0].map(h => h.trim().toLowerCase().replace(/s+/g, '_'));
     const iNama = judul.indexOf('nama');
     if (iNama === -1) return { data: [], galat: ['Kolom "nama" tidak ditemukan pada baris judul.'] };
 
@@ -457,7 +457,7 @@ const Master = (() => {
         const v = (b[i] ?? '').trim();
         if (v === '') return;
         if (h === 'formularium') rec[h] = ['1','ya','true','y','v'].includes(v.toLowerCase());
-        else if (h === 'harga') rec[h] = Number(v.replace(/[^\d.]/g, '')) || 0;
+        else if (h === 'harga') rec[h] = Number(v.replace(/[^d.]/g, '')) || 0;
         else rec[h] = v;
       });
       if (!rec.nama) { galat.push(`Baris ${n + 2}: nama obat kosong, dilewati.`); return; }
@@ -704,10 +704,10 @@ const Master = (() => {
     if (!data.length) { UI.toast('Tidak ada data untuk diekspor.', 'warn'); return; }
     const bersih = (v) => {
       const s = (v ?? '').toString().replace(/"/g, '""');
-      return /[",\n;]/.test(s) ? `"${s}"` : s;
+      return /[",n;]/.test(s) ? `"${s}"` : s;
     };
     const isi = [KOLOM_ICD10.join(';'),
-      ...data.map(d => KOLOM_ICD10.map(k => bersih(d[k])).join(';'))].join('\r\n');
+      ...data.map(d => KOLOM_ICD10.map(k => bersih(d[k])).join(';'))].join('rn');
     const blob = new Blob(['﻿' + isi], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -718,7 +718,7 @@ const Master = (() => {
 
   function petakanBarisIcd10(baris) {
     if (!baris.length) return { data: [], galat: ['Berkas kosong.'] };
-    const judul = baris[0].map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    const judul = baris[0].map(h => h.trim().toLowerCase().replace(/s+/g, '_'));
     const iKode = judul.indexOf('kode');
     if (iKode === -1) return { data: [], galat: ['Kolom "kode" tidak ditemukan pada baris judul.'] };
 
@@ -1043,6 +1043,7 @@ const Master = (() => {
       const b = e.target.closest('[data-lab]'); if (!b) return;
       const m = cache.lab.find(x => x.id === b.dataset.lab);
       if (b.dataset.aksi === 'rujukan') { await modalRujukan(m); }
+      else if (b.dataset.aksi === 'resep') { await modalResepLab(m); }
       else if (b.dataset.aksi === 'hapus') {
         if (!await UI.konfirmasi(`Hapus pemeriksaan "${m.nama}"?`,
             'Baris ini beserta nilai rujukannya dihapus permanen. Kalau pemeriksaan ini sudah pernah punya hasil pasien, penghapusan akan ditolak — nonaktifkan saja lewat kotak centang Aktif.',
@@ -1077,6 +1078,7 @@ const Master = (() => {
           ? `<span class="badge b-ok">${m.rujukan.length} baris</span>`
           : `<span class="badge b-warn">belum ada</span>`}</td>
         <td class="text-right">
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="resep">Resep Reagen</button>
           <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="rujukan">Nilai rujukan</button>
           <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="ubah">Ubah</button>
           <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="hapus">Hapus</button>
@@ -1265,6 +1267,76 @@ const Master = (() => {
             gambar(b);
             UI.toast('Baris nilai rujukan ditambahkan.');
           } catch (e) { UI.toast(e.message || 'Gagal menambah.', 'err'); }
+        });
+      },
+      tombol: [{ teks: 'Tutup', nilai: true, kelas: 'btn-primary' }]
+    });
+  }
+
+  async function modalResepLab(m) {
+    if (!cache.inventori_barang) cache.inventori_barang = await DB.inventoriDaftar();
+    let resep = await DB.labResepDaftar(m.id);
+    
+    const gambar = (b) => {
+      const tb = b.querySelector('#daftarBOM');
+      tb.innerHTML = !resep.length ? '<div class="banner info">Belum ada reagen yang di-set untuk pemeriksaan ini.</div>' 
+        : `<div class="table-wrap"><table class="tbl">
+            <thead><tr><th>Reagen / Barang</th><th>Qty Pemakaian per Tes</th><th>Satuan</th><th></th></tr></thead>
+            <tbody>${resep.map(r => `<tr>
+              <td>${UI.esc(r.barang?.nama || 'Unknown')}</td>
+              <td class="mono">${r.qty_usage}</td>
+              <td class="muted">${UI.esc(r.barang?.usage_unit || '')}</td>
+              <td class="text-right"><button class="btn btn-ghost btn-sm" data-hapus-bom="${r.id}">Hapus</button></td>
+            </tr>`).join('')}</tbody></table></div>`;
+
+      tb.querySelectorAll('[data-hapus-bom]').forEach(x => x.addEventListener('click', async () => {
+        try {
+          await DB.labResepHapus(x.dataset.hapusBom);
+          resep = resep.filter(r => r.id !== x.dataset.hapusBom);
+          gambar(b);
+        } catch (e) { UI.toast(e.message || 'Gagal menghapus', 'err'); }
+      }));
+    };
+
+    await UI.modal({
+      judul: 'Resep Reagen (BOM) — ' + m.nama,
+      isi: `
+        <div class="banner info">Setup berapa reagen yang otomatis berkurang saat tes <b>${UI.esc(m.nama)}</b> ini diselesaikan.</div>
+        <div id="daftarBOM" class="mb-16"></div>
+        <div class="fieldset"><legend>Tambah Reagen Baru</legend>
+          <div class="form-row c3" style="align-items:flex-end">
+            <div class="field flex-2"><label>Pilih Barang Inventori</label>
+              <select id="selBarang">
+                <option value="">-- Pilih Barang --</option>
+                ${cache.inventori_barang.filter(x => x.aktif).map(x => `<option value="${x.id}">${UI.esc(x.nama)} (${UI.esc(x.usage_unit)})</option>`).join('')}
+              </select>
+            </div>
+            <div class="field flex-1"><label>Jumlah Pakai</label>
+              <input type="number" id="numQty" step="0.0001" min="0" placeholder="0.5">
+            </div>
+            <div class="field mb-0">
+              <button class="btn btn-secondary" id="btnTambahBOM" style="width:100%">Tambahkan</button>
+            </div>
+          </div>
+        </div>
+      `,
+      siap: (b) => {
+        gambar(b);
+        b.querySelector('#btnTambahBOM').addEventListener('click', async () => {
+          const barangId = b.querySelector('#selBarang').value;
+          const qty = Number(b.querySelector('#numQty').value);
+          if (!barangId || !qty || qty <= 0) { UI.toast('Pilih barang dan isi qty pemakaian yang benar.', 'warn'); return; }
+          try {
+            const baru = await DB.labResepSimpan({ lab_id: m.id, barang_id: barangId, qty_usage: qty });
+            baru.barang = cache.inventori_barang.find(x => x.id === barangId);
+            resep.push(baru);
+            b.querySelector('#selBarang').value = '';
+            b.querySelector('#numQty').value = '';
+            gambar(b);
+            UI.toast('Reagen ditambahkan ke resep.', 'ok');
+          } catch(e) {
+            UI.toast(e.message.includes('duplicate') ? 'Barang sudah ada di resep ini.' : e.message, 'err');
+          }
         });
       },
       tombol: [{ teks: 'Tutup', nilai: true, kelas: 'btn-primary' }]

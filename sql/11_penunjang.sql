@@ -651,6 +651,13 @@ begin
   update lab_permintaan
      set status = 'SELESAI', selesai_oleh = auth.uid(), waktu_selesai = now()
    where id = p_permintaan_id and status <> 'BATAL';
+   
+  -- Panggil fungsi potong reagen otomatis (dari 33_inventori_umum.sql)
+  begin
+    perform inventori_auto_deduct_lab(p_permintaan_id);
+  exception
+    when undefined_function then null; -- Jika belum ada, abaikan
+  end;
 end $$;
 
 
