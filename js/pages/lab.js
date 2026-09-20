@@ -532,7 +532,7 @@ const Lab = (() => {
       
       <div class="header">
         <div class="header-bpjs">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Logo_BPJS_Kesehatan.svg" alt="BPJS Kesehatan">
+          <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}bpjs.png" alt="BPJS Kesehatan" onerror="this.style.display='none'">
         </div>
         <div class="header-logo">
           <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}logo.png" onerror="this.style.display='none'">
