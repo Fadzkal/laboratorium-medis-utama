@@ -163,7 +163,7 @@ const LabCetak = (() => {
     pdfMake.createPdf(docDef).open();
   }
 
-  async function cetakNota2(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
+  async function cetakNoLab(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
     await muatPdfMake();
     
     // Gunakan KopKlinik
@@ -258,5 +258,5 @@ const LabCetak = (() => {
     pdfMake.createPdf(docDef).open();
   }
 
-  return { cetakNotaM1, cetakNota2 };
+  return { cetakNotaM1, cetakNoLab };
 })();

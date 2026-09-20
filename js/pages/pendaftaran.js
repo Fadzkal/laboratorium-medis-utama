@@ -940,12 +940,23 @@ const Pendaftaran = (() => {
   }
 
   /* ================================================================
-     FUNGSI CETAK (DUMMY SEMENTARA SAMPAI ADA FUNGSI ASLINYA)
+     FUNGSI CETAK
   ================================================================ */
   function cetakNoLab(el) {
     if (!pasienTerpilih) { UI.toast('Pilih/simpan pasien terlebih dahulu', 'err'); return; }
-    UI.toast('Mencetak No Lab untuk: ' + pasienTerpilih.nama, 'ok');
-    // Implementasi cetak sebenarnya nanti memanggil modul cetak
+    
+    const labDipilih = barisPemeriksaan.filter(b => b.labId);
+    if (!labDipilih.length) { UI.toast('Tidak ada pemeriksaan yang dipilih.', 'err'); return; }
+
+    const bruto = +el.querySelector('#bBruto').value || 0;
+    const netto = +el.querySelector('#bNetti').value || 0;
+    const bayar = +el.querySelector('#bUangPasien').value || 0;
+    const kurang = +el.querySelector('#bKurang').value || 0;
+    const jenisBayar = el.querySelector('#bJenisBayar').value;
+
+    LabCetak.cetakNoLab(pasienTerpilih, labDipilih, bruto, netto, bayar, kurang, jenisBayar).catch(e => {
+      UI.toast('Gagal mencetak No Lab: ' + e.message, 'err');
+    });
   }
 
   function cetakNota(el, jenis) {
@@ -960,13 +971,9 @@ const Pendaftaran = (() => {
     const kurang = +el.querySelector('#bKurang').value || 0;
     const jenisBayar = el.querySelector('#bJenisBayar').value;
 
-    if (jenis === 'M1') {
+    if (jenis === 'M1' || jenis === 'N2') {
       LabCetak.cetakNotaM1(pasienTerpilih, labDipilih, bruto, netto, bayar, kurang, jenisBayar).catch(e => {
-        UI.toast('Gagal mencetak Nota M.1: ' + e.message, 'err');
-      });
-    } else if (jenis === 'N2') {
-      LabCetak.cetakNota2(pasienTerpilih, labDipilih, bruto, netto, bayar, kurang, jenisBayar).catch(e => {
-        UI.toast('Gagal mencetak Nota 2: ' + e.message, 'err');
+        UI.toast(`Gagal mencetak Nota ${jenis}: ` + e.message, 'err');
       });
     } else {
       UI.toast(`Mencetak Nota ${jenis} untuk: ` + pasienTerpilih.nama, 'ok');
