@@ -338,7 +338,7 @@ const Pasien = (() => {
         labTgl.push({ id: h.permintaan_id, tgl: h.tanggal });
       }
       if (!labParams[h.kode]) {
-        labParams[h.kode] = { nama: h.nama, satuan: h.satuan || '', hasil: {} };
+        labParams[h.kode] = { kode: h.kode, nama: h.nama, satuan: h.satuan || '', hasil: {} };
       }
       labParams[h.kode].hasil[h.permintaan_id] = {
         angka: h.nilai_angka,
