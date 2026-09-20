@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Impor Histori Lab 2026</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/db.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    #log { background: #111; color: #0f0; padding: 10px; height: 400px; overflow-y: auto; font-family: monospace; margin-top: 20px;}
+  </style>
+</head>
+<body>
+  <h2>Alat Impor Histori Lab</h2>
+  <p>Pilih file CSV yang berisi histori lab (contoh: <code>hasil_lab_2026_lengkap_full_identitas_4011_pasien.csv</code>)</p>
+  <input type="file" id="csvFile" accept=".csv" />
+  <button id="btnProses">Mulai Impor ke Database</button>
+
+  <div id="log"></div>
+
+  <script>
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.innerHTML += msg + '<br>';
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // Helper UUID v5-like deterministik menggunakan CryptoJS MD5
+    function uuidFromString(str) {
+      const hash = CryptoJS.MD5(str).toString();
+      return [
+        hash.substring(0, 8),
+        hash.substring(8, 12),
+        '4' + hash.substring(13, 16),
+        'a' + hash.substring(17, 20),
+        hash.substring(20, 32)
+      ].join('-');
+    }
+
+    const bulanMap = {
+      'januari': '01', 'jan': '01',
+      'februari': '02', 'feb': '02',
+      'maret': '03', 'mar': '03',
+      'april': '04', 'apr': '04',
+      'mei': '05', 'may': '05',
+      'juni': '06', 'jun': '06',
+      'juli': '07', 'jul': '07',
+      'agustus': '08', 'agu': '08', 'aug': '08',
+      'september': '09', 'sep': '09',
+      'oktober': '10', 'okt': '10', 'oct': '10',
+      'november': '11', 'nov': '11',
+      'desember': '12', 'des': '12', 'dec': '12'
+    };
+    function parseTanggal(str) {
+      if (!str) return '2000-01-01';
+      str = str.toLowerCase().trim();
+      const parts = str.split(/[-\s]+/);
+      if (parts.length >= 3) {
+        let d = parts[0].padStart(2, '0');
+        let m = bulanMap[parts[1]] || '01';
+        let y = parts[2];
+        if (y.length === 2) {
+          y = parseInt(y) > 30 ? '19' + y : '20' + y;
+        }
+        return y + '-' + m + '-' + d;
+      }
+      return '2000-01-01';
+    }
+
+    document.getElementById('btnProses').onclick = async () => {
+      const fileInput = document.getElementById('csvFile');
+      if (!fileInput.files.length) {
+        alert("Pilih file CSV dulu!"); return;
+      }
+      
+      const file = fileInput.files[0];
+      log("Membaca file " + file.name + "...");
+      const text = await file.text();
+      const lines = text.split('\n');
+      
+      // Ambil token dari sesi yang sedang login
+      const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+      const sessionData = await sb.auth.getSession();
+      if (!sessionData.data.session) {
+        log("<span style='color:red'>ERROR: Anda belum login! Buka tab baru, login ke aplikasi utama, lalu refresh halaman ini.</span>");
+        return;
+      }
+      const token = sessionData.data.session.access_token;
+      
+      log("Mengambil master ref_lab dari database...");
+      const { data: refLab, error: errRef } = await sb.from('ref_lab').select('id, kode');
+      if (errRef) { log("Error ref_lab: " + errRef.message); return; }
+      
+      const refLabMap = new Map(refLab.map(r => [r.kode.toLowerCase(), r.id]));
+      log("Berhasil memuat " + refLabMap.size + " master lab.");
+
+      const pasienMap = new Map();
+      const kunjunganMap = new Map();
+      const permintaanMap = new Map();
+      const hasilMap = new Map(); 
+
+      const poli_id = '15d315ab-5e60-49ad-bc0b-6893815c3272';
+      const missingCodes = new Map();
+      let skip = 0;
+      
+      log("Memproses baris CSV...");
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const cols = line.split(';');
+        if (cols.length < 20) continue;
+
+        const no_lab = cols[0];
+        const nama_pasien = cols[1];
+        const no_rm = cols[2];
+        const gender = cols[4] === 'Perempuan' ? 'P' : 'L';
+        const tgl_lahir = parseTanggal(cols[5]);
+        const alamat = cols[7];
+        const tgl_periksa = parseTanggal(cols[8]);
+        const keluhan_singkat = cols[10] ? 'Dokter Pengirim: ' + cols[10] : '';
+        const cara_bayar = cols[11].toUpperCase() === 'BPJS' ? 'BPJS' : 'UMUM';
+        let encounter_ss = cols[12] ? cols[12].trim() : '';
+        const rd_pxcode = cols[14] ? cols[14].trim() : '';
+        const px_name = cols[15] ? cols[15].trim() : '';
+        const nilai_teks = cols[16];
+        let satuan = cols[18] ? cols[18].trim() : '';
+        let rd_normal = cols[19] ? cols[19].trim() : '';
+        
+        // Jika encounter_ss kosong, buatkan UUID deterministik dari no_lab agar tidak error database
+        if (!encounter_ss) {
+          encounter_ss = uuidFromString('ENCOUNTER_' + no_lab);
+        }
+
+        let nilai_angka = null;
+        let n = parseFloat(nilai_teks);
+        if (!isNaN(n) && isFinite(n)) {
+          nilai_angka = n;
+        }
+
+        const pasien_id = uuidFromString('PASIEN_' + no_rm);
+        if (!pasienMap.has(no_rm)) {
+          pasienMap.set(no_rm, {
+            id: pasien_id,
+            no_rm,
+            nama: nama_pasien,
+            jenis_kelamin: gender,
+            tanggal_lahir: tgl_lahir,
+            alamat: alamat || null
+          });
+        }
+
+        if (!kunjunganMap.has(encounter_ss)) {
+          kunjunganMap.set(encounter_ss, {
+            id: encounter_ss,
+            no_kunjungan: no_lab,
+            pasien_id,
+            tanggal: tgl_periksa,
+            poli_id,
+            cara_bayar,
+            keluhan_singkat,
+            status: 'SELESAI'
+          });
+        }
+
+        const permintaan_id = encounter_ss;
+        if (!permintaanMap.has(permintaan_id)) {
+          permintaanMap.set(permintaan_id, {
+            id: permintaan_id,
+            no_lab: no_lab,
+            pasien_id: pasien_id,
+            kunjungan_id: encounter_ss,
+            tanggal: tgl_periksa,
+            asal: 'EKSTERNAL',
+            status: 'SELESAI'
+          });
+        }
+
+        const lab_id = refLabMap.get(rd_pxcode.toLowerCase());
+        if (lab_id) {
+          const hasilKey = permintaan_id + '_' + lab_id;
+          if (!hasilMap.has(hasilKey)) {
+            hasilMap.set(hasilKey, {
+              id: uuidFromString(hasilKey),
+              permintaan_id,
+              lab_id,
+              nama: px_name || '-',
+              satuan: satuan || null,
+              nilai_teks: nilai_teks || null,
+              nilai_angka: nilai_angka,
+              rujukan_teks: rd_normal || null,
+              tanda: 'BELUM',
+              urutan: hasilMap.size
+            });
+          }
+        } else {
+          skip++;
+          if (rd_pxcode && !missingCodes.has(rd_pxcode)) {
+            missingCodes.set(rd_pxcode, px_name);
+          }
+        }
+      }
+
+      log("Selesai parsing. " + skip + " hasil lab di-skip karena kode master tidak ditemukan.");
+      if (missingCodes.size > 0) {
+        log("<span style='color:#aaa; font-size: 12px;'>Data yang di-skip kebanyakan adalah Judul Kategori (yang tidak ada nilainya) atau kode lab lama. Contoh: " + Array.from(missingCodes.values()).slice(0,5).join(", ") + "...</span>");
+      }
+      log("Total Pasien: " + pasienMap.size);
+      log("Total Kunjungan: " + kunjunganMap.size);
+      log("Total Permintaan: " + permintaanMap.size);
+      log("Total Hasil Lab: " + hasilMap.size);
+
+      // Helper Batch Insert API REST langsung via Fetch agar ada 'Prefer: resolution=merge-duplicates'
+      async function batchInsert(table, dataMap, onConflict) {
+        const dataArray = Array.from(dataMap.values());
+        const chunkSize = 1000;
+        log("Mulai insert " + table + "...");
+        for (let i = 0; i < dataArray.length; i += chunkSize) {
+          const chunk = dataArray.slice(i, i + chunkSize);
+          const res = await fetch(CONFIG.SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict, {
+            method: 'POST',
+            headers: {
+              'apikey': CONFIG.SUPABASE_ANON_KEY,
+              'Authorization': 'Bearer ' + token,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(chunk)
+          });
+          if (!res.ok) {
+            log("<span style='color:red'>Error " + table + ": " + await res.text() + "</span>");
+          } else {
+            log("Inserted " + Math.min(i + chunkSize, dataArray.length) + " / " + dataArray.length + " ke " + table);
+          }
+        }
+      }
+
+      try {
+        await sb.from('poli').upsert([{ id: poli_id, kode: 'HISTORI', nama: 'Histori / Impor CSV' }]);
+      } catch(e) {}
+
+      await batchInsert('pasien', pasienMap, 'id');
+      await batchInsert('kunjungan', kunjunganMap, 'id');
+      await batchInsert('lab_permintaan', permintaanMap, 'id');
+      await batchInsert('lab_hasil', hasilMap, 'id');
+
+      log("<span style='color:yellow'>SELESAI! Data berhasil diimpor ke database.</span>");
+    };
+  </script>
+</body>
+</html>
