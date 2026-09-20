@@ -438,8 +438,8 @@ const Laporan = (() => {
         <div class="stat accent"><div class="lbl">Total Kunjungan Hari Ini</div>
           <div class="val tabular">${r.total}</div>
           <div class="hint">${UI.tglIndo(hari)}</div></div>
-        <div class="stat"><div class="lbl">Poli Umum</div><div class="val tabular">${r.umum}</div></div>
-        <div class="stat"><div class="lbl">Poli Gigi</div><div class="val tabular">${r.gigi}</div></div>
+        <div class="stat"><div class="lbl">Pasien Baru</div><div class="val tabular">${r.baru}</div></div>
+        <div class="stat"><div class="lbl">Pasien Lama</div><div class="val tabular">${r.lama}</div></div>
         <div class="stat"><div class="lbl">Peserta BPJS</div>
           <div class="val tabular">${r.bpjs}</div>
           <div class="hint">${r.total ? Math.round(r.bpjs / r.total * 100) : 0}% dari total</div></div>
@@ -482,7 +482,7 @@ const Laporan = (() => {
       .filter(k => LaporanCore.kunciBulan(k.tanggal) === bulan)
       .map(k => k.tanggal)).size;
     return {
-      total: kv.total, umum: kv.umum, gigi: kv.gigi, kia: kv.kia,
+      total: kv.total, baru: kv.baru, lama: kv.lama,
       pctBpjs: kv.total ? kv.bpjs / kv.total * 100 : 0,
       pctBaru: kv.total ? kv.baru / kv.total * 100 : 0,
       rujukan: rj, uangMasuk: um, hariAktif,
@@ -538,11 +538,11 @@ const Laporan = (() => {
           </div>
           <div class="grid grid-4">
             ${kartu('Total Kunjungan', B.total, A.total, v => v, badgeDelta)}
-            ${kartu('Poli Umum', B.umum, A.umum, v => v, badgeDelta)}
-            ${kartu('Poli Gigi', B.gigi, A.gigi, v => v, badgeDelta)}
+            ${kartu('Pasien Baru', B.baru, A.baru, v => v, badgeDelta)}
+            ${kartu('Pasien Lama', B.lama, A.lama, v => v, badgeDelta)}
             ${kartu('Uang Masuk', B.uangMasuk, A.uangMasuk, UI.rupiah, badgeDelta)}
             ${kartu('Peserta BPJS', B.pctBpjs, A.pctBpjs, v => v.toFixed(1) + '%', badgeDeltaPP)}
-            ${kartu('Pasien Baru', B.pctBaru, A.pctBaru, v => v.toFixed(1) + '%', badgeDeltaPP)}
+            ${kartu('% Pasien Baru', B.pctBaru, A.pctBaru, v => v.toFixed(1) + '%', badgeDeltaPP)}
             ${kartu('Rujukan', B.rujukan, A.rujukan, v => v, badgeDelta)}
             ${kartu('Rata-rata/Hari Buka', B.rataPerHariAktif, A.rataPerHariAktif, v => v.toFixed(1), badgeDelta)}
           </div>
@@ -755,8 +755,8 @@ const Laporan = (() => {
     const um = LaporanCore.rekapUangMasukPerBulan(data.pembayaran, mk, true);
 
     w.innerHTML =
-      grafikBox('kunjunganBulan', 'Kunjungan per Bulan (Umum / Gigi / KIA)') +
-      grafikBox('pendapatanBulan', 'Uang Masuk per Bulan (Umum vs Gigi)') +
+      grafikBox('kunjunganBulan', 'Kunjungan per Bulan (Total Pemeriksaan)') +
+      grafikBox('pendapatanBulan', 'Uang Masuk per Bulan (Total)') +
       grafikBox('bpjsBulan', 'BPJS vs Non-BPJS per Bulan') +
       grafikBox('baruLamaBulan', 'Pasien Baru vs Lama per Bulan') +
       grafikBox('rujukanBulan', 'Rujukan per Bulan');
@@ -770,9 +770,7 @@ const Laporan = (() => {
       type: 'bar',
       data: {
         labels, datasets: [
-          { label: 'Umum', data: kv.map(x => x.umum), backgroundColor: '#1D4ED8' },
-          { label: 'Gigi', data: kv.map(x => x.gigi), backgroundColor: '#6D28D9' },
-          { label: 'KIA', data: kv.map(x => x.kia), backgroundColor: '#B45309' }
+          { label: 'Total Pemeriksaan', data: kv.map(x => x.total), backgroundColor: '#1D4ED8' }
         ]
       },
       options: OPSI_BAR
@@ -782,8 +780,7 @@ const Laporan = (() => {
       type: 'bar',
       data: {
         labels, datasets: [
-          { label: 'Umum', data: um.map(x => x.umum), backgroundColor: '#15803D' },
-          { label: 'Gigi', data: um.map(x => x.gigi), backgroundColor: '#B45309' }
+          { label: 'Total Pendapatan', data: um.map(x => x.total), backgroundColor: '#15803D' }
         ]
       },
       options: {
