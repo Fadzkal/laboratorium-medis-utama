@@ -1506,6 +1506,17 @@ const Master = (() => {
           disc: parseFloat(body.querySelector('#rDisc').value) || 0
         };
         if (!dat.id || !dat.nama) { UI.toast('ID dan Nama harus diisi', 'err'); return false; }
+        
+        // Cek duplikat nama
+        if (!rek || (rek && rek.nama.toLowerCase() !== dat.nama.toLowerCase())) {
+          const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const ada = dataRekanan.find(x => norm(x.nama) === norm(dat.nama));
+          if (ada && ada.id !== dat.id) {
+            UI.toast('Nama rekanan sudah ada!', 'err');
+            return false;
+          }
+        }
+
         try {
           await DB.simpanRekanan(dat);
           UI.toast('Tersimpan', 'ok');
@@ -1638,8 +1649,20 @@ const Master = (() => {
       
       document.getElementById('modal-dokter-form').onsubmit = async (e) => {
         e.preventDefault();
+        
+        const namaBaru = document.getElementById('dfNama').value.trim();
+        // Cek duplikat (mengabaikan spasi dan tanda baca)
+        if (!m || (m && m.nama.toLowerCase() !== namaBaru.toLowerCase())) {
+          const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const ada = dataDokter.find(x => norm(x.nama) === norm(namaBaru));
+          if (ada) {
+            UI.toast('Nama dokter sudah ada di database!', 'err');
+            return;
+          }
+        }
+
         const rec = {
-          nama: document.getElementById('dfNama').value,
+          nama: namaBaru,
           alamat: document.getElementById('dfAlamat').value,
           telepon: document.getElementById('dfTelp').value,
           no_hp: document.getElementById('dfHp').value,
