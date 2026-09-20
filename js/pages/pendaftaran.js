@@ -776,10 +776,10 @@ const Pendaftaran = (() => {
         ).join('')}</tbody>
       </table></div>`,
       tombol: [{ teks: 'Batal', nilai: null }],
-      siap: (body) => {
+      siap: (body, tutup) => {
         body.querySelectorAll('[data-rek]').forEach(row => {
           row.addEventListener('click', () => {
-            UI.tutupModal(masterRekanan[+row.dataset.rek]);
+            tutup(masterRekanan[+row.dataset.rek]);
           });
         });
         const inpCari = body.querySelector('#cariRknModal');

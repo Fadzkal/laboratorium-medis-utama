@@ -88,7 +88,7 @@ const UI = (() => {
         if (e.key === 'Escape') { document.removeEventListener('keydown', esc2); tutup(null); }
       });
       const badan = bg.querySelector('.modal-body');
-      if (siap) { try { siap(badan); } catch (e) { console.error(e); } }
+      if (siap) { try { siap(badan, tutup); } catch (e) { console.error(e); } }
       const fokus = badan.querySelector('input, select, textarea');
       if (fokus) setTimeout(() => fokus.focus(), 60);
     });
