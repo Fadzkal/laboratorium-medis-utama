@@ -1,5 +1,1776 @@
 BEGIN;
 
 UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0102', 'Analisa Cairan Pleura', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'A0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0102', 'Analisa Cairan Pleura', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0102');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0103', 'Sekret Vagina', 215000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 215000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 215000 WHERE jenis = 'LAB' AND kode = 'A0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0103', 'Sekret Vagina', 215000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0103');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0104', 'Sekret Urethra', 215000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 215000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 215000 WHERE jenis = 'LAB' AND kode = 'A0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0104', 'Sekret Urethra', 215000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0104');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0105', 'CITO', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'A0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0105', 'CITO', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0105');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0106', 'PA Jaringan Kecil', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'A0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0106', 'PA Jaringan Kecil', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0106');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0107', 'PA Jaringan Sedang', 325000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 325000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 325000 WHERE jenis = 'LAB' AND kode = 'A0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0107', 'PA Jaringan Sedang', 325000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0107');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0108', 'PA Jaringan Besar', 500000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 500000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 500000 WHERE jenis = 'LAB' AND kode = 'A0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0108', 'PA Jaringan Besar', 500000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0108');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0109', 'PA Jaringan (Cairan Pleura)', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'A0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0109', 'PA Jaringan (Cairan Pleura)', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0109');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0111', 'Kultur dan Resistensi Antibiotik (Vagina)', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'A0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0111', 'Kultur dan Resistensi Antibiotik (Vagina)', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0111');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0113', 'Home Service 1', 10000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 10000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 10000 WHERE jenis = 'LAB' AND kode = 'A0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0113', 'Home Service 1', 10000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0113');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0114', 'Home Service 2', 20000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 20000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 20000 WHERE jenis = 'LAB' AND kode = 'A0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0114', 'Home Service 2', 20000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0114');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0115', 'Home Service 3', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'A0115';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0115', 'Home Service 3', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0115');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0115';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0116', 'CITO 2', 600000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 600000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 600000 WHERE jenis = 'LAB' AND kode = 'A0116';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0116', 'CITO 2', 600000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0116');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0116';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0117', 'Pap Smear', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'A0117';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0117', 'Pap Smear', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0117');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0117';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0118', 'PA Jaringan Sedang 2', 650000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 650000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 650000 WHERE jenis = 'LAB' AND kode = 'A0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0118', 'PA Jaringan Sedang 2', 650000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0118');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0119', 'Pemeriksaan Fisik', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'A0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0119', 'Pemeriksaan Fisik', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0119');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0120', 'PA Jaringan Besar 2', 1000000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1000000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1000000 WHERE jenis = 'LAB' AND kode = 'A0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0120', 'PA Jaringan Besar 2', 1000000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0120');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0122', 'Pap Smear Rujukan', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'A0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0122', 'Pap Smear Rujukan', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0122');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0123', 'PA Jaringan kecil 2', 450000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 450000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 450000 WHERE jenis = 'LAB' AND kode = 'A0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0123', 'PA Jaringan kecil 2', 450000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0123');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0124', 'Home Service 4', 5000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 5000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 5000 WHERE jenis = 'LAB' AND kode = 'A0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0124', 'Home Service 4', 5000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0124');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0124';
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0125';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0126', 'Tes Fisik', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'A0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0126', 'Tes Fisik', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0126');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0127', 'Home Service 5', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'A0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0127', 'Home Service 5', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0127');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0128', 'Home Service 6', 15000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 15000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 15000 WHERE jenis = 'LAB' AND kode = 'A0128';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0128', 'Home Service 6', 15000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0128');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0128';
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0129';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0130', 'Cairan Asites', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'A0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0130', 'Cairan Asites', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0130');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0131', 'TTNA', 650000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 650000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 650000 WHERE jenis = 'LAB' AND kode = 'A0131';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0131', 'TTNA', 650000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0131');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0131';
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0132';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0133', 'Pa Cairan Pleura', 350000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 350000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 350000 WHERE jenis = 'LAB' AND kode = 'A0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0133', 'Pa Cairan Pleura', 350000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0133');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0134', 'kultur dahak', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'A0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0134', 'kultur dahak', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0134');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0135', 'PA Jaringan Kecil 4', 900000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 900000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 900000 WHERE jenis = 'LAB' AND kode = 'A0135';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0135', 'PA Jaringan Kecil 4', 900000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0135');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0135';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0136', 'Sitologi Cairan', 350000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 350000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 350000 WHERE jenis = 'LAB' AND kode = 'A0136';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0136', 'Sitologi Cairan', 350000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0136');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0138', 'Buta Warna', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'A0138';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0138', 'Buta Warna', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0138');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0140', 'Pulasan BTA', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'A0140';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0140', 'Pulasan BTA', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0140');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0142', 'Sampling Swab', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'A0142';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0142', 'Sampling Swab', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0142');
+UPDATE ref_lab SET grup_cn = 'A' WHERE kode = 'A0142';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0143', 'APD', 100000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 100000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 100000 WHERE jenis = 'LAB' AND kode = 'A0143';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0143', 'APD', 100000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0143');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0147', 'Biaya Penanganan', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'A0147';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0147', 'Biaya Penanganan', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0147');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0149', 'Biaya VTM', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'A0149';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0149', 'Biaya VTM', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0149');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0151', 'APD + Homeservice', 150000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 150000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 150000 WHERE jenis = 'LAB' AND kode = 'A0151';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0151', 'APD + Homeservice', 150000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0151');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0154', 'Sampling', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'A0154';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0154', 'Sampling', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0154');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0158', 'USG', 560000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 560000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 560000 WHERE jenis = 'LAB' AND kode = 'A0158';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0158', 'USG', 560000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0158');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0159', 'USG Abdomen', 320000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 320000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 320000 WHERE jenis = 'LAB' AND kode = 'A0159';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0159', 'USG Abdomen', 320000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0159');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0160', 'Audiometri', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'A0160';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0160', 'Audiometri', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0160');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0161', 'Spirometri', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'A0161';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0161', 'Spirometri', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0161');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0162', 'Biaya Antar', 20000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 20000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 20000 WHERE jenis = 'LAB' AND kode = 'A0162';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0162', 'Biaya Antar', 20000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0162');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'A0163', 'Harvard Step Test', 55000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 55000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 55000 WHERE jenis = 'LAB' AND kode = 'A0163';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'A0163', 'Harvard Step Test', 55000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'A0163');
+UPDATE ref_lab SET barcode = 'A' WHERE kode = 'A0163';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0101', 'Chlamydia Pnemonia PCR', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'B0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0101', 'Chlamydia Pnemonia PCR', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0101');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0102', 'Chlamydia Trachomatis PCR', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'B0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0102', 'Chlamydia Trachomatis PCR', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0102');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0103', 'HBV DNA Kuantitatif', 2200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 2200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 2200000 WHERE jenis = 'LAB' AND kode = 'B0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0103', 'HBV DNA Kuantitatif', 2200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0103');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0104', 'HCV RNA Genotyping', 2350000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 2350000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 2350000 WHERE jenis = 'LAB' AND kode = 'B0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0104', 'HCV RNA Genotyping', 2350000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0104');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0105', 'HCV RNA Kuantitatif', 1850000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1850000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1850000 WHERE jenis = 'LAB' AND kode = 'B0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0105', 'HCV RNA Kuantitatif', 1850000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0105');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0106', 'M. Tuberculose', 500000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 500000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 500000 WHERE jenis = 'LAB' AND kode = 'B0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0106', 'M. Tuberculose', 500000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0106');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0106';
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'B0108', 'Mycoplasma Pneumonia PCR', 465000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 465000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 465000 WHERE jenis = 'LAB' AND kode = 'B0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'B0108', 'Mycoplasma Pneumonia PCR', 465000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'B0108');
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0108';
+UPDATE ref_lab SET grup_cn = 'B' WHERE kode = 'B0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'C0101', 'CITO 4', 5000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 5000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 5000 WHERE jenis = 'LAB' AND kode = 'C0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'C0101', 'CITO 4', 5000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'C0101');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'C0102', 'Analisa Cairan Pleura/Acites', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'C0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'C0102', 'Analisa Cairan Pleura/Acites', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'C0102');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'C0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0101', 'Elektro Kardiografi/EKG', 110000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 110000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 110000 WHERE jenis = 'LAB' AND kode = 'E0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0101', 'Elektro Kardiografi/EKG', 110000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0101');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0102', 'Autospirometri', 120000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 120000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 120000 WHERE jenis = 'LAB' AND kode = 'E0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0102', 'Autospirometri', 120000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0102');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0102';
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0104', 'Electroencephalografi / EEG', 400000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 400000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 400000 WHERE jenis = 'LAB' AND kode = 'E0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0104', 'Electroencephalografi / EEG', 400000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0104');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0105', 'Treadmill', 450000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 450000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 450000 WHERE jenis = 'LAB' AND kode = 'E0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0105', 'Treadmill', 450000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0105');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0106', 'Holter Mobitoring', 530000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 530000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 530000 WHERE jenis = 'LAB' AND kode = 'E0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0106', 'Holter Mobitoring', 530000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0106');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'E0107', 'TCD', 480000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 480000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 480000 WHERE jenis = 'LAB' AND kode = 'E0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'E0107', 'TCD', 480000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'E0107');
+UPDATE ref_lab SET grup_cn = 'E' WHERE kode = 'E0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'F0101', 'Faeces', 55000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 55000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 55000 WHERE jenis = 'LAB' AND kode = 'F0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'F0101', 'Faeces', 55000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'F0101');
+UPDATE ref_lab SET barcode = 'F', grup_cn = 'F' WHERE kode = 'F0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'F0102', 'Benzidine Test', 135000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 135000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 135000 WHERE jenis = 'LAB' AND kode = 'F0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'F0102', 'Benzidine Test', 135000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'F0102');
+UPDATE ref_lab SET grup_cn = 'G' WHERE kode = 'G0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'G0102', 'CITO 4', 10000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 10000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 10000 WHERE jenis = 'LAB' AND kode = 'G0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'G0102', 'CITO 4', 10000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'G0102');
+UPDATE ref_lab SET grup_cn = 'G' WHERE kode = 'G0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'G0103', 'Vitamin D', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'G0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'G0103', 'Vitamin D', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'G0103');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0101', 'Hematologi Lengkap', 100000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 100000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 100000 WHERE jenis = 'LAB' AND kode = 'H0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0101', 'Hematologi Lengkap', 100000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0101');
+UPDATE ref_lab SET barcode = 'H', grup_cn = 'H' WHERE kode = 'H0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0102', 'Hematologi Rutin', 90000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 90000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 90000 WHERE jenis = 'LAB' AND kode = 'H0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0102', 'Hematologi Rutin', 90000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0102');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0106', 'Golongan Darah ABO', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'H0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0106', 'Golongan Darah ABO', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0106');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0107', 'Golongan Darah ABO + Rhesus', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'H0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0107', 'Golongan Darah ABO + Rhesus', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0107');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0108', 'Faal Hemostasis', 390000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 390000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 390000 WHERE jenis = 'LAB' AND kode = 'H0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0108', 'Faal Hemostasis', 390000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0108');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0109', 'Waktu Pendarahan (BT)', 35000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 35000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 35000 WHERE jenis = 'LAB' AND kode = 'H0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0109', 'Waktu Pendarahan (BT)', 35000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0109');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0110', 'Waktu Pembekuan (CT)', 35000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 35000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 35000 WHERE jenis = 'LAB' AND kode = 'H0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0110', 'Waktu Pembekuan (CT)', 35000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0110');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0111', 'Protrombine Time(PT)', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'H0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0111', 'Protrombine Time(PT)', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0111');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0112', 'APTT', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'H0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0112', 'APTT', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0112');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0113', 'Fibrinogen', 400000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 400000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 400000 WHERE jenis = 'LAB' AND kode = 'H0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0113', 'Fibrinogen', 400000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0113');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0114', 'D-Dimer', 700000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 700000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 700000 WHERE jenis = 'LAB' AND kode = 'H0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0114', 'D-Dimer', 700000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0114');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0114';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0115';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0116';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0117';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0119', 'Retikulosit', 110000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 110000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 110000 WHERE jenis = 'LAB' AND kode = 'H0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0119', 'Retikulosit', 110000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0119');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0120', 'Serum Iron(Fe)', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'H0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0120', 'Serum Iron(Fe)', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0120');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0121', 'Ferritin', 400000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 400000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 400000 WHERE jenis = 'LAB' AND kode = 'H0121';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0121', 'Ferritin', 400000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0121');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0121';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0122', 'Transferin', 900000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 900000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 900000 WHERE jenis = 'LAB' AND kode = 'H0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0122', 'Transferin', 900000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0122');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0122';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0123';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0124';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0125';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0126';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0127';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0128';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0129';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0130', 'CD 4', 450000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 450000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 450000 WHERE jenis = 'LAB' AND kode = 'H0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0130', 'CD 4', 450000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0130');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0130';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0131';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0132';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0133';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0134';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0135';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0136';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0137', 'Hemoglobin', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0137', 'Hemoglobin', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0137');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0138', 'Leukosit', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0138';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0138', 'Leukosit', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0138');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0138';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0139', 'Eritrosit', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0139';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0139', 'Eritrosit', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0139');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0139';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0140', 'Trombosit', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0140';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0140', 'Trombosit', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0140');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0140';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0141', 'Hematokrit', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0141';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0141', 'Hematokrit', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0141');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0141';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0142', 'MCV', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0142';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0142', 'MCV', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0142');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0142';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0143', 'MCH', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0143';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0143', 'MCH', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0143');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0143';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0144', 'MCHC', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'H0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0144', 'MCHC', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0144');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0145', 'Hitung Jenis', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'H0145';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0145', 'Hitung Jenis', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0145');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0145';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0146', 'Morfolgi Darah Tepi', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'H0146';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0146', 'Morfolgi Darah Tepi', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0146');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0146';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0147', 'TIBC', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'H0147';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0147', 'TIBC', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0147');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0147';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0148';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0149';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0150';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0151', 'eosinofil', 90000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 90000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 90000 WHERE jenis = 'LAB' AND kode = 'H0151';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0151', 'eosinofil', 90000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0151');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0151';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0153', 'Vaksin Hepatitis', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'H0153';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0153', 'Vaksin Hepatitis', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0153');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0153';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0154';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0155';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0156';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0157', 'Hapusan Darah', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'H0157';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0157', 'Hapusan Darah', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0157');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0157';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0158', 'LED ( Laju Endap Darah )', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'H0158';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0158', 'LED ( Laju Endap Darah )', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0158');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0158';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0159', 'malaria preparat', 90000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 90000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 90000 WHERE jenis = 'LAB' AND kode = 'H0159';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0159', 'malaria preparat', 90000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0159');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0159';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0160', 'Hematologi Rutin + LED', 95000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 95000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 95000 WHERE jenis = 'LAB' AND kode = 'H0160';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0160', 'Hematologi Rutin + LED', 95000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0160');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0160';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0161', 'Golongan Darah ABO + Rhesus', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'H0161';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0161', 'Golongan Darah ABO + Rhesus', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0161');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0161';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0162', 'Vaksin Difteri', 95000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 95000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 95000 WHERE jenis = 'LAB' AND kode = 'H0162';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0162', 'Vaksin Difteri', 95000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0162');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0162';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0163';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0164';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0165';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0166';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0167', 'Vaksin Influenza', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'H0167';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0167', 'Vaksin Influenza', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0167');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0167';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0169';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0170', 'GDT', 175000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 175000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 175000 WHERE jenis = 'LAB' AND kode = 'H0170';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0170', 'GDT', 175000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0170');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0170';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0171', 'INR', 165000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 165000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 165000 WHERE jenis = 'LAB' AND kode = 'H0171';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0171', 'INR', 165000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0171');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0171';
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0172';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0174', 'NLR', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'H0174';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0174', 'NLR', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0174');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0175', 'Hematologi Lengkap tanpa LED', 100000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 100000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 100000 WHERE jenis = 'LAB' AND kode = 'H0175';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0175', 'Hematologi Lengkap tanpa LED', 100000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0175');
+UPDATE ref_lab SET barcode = 'H', grup_cn = 'H' WHERE kode = 'H0177';
+UPDATE ref_lab SET barcode = 'H', grup_cn = 'H' WHERE kode = 'H0178';
+UPDATE ref_lab SET barcode = 'H', grup_cn = 'H' WHERE kode = 'H0179';
+UPDATE ref_lab SET barcode = 'H' WHERE kode = 'H0180';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'H0181', 'Hb Elektroforesis', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'H0181';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'H0181', 'Hb Elektroforesis', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'H0181');
+UPDATE ref_lab SET grup_cn = 'H' WHERE kode = 'H0181';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0201', 'HbsAg', 85000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 85000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 85000 WHERE jenis = 'LAB' AND kode = 'I0201';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0201', 'HbsAg', 85000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0201');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0201';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0202', 'Anti Hbs', 135000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 135000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 135000 WHERE jenis = 'LAB' AND kode = 'I0202';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0202', 'Anti Hbs', 135000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0202');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0202';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0203', 'Anti HCV', 195000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 195000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 195000 WHERE jenis = 'LAB' AND kode = 'I0203';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0203', 'Anti HCV', 195000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0203');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0203';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0204', 'Anti HBc', 415000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 415000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 415000 WHERE jenis = 'LAB' AND kode = 'I0204';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0204', 'Anti HBc', 415000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0204');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0204';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0205', 'Anti HAV', 375000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 375000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 375000 WHERE jenis = 'LAB' AND kode = 'I0205';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0205', 'Anti HAV', 375000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0205');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0205';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0206', 'T3', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'I0206';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0206', 'T3', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0206');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0206';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0207', 'T4', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'I0207';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0207', 'T4', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0207');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0207';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0208', 'Alpha - Fetoprotein', 340000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 340000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 340000 WHERE jenis = 'LAB' AND kode = 'I0208';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0208', 'Alpha - Fetoprotein', 340000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0208');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0208';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0209', 'CEA', 365000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 365000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 365000 WHERE jenis = 'LAB' AND kode = 'I0209';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0209', 'CEA', 365000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0209');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0209';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0211', 'Hbe Ag', 625000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 625000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 625000 WHERE jenis = 'LAB' AND kode = 'I0211';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0211', 'Hbe Ag', 625000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0211');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0211';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0212', 'Anti HBe', 675000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 675000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 675000 WHERE jenis = 'LAB' AND kode = 'I0212';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0212', 'Anti HBe', 675000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0212');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0212';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0213', 'FT4 N', 355000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 355000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 355000 WHERE jenis = 'LAB' AND kode = 'I0213';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0213', 'FT4 N', 355000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0213');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0213';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0214', 'TSH', 265000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 265000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 265000 WHERE jenis = 'LAB' AND kode = 'I0214';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0214', 'TSH', 265000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0214');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0214';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0216', 'Anti Dengue', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'I0216';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0216', 'Anti Dengue', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0216');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0216';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0219', 'TPHA', 115000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 115000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 115000 WHERE jenis = 'LAB' AND kode = 'I0219';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0219', 'TPHA', 115000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0219');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0219';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0221', 'VDRL', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'I0221';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0221', 'VDRL', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0221');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0221';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0223', 'CRP', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'I0223';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0223', 'CRP', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0223');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0223';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0224', 'ASTO', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'I0224';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0224', 'ASTO', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0224');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0224';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0225', 'Tubercolusis', 180000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 180000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 180000 WHERE jenis = 'LAB' AND kode = 'I0225';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0225', 'Tubercolusis', 180000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0225');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0225';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0227', 'Rhematoid Factors', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'I0227';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0227', 'Rhematoid Factors', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0227');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0227';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0228', 'Widal', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'I0228';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0228', 'Widal', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0228');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0228';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0229', 'Tubex TF', 325000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 325000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 325000 WHERE jenis = 'LAB' AND kode = 'I0229';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0229', 'Tubex TF', 325000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0229');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0229';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0230', 'Ca 125', 590000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 590000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 590000 WHERE jenis = 'LAB' AND kode = 'I0230';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0230', 'Ca 125', 590000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0230');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0230';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0231', 'Ca 15-3', 590000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 590000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 590000 WHERE jenis = 'LAB' AND kode = 'I0231';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0231', 'Ca 15-3', 590000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0231');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0231';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0232', 'Ca 19-9', 630000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 630000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 630000 WHERE jenis = 'LAB' AND kode = 'I0232';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0232', 'Ca 19-9', 630000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0232');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0232';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0233', 'IgE Total', 500000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 500000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 500000 WHERE jenis = 'LAB' AND kode = 'I0233';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0233', 'IgE Total', 500000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0233');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0233';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0234', 'NS1 ', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0234';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0234', 'NS1 ', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0234');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0234';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0235', 'IgM Anti Toxoplasma', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0235';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0235', 'IgM Anti Toxoplasma', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0235');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0235';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0236', 'IgG Anti Toxoplasma', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0236';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0236', 'IgG Anti Toxoplasma', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0236');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0236';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0237', 'IgM Anti Rubella', 360000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 360000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 360000 WHERE jenis = 'LAB' AND kode = 'I0237';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0237', 'IgM Anti Rubella', 360000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0237');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0237';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0238', 'IgG Anti Rubella', 295000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 295000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 295000 WHERE jenis = 'LAB' AND kode = 'I0238';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0238', 'IgG Anti Rubella', 295000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0238');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0238';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0239', 'IgM Anti CMV', 365000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 365000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 365000 WHERE jenis = 'LAB' AND kode = 'I0239';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0239', 'IgM Anti CMV', 365000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0239');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0239';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0240', 'IgG Anti CMV', 285000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 285000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 285000 WHERE jenis = 'LAB' AND kode = 'I0240';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0240', 'IgG Anti CMV', 285000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0240');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0240';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0241', 'IgM Anti HSV 2', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'I0241';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0241', 'IgM Anti HSV 2', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0241');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0241';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0242', 'IgG Anti HSV 2', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'I0242';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0242', 'IgG Anti HSV 2', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0242');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0242';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0243', 'Test Kehamilan', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'I0243';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0243', 'Test Kehamilan', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0243');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0243';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0244', 'Widal 2 Set', 45000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 45000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 45000 WHERE jenis = 'LAB' AND kode = 'I0244';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0244', 'Widal 2 Set', 45000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0244');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0244';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0245', 'ICT TB', 195000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 195000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 195000 WHERE jenis = 'LAB' AND kode = 'I0245';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0245', 'ICT TB', 195000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0245');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0245';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0246', 'Anti HIV', 195000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 195000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 195000 WHERE jenis = 'LAB' AND kode = 'I0246';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0246', 'Anti HIV', 195000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0246');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0246';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0247', 'RF', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'I0247';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0247', 'RF', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0247');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0247';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0248', 'VDRL Titer', 190000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 190000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 190000 WHERE jenis = 'LAB' AND kode = 'I0248';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0248', 'VDRL Titer', 190000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0248');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0248';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0249', 'TPHA Titer', 295000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 295000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 295000 WHERE jenis = 'LAB' AND kode = 'I0249';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0249', 'TPHA Titer', 295000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0249');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0249';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0250', 'FT3', 395000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 395000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 395000 WHERE jenis = 'LAB' AND kode = 'I0250';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0250', 'FT3', 395000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0250');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0250';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0251', 'ANA Test', 550000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 550000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 550000 WHERE jenis = 'LAB' AND kode = 'I0251';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0251', 'ANA Test', 550000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0251');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0251';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0252', 'Mantoux Test', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'I0252';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0252', 'Mantoux Test', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0252');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0252';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0253', 'Anti Hbs Titer', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'I0253';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0253', 'Anti Hbs Titer', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0253');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0253';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0254', 'TORCH', 2150000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 2150000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 2150000 WHERE jenis = 'LAB' AND kode = 'I0254';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0254', 'TORCH', 2150000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0254');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0254';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0255', 'Aviditas Toxoplasma IgG', 700000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 700000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 700000 WHERE jenis = 'LAB' AND kode = 'I0255';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0255', 'Aviditas Toxoplasma IgG', 700000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0255');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0255';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0256', 'Aviditas CMV IgG', 650000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 650000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 650000 WHERE jenis = 'LAB' AND kode = 'I0256';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0256', 'Aviditas CMV IgG', 650000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0256');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0256';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0257', 'IgM Salmonella Typhi', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0257';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0257', 'IgM Salmonella Typhi', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0257');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0259', 'Dengue NS1 Antigen', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0259';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0259', 'Dengue NS1 Antigen', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0259');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0261', 'FT4 (Jangan dipakai)', 330000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 330000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 330000 WHERE jenis = 'LAB' AND kode = 'I0261';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0261', 'FT4 (Jangan dipakai)', 330000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0261');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0262', 'Anti Chlamydia trachomatis IgG', 1265000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1265000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1265000 WHERE jenis = 'LAB' AND kode = 'I0262';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0262', 'Anti Chlamydia trachomatis IgG', 1265000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0262');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0263', 'Anti Chlamydia trachomatis IgG', 1265000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1265000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1265000 WHERE jenis = 'LAB' AND kode = 'I0263';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0263', 'Anti Chlamydia trachomatis IgG', 1265000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0263');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0264', 'Anti Chlamydia trachomatis IgM', 1265000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1265000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1265000 WHERE jenis = 'LAB' AND kode = 'I0264';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0264', 'Anti Chlamydia trachomatis IgM', 1265000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0264');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0265', 'Salmonella Typhi', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0265';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0265', 'Salmonella Typhi', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0265');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0266', 'TSHs', 295000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 295000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 295000 WHERE jenis = 'LAB' AND kode = 'I0266';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0266', 'TSHs', 295000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0266');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0266';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0267', 'HbsAg Titer', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'I0267';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0267', 'HbsAg Titer', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0267');
+UPDATE ref_lab SET jasmed = 200000 WHERE kode = 'I0267';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0268', 'ICT Malaria', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'I0268';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0268', 'ICT Malaria', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0268');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0269', 'IgM Anti HBc', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'I0269';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0269', 'IgM Anti HBc', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0269');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0270', 'IgG Anti HSV 1', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'I0270';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0270', 'IgG Anti HSV 1', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0270');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0271', 'IgM Anti HSV 1', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'I0271';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0271', 'IgM Anti HSV 1', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0271');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0272', 'IgM Leptospira', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'I0272';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0272', 'IgM Leptospira', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0272');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0273', 'Beta HCG Kuant. Serum', 550000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 550000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 550000 WHERE jenis = 'LAB' AND kode = 'I0273';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0273', 'Beta HCG Kuant. Serum', 550000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0273');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0274', 'IgG ACA', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'I0274';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0274', 'IgG ACA', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0274');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0275', 'IgM ACA', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'I0275';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0275', 'IgM ACA', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0275');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0276', 'PSA Total', 350000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 350000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 350000 WHERE jenis = 'LAB' AND kode = 'I0276';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0276', 'PSA Total', 350000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0276');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0277', 'Rapid Test Antibodi Anti SARS cov-2', 120000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 120000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 120000 WHERE jenis = 'LAB' AND kode = 'I0277';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0277', 'Rapid Test Antibodi Anti SARS cov-2', 120000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0277');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0279', 'Antigen SARS CoV-2', 110000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 110000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 110000 WHERE jenis = 'LAB' AND kode = 'I0279';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0279', 'Antigen SARS CoV-2', 110000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0279');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0280', 'Rapid Syphilis', 95000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 95000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 95000 WHERE jenis = 'LAB' AND kode = 'I0280';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0280', 'Rapid Syphilis', 95000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0280');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0282', 'hs-CRP', 290000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 290000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 290000 WHERE jenis = 'LAB' AND kode = 'I0282';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0282', 'hs-CRP', 290000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0282');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0284', 'Amilase', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'I0284';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0284', 'Amilase', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0284');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0285', 'Anti SARS-CoV 2 Kuantitatif', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'I0285';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0285', 'Anti SARS-CoV 2 Kuantitatif', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0285');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0286', 'Dengue Duo', 380000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 380000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 380000 WHERE jenis = 'LAB' AND kode = 'I0286';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0286', 'Dengue Duo', 380000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0286');
+UPDATE ref_lab SET barcode = 'I', grup_cn = 'I' WHERE kode = 'I0286';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0287', 'Free PSA', 700000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 700000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 700000 WHERE jenis = 'LAB' AND kode = 'I0287';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0287', 'Free PSA', 700000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0287');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0288', 'CRP Titer', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'I0288';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0288', 'CRP Titer', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0288');
+UPDATE ref_lab SET barcode = 'I', grup_cn = 'I' WHERE kode = 'I0288';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0289', 'Asto Titer', 195000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 195000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 195000 WHERE jenis = 'LAB' AND kode = 'I0289';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0289', 'Asto Titer', 195000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0289');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0289';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0290', 'Tes HIV Konfirmasi', 55000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 55000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 55000 WHERE jenis = 'LAB' AND kode = 'I0290';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0290', 'Tes HIV Konfirmasi', 55000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0290');
+UPDATE ref_lab SET barcode = 'I', grup_cn = 'I' WHERE kode = 'I0290';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0292', 'RPR (Rapid Plasma Reagin) Syphilis', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'I0292';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0292', 'RPR (Rapid Plasma Reagin) Syphilis', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0292');
+UPDATE ref_lab SET barcode = 'IS' WHERE kode = 'I0292';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0293', 'ANA IF', 950000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 950000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 950000 WHERE jenis = 'LAB' AND kode = 'I0293';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0293', 'ANA IF', 950000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0293');
+UPDATE ref_lab SET grup_cn = 'I' WHERE kode = 'I0293';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0294', 'ANA Profile', 1250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1250000 WHERE jenis = 'LAB' AND kode = 'I0294';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0294', 'ANA Profile', 1250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0294');
+UPDATE ref_lab SET barcode = 'I' WHERE kode = 'I0294';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0295', 'Hormon', 825000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 825000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 825000 WHERE jenis = 'LAB' AND kode = 'I0295';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0295', 'Hormon', 825000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0295');
+UPDATE ref_lab SET barcode = 'I' WHERE kode = 'I0295';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'I0297', 'Human Growth Hormon', 825000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 825000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 825000 WHERE jenis = 'LAB' AND kode = 'I0297';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'I0297', 'Human Growth Hormon', 825000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'I0297');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0301', 'Cholesterol Total', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'K0301';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0301', 'Cholesterol Total', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0301');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0301';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0302', 'Cholesterol LDL', 100000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 100000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 100000 WHERE jenis = 'LAB' AND kode = 'K0302';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0302', 'Cholesterol LDL', 100000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0302');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0302';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0303', 'Cholesterol HDL', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'K0303';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0303', 'Cholesterol HDL', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0303');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0303';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0304', 'Trigliserida', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'K0304';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0304', 'Trigliserida', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0304');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0304';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0305', 'CK', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'K0305';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0305', 'CK', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0305');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'K0305';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0306', 'CK-MB', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'K0306';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0306', 'CK-MB', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0306');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'K0306';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0307', 'SGOT', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'K0307';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0307', 'SGOT', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0307');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0307';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0308', 'SGPT', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'K0308';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0308', 'SGPT', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0308');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0308';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0309', 'Gamma GT', 120000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 120000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 120000 WHERE jenis = 'LAB' AND kode = 'K0309';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0309', 'Gamma GT', 120000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0309');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0309';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0311';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0312', 'LDH', 215000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 215000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 215000 WHERE jenis = 'LAB' AND kode = 'K0312';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0312', 'LDH', 215000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0312');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'K0312';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0314', 'Kalium', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'K0314';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0314', 'Kalium', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0314');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0314';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0315', 'Natrium', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'K0315';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0315', 'Natrium', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0315');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0315';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0316', 'Chlorida', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'K0316';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0316', 'Chlorida', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0316');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0316';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0317', 'Bilirubin Total', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'K0317';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0317', 'Bilirubin Total', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0317');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0317';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0318', 'Bilirubin Direct', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'K0318';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0318', 'Bilirubin Direct', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0318');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0318';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0319', 'Total Protein', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'K0319';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0319', 'Total Protein', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0319');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0319';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0321', 'Albumin', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'K0321';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0321', 'Albumin', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0321');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0321';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0322', 'Globulin', 70000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 70000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 70000 WHERE jenis = 'LAB' AND kode = 'K0322';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0322', 'Globulin', 70000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0322');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0322';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0325', 'Cholinesterase', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'K0325';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0325', 'Cholinesterase', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0325');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0325';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0326', 'Glukosa Darah Puasa', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'K0326';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0326', 'Glukosa Darah Puasa', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0326');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0326';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0327', 'Glukosa Darah 2 Jam PP', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'K0327';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0327', 'Glukosa Darah 2 Jam PP', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0327');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0327';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0328', 'Glukosa Darah Sewaktu', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'K0328';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0328', 'Glukosa Darah Sewaktu', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0328');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0328';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0329', 'Ureum', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'K0329';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0329', 'Ureum', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0329');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0329';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0331', 'Creatinin', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'K0331';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0331', 'Creatinin', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0331');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0331';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0332', 'Asam Urat', 55000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 55000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 55000 WHERE jenis = 'LAB' AND kode = 'K0332';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0332', 'Asam Urat', 55000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0332');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0332';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0333';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0334';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0335', 'HbA 1C', 185000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 185000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 185000 WHERE jenis = 'LAB' AND kode = 'K0335';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0335', 'HbA 1C', 185000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0335');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'K0335';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0336', 'Troponin I', 365000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 365000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 365000 WHERE jenis = 'LAB' AND kode = 'K0336';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0336', 'Troponin I', 365000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0336');
+UPDATE ref_lab SET grup_cn = 'C' WHERE kode = 'K0336';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0337';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0338';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0339';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0340', 'Kalsium', 110000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 110000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 110000 WHERE jenis = 'LAB' AND kode = 'K0340';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0340', 'Kalsium', 110000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0340');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0340';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0341', 'Elektrolit', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'K0341';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0341', 'Elektrolit', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0341');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0341';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0342';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0343';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0344', 'Alkali Fosfatase', 105000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 105000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 105000 WHERE jenis = 'LAB' AND kode = 'K0344';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0344', 'Alkali Fosfatase', 105000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0344');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0344';
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0346';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0348', 'Magnesium', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'K0348';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0348', 'Magnesium', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0348');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0351', 'Cairan Pleura / Ascites', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'K0351';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0351', 'Cairan Pleura / Ascites', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0351');
+UPDATE ref_lab SET grup_cn = 'K' WHERE kode = 'K0351';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0352', 'Vitamin D', 475000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 475000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 475000 WHERE jenis = 'LAB' AND kode = 'K0352';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0352', 'Vitamin D', 475000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0352');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0356', 'eGFR', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'K0356';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0356', 'eGFR', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0356');
+UPDATE ref_lab SET barcode = 'K', grup_cn = 'K' WHERE kode = 'K0356';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0357', 'Procalcitonin', 830000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 830000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 830000 WHERE jenis = 'LAB' AND kode = 'K0357';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0357', 'Procalcitonin', 830000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0357');
+UPDATE ref_lab SET barcode = 'K', grup_cn = 'K' WHERE kode = 'K0357';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0358', 'C-Peptide', 600000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 600000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 600000 WHERE jenis = 'LAB' AND kode = 'K0358';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0358', 'C-Peptide', 600000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0358');
+UPDATE ref_lab SET barcode = 'K' WHERE kode = 'K0358';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0359', 'Fosfor Anorganik', 150000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 150000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 150000 WHERE jenis = 'LAB' AND kode = 'K0359';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0359', 'Fosfor Anorganik', 150000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0359');
+UPDATE ref_lab SET barcode = 'K' WHERE kode = 'K0359';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'K0360', 'FSH', 450000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 450000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 450000 WHERE jenis = 'LAB' AND kode = 'K0360';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'K0360', 'FSH', 450000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'K0360');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0101', 'Kultur Gal', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0101', 'Kultur Gal', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0101');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0102', 'Kultur BTA', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0102', 'Kultur BTA', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0102');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0103', 'Kultur GO', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0103', 'Kultur GO', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0103');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0104', 'Kultur Diphteri', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0104', 'Kultur Diphteri', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0104');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0105', 'Kultur Fungi', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0105', 'Kultur Fungi', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0105');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0105';
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0107';
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0109', 'Preparat Gram', 95000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 95000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 95000 WHERE jenis = 'LAB' AND kode = 'M0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0109', 'Preparat Gram', 95000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0109');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0110', 'Preparat BTA', 195000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 195000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 195000 WHERE jenis = 'LAB' AND kode = 'M0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0110', 'Preparat BTA', 195000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0110');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0111', 'Preparat GO', 180000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 180000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 180000 WHERE jenis = 'LAB' AND kode = 'M0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0111', 'Preparat GO', 180000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0111');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0112', 'Preparat Diphteri', 115000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 115000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 115000 WHERE jenis = 'LAB' AND kode = 'M0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0112', 'Preparat Diphteri', 115000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0112');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0113', 'Preparat Fungi', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'M0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0113', 'Preparat Fungi', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0113');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0114', 'Preparat Trichomonas', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'M0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0114', 'Preparat Trichomonas', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0114');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0115', 'Preparat Candida', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'M0115';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0115', 'Preparat Candida', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0115');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0115';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0116', 'Preparat Chlamydia', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'M0116';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0116', 'Preparat Chlamydia', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0116');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0116';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0117', 'Kultur Urine', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0117';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0117', 'Kultur Urine', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0117');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0117';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0118', 'Kultur Faeces', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0118', 'Kultur Faeces', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0118');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0119', 'Kultur Darah', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0119', 'Kultur Darah', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0119');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0120', 'Kultur Gall', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0120', 'Kultur Gall', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0120');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0121', 'Kultur Sputum', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0121';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0121', 'Kultur Sputum', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0121');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0121';
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0123', 'Trichomonas', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'M0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0123', 'Trichomonas', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0123');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0123';
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0125', 'Kultur Pus', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0125';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0125', 'Kultur Pus', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0125');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0125';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0126', 'Preparat BTA', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'M0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0126', 'Preparat BTA', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0126');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0127', 'FNAB', 550000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 550000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 550000 WHERE jenis = 'LAB' AND kode = 'M0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0127', 'FNAB', 550000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0127');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0128', 'Ritz Serum', 225000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 225000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 225000 WHERE jenis = 'LAB' AND kode = 'M0128';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0128', 'Ritz Serum', 225000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0128');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0128';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0130', 'Kultur MO', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0130', 'Kultur MO', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0130');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0131', 'BTA 1 seri', 65000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 65000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 65000 WHERE jenis = 'LAB' AND kode = 'M0131';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0131', 'BTA 1 seri', 65000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0131');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0131';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0132', 'BTA sputum pagi', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'M0132';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0132', 'BTA sputum pagi', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0132');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0132';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0133', 'Preparat BTA', 150000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 150000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 150000 WHERE jenis = 'LAB' AND kode = 'M0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0133', 'Preparat BTA', 150000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0133');
+UPDATE ref_lab SET grup_cn = 'M' WHERE kode = 'M0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0134', 'Preparat BTA', 67500, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 67500; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 67500 WHERE jenis = 'LAB' AND kode = 'M0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0134', 'Preparat BTA', 67500, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0134');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0137', 'DIPTHERI', 115000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 115000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 115000 WHERE jenis = 'LAB' AND kode = 'M0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0137', 'DIPTHERI', 115000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0137');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0138', 'Kultur Cairan CAPD', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0138';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0138', 'Kultur Cairan CAPD', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0138');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0139', 'Sitologi Sputum', 350000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 350000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 350000 WHERE jenis = 'LAB' AND kode = 'M0139';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0139', 'Sitologi Sputum', 350000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0139');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0140', 'Kultur Darah 2', 1500000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1500000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1500000 WHERE jenis = 'LAB' AND kode = 'M0140';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0140', 'Kultur Darah 2', 1500000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0140');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0141', 'Kultur Cairan Sendi', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0141';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0141', 'Kultur Cairan Sendi', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0141');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0142', 'Preparat MO', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'M0142';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0142', 'Preparat MO', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0142');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0143', 'kultur ujung kanul', 750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 750000 WHERE jenis = 'LAB' AND kode = 'M0143';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0143', 'kultur ujung kanul', 750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0143');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0145', 'Rectal Swab', 600000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 600000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 600000 WHERE jenis = 'LAB' AND kode = 'M0145';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0145', 'Rectal Swab', 600000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0145');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0146', 'Kultur Cairan Pleura', 540000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 540000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 540000 WHERE jenis = 'LAB' AND kode = 'M0146';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0146', 'Kultur Cairan Pleura', 540000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0146');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0148', 'IGRA', 1000000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1000000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1000000 WHERE jenis = 'LAB' AND kode = 'M0148';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0148', 'IGRA', 1000000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0148');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0149', 'Kultur Sekret Vagina', 550000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 550000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 550000 WHERE jenis = 'LAB' AND kode = 'M0149';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0149', 'Kultur Sekret Vagina', 550000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0149');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'M0150', 'Pengecatan slide Difteri', 180000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 180000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 180000 WHERE jenis = 'LAB' AND kode = 'M0150';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'M0150', 'Pengecatan slide Difteri', 180000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'M0150');
+UPDATE ref_lab SET barcode = 'M' WHERE kode = 'M0150';
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0101';
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'P0103', 'Helicobacter Pylori', 850000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 850000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 850000 WHERE jenis = 'LAB' AND kode = 'P0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'P0103', 'Helicobacter Pylori', 850000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'P0103');
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0103';
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0104';
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0105';
+UPDATE ref_lab SET barcode = 'P', grup_cn = 'P' WHERE kode = 'P0106';
+UPDATE ref_lab SET grup_cn = 'P' WHERE kode = 'P0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'P0108', 'SARS-CoV-2 RNA', 900000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 900000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 900000 WHERE jenis = 'LAB' AND kode = 'P0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'P0108', 'SARS-CoV-2 RNA', 900000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'P0108');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'P0109', 'SARS-CoV-2 RNA', 900000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 900000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 900000 WHERE jenis = 'LAB' AND kode = 'P0109';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'P0109', 'SARS-CoV-2 RNA', 900000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'P0109');
+UPDATE ref_lab SET barcode = 'P' WHERE kode = 'P0109';
+UPDATE ref_lab SET barcode = 'P' WHERE kode = 'P0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'P0111', 'RT PCR Covid-19', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'P0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'P0111', 'RT PCR Covid-19', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'P0111');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0101', 'Ankle', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0101', 'Ankle', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0101');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0101';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0104';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0110', 'Cervical AP /  Lat', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'R0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0110', 'Cervical AP /  Lat', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0110');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0113', 'Clavicula', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0113', 'Clavicula', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0113');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0114', 'Cruris', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0114', 'Cruris', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0114');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0114';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0119', 'Genu', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0119', 'Genu', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0119');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0120', 'Humerus Dex AP/LAT', 190000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 190000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 190000 WHERE jenis = 'LAB' AND kode = 'R0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0120', 'Humerus Dex AP/LAT', 190000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0120');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0122', 'Lumbosacral AP/LAT', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'R0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0122', 'Lumbosacral AP/LAT', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0122');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0123', 'Mandibula AP', 380000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 380000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 380000 WHERE jenis = 'LAB' AND kode = 'R0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0123', 'Mandibula AP', 380000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0123');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0124', 'Manus', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0124', 'Manus', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0124');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0127', 'Pelvis A.P', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0127', 'Pelvis A.P', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0127');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0134', 'Shoulder Dex', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0134', 'Shoulder Dex', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0134');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0134';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0144', 'Thorax AP', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0144', 'Thorax AP', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0144');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0167', 'Sinus paranasalis', 310000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 310000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 310000 WHERE jenis = 'LAB' AND kode = 'R0167';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0167', 'Sinus paranasalis', 310000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0167');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0167';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0170', 'Thoraco Lumbalis AP/LAT', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'R0170';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0170', 'Thoraco Lumbalis AP/LAT', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0170');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0170';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0181';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0186', 'Abdomen 3 Posisi', 345000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 345000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 345000 WHERE jenis = 'LAB' AND kode = 'R0186';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0186', 'Abdomen 3 Posisi', 345000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0186');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0186';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0187';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0188', 'Elbow Joint D/S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0188';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0188', 'Elbow Joint D/S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0188');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0188';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0189', 'Femur D/S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0189';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0189', 'Femur D/S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0189');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0189';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0190', 'Gigi', 80000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 80000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 80000 WHERE jenis = 'LAB' AND kode = 'R0190';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0190', 'Gigi', 80000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0190');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0190';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0191', 'Thorax PA', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0191';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0191', 'Thorax PA', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0191');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0191';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0192', 'Thorax AP Lat', 310000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 310000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 310000 WHERE jenis = 'LAB' AND kode = 'R0192';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0192', 'Thorax AP Lat', 310000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0192');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0192';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0193';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0195', '2 Gigi', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0195';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0195', '2 Gigi', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0195');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0195';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0196', '3 Gigi', 240000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 240000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 240000 WHERE jenis = 'LAB' AND kode = 'R0196';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0196', '3 Gigi', 240000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0196');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0196';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0197', '4 Gigi', 320000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 320000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 320000 WHERE jenis = 'LAB' AND kode = 'R0197';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0197', '4 Gigi', 320000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0197');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0197';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0198', 'Pedis', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0198';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0198', 'Pedis', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0198');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0198';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0199', 'Abdomen', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0199';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0199', 'Abdomen', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0199');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0199';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0201', 'Wrist Joint', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0201';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0201', 'Wrist Joint', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0201');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0201';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0202', 'Antebrachi', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0202';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0202', 'Antebrachi', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0202');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0202';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0203', 'Cranium', 310000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 310000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 310000 WHERE jenis = 'LAB' AND kode = 'R0203';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0203', 'Cranium', 310000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0203');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0203';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0204', 'Nasal', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0204';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0204', 'Nasal', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0204');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0204';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0205';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0206', 'Vert. Lumbal', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'R0206';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0206', 'Vert. Lumbal', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0206');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 48000 WHERE kode = 'R0206';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0207', 'Humerus Sin AP/Lat', 190000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 190000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 190000 WHERE jenis = 'LAB' AND kode = 'R0207';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0207', 'Humerus Sin AP/Lat', 190000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0207');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0207';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0208';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0209';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0210', 'Scapula', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0210';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0210', 'Scapula', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0210');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0210';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0211', 'Genu 2', 400000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 400000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 400000 WHERE jenis = 'LAB' AND kode = 'R0211';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0211', 'Genu 2', 400000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0211');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0211';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0212', 'sculer kanan', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'R0212';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0212', 'sculer kanan', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0212');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0212';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0213', 'sculer kiri', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'R0213';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0213', 'sculer kiri', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0213');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0213';
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0214';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0215', 'Genu D', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0215';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0215', 'Genu D', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0215');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0215';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0216', 'Genu S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0216';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0216', 'Genu S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0216');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0216';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0217', 'Wrist Joint S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0217';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0217', 'Wrist Joint S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0217');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0217';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0218', 'Manus S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0218';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0218', 'Manus S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0218');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 42000 WHERE kode = 'R0218';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0219', 'Pelvis AP', 160000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 160000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 160000 WHERE jenis = 'LAB' AND kode = 'R0219';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0219', 'Pelvis AP', 160000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0219');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0219';
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0220';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0221', 'Wrist 1 posisi', 140000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 140000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 140000 WHERE jenis = 'LAB' AND kode = 'R0221';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0221', 'Wrist 1 posisi', 140000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0221');
+UPDATE ref_lab SET grup_cn = 'R', jasmed = 24000 WHERE kode = 'R0221';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0222', 'Thorax AP + Abdomen', 310000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 310000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 310000 WHERE jenis = 'LAB' AND kode = 'R0222';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0222', 'Thorax AP + Abdomen', 310000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0222');
+UPDATE ref_lab SET grup_cn = 'R' WHERE kode = 'R0222';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0223', 'Waters', 145000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 145000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 145000 WHERE jenis = 'LAB' AND kode = 'R0223';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0223', 'Waters', 145000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0223');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0224', 'Thorax PA+Lat', 310000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 310000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 310000 WHERE jenis = 'LAB' AND kode = 'R0224';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0224', 'Thorax PA+Lat', 310000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0224');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0227', 'Ankle Dextra ', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0227';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0227', 'Ankle Dextra ', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0227');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0228', 'Ankle Sinistra ', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0228';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0228', 'Ankle Sinistra ', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0228');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0237', 'Wrist Dextra ', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0237';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0237', 'Wrist Dextra ', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0237');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0239', 'Hip Joint D/S', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0239';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0239', 'Hip Joint D/S', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0239');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0240', 'Shoulder Sin', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'R0240';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0240', 'Shoulder Sin', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0240');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'R0241', 'Sacrum', 260000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 260000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 260000 WHERE jenis = 'LAB' AND kode = 'R0241';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'R0241', 'Sacrum', 260000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'R0241');
+UPDATE ref_lab SET grup_cn = 'S' WHERE kode = 'S0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'S0102', 'Sperma Analisa', 250000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 250000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 250000 WHERE jenis = 'LAB' AND kode = 'S0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'S0102', 'Sperma Analisa', 250000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'S0102');
+UPDATE ref_lab SET barcode = 'A', grup_cn = 'S' WHERE kode = 'S0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0101', 'Urine Lengkap', 45000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 45000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 45000 WHERE jenis = 'LAB' AND kode = 'U0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0101', 'Urine Lengkap', 45000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0101');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0101';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0102', 'Glukosa Urine', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'U0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0102', 'Glukosa Urine', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0102');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0102';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0103', 'Protein Urine', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'U0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0103', 'Protein Urine', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0103');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0103';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0104', 'Protein Esbach', 75000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 75000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 75000 WHERE jenis = 'LAB' AND kode = 'U0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0104', 'Protein Esbach', 75000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0104');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0104';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0105', 'Bence Jones Protein', 90000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 90000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 90000 WHERE jenis = 'LAB' AND kode = 'U0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0105', 'Bence Jones Protein', 90000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0105');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0105';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0106', 'Mikroalbumin Urine', 180000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 180000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 180000 WHERE jenis = 'LAB' AND kode = 'U0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0106', 'Mikroalbumin Urine', 180000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0106');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0106';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0107', 'Urobilinogen', 20000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 20000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 20000 WHERE jenis = 'LAB' AND kode = 'U0107';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0107', 'Urobilinogen', 20000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0107');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0107';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0108';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0110', 'Nitrit Urine', 40000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 40000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 40000 WHERE jenis = 'LAB' AND kode = 'U0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0110', 'Nitrit Urine', 40000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0110');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0110';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0111', 'PH Urine', 40000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 40000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 40000 WHERE jenis = 'LAB' AND kode = 'U0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0111', 'PH Urine', 40000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0111');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0111';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0112', 'BJ Urine', 40000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 40000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 40000 WHERE jenis = 'LAB' AND kode = 'U0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0112', 'BJ Urine', 40000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0112');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0112';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0113', 'Sedimen', 30000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 30000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 30000 WHERE jenis = 'LAB' AND kode = 'U0113';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0113', 'Sedimen', 30000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0113');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0113';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0114';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0115';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0116', 'Elektroforesis Urine', 275000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 275000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 275000 WHERE jenis = 'LAB' AND kode = 'U0116';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0116', 'Elektroforesis Urine', 275000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0116');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0116';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0117';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0118';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0119', 'Beta HCG Kuant. Urine', 520000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 520000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 520000 WHERE jenis = 'LAB' AND kode = 'U0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0119', 'Beta HCG Kuant. Urine', 520000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0119');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0119';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0120', 'Amphetamine', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0120', 'Amphetamine', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0120');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0120';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0122', 'Benzodiazepine', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0122', 'Benzodiazepine', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0122');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0122';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0123', 'Oplat/Morphine', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'U0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0123', 'Oplat/Morphine', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0123');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0123';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0124', 'Canabinoid', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0124', 'Canabinoid', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0124');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0124';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0125', 'Coccain', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0125';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0125', 'Coccain', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0125');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0125';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0126', 'Metamphetamine', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0126', 'Metamphetamine', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0126');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0126';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0127', 'Ganja/Marijuana', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'U0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0127', 'Ganja/Marijuana', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0127');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0127';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0128', 'Darah Samar', 115000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 115000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 115000 WHERE jenis = 'LAB' AND kode = 'U0128';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0128', 'Darah Samar', 115000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0128');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0128';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0129';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0130';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0131', 'Pencernaan', 40000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 40000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 40000 WHERE jenis = 'LAB' AND kode = 'U0131';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0131', 'Pencernaan', 40000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0131');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0131';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0132', 'Stercobilin', 55000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 55000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 55000 WHERE jenis = 'LAB' AND kode = 'U0132';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0132', 'Stercobilin', 55000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0132');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0132';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0133', 'pH Feses', 35000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 35000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 35000 WHERE jenis = 'LAB' AND kode = 'U0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0133', 'pH Feses', 35000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0133');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0133';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0134', 'vit B12', 1750000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 1750000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 1750000 WHERE jenis = 'LAB' AND kode = 'U0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0134', 'vit B12', 1750000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0134');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0134';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0135', 'Urine Rutin', 35000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 35000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 35000 WHERE jenis = 'LAB' AND kode = 'U0135';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0135', 'Urine Rutin', 35000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0135');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0135';
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0136';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0137', 'Cannabinoid', 50000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 50000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 50000 WHERE jenis = 'LAB' AND kode = 'U0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0137', 'Cannabinoid', 50000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0137');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0137';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0139', 'Opiat/Morphine', 60000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 60000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 60000 WHERE jenis = 'LAB' AND kode = 'U0139';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0139', 'Opiat/Morphine', 60000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0139');
+UPDATE ref_lab SET grup_cn = 'U' WHERE kode = 'U0139';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0140', 'Glukosa Urine 2 Jam PP', 25000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 25000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 25000 WHERE jenis = 'LAB' AND kode = 'U0140';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0140', 'Glukosa Urine 2 Jam PP', 25000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0140');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0144', 'Narkoba', 300000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 300000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 300000 WHERE jenis = 'LAB' AND kode = 'U0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0144', 'Narkoba', 300000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0144');
+UPDATE ref_lab SET barcode = 'UL' WHERE kode = 'U0144';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0145', 'Alkohol Urine', 200000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 200000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 200000 WHERE jenis = 'LAB' AND kode = 'U0145';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0145', 'Alkohol Urine', 200000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0145');
+UPDATE ref_lab SET barcode = 'UL' WHERE kode = 'U0145';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0147', 'USG Protat', 410000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 410000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 410000 WHERE jenis = 'LAB' AND kode = 'U0147';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0147', 'USG Protat', 410000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0147');
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', 'U0149', 'USG Prostat', 410000, true)
+ON CONFLICT (id) DO UPDATE SET tarif = 410000; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
+UPDATE kasir_tarif SET tarif = 410000 WHERE jenis = 'LAB' AND kode = 'U0149';
+INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', 'U0149', 'USG Prostat', 410000, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = 'U0149');
+UPDATE ref_lab SET barcode = 'W', grup_cn = 'W' WHERE kode = 'W0101';
 
 COMMIT;

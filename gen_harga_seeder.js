@@ -484,7 +484,7 @@ W0101;Widal Test;0;W;W;`;
 
 let outSql = 'BEGIN;\n\n';
 
-for (let line of raw.split('\\n')) {
+for (let line of raw.split('\n')) {
   line = line.trim();
   if (!line || line.startsWith('pc_')) continue;
   let cols = line.split(';');
