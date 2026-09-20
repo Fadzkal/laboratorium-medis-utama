@@ -322,12 +322,67 @@ const Pasien = (() => {
   }
 
   async function detail(el, id) {
-    const [p, alergi, riwayat, kesiapan] = await Promise.all([
+    const [p, alergi, riwayat, kesiapan, riwayatLab] = await Promise.all([
       DB.pasien(id), DB.alergiPasien(id), DB.daftarKunjungan({ pasien_id: id, batas: 50 }),
-      DB.kesiapanPasien({ hanyaKurang: false, pasienId: id }).catch(() => [])
+      DB.kesiapanPasien({ hanyaKurang: false, pasienId: id }).catch(() => []),
+      DB.riwayatLabPasien(id)
     ]);
     const kurang = kesiapan[0]?.kekurangan || [];
     DB.catatAkses(id, 'Membuka halaman data pasien');
+
+    // Transformasi data untuk tabel matriks: Baris = Nama Tes, Kolom = Tanggal
+    const labTgl = [];
+    const labParams = {};
+    for (let h of riwayatLab) {
+      if (!labTgl.find(t => t.id === h.permintaan_id)) {
+        labTgl.push({ id: h.permintaan_id, tgl: h.tanggal });
+      }
+      if (!labParams[h.kode]) {
+        labParams[h.kode] = { nama: h.nama, satuan: h.satuan || '', hasil: {} };
+      }
+      labParams[h.kode].hasil[h.permintaan_id] = {
+        angka: h.nilai_angka,
+        teks: h.nilai_teks,
+        tanda: h.tanda
+      };
+    }
+    // Urutkan tanggal dari lama ke baru untuk tren
+    labTgl.sort((a,b) => a.tgl.localeCompare(b.tgl));
+
+    let tabelStatistik = '';
+    if (labTgl.length > 0) {
+      tabelStatistik = `
+        <div class="card mb-16">
+          <div class="card-head"><h2>Perbandingan Riwayat Statistik Lab</h2></div>
+          <div class="card-body tight" style="overflow-x: auto;">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Pemeriksaan</th>
+                  ${labTgl.map(t => `<th class="right nowrap"><b>${UI.tglPendek(t.tgl)}</b></th>`).join('')}
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.values(labParams).map(p => `
+                  <tr>
+                    <td class="nowrap"><b>${UI.esc(p.nama)}</b> <span class="text-xs text-muted">${UI.esc(p.satuan)}</span></td>
+                    ${labTgl.map(t => {
+                      const h = p.hasil[t.id];
+                      if (!h) return '<td class="right muted">—</td>';
+                      const val = h.angka !== null ? h.angka : h.teks;
+                      const isAbnormal = h.tanda === 'T' || h.tanda === 'R' || h.tanda === 'H' || h.tanda === 'L' || h.tanda === '*';
+                      return `<td class="right ${isAbnormal ? 'text-danger fw-bold' : ''}">${UI.esc(val)}</td>`;
+                    }).join('')}
+                    <td><button class="btn btn-ghost btn-sm btn-chart" data-nama="${UI.esc(p.nama)}" data-kode="${UI.esc(p.kode)}">${UI.ikon('grafik', 14)}</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
 
     el.innerHTML = `
       <a href="#/pasien" class="btn btn-ghost btn-sm mb-12">${UI.ikon('kembali',15)} Semua pasien</a>
@@ -363,6 +418,8 @@ const Pasien = (() => {
         ${App.boleh('pasien_alergi')
           ? `<button class="btn btn-secondary btn-sm" id="btnAlergi">Tambah alergi</button>` : ''}
       </div>
+
+      ${tabelStatistik}
 
       <div class="split">
         <div class="card">
@@ -457,6 +514,59 @@ const Pasien = (() => {
         await DB.tambahAlergi({ ...hasil, pasien_id: p.id, dicatat_oleh: App.siapa().id });
         UI.toast('Alergi tercatat.', 'ok'); App.segarkan();
       }
+    });
+
+    el.querySelectorAll('.btn-chart').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kode = btn.dataset.kode;
+        const nama = btn.dataset.nama;
+        const paramData = labParams[kode];
+        
+        // Buat data untuk Chart
+        const labels = labTgl.map(t => UI.tglPendek(t.tgl));
+        const dataPoints = labTgl.map(t => {
+          const h = paramData.hasil[t.id];
+          if (!h) return null;
+          if (h.angka !== null) return h.angka;
+          
+          // Jika teks tapi bisa di-parse jadi angka (misal "5.4" jadi 5.4), usahakan masuk ke grafik
+          const n = parseFloat(h.teks);
+          return !isNaN(n) && isFinite(n) ? n : null;
+        });
+
+        // Tampilkan modal berisi canvas
+        UI.modal({
+          judul: `Grafik Tren: ${nama}`,
+          isi: `<canvas id="chartTren" width="400" height="250"></canvas>`,
+          tombol: [{ teks: 'Tutup', nilai: null }]
+        });
+
+        // Render Chart
+        setTimeout(() => {
+          const ctx = document.getElementById('chartTren').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: nama + (paramData.satuan ? ` (${paramData.satuan})` : ''),
+                data: dataPoints,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                pointBackgroundColor: 'rgb(75, 192, 192)',
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                tension: 0.2,
+                spanGaps: true
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: { y: { beginAtZero: false } }
+            }
+          });
+        }, 100);
+      });
     });
   }
 

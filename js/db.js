@@ -1350,6 +1350,12 @@ const DB = (() => {
       .order('tanggal', { ascending: false }).limit(batas);
     if (error) throw error; return data;
   }
+  async function riwayatLabPasien(pasienId, batas = 1000) {
+    const { data, error } = await sb.from('v_lab_tren').select('*')
+      .eq('pasien_id', pasienId)
+      .order('tanggal', { ascending: false }).limit(batas);
+    if (error) throw error; return data;
+  }
   async function labBelumSelesai(kunjunganId) {
     const { data, error } = await sb.from('v_kasir_menunggu_lab')
       .select('lab_belum_selesai').eq('kunjungan_id', kunjunganId).maybeSingle();
@@ -2200,7 +2206,7 @@ const DB = (() => {
     refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
     simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
-    labTren, labBelumSelesai,
+    labTren, riwayatLabPasien, labBelumSelesai,
     penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,
     lampiranPasien, lampiranKunjungan, simpanLampiran, hapusLampiran,
     suratPengaturan, simpanSuratPengaturan, refJenisSurat,
