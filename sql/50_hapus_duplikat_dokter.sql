@@ -1,6 +1,6 @@
 
--- 1. Hapus entri dokter yang sebenarnya adalah instansi/perusahaan/RS (salah masuk dari seed rekanan)
-DELETE FROM pegawai
+-- 1. Nonaktifkan (soft-delete) entri dokter yang sebenarnya adalah instansi/perusahaan/RS
+UPDATE pegawai SET aktif = false
 WHERE peran = 'dokter'
   AND (
     nama ILIKE 'PT %' OR
@@ -22,7 +22,7 @@ WHERE peran = 'dokter'
     nama ILIKE 'SIKES %'
   );
 
--- 2. Hapus duplikat nama dokter (menyatukan yang beda spasi/titik) dan HANYA MENYISAKAN 1
+-- 2. Nonaktifkan duplikat nama dokter (menyatukan yang beda spasi/titik) dan HANYA MENYISAKAN 1
 -- Prioritas yang disisakan adalah data yang paling lengkap (punya alamat/telp/dll)
 WITH RankedPegawai AS (
   SELECT 
@@ -40,9 +40,9 @@ WITH RankedPegawai AS (
         created_at DESC
     ) as rn
   FROM pegawai
-  WHERE peran = 'dokter'
+  WHERE peran = 'dokter' AND aktif = true
 )
-DELETE FROM pegawai 
+UPDATE pegawai SET aktif = false
 WHERE id IN (
   SELECT id FROM RankedPegawai WHERE rn > 1
 );
