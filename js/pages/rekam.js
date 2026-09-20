@@ -93,23 +93,6 @@ const Rekam = (() => {
         </div>
         <div class="card-body">
 
-          <h3 class="mb-8">Kajian awal</h3>
-          ${Komponen.kotakVital(rm.kajian)}
-          ${rm.kajian ? `
-            <div class="mt-12 text-sm">
-              ${baris('Keluhan utama', rm.kajian.keluhan_utama)}
-              ${baris('Riwayat penyakit sekarang', rm.kajian.riwayat_penyakit_sekarang)}
-              ${baris('Riwayat penyakit dahulu', rm.kajian.riwayat_penyakit_dahulu)}
-              ${baris('Riwayat alergi', rm.kajian.riwayat_alergi)}
-              ${baris('Obat yang sedang diminum', rm.kajian.riwayat_pengobatan)}
-              ${baris('Kesadaran', rm.kajian.kesadaran)}
-              ${rm.kajian.skala_nyeri !== null && rm.kajian.skala_nyeri !== undefined
-                ? baris('Skala nyeri', rm.kajian.skala_nyeri + '/10'
-                    + (rm.kajian.lokasi_nyeri ? ' — ' + rm.kajian.lokasi_nyeri : '')) : ''}
-              ${baris('Risiko jatuh', rm.kajian.risiko_jatuh)}
-              ${rm.kajian.skrining_tb ? baris('Skrining TB', 'Ada gejala mengarah TB') : ''}
-              ${baris('Catatan perawat', rm.kajian.catatan_perawat)}
-            </div>` : ''}
 
           ${poliGigi ? `
             <div class="divider"></div>

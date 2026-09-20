@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    PAPAN ANTREAN HARI INI
    ---------------------------------------------------------------------
    Satu halaman untuk dua tahap:
@@ -114,10 +114,8 @@ const Antrian = (() => {
   function tombolKunjungan(a) {
     const t = [];
     if (a.status === 'SELESAI') return `<a href="#/rekam/${a.id}" class="btn btn-secondary btn-sm">Lihat</a>`;
-    if (App.boleh('kajian') && !a.sudah_kajian)
-      t.push(`<a href="#/kajian/${a.id}" class="btn btn-primary btn-sm">Kajian awal</a>`);
     if (App.boleh('periksa'))
-      t.push(`<a href="#/periksa/${a.id}" class="btn ${a.sudah_kajian ? 'btn-primary' : 'btn-secondary'} btn-sm">Periksa</a>`);
+      t.push(`<a href="#/periksa/${a.id}" class="btn btn-primary btn-sm">Periksa</a>`);
     if (!t.length) t.push(`<a href="#/rekam/${a.id}" class="btn btn-secondary btn-sm">Lihat</a>`);
     return t.join(' ');
   }

@@ -7,7 +7,7 @@ const Beranda = (() => {
 
     const menunggu = antrian.filter(a => a.status === 'MENUNGGU');
     const perluKajian = antrian.filter(a => !a.sudah_kajian && a.status !== 'SELESAI' && a.status !== 'BATAL');
-    const perluDokter = antrian.filter(a => a.sudah_kajian && !a.sudah_periksa && a.status !== 'BATAL');
+    const perluDokter = antrian.filter(a => !a.sudah_periksa && a.status !== 'BATAL' && a.status !== 'SELESAI');
 
     const salam = (() => {
       const j = new Date().getHours();
@@ -53,13 +53,6 @@ const Beranda = (() => {
             <div class="sc-lbl">Dalam antrian · ${menunggu.length} belum dipanggil</div>
           </div>
         </div>
-        <div class="stat-card ${perluKajian.length ? 'warn' : 'ok'}">
-          <div class="sc-ico">${UI.ikon('jantung', 18)}</div>
-          <div>
-            <div class="sc-val tabular">${perluKajian.length}</div>
-            <div class="sc-lbl">Menunggu kajian awal</div>
-          </div>
-        </div>
       </div>
 
       <div class="split">
@@ -100,17 +93,6 @@ const Beranda = (() => {
             </div>
           </div>` : ''}
 
-          ${profil.peran === 'perawat' ? `
-          <div class="work-panel mt-16">
-            <div class="work-panel-head"><h2>Perlu kajian awal</h2>
-              <span class="count">${perluKajian.length}</span></div>
-            <div class="work-list">
-              ${perluKajian.length === 0
-                ? `<div class="empty sm"><p class="mb-0">Semua pasien sudah dikaji.</p></div>`
-                : perluKajian.slice(0, 6).map(a => barisKerja(a, 'kajian',
-                    UI.esc(a.nama_poli))).join('')}
-            </div>
-          </div>` : ''}
         </div>
       </div>`;
 
