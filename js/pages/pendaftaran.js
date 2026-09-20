@@ -13,8 +13,8 @@ const Pendaftaran = (() => {
   let pasienTerpilih = null;
   let rekananTerpilih = null;
 
-  /* ---- Baris tabel pemeriksaan (15 baris) ---- */
-  const JUMLAH_BARIS = 15;
+  /* ---- Baris tabel pemeriksaan (50 baris) ---- */
+  const JUMLAH_BARIS = 50;
   let barisPemeriksaan = []; // array of { labId, kode, nama, harga, disc, net, ket }
 
   /* ================================================================
@@ -39,15 +39,44 @@ const Pendaftaran = (() => {
         tarifList.forEach(t => { tarifMap[t.kode] = t.tarif || 0; });
       } catch(e) { tarifMap = {}; }
 
-      // Inisialisasi baris kosong
-      barisPemeriksaan = Array.from({ length: JUMLAH_BARIS }, () => ({
-        labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: ''
-      }));
-
-      pasienTerpilih  = null;
-      rekananTerpilih = masterRekanan.find(r => r.id === '151203133') || masterRekanan[0];
+      // Inisialisasi baris kosong atau muat draft
+      let draft;
+      try { draft = JSON.parse(localStorage.getItem('draft_pendaftaran')); } catch(e) {}
+      
+      if (draft && draft.barisPemeriksaan && draft.barisPemeriksaan.length) {
+         barisPemeriksaan = draft.barisPemeriksaan;
+         pasienTerpilih = draft.pasienTerpilih;
+         rekananTerpilih = draft.rekananTerpilih || masterRekanan.find(r => r.id === '151203133') || masterRekanan[0];
+      } else {
+         barisPemeriksaan = Array.from({ length: JUMLAH_BARIS }, () => ({
+           labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: ''
+         }));
+         pasienTerpilih  = null;
+         rekananTerpilih = masterRekanan.find(r => r.id === '151203133') || masterRekanan[0];
+      }
 
       gambarHalaman(el);
+      
+      if (draft && draft.form) {
+         const f = draft.form;
+         el.querySelector('#fRm').value = f.rm || '(Otomatis)';
+         el.querySelector('#fNrp').value = f.nrp || '';
+         el.querySelector('#fNama').value = f.nama || '';
+         el.querySelector('#fTitle').value = f.title || '';
+         el.querySelector('#fBagian').value = f.bagian || '';
+         el.querySelector('#fPlant').value = f.plant || '';
+         el.querySelector('#fTglLahir').value = f.tglLahir || '';
+         el.querySelector('#fJk').value = f.jk || 'L';
+         el.querySelector('#fAlamat').value = f.alamat || '';
+         el.querySelector('#fTelp').value = f.telp || '';
+         el.querySelector('#fNik').value = f.nik || '';
+         el.querySelector('#bJenisBayar').value = f.jenisBayar || 'UMUM';
+         el.querySelector('#bUangPasien').value = f.uangPasien || '';
+         el.querySelector('#bDiscPct').value = f.discPct || '';
+         const cb = el.querySelector('#filterBpjs');
+         if (cb) { cb.checked = !!f.filterBpjs; }
+      }
+      hitungUlang(el);
     } catch(e) {
       el.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
     }
@@ -516,6 +545,7 @@ const Pendaftaran = (() => {
     tbody.querySelectorAll('.inp-ket').forEach(inp => {
       inp.addEventListener('change', () => {
         barisPemeriksaan[+inp.dataset.idx].ket = inp.value;
+        simpanDraftPendaftaran(el);
       });
     });
 
@@ -557,12 +587,16 @@ const Pendaftaran = (() => {
     const kurang    = Math.max(0, (netti ?? +el.querySelector('#bNetti').value) - uang);
     el.querySelector('#bKembalian').value = kembalian;
     el.querySelector('#bKurang').value    = kurang;
+    simpanDraftPendaftaran(el);
   }
 
   /* ================================================================
      EVENT LISTENER UTAMA
   ================================================================ */
   function pasangEventListener(el) {
+
+    /* ---- Autosave Form Pasien ---- */
+    el.querySelector('.pdft-form').addEventListener('input', () => simpanDraftPendaftaran(el));
 
     /* ---- Rekanan ---- */
     el.querySelector('#btnRekanan').addEventListener('click', async () => {
@@ -660,6 +694,7 @@ const Pendaftaran = (() => {
     el.querySelector('#btnReset').addEventListener('click', () => {
       pasienTerpilih = null;
       resetFormPasien(el);
+      simpanDraftPendaftaran(el);
     });
 
     /* ---- Cek Pasien via NRP/NIK ---- */
@@ -754,6 +789,32 @@ const Pendaftaran = (() => {
     el.querySelector('#fAlamat').value   = '';
     el.querySelector('#fTelp').value     = '';
     el.querySelector('#fNik').value      = '';
+  }
+
+  function simpanDraftPendaftaran(el) {
+    if (!el.isConnected) return;
+    const draft = {
+      pasienTerpilih, rekananTerpilih, barisPemeriksaan,
+      form: {
+        rm: el.querySelector('#fRm')?.value,
+        nrp: el.querySelector('#fNrp')?.value,
+        nama: el.querySelector('#fNama')?.value,
+        title: el.querySelector('#fTitle')?.value,
+        bagian: el.querySelector('#fBagian')?.value,
+        plant: el.querySelector('#fPlant')?.value,
+        tglLahir: el.querySelector('#fTglLahir')?.value,
+        jk: el.querySelector('#fJk')?.value,
+        alamat: el.querySelector('#fAlamat')?.value,
+        telp: el.querySelector('#fTelp')?.value,
+        nik: el.querySelector('#fNik')?.value,
+        dokter: el.querySelector('#fDokter')?.value,
+        jenisBayar: el.querySelector('#bJenisBayar')?.value,
+        uangPasien: el.querySelector('#bUangPasien')?.value,
+        discPct: el.querySelector('#bDiscPct')?.value,
+        filterBpjs: el.querySelector('#filterBpjs')?.checked
+      }
+    };
+    localStorage.setItem('draft_pendaftaran', JSON.stringify(draft));
   }
 
   /* ================================================================
@@ -859,6 +920,7 @@ const Pendaftaran = (() => {
       await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
 
       UI.toast('Pendaftaran lab berhasil disimpan. Silakan cetak dokumen yang diperlukan.', 'ok');
+      localStorage.removeItem('draft_pendaftaran');
 
       // Form dan tabel dibiarkan utuh agar data tidak hilang sebelum dicetak
       /*
