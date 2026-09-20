@@ -200,6 +200,21 @@
           if (rd_pxcode && !missingCodes.has(rd_pxcode)) {
             missingCodes.set(rd_pxcode, px_name);
           }
+          // SIMPAN NAMA PAKET/KATEGORI YANG DI-SKIP KE CATATAN PERMINTAAN
+          const req = permintaanMap.get(permintaan_id);
+          if (req && px_name) {
+            if (!req.catatan_klinis) req.catatan_klinis = "Paket/Kategori terdeteksi: ";
+            if (!req.catatan_klinis.includes(px_name)) {
+              req.catatan_klinis += px_name + ", ";
+            }
+          }
+        }
+      }
+
+      // Rapikan catatan klinis (hapus koma di ujung)
+      for (let req of permintaanMap.values()) {
+        if (req.catatan_klinis) {
+          req.catatan_klinis = req.catatan_klinis.replace(/,\s*$/, '');
         }
       }
 
