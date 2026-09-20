@@ -1195,6 +1195,12 @@ const DB = (() => {
     }
   }
 
+  async function updateLabExtras(kode, patch) {
+    const { data, error } = await sb.from('ref_lab').update(patch).eq('kode', kode).select().single();
+    if (error) throw error;
+    return data;
+  }
+
   async function simpanTarif(rec, id = null) {
     const q = id ? sb.from('kasir_tarif').update(rec).eq('id', id).select().single()
                  : sb.from('kasir_tarif').insert(rec).select().single();
@@ -2189,7 +2195,7 @@ const DB = (() => {
     kasirLengkap, kasirSusunDariKunjungan, kasirCatatPembayaran,
     kasirHapusPembayaran, kasirHapusTagihan, kasirBuatTagihanBebas,
     kasirTambahItem, kasirUbahItem, kasirHapusItem, kasirJualObatBebas,
-    daftarTarif, simpanTarif, updateHargaLab, kasirRekap,
+    daftarTarif, simpanTarif, updateHargaLab, updateLabExtras, kasirRekap,
     templateInvoice, simpanTemplateInvoice,
     refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,

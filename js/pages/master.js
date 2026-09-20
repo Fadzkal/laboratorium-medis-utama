@@ -1027,7 +1027,9 @@ const Master = (() => {
       return cache.lab.filter(m => !k || m.nama.toLowerCase().includes(k) || m.kode.toLowerCase().includes(k));
     };
     const gambar = () => gambarTabelLab(w.querySelector('#tabelLab'), labTerfilter());
-    w.querySelector('#cariLab').addEventListener('input', UI.tunda(gambar, 200));
+    const cariLabInput = w.querySelector('#cariLab');
+    if (!cariLabInput) return; // Tab sudah berganti
+    cariLabInput.addEventListener('input', UI.tunda(gambar, 200));
     w.querySelector('#btnLabBaru').addEventListener('click', async () => {
       if (await modalLab(null)) {
         cache.lab = await DB.refLab(false);
@@ -1934,11 +1936,16 @@ const Master = (() => {
        kode: l.kode,
        nama: l.nama,
        kelompok: l.kelompok,
-       harga: dictTarif[l.kode] || 0
+       harga: dictTarif[l.kode] || 0,
+       barcode: l.barcode || '',
+       grup_cn: l.grup_cn || '',
+       jasmed: l.jasmed || 0
     }));
 
     const tbody = w.querySelector('#tblHarga');
     const cariInput = w.querySelector('#cariHarga');
+    if (!tbody || !cariInput) return; // Tab sudah berganti saat fetch DB
+
 
     function renderTabel() {
       const kata = cariInput.value.toLowerCase().trim();
@@ -1958,22 +1965,40 @@ const Master = (() => {
           <td>${UI.esc(x.kode)}</td>
           <td>${UI.esc(x.nama)}</td>
           <td style="padding: 2px">
-            <input type="number" class="harga-input" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${x.harga}">
+            <input type="number" class="harga-input input-harga" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${x.harga}">
           </td>
-          <td></td>
-          <td>${UI.esc(x.kelompok === 'Lainnya' ? x.kode.charAt(0) : (x.kelompok || 'A'))}</td>
-          <td></td>
+          <td style="padding: 2px">
+            <input type="text" class="harga-input input-barcode" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${UI.esc(x.barcode)}" style="width: 100px;">
+          </td>
+          <td style="padding: 2px">
+            <input type="text" class="harga-input input-grup" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${UI.esc(x.grup_cn)}" style="width: 60px; text-align: center;">
+          </td>
+          <td style="padding: 2px">
+            <input type="number" class="harga-input input-jasmed" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${x.jasmed}">
+          </td>
         </tr>
       `).join('');
       
-      // Event Listener utk Input Harga
+      // Event Listener utk Input Harga dan Detail
       tbody.querySelectorAll('.harga-input').forEach(inp => {
         let isSaving = false;
         const saveHarga = async () => {
            if (isSaving) return;
-           const v = Number(inp.value) || 0;
-           const old = Number(inp.getAttribute('value')) || 0;
-           if (v === old) return; // tidak ada perubahan
+           
+           const isHarga = inp.classList.contains('input-harga');
+           const isBarcode = inp.classList.contains('input-barcode');
+           const isGrup = inp.classList.contains('input-grup');
+           const isJasmed = inp.classList.contains('input-jasmed');
+           
+           let v = inp.value;
+           if (isHarga || isJasmed) v = Number(v) || 0;
+           else v = v.trim();
+           
+           const oldAttr = inp.getAttribute('value');
+           let oldV = oldAttr;
+           if (isHarga || isJasmed) oldV = Number(oldAttr) || 0;
+           
+           if (v === oldV) return; // tidak ada perubahan
            
            isSaving = true;
            inp.style.backgroundColor = '#ffffcc';
@@ -1981,17 +2006,26 @@ const Master = (() => {
            const nm = inp.getAttribute('data-nama');
            
            try {
-              await DB.updateHargaLab(kd, nm, v);
+              if (isHarga) await DB.updateHargaLab(kd, nm, v);
+              else if (isBarcode) await DB.updateLabExtras(kd, { barcode: v || null });
+              else if (isGrup) await DB.updateLabExtras(kd, { grup_cn: v || null });
+              else if (isJasmed) await DB.updateLabExtras(kd, { jasmed: v });
+              
               inp.setAttribute('value', v);
               inp.style.backgroundColor = '#e8f5e9';
               // Update state lokal
               const found = combined.find(c => c.kode === kd);
-              if (found) found.harga = v;
-              UI.toast('Harga ' + nm + ' tersimpan!', 'ok');
+              if (found) {
+                 if (isHarga) found.harga = v;
+                 else if (isBarcode) found.barcode = v;
+                 else if (isGrup) found.grup_cn = v;
+                 else if (isJasmed) found.jasmed = v;
+              }
+              UI.toast('Data ' + nm + ' tersimpan!', 'ok');
            } catch(e) {
-              inp.value = old;
+              inp.value = oldV;
               inp.style.backgroundColor = '#ffebee';
-              UI.toast('Gagal menyimpan harga: ' + e.message, 'err');
+              UI.toast('Gagal menyimpan: ' + e.message, 'err');
            }
            isSaving = false;
         };
