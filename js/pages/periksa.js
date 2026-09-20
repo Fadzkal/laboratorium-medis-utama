@@ -137,14 +137,8 @@ const Periksa = (() => {
 
     el.innerHTML = kerangka(alergi, pgigi, terkunci, bolehTulis);
 
-    if (poliGigi) pasangOdontogram(terkunci);
     pasangPeristiwa(el, terkunci, bolehTulis);
-
-    gambarDiagnosa(); gambarDxBanding(); gambarResep(); gambarTindakan();
-    gambarFisik(terkunci);
     muatRiwayatSingkat();
-    muatKartuSurat(kj.id, bolehTulis);
-    muatKartuKronis();
     perbaruiRingkasKirim();
   }
 
@@ -788,32 +782,6 @@ const Periksa = (() => {
     });
 
     if (!terkunci) {
-      pasangPencarianIcd();
-      pasangPencarianObat();
-      pasangPencarianTindakan();
-
-      el.querySelector('#icdCepat').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-kode]'); if (!b) return;
-        tambahDiagnosa({ kode: b.dataset.kode, nama: b.dataset.nama });
-      });
-      el.querySelector('#btnDxBanding').addEventListener('click', modalDxBanding);
-      el.querySelector('#btnSemuaNormal').addEventListener('click', semuaNormal);
-      pasangFisik();
-      el.querySelector('#btnSusunSoap').addEventListener('click', () => {
-        soapDisunting = {};
-        terapkanSoap(susunSoapSekarang(), true);
-        UI.toast('Catatan SOAP disusun ulang dari isian.', 'ok', 1800);
-      });
-
-      /* Huruf yang diketik tangan tidak akan ditimpa saat disusun ulang
-         otomatis. Dokter yang menulis kalimatnya sendiri tidak boleh
-         kehilangan tulisannya karena ia menambah satu diagnosa. */
-      el.querySelectorAll('[data-soap]').forEach(t =>
-        t.addEventListener('input', () => { soapDisunting[t.dataset.soap] = true; }));
-
-      el.querySelectorAll('[data-alergi]').forEach(s =>
-        s.addEventListener('change', () => simpanAlergi(s.dataset.alergi, s.value)));
-
       const bLab = el.querySelector('#btnMintaLab');
       if (bLab) bLab.addEventListener('click', modalMintaLab);
       const bBacaan = el.querySelector('#btnTulisBacaan');
@@ -826,11 +794,6 @@ const Periksa = (() => {
 
       el.querySelector('#btnSimpanDraf').addEventListener('click', () => simpan(false));
       el.querySelector('#btnFinal').addEventListener('click', () => simpan(true));
-      const inputIter = el.querySelector('#resepIter');
-      if (inputIter) inputIter.addEventListener('change', () => {
-        resepIterMaks = Math.max(0, Math.min(9, Number(inputIter.value) || 0));
-        inputIter.value = resepIterMaks;
-      });
       pasangSimpanOtomatis();
     } else {
       const ba = el.querySelector('#btnAddendum');
@@ -1707,98 +1670,28 @@ const Periksa = (() => {
    *  SIMPAN
    * =================================================================== */
   function kumpulkan() {
-    const a = UI.nilaiForm(document.getElementById('formAnamnesis'));
-    const f = UI.nilaiForm(document.getElementById('formFisik'));
-    const t = UI.nilaiForm(document.getElementById('formTerapi'));
-    const l = UI.nilaiForm(document.getElementById('formLanjut'));
-    const s = UI.nilaiForm(document.getElementById('formSoap'));
-
-    const rps = {};
-    PeriksaCore.BUTIR_RPS.forEach(([k]) => { if (a['rps_' + k]) rps[k] = a['rps_' + k]; });
-
-    const rujuk = l.tindak_lanjut === 'RUJUK_LANJUT' || l.tindak_lanjut === 'RUJUK_IGD';
-    const ppk = refPpk.find(x => x.kode === l.rujuk_ppk_kode);
-    const sub = refSubspes.find(x => x.kode === l.rujuk_subspesialis_kode);
-    const tacc = refTacc.find(x => x.kode === l.tacc_kode);
-
     return {
-      // Anamnesis
-      keluhan_utama: a.keluhan_utama,
-      riwayat_penyakit_sekarang: rps,
-      riwayat_penyakit_dahulu: a.riwayat_penyakit_dahulu,
-      riwayat_keluarga: a.riwayat_keluarga,
-      riwayat_pengobatan: a.riwayat_pengobatan,
-      riwayat_sosial: a.riwayat_sosial,
-      // Objektif
-      keadaan_umum: f.keadaan_umum,
-      kesadaran_kode: f.kesadaran_kode || null,
-      pemeriksaan_fisik: fisik,
-      // Penilaian
-      diagnosis_banding: dxBanding,
-      // Rencana
-      terapi_non_obat: t.terapi_non_obat,
-      bmhp: t.bmhp,
-      edukasi: t.edukasi,
-      prognosa_kode: l.prognosa_kode || null,
-      status_pulang_kode: l.status_pulang_kode || null,
-      tindak_lanjut: l.tindak_lanjut || 'SELESAI',
-      tanggal_kontrol: l.tindak_lanjut === 'KONTROL' ? l.tanggal_kontrol : null,
-      /* Isian rujukan yang tidak dipakai sengaja dikosongkan, bukan
-         dibiarkan menempel dari pilihan sebelumnya. Kolom kdppk yang
-         tertinggal dari percobaan "rujuk" yang batal akan ikut terkirim
-         ke BPJS sebagai rujukan yang tidak pernah terjadi. */
-      rujuk_poli_internal_id: l.tindak_lanjut === 'RUJUK_INTERNAL' ? (l.rujuk_poli_internal_id || null) : null,
-      rujuk_ppk_kode:          rujuk ? (l.rujuk_ppk_kode || null) : null,
-      rujuk_subspesialis_kode: rujuk ? (l.rujuk_subspesialis_kode || null) : null,
-      rujuk_sarana_kode:       rujuk ? (l.rujuk_sarana_kode || null) : null,
-      rujuk_tgl_estimasi:      rujuk ? (l.rujuk_tgl_estimasi || null) : null,
-      rujuk_alasan:            rujuk ? l.rujuk_alasan : null,
-      rujuk_ke_faskes:         rujuk && ppk ? ppk.nama : null,
-      rujuk_spesialis:         rujuk && sub ? sub.nama : null,
-      /* TACC yang perlu alasan tetapi alasannya belum diketik sengaja
-         BELUM dikirim ke database: triggernya menolak, dan penolakan itu
-         akan menggagalkan seluruh penyimpanan sementara — termasuk
-         catatan yang sudah panjang diketik. Yang menahan penguncian
-         adalah periksaKelengkapan(), yang menyebutnya sebagai galat dan
-         menolak tombol "Selesai & kunci". */
-      tacc_kode: (rujuk && tacc && (!tacc.perlu_alasan || (l.tacc_alasan || '').trim()))
-        ? tacc.kode : (rujuk ? 'TIDAK' : null),
-      tacc_alasan: rujuk && tacc && tacc.perlu_alasan ? l.tacc_alasan : null,
-      // Narasi
-      subjective: s.subjective, objective: s.objective,
-      assessment: s.assessment, plan: s.plan
+      keluhan_utama: null, riwayat_penyakit_sekarang: null,
+      riwayat_penyakit_dahulu: null, riwayat_keluarga: null,
+      riwayat_pengobatan: null, riwayat_sosial: null,
+      keadaan_umum: null, kesadaran_kode: null, pemeriksaan_fisik: null,
+      diagnosis_banding: null, terapi_non_obat: null, bmhp: null,
+      edukasi: null, prognosa_kode: null, status_pulang_kode: '1',
+      tindak_lanjut: 'SELESAI', tanggal_kontrol: null,
+      rujuk_poli_internal_id: null, rujuk_ppk_kode: null,
+      rujuk_subspesialis_kode: null, rujuk_sarana_kode: null,
+      rujuk_tgl_estimasi: null, rujuk_alasan: null,
+      rujuk_ke_faskes: null, rujuk_spesialis: null,
+      tacc_kode: null, tacc_alasan: null,
+      subjective: null, objective: null, assessment: null, plan: null,
+      anamnesis: null, terapi_obat: null
     };
   }
 
   async function simpan(final) {
-    /* Narasi disusun ulang sebelum dikumpulkan, supaya yang tersimpan
-       selalu mencerminkan isian terstruktur — kecuali huruf yang memang
-       diketik tangan dokter. */
-    const susunan = susunSoapSekarang();
-    terapkanSoap(susunan);
-
-    const d = kumpulkan();
-    d.anamnesis = susunan.anamnesis;
-    d.terapi_obat = susunan.terapi_obat;
-
     if (final) {
-      const p = PeriksaCore.periksaKelengkapan(keadaanSekarang());
-      if (!p.boleh) {
-        UI.toast('Belum lengkap: ' + p.galat.join(', ') + '.', 'err', 6000);
-        return;
-      }
-      const tanpaGigi = daftarTindakan.filter(t => t.perluGigi && !t.fdi);
-      if (poliGigi && tanpaGigi.length) {
-        UI.toast('Tindakan berikut belum disebutkan nomor giginya: '
-          + tanpaGigi.map(t => t.nama).join(', ') + '.', 'err', 6000);
-        return;
-      }
-      const ya = await UI.konfirmasi('Kunci rekam medis kunjungan ini?',
-        (p.peringatan.length
-          ? 'Catatan: ' + p.peringatan.join(' ') + '\n\n'
-          : '')
-        + 'Setelah dikunci, catatan tidak dapat diubah lagi. Perubahan hanya bisa '
-        + 'ditambahkan sebagai addendum. Pastikan semua isian sudah benar.',
+      const ya = await UI.konfirmasi('Selesai dan kunci rekam medis?',
+        'Setelah dikunci, rekam medis tidak dapat diubah lagi. Pastikan semua hasil lab sudah lengkap.',
         'Ya, kunci sekarang');
       if (!ya) return;
     }
@@ -1807,28 +1700,8 @@ const Periksa = (() => {
     if (tombol) { tombol.disabled = true; tombol.textContent = 'Menyimpan…'; }
 
     try {
+      const d = kumpulkan();
       await DB.simpanPemeriksaan(kj.id, d);
-      await DB.simpanDiagnosa(kj.id, daftarDiagnosa);
-      await DB.simpanResep(kj.id, daftarResep, null, resepIterMaks);
-      await DB.simpanTindakan(kj.id, daftarTindakan);
-
-      if (poliGigi) {
-        await DB.simpanOdontogram(kj.pasien_id, kj.id, dataOdontogram);
-        const indeks = odoWidget ? odoWidget.hitungIndeks()
-                                 : { dmft: {d:0,m:0,f:0}, deft: {d:0,e:0,f:0} };
-        const g = UI.nilaiForm(document.getElementById('formGigi'));
-        await DB.simpanPemeriksaanGigi(kj.id, {
-          wajah: g.wajah, kelenjar_limfe: g.kelenjar_limfe, tmj: g.tmj, bibir: g.bibir,
-          ekstra_oral_lain: g.ekstra_oral_lain,
-          mukosa_pipi: g.mukosa_pipi, gusi: g.gusi, lidah: g.lidah, palatum: g.palatum,
-          dasar_mulut: g.dasar_mulut, oklusi: g.oklusi,
-          torus_palatinus: g.torus_palatinus, torus_mandibularis: g.torus_mandibularis,
-          supernumerary: !!g.supernumerary, diastema: g.diastema,
-          kebersihan_mulut: g.kebersihan_mulut, ohis: g.ohis, catatan: g.catatan,
-          d_decay: indeks.dmft.d, m_missing: indeks.dmft.m, f_filled: indeks.dmft.f,
-          d_sulung: indeks.deft.d, e_sulung: indeks.deft.e, f_sulung: indeks.deft.f
-        });
-      }
 
       if (final) {
         await DB.finalisasi(kj.id);
@@ -1839,7 +1712,6 @@ const Periksa = (() => {
         UI.toast('Tersimpan sementara.', 'ok', 1800);
         const st = document.getElementById('statusSimpan');
         if (st) st.textContent = 'Terakhir disimpan ' + UI.jam(new Date());
-        perbaruiRingkasKirim();
       }
     } catch (e) {
       UI.toast(e.message || 'Gagal menyimpan.', 'err', 6000);
@@ -1852,21 +1724,6 @@ const Periksa = (() => {
   /* Simpan otomatis tiap 90 detik supaya catatan tidak hilang */
   function pasangSimpanOtomatis() {
     clearInterval(simpanOtomatis);
-    simpanOtomatis = setInterval(async () => {
-      if (!document.getElementById('btnSimpanDraf')) { clearInterval(simpanOtomatis); return; }
-      const a = UI.nilaiForm(document.getElementById('formAnamnesis'));
-      if (!a.keluhan_utama && !Object.keys(fisik).length && !daftarDiagnosa.length) return;
-      try {
-        const susunan = susunSoapSekarang();
-        terapkanSoap(susunan);
-        const d = kumpulkan();
-        d.anamnesis = susunan.anamnesis;
-        d.terapi_obat = susunan.terapi_obat;
-        await DB.simpanPemeriksaan(kj.id, d);
-        const st = document.getElementById('statusSimpan');
-        if (st) st.textContent = 'Tersimpan otomatis ' + UI.jam(new Date());
-      } catch (e) { /* diam saja, dokter tetap bisa simpan manual */ }
-    }, 90000);
   }
 
   /* =================================================================== *
