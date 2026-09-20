@@ -23,6 +23,22 @@ const LabCetak = (() => {
     return pdfSiap;
   }
 
+  // Helper konversi gambar ke Base64
+  async function ambilGambarBase64(url) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Gagal memuat gambar logo', e);
+      return null;
+    }
+  }
+
   // Helper konversi tanggal Indo
   function tglIndo(tglStr) {
     if (!tglStr) return '-';
@@ -166,9 +182,13 @@ const LabCetak = (() => {
   async function cetakNoLab(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
     await muatPdfMake();
     
-    // Gunakan KopKlinik
+    // Gunakan logo.png
     let kopImage = { text: '[LOGO]', fontSize: 16, bold: true };
-    if (typeof KopKlinik !== 'undefined') {
+    const logoUrl = window.location.origin + window.location.pathname.replace(/app\.html.*/, '') + 'logo.png';
+    const logoB64 = await ambilGambarBase64(logoUrl);
+    if (logoB64) {
+      kopImage = { image: logoB64, width: 80 };
+    } else if (typeof KopKlinik !== 'undefined') {
       kopImage = { image: KopKlinik.gambar(), width: 80 };
     }
 
