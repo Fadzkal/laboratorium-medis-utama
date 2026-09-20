@@ -1,0 +1,606 @@
+const fs = require('fs');
+
+const csv = `pc_pxcode;pc_order_child;pc_pxname;pc_pxcode_loinc;pc_pxcode_loinc_display;pc_pxcode_speciment_code;pc_pxcode_speciment_name;pc_unit;pc_normal;pc_min_normal;pc_max_normal;pc_min_l;pc_max_l;pc_min_p;pc_max_p;pc_normal_l;pc_normal_p;pc_barcode;pc_remarks;pc_method
+;;;;;;;;;;;;;;;;;;;
+A0101;;Pemeriksaan Fisik;;;;;;;;;;;;;;;;; 
+A0102;;Analisa Cairan Pleura;;;;;;;;;;;;;;;;; 
+A010201;;Makroskopis;;;;;;;;;;;;;;;;; 
+A01020101;;Kejernihan;;;;;;;;;;;;;;;;; 
+A01020102;;Warna;;;;;;;;;;;;;;;;; 
+A01020103;;Berat Jenis;;;;;;;;;;;;;;;;; 
+A01020104;;Bau;;;;;;;;;;;;;;;;; 
+A01020105;;Bekuan;;;;;;;;;;;;;;;;; 
+A01020106;;pH;;;;;;;;;;;;;;;;; 
+A010202;;Mikroskopis;;;;;;;;;;;;;;;;; 
+A01020201;;Jumlah Sel Leukosit;;;;;;;;;;;;;;;;; 
+A01020202;;Jumlah Sel Eritrosit;;;;;;;;;;;;;;;;; 
+A01020203;;Hitung Jenis Leukosit;;;;;;;;;;;;;;;;; 
+A0102020301;;Lymposit;;;;;;;;;;;;;;;;; 
+A0102020302;;Segmen;;;;;;;;;;;;;;;;; 
+A0102020303;;Monosit;;;;;;;;;;;;;;;;; 
+A01020204;;Pewarnaan Gram;;;;;;;;;;;;;;;;; 
+A01020205;;Pewarnaan BTA;;;;;;;;;;;;;;;;; 
+A010203;;Test Kimia;;;;;;;;;;;;;;;;; 
+A01020301;;#NAME?;;;;;;;;;;;;;;;;; 
+A01020302;;#NAME?;;;;;;;;;;;;;;;;; 
+A010204;;Tes Rivalta;;;;;;;;;;;;;;;;; 
+A0103;;Sekret Vagina;;;;;;;;;;;;;;;;; 
+A010301;;Trichomonas;;;;;;;;;;;;;;;;; 
+A010302;;Prep. KOH;;;;;;;;;;;;;;;;; 
+A010303;;Prep. Gram;;;;;;;;;;;;;;;;; 
+A010304;;Leukosit;;;;;;;;;;;;;;;;; 
+A0104;;Sekret Urethra;;;;;;;;;;;;;;;;; 
+A010401;;Trichomonas;;;;;;;;;;;;;;;;; 
+A010402;;Prep. KOH;;;;;;;;;;;;;;;;; 
+A010403;;Prep. Gram;;;;;;;;;;;;;;;;; 
+A010404;;Leukosit;;;;;;;;;;;;;;;;; 
+A0105;;CITO;;;;;;;;;;;;;;;;; 
+A0106;;PA Jaringan Kecil;;;;;;;;;;;;;;;;; 
+A0107;;PA Jaringan Sedang;;;;;;;;;;;;;;;;; 
+A0108;;PA Jaringan Besar;;;;;;;;;;;;;;;;; 
+A0109;;PA Jaringan (Cairan Pleura);;;;;;;;;;;;;;;;; 
+A0111;;Kultur dan Resistensi Antibiotik (Vagina);;;;;;;;;;;;;;;;; 
+A0113;;Home Service 1;;;;;;;;;;;;;;;;; 
+A0114;;Home Service 2;;;;;;;;;;;;;;;;; 
+A0115;;Home Service 3;;;;;;;;;;;;;;;;; 
+A0116;;CITO 2;;;;;;;;;;;;;;;;; 
+A0117;;Pap Smear;;;;;;;;;;;;;;;;; 
+A0118;;PA Jaringan Sedang 2;;;;;;;;;;;;;;;;; 
+A0119;;Pemeriksaan Fisik;;;;;;;;;;;;;;;;; 
+A0120;;PA Jaringan Besar 2;;;;;;;;;;;;;;;;; 
+A0122;;Pap Smear Rujukan;;;;;;;;;;;;;;;;; 
+A0123;;PA Jaringan kecil 2;;;;;;;;;;;;;;;;; 
+A0124;;Home Service 4;;;;;;;;;;;;;;;;; 
+A0126;;Tes Fisik;;;;;;;;;;;;;;;;; 
+A0127;;Home Service 5;;;;;;;;;;;;;;;;; 
+A0128;;Home Service 6;;;;;;;;;;;;;;;;; 
+A0129;;Mantoux test;;;;;;Negatif :<BR>Indurasi < 6 mm<BR>Positif :<BR>Indurasi >= 6 mm;;;;;;;;;;; 
+A0130;;Cairan Asites;;;;;;;;;;;;;;;;; 
+A0131;;TTNA;;;;;;;;;;;;;;;;; 
+A0133;;Pa Cairan Pleura;;;;;;;;;;;;;;;;; 
+A0134;;kultur dahak;;;;;;;;;;;;;;;;; 
+A0135;;PA Jaringan Kecil 4;;;;;;;;;;;;;;;;; 
+A0136;;Sitologi Cairan;;;;;;;;;;;;;;;;; 
+A0137;;IVA test;;;;;;;;;;;;;;;;; 
+A0138;;Buta Warna;;;;;;Normal;;;;;;;;;;; 
+A0140;;Pulasan BTA;;;;;;;;;;;;;;;;; 
+A0142;;Sampling Swab;;;;;;;;;;;;;;;;; 
+A0143;;APD;;;;;;;;;;;;;;;;; 
+A0145;;tensi;;;;;;;;;;;;;;;;; 
+A0147;;Biaya Penanganan;;;;;;;;;;;;;;;;; 
+A0149;;Biaya VTM;;;;;;;;;;;;;;;;; 
+A0151;;APD + Homeservice;;;;;;;;;;;;;;;;; 
+A0154;;Sampling;;;;;;;;;;;;;;;;; 
+A0156;;APD + Home Service;;;;;;;;;;;;;;;;; 
+A0158;;USG;;;;;;;;;;;;;;;;; 
+A0159;;USG Abdomen;;;;;;;;;;;;;;;;; 
+A0160;;Audiometri;;;;;;;;;;;;;;;;; 
+A0161;;Spirometri;;;;;;;;;;;;;;;;; 
+A0162;;Biaya Antar;;;;;;;;;;;;;;;;;
+A0163;;Harvard Step Test;;;;;;;;;;;;;;;A;;
+B0101;;Chlamydia Pnemonia PCR;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0102;;Chlamydia Trachomatis PCR;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0103;;HBV DNA Kuantitatif;;;;;;Negative;;;;;;;;;;Janji :2 hari; 
+B0104;;HCV RNA Genotyping;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0105;;HCV RNA Kuantitatif;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0106;;M. Tuberculose;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0107;;Salmonella Typhi;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0108;;Mycoplasma Pneumonia PCR;;;;;;;;;;;;;;;;Janji :2 hari; 
+B0109;;Toxoplasma Gondii;;;;;;;;;;;;;;;;Janji :; 
+C0101;;CITO 4;;;;;;;;;;;;;;;;; 
+C0102;;Analisa Cairan Pleura/Acites;;;;;;;;;;;;;;;;; 
+C010201;;Jenis Sampel;;;;;;;;;;;;;;;;; 
+C010202;;Makroskopis;;;;;;;;;;;;;;;;; 
+C01020201;;Warna;;;;;;Transudat: Kuning Muda<BR>Eksudat: Kuning - Hijau;;;;;;;;;;; 
+C01020202;;Kekeruhan;;;;;;"Transudat; Jernih<BR>Eksudat: Keruh";;;;;;;;;;; 
+C01020203;;Berat Jenis;;;;;;Transudat : < 1.018<BR>Exudat : > 1.018;;;;;;;;;;; 
+C01020204;;Bekuan;;;;;;Transudat: (-) Bekuan<BR>Eksudat:(-) Bekuan;;;;;;;;;;;
+C01020205;;PH;;;;;;Transudat: >7,31<BR>Eksudat: < 7,31;;;;;;;;;;;
+C010203;;Kimia;;;;;;;;;;;;;;;;; 
+C01020301;;Rivalta;;;;;;Transudat: (-)<BR>Eksudat: (+) Kekeruhan;;;;;;;;;;; 
+C01020302;;Protein;;;;;gr/dl;Transudat : < 3 gr%<BR>Eksudat : > 3gr%;;;;;;;;;;; 
+C01020303;;Glukosa;2345-7;"Glucose [Mass/volume] in Serum or Plasma";119364003;Serum specimen;mg/dl;Transudat : = plasma darah <BR> Eksudat : < plasma darah;;;;;;;;;;; 
+C01020304;;Albumin cairan tubuh;;;;;gr/dl;;;;;;;;;;;; 
+C010204;;Mikroskopis;;;;;;;;;;;;;;;;; 
+C01020401;;Jumlah Sel;;;;;sel/mm3;Transudat : < 300<BR>Eksudat : > 1000;;;;;;;;;;; 
+C01020402;;Hitung Jenis Sel;;;;;;;;;;;;;;;;; 
+C01020403;;MN;;;;;%;;;;;;;;;;;; 
+C01020404;;PMN;;;;;%;Transudat : = Sedikit<BR>Exudat : < Banyak;;;;;;;;;;; 
+E0101;;Elektro Kardiografi/EKG;;;;;;;;;;;;;;;;Janji :2 hari; 
+E0102;;Autospirometri;;;;;;;;;;;;;;;;Janji :; 
+E0103;;Audiogram;;;;;;;;;;;;;;;;Janji :; 
+E0104;;Electroencephalografi / EEG;;;;;;;;;;;;;;;;Janji :; 
+E0105;;Treadmill;;;;;;;;;;;;;;;;Janji :; 
+E0106;;Holter Mobitoring;;;;;;;;;;;;;;;;Janji :; 
+E0107;;TCD;;;;;;;;;;;;;;;;Janji :; 
+F0101;;Faeces;;;;; ; ;;;;;;;;;F;Janji :2 hari; 
+F010101;;Makroskopis;;;;;;;;;;;;;;;;Janji :; 
+F01010101;;Warna;;;;;;;;;;;;;;;;Janji :; 
+F01010102;;Konsistensi;;;;;;;;;;;;;;;;Janji :; 
+F01010103;;Lendir;;;;;;;;;;;;;;;;Janji :; 
+F01010104;;Darah;;;;;;;;;;;;;;;;Janji :; 
+F010102;;Mikroskopis;;;;;;;;;;;;;;;;Janji :; 
+F01010201;;Sel Leukosit;;;;;;;;;;;;;;;;Janji :; 
+F01010202;;Sel Eritrosit;;;;;;;;;;;;;;;;Janji :; 
+F01010203;;Lain-Lain;;;;;;;;;;;;;;;;Janji :; 
+F01010204;;Telur Cacing;;;;;;;;;;;;;;;;Janji :; 
+F0102;;Benzidine Test;;;;;;Negatif;;;;;;;;;;; 
+G0101;;tes;;;;;;;;;;;;;;;;; 
+G010101;;tes 2;;;;;;;;;;;;;;;;; 
+G0102;;CITO 4;;;;;;;;;;;;;;;;; 
+G0103;;Vitamin D;;;;;ng/ml;Defisiensi : < 20Insufisiensi : 20 - 29Sufficient : 30 - 100Potential Toxicity :> 100;;;;;;;;;;; 
+H0101;1;Hematologi Lengkap;;;;;;;;;;;;;;;H;Janji : 3  jam; 
+H010101;2;Hemoglobin;;;;;g/dl;;;;14.0;18.0;12.0;16.0;14.0 - 18.0;12.0 - 16.0;;Janji :;Non Cyanide hemoglobine analysis
+H010102;3;Leukosit;;;;;10^3/pl;;;;5.0;10.0;5.0;10.0;5.0 - 10.0;5.0 - 10.0;;Janji :30 menit;Detection (DC)
+H010103;4;Trombosit;;;;;10^3/pl;;;;150;450;150;450;150 - 450;150 - 450;;Janji :30 menit;Detection (DC) 
+H010104;5;Hematokrit;;;;;%;;;;40.0;54.0;37.0;47.0;40.0 - 54.0;37.0 - 47.0;;;Detection (DC) 
+H010105;6;Eritrosit;;;;;10^6/pl;;;;4.60;6.20;4.20;5.40;4.60 - 6.20;4.20 - 5.40;;Janji :;Detection (DC) 
+H010106;7;Laju Endap Darah(LED);;;;;;;;;;;;;;;;Janji :1 jam; 
+H01010601;8;LED 1 Jam;;;;;mm;;;;0;10;0;10;0 - 10;0 - 10;;;Westergren 
+H01010602;9;LED 2 Jam;;;;;mm;;;;10;20;10;20;Oct-20;Oct-20;;;Westergren 
+H010107;10;Hitung Jenis;;;;;;;;;;;;;;;;Janji :30 menit; 
+H01010701;13;N. Batang;;;;;%;;;;3;5;3;5;03-May;03-May;;Janji :; 
+H01010702;14;N. Segmen;;;;;%;;;;35;70;35;70;35 - 70;35 - 70;;Janji :; 
+H01010703;15;Limfosit;;;;;%;;;;20;40;20;40;20 - 40;20 - 40;;Janji :; 
+H01010704;16;Monosit;;;;;%;;;;2;10;2;10;02-Oct;02-Oct;;Janji :; 
+H01010705;12;Eosinofil;;;;;%;;;;1;4;1;4;01-Apr;01-Apr;;Janji :; 
+H01010706;11;Basofil;;;;;%;;;;0;1;0;1;0 - 1;0 - 1;;Janji :; 
+H010108;17;Nilai-nilai MC;;;;;;;;;;;;;;;;;
+H01010801;17;MCV;;;;;fl;80 - 96;;;;;;;;;;;
+H01010802;17;MCH;;;;;pg;27 - 31;;;;;;;;;;;
+H01010803;17;MCHC;;;;;g/dl;32 - 36;;;;;;;;;;;
+H010109;18;RDW;;;;;fl;;;;;;;;;;;;
+H0102;;Hematologi Rutin;;;;;;;;;;;;;;;;Janji :30 menit;Hematology Anayzer
+H010201;;Hemoglobin;;;;;g/dl;;;;14.0;18.0;12.0;16.0;14.0 - 18.0;12.0 - 16.0;;;Non Cyanide hemoglobine analysis
+H010202;;Leukosit;;;;;10^3/pl;;;;5.0;10.0;5.0;10.0;5.0 - 10.0;5.0 - 10.0;;;Detection (DC)
+H010203;;Trombosit;;;;;10^3/pl;;;;150;450;150;450;150 - 450;150 - 450;;;Detection (DC) 
+H010204;;Hematokrit;;;;;%;;;;40.0;54.0;37.0;47.0;40.0 - 54.0;37.0 - 47.0;;; 
+H0106;;Golongan Darah ABO;883-9;ABO group [Type] in Blood;119297000;Blood specimen ;;;;;;;;;;;;Janji : 30 menit;Aglutinasi 
+H0107;;Golongan Darah ABO + Rhesus;882-1;ABO and Rh group [Type] in Blood;119297000;Blood specimen ;;;;;;;;;;;;Janji : 30 menit;Aglutinasi 
+H010701;;Golongan Darah;;;;;;;;;;;;;;;;Janji : 30 menit;Aglutinasi 
+H010702;;Rhesus;;;;Blood specimen ;;;;;;;;;;;;Janji :;Aglutinasi 
+H0108;;Faal Hemostasis;;;;;;;;;;;;;;;;Janji :2 jam; 
+H0109;;Waktu Pendarahan (BT);;;;;Menit;;;;1;3;1;3;01-Mar;01-Mar;;Janji :1 jam; 
+H0110;;Waktu Pembekuan (CT);;;;;Menit;;;;2;5;2;5;02-May;02-May;;Janji :1 jam; 
+H0111;;Protrombine Time(PT);5964-2;Prothrombin time (PT) in Blood by Coagulation assay;119362004 ;Platelet poor plasma specimen;Detik;11.7 - 15.1;11.7;15.1;;;;;;;;Janji :1 hari; 
+H0112;;APTT;91119-8;aPTT.factor substitution in Platelet poor plasma by Coagulation assay --immediately after 1:1 addition of normal plasma;119362004 ; Platelet poor plasma specimen;Detik;22.5 - 40.1;22.5;40.1;;;;;;;;Janji :1 hari; 
+H0113;;Fibrinogen;;;;;mg/dl;154 - 397;;;200;400;200;400;;;;Janji :2 hari; 
+H0114;;D-Dimer;48058-2;Fibrin D-dimer DDU [Mass/volume] in Platelet poor plasma by Immunoassay;119362004 ;Platelet poor plasma specimen;ng/mL;< 500;0;500;;;;;;;;Janji :2 hari;ELISA 
+H0115;;Trombine Time;;;;;;;;;;;;;;;;Janji :; 
+H0116;;Rektraksi Bekuan;;;;;;;;;40;60;40;60;;;;Janji :2 hari; 
+H0117;;Viskositas Darah;;;;;cp;3.5 - 5.1;;;3.5;5.1;3.5;5.1;;;;Janji :1 hari; 
+H0118;;Viskositas Plasma;;;;;cp;1.4 - 1.8;;;1.4;1.8;1.4;1.8;;;;Janji :1 hari; 
+H0119;;Retikulosit;;;;;%;0.5 - 1.5;;;0.5;1.5;0.5;1.5;;;;Janji :1 jam; 
+H0120;;Serum Iron(Fe);;;;;ug/dL;37 - 145;37;145;;;;;;;;Janji :2 hari; 
+H0121;;Ferritin;20567-4;Ferritin [Mass/volume] in Serum or Plasma by Immunoassay;119364003;Serum specimen;ng/mL;L : 22-322<BR>P : 10-291;;;22;322;10;291;22 - 322;10 - 291;;Janji :2 hari; 
+H0122;;Transferin;;;;;mg/dL;200 - 360;;;200;360;200;360;;;;Janji :2 hari; 
+H0123;;Asam Folat;;;;;ng/ml;3.1 - 17.5;;;3.1;17.5;3.1;17.5;;;;Janji :2 hari; 
+H0124;;Coombs Test Direct;;;;;;Negative;;;;;;;;;;Janji :1 hari; 
+H0125;;Coombs Test Indirect;;;;;;Negative;;;;;;;;;;Janji :1 hari; 
+H0126;;G 6 PDH;;;;;U/10*12 ;146 - 376;;;146;376;146;376;;;;Janji :2 hari; 
+H0127;;Hb Elektroforesis;;;;;;HbA = 96 - 99 HbA2 = <=3,5 HbF = < 2;;;;;;;;;;Janji :2 hari; 
+H0128;;Test Agregasi Trombosit;;;;;;;;;;;;;;;;Janji :2 hari; 
+H0129;;BJ Plasma;;;;;;1.025 - 1.033;;;1.025;1.033;1.025;1.033;;;;Janji :1 hari; 
+H0130;;CD 4;;;;;;;;;;;;;;;;Janji :3 hari; 
+H0131;;CD 8;;;;;;;;;;;;;;;;Janji :3 hari; 
+H0132;;Malaria;;;;;;Negative;;;;;;;;;;Janji :1 hari; 
+H013201;;Plasmodium Vivax;;;;;;;;;;;;;;;;; 
+H013202;;Plasmodium Falciparum;;;;;;;;;;;;;;;;; 
+H0133;;Hb F;;;;;%;< 2;;;;< 2;;< 2;;;;Janji :2 hari; 
+H0134;;Mikro Filaria;;;;;;Negative;;;;;;;;;;Janji :1 hari; 
+H0135;;Resistensi Osmotik;;;;;%;Start Hemolyse : 0.40-0.44 Complete Hemolyse : 0.30-0.34;;;;;;;;;;Janji :2 hari; 
+H0136;;Rumpell Leede(RL);;;;;;Negative;;;;;;;;;;Janji :1 jam; 
+H0137;;Hemoglobin;718-7;Hemoglobin [Mass/volume] in Blood; 119297000; Blood specimen;g/dl;;;;14.0;18.0;12.0;16.0;14.0 - 18.0;12.0 - 16.0;;Janji :1 jam;Non Cyanide hemoglobine analysis
+H0138;;Leukosit;6690-2;Leukocytes [#/volume] in Blood by Automated count; 119297000; Blood specimen ;10^3/pl;;;;5.0;10.0;5.0;10.0;5.0 - 10.0;5.0 - 10.0;;Janji :1 jam; 
+H0139;;Eritrosit;26453-1;Erythrocytes [#/volume] in Blood;119297000;Blood specimen;10^6/pl;;;;4.60;6.20;4.20;5.40;4.60 - 6.20;4.50 - 5.40;;Janji :1 jam; 
+H0140;;Trombosit;777-3;Platelets [#/volume] in Blood by Automated count;119297000 ;Blood specimen ;10^3/pl;;;;150;450;150;450;150 - 450;150 - 450;;Janji :1 jam; 
+H0141;;Hematokrit;20570-8;Hematocrit [Volume Fraction] of Blood;119297000;Blood specimen;%;;;;40.0;54.0;37.0;47.0;40.0 - 54.0;37.0 - 47.0;;;Detection (DC) 
+H0142;;MCV;787-2;MCV [Entitic volume] by Automated count;119297000;Blood specimen;fl;80 - 96;;;80;96;80;96;;;;Janji :; 
+H0143;;MCH;785-6;MCH [Entitic mass] by Automated count;19297000;Blood specimen ;fl;27.5 - 33.2;;;27.5;33.2;27.5;33.2;;;;Janji :; 
+H0144;;MCHC;786-4;MCHC [Mass/volume] by Automated count;19297000;Blood specimen ;fl;33.4 - 35.5;;;33.4;35.5;33.4;35.5;;;;Janji :; 
+H0145;;Hitung Jenis;;;;;;;;;;;;;;;;Janji :; 
+H014501;;Batang;;;;;%;;;;3;5;3;5;03-May;03-May;;Janji :; 
+H014502;;Segmen;;;;;%;;;;35;70;35;70;35 - 70;35 - 70;;Janji :; 
+H014503;;Limfosit;;;;;%;;;;20;40;20;40;20 - 40;20 - 40;;Janji :; 
+H014504;;Monosit;;;;;%;;;;2;10;2;10;02-Oct;02-Oct;;Janji :; 
+H014505;;Eosinofil;;;;;%;;;;1;4;1;4;01-Apr;01-Apr;;Janji :; 
+H014506;;Basofil;;;;;%;;;;0;1;0;1;0 - 1;0 - 1;;Janji :; 
+H0146;;Morfolgi Darah Tepi;;;;;;;;;;;;;;;;; 
+H014601;;Seri Eritrosit;;;;;;;;;;;;;;;;; 
+H014602;;Seri Leukosit;;;;;;;;;;;;;;;;; 
+H014603;;Seri Trombosit;;;;;;;;;;;;;;;;; 
+H014604;;Kesan;;;;;;;;;;;;;;;;; 
+H014605;;Saran;;;;;;;;;;;;;;;;; 
+H0147;;TIBC;2500-7;Iron binding capacity [Mass/volume] in Serum or Plasma;119364003 ;Serum specimen;ug/dL;228 - 428;;;228;428;228;428;228 - 428;228 - 428;;; 
+H0148;;analisa HB ( HPLC );;;;;;;;;;;;;;;;; 
+H0149;;hapusan sumsum tulang;;;;;;;;;;;;;;;;; 
+H0150;;LE test;;;;;;;;;;;;;;;;; 
+H0151;;eosinofil;713-8;Eosinophils/100 leukocytes in Blood by Automated count;119297000;Blood specimen;sel / mm³;50 - 350;;;;;;;;;;; 
+H0154;;Gol darah rhesus;;;;;;;;;;;;;;;;;Aglutinasi 
+H0155;;PROFILE IRON;;;;;;;;;;;;;;;;; 
+H0156;;Vaksin MMR;;;;;;;;;;;;;;;;; 
+H0157;;Hapusan Darah;;;;;;;;;;;;;;;;; 
+H0158;;LED ( Laju Endap Darah );4537-7;Erythrocyte sedimentation rate by Westergren method;119297000;Blood specimen;;;;;;;;;< 10;< 20;;;Westergren
+H015801;;LED 1 Jam;;;;;mm;0 - 10;0;10;0;10;0;10;0 - 10;0 - 10;;;Westergren 
+H015802;;LED 2 Jam;;;;;mm;Oct-20;10;20;10;20;10;20;Oct-20;Oct-20;;;Westergren 
+H0159;;malaria preparat;;;;;;;;;;;;;;;;; 
+H0160;;Hematologi Rutin + LED;;;;;;;;;;;;;;;;; 
+H016001;;Hemoglobin;;;;;g/dl;;;;14.0;18.0;12.0;16.0;14.0 - 18.0;12.0 - 16.0;;;
+H016002;;Leukosit;;;;;10^3/pl;;;;5.0;10.0;5.0;10.0;5.0 - 10.0;5.0 - 10.0;;; 
+H016003;;Trombosit;;;;;10^3/pl;;;;150;450;150;450;150 - 450;150 - 450;;; 
+H016004;;Hematokrit;;;;;%;;;;40.0;54.0;37.0;47.0;40.0 - 54.0;37.0 - 47.0;;; 
+H016005;;Eritrosit;;;;;10^6/pl;;;;4.60;6.20;4.20;5.40;4.60 - 6.20;4.20 - 5.40;;; 
+H016006;;Laju Endap Darah (LED);;;;;;;;;;;;;;;;; 
+H01600601;;LED 1 jam;;;;;mm;;;;0;10;0;10;0 - 10;0 - 10;;; 
+H01600602;;LED 2 jam;;;;;mm;;;;10;20;10;20;Oct-20;Oct-20;;; 
+H0161;;Golongan Darah ABO + Rhesus;882-1;ABO and Rh group [Type] in Blood;119297000;Blood specimen ;;;;;;;;;;;;Janji : 30 menit; Aglutinasi
+H016101;;Golongan Darah;;;;;;;;;;;;;;;;Janji : 30 menit;Aglutinasi 
+H016102;;Rhesus;;;;Blood specimen ;;;;;;;;;;;;;Aglutinasi 
+H0162;;Vaksin Difteri;;;;;;;;;;;;;;;;; 
+H0163;;RA;;;;;;Negatif;;;;;;;;;;;agglutination
+H0165;;D-Dimer;48058-2;Fibrin D-dimer DDU [Mass/volume] in Platelet poor plasma by Immunoassay;119362004 ;Platelet poor plasma specimen;ng/mL;< 500;0;500;;;;;;;;;ELISA
+H0166;;Fibrinogen;;;;;;;;;;;;;;;;; 
+H0167;;Vaksin Influenza;;;;;;;;;;;;;;;;; 
+H0169;;Hitung Jenis;;;;;;;;;;;;;;;;; 
+H016901;;N.Batang;;;;;;;;;;;;;;;;; 
+H016902;;N. Segmen;;;;;;;;;;;;;;;;; 
+H016903;;Limfosit;;;;;;;;;;;;;;;;; 
+H016904;;Monosit;;;;;;;;;;;;;;;;; 
+H016905;;Eosinofil;;;;;;;;;;;;;;;;; 
+H016906;;Basofil;;;;;;;;;;;;;;;;; 
+H0170;;GDT;;;;;;;;;;;;;;;;; 
+H0171;;INR;38875-1;INR in Platelet poor plasma or blood by Coagulation assay;119362004;Platelet poor plasma specimen;;0.83 - 1.11;0.83;1.11;;;;;;;;; 
+H0172;;INR (Paket PT, APTT);;;;;;1.00 - 1.99;;;;;;;;;;; 
+H0173;;Centrifugasi Whole Blood;;;;;;;;;;;;;;;;; 
+H0174;;NLR;;;;;;01-Mar;;;;;;;;;;; 
+H0175;;Hematologi Lengkap tanpa LED;;;;;;;;;;;;;;;;; 
+H017501;;Hemoglobin;;;;;g/dl;;;;14.0;18.0;12.0;16.0;14.0-18.0;12.0 - 16.0;H;Janji : 3  jam;Non Cyanide hemoglobine analysis 
+H017502;;Leukosit;;;;;10^3/pl;;;;5.0;10.0;5.0;10.0;5.0 - 10.0;5.0 - 10.0;;; 
+H017503;;Trombosit;;;;;10^3/pl;;;;150;450;150;450;150 - 450;150 - 450;;; 
+H017504;;Hematokrit;;;;;%;;;;40.0;54.0;37.0;47.0;40.0 - 54.0;37.0 - 47.0;;; 
+H017505;;Eritrosit;;;;;10^6/pl;;;;4.60;6.20;4.20;5.40;4.60 - 6.20;4.20 - 5.40;;; 
+H017506;;HItung Jenis;;;;;;;;;;;;;;;;; 
+H01750601;;N. Batang;;;;;%;;;;3;5;3;5;03-May;03-May;;; 
+H01750602;;N. Segmen;;;;;%;;;;35;70;35;70;35 - 70;35 - 70;;; 
+H01750603;;Limfosit;;;;;%;;;;20;40;20;40;20 - 40;20 - 40;;; 
+H01750604;;Monosit;;;;;%;;;;2;10;2;10;02-Oct;02-Oct;;; 
+H01750605;;Eosinofil;;;;;%;;;;1;4;1;4;01-Apr;01-Apr;;; 
+H01750606;;Basofil;;;;;%;;;;0;1;0;1;0  - 1;0  - 1;;; 
+H0177;;RDW-CV;;;;;;;;;;;;;;;H;;
+H0178;;Lupus Antikoagulan - 1 (LA-1) ;;;;;Detik;31 - 44;;;;;;;;;H;;
+H0179;;Lupus Antikoagulan - 2 (LA-2);;;;;Detik;30 - 38;;;;;;;;;H;;
+H0180;;Ratio LA;;;;;;0.8 - 1.2;;;;;;;;;H;;
+H0181;;Hb Elektroforesis;;;;;;;;;;;;;;;;;
+H02;;contoh 21-2;;;;;;;;;;;;;;;;Janji :; 
+I0201;;HbsAg;5195-3;Hepatitis B virus surface Ag [Presence] in Serum;119364003;Serum specimen;;Negatif;;;;;;;;;;Janji : 1 jam;immunochromatographic
+I0202;;Anti Hbs;16935-9;Hepatitis B virus surface Ab [Units/volume] in Serum;119364003;Serum specimen;;Negatif;;;;;;;;;;;immunochromatographic
+I0203;;Anti HCV;13955-0;Hepatitis C virus Ab [Presence] in Serum or Plasma by Immunoassay;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0204;;Anti HBc;75378-0;Hepatitis B virus core Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay;119364003;Serum specimen;;Negatif;;;;;;;;;;; 
+I0205;;Anti HAV;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I020501;;Anti HAV IgG;32018-4;Hepatitis A virus IgG Ab [Presence] in Serum;119364003;Serum specimen;;Negatif;;;;;;;;;;;immunochromatographic
+I020502;;Anti HAV IgM;22314-9;Hepatitis A virus IgM Ab [Presence] in Serum;119364003;Serum specimen;;Negatif;;;;;;;;;;;immunochromatographic
+I0206;;T3;;;;;nmol/l;1.23 - 3.07;1.23;3.07;;;;;;;;;FIA
+I0207;;T4;;;;;nmol/l;66 - 181;66;181;;;;;;;;;FIA
+I0208;;Alpha - Fetoprotein;;;;;ng/mL;< 7.02;;;;;;;;;;; 
+I0209;;CEA;;;;;ng/ml;< 4.7;;;;;;;;;;Janji :2 hari; 
+I0211;;Hbe Ag;5191-2;Hepatitis B virus e Ag [Units/volume] in Serum by Immunoassay;119364003;Serum specimen;;;;;;;;;;;;Janji :2 hari; CMIA
+I0212;;Anti HBe;5189-6;Hepatitis B virus e Ab [Units/volume] in Serum by Immunoassay;119364003;Serum specimen;;;;;;;;;;;;Janji :2 hari;ELFA
+I0213;;FT4 N;;;;;pmol/l;10.6 - 19.4;10.6;19.4;;;;;;;;;ELFA
+I0214;;TSH;3016-3;Thyrotropin [Units/volume] in Serum or Plasma; 119364003; Serum specimen ;uIU/ml;Eutiroid = 0.25 - 5.0<BR>Hypertyroid = < 0.15<BR>Hypotyroid = > 7.0;;;;;;;;;;Janji :1 hari;ELFA
+I0216;;Anti Dengue;;;;;;;;;;;;;;;;;Immunochromatographic
+I021601;;Anti Dengue IgG;;;;;;Negatif;;;;;;;;;;;Immunochromatographic
+I021602;;Anti Dengue IgM;;;;;;Negatif;;;;;;;;;;;Immunochromatographic
+I0219;;TPHA;8041-6;Treponema pallidum Ab [Presence] in Serum by Hemagglutination;119364003;Serum specimen;;Non Reaktif;;;;;;;;;;Janji :2 hari;agglutination
+I0221;;VDRL;5292-8;Reagin Ab [Presence] in Serum by VDRL;119364003;Serum specimen;;Non Reaktif;;;;;;;;;;Janji :1 hari;Agglutination
+I0223;;CRP;11039-5;C reactive protein [Presence] in Serum or Plasma;119364003;Serum specimen;;Negatif;;;;;;;;;;Janji :2 hari;agglutination
+I0224;;ASTO;25788-1;Streptolysin O Ab [Units/volume] in Serum by Latex agglutination;119364003;Serum specimen;IU/ml;<= 200;0;200;;;;;;;;Janji :1 hari;Agglutination
+I0225;;Tubercolusis;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I022501;;Tubercolusis IgG;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I022502;;Tubercolusis IgM;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0227;;Rhematoid Factors;5297-7;Rheumatoid factor [Presence] in Serum by Latex agglutination;119364003;Serum specimen;;Negatif;;;;;;;;;;;agglutination
+I0228;;Widal;;;;;;;;;;;;;;;;Janji :2 jam;Agglutination
+I022801;;- S.Typhi  O;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022802;;- S.Typhi  H;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022803;;- S.Paratyphi  PA;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022804;;- S.Paratyphi  PB;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022805;;- S.Paratyphi  PC;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022806;;- S.Paratyphi  OA;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022807;;- S.Paratyphi  OB;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I022808;;- S.Paratyphi  OC;;;;;;Negatif;;;;;;;;;;Janji :;Agglutination 
+I0229;;Tubex TF;17566-1;Salmonella typhi O Ab [Presence] in Serum; 119364003 ; Serum specimen;;Interpretasi hasil TUBEX TF:<BR>0 - 2 : Negatif, Tidak mengindikasikan terjadinya infeksi demam tifoid pada saat ini.<BR>4 - 10 : Postif, Semakin tinggi skornya, maka semakin kuat indikasi terjadinya infeksi demam tifoid pada saat ini;;;;;;;;;;; 
+I0230;;Ca 125;83082-8;Cancer Ag 125 [Units/volume] in Serum or Plasma by Immunoassay; 119364003 ; Serum specimen ;U/mL;<= 35;0;35;;;;;;;;;ELFA
+I0231;;Ca 15-3;;;;;U/mL;;;;;;;;;;;; 
+I0232;;Ca 19-9;;;;;U/mL;< 37.0;;;;;;;;;;;ELISA
+I0233;;IgE Total;;;;;IU/ml;< 100;;;;;;;;;;;ECLIA
+I0234;;NS1 ;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0235;;IgM Anti Toxoplasma;5390-0;Toxoplasma gondii IgM Ab [Units/volume] in Serum by Immunoassay;119364003;Serum specimen;IU/mL;Negatif < 0.55<BR>Equivocal : 0.55 - < 0.65<BR>disarankan periksa kembali 2-3 minggu kemudian<BR>Positif : >= 0.65;;;;;;;;;;;ELFA
+I0236;;IgG Anti Toxoplasma;5388-4;Toxoplasma gondii IgG Ab [Units/volume] in Serum or Plasma by Immunoassay;119364003;Serum specimen;IU/mL;Negatif < 4<BR>Equivocal : 4 - <8<BR>disarankan periksa kembali 2-3 minggu kemudian<BR>Positif : >= 8;;;;;;;;;;;ELFA
+I0237;;IgM Anti Rubella;5335-5;Rubella virus IgM Ab [Units/volume] in Serum by Immunoassay;119364003;Serum specimen;;Negatif < 0.80<BR>Equivocal : 0.80 - 1.20<BR>Positif : >= 1.20;;;;;;;;;;;ELISA
+I0238;;IgG Anti Rubella;5334-8;Rubella virus IgG Ab [Units/volume] in Serum or Plasma by Immunoassay;;;IU/mL;Negatif < 10<BR>Equivocal : 10 - 15<BR>Positif : >= 15;;;;;;;;;;;ELISA
+I0239;;IgM Anti CMV;5126-8;Cytomegalovirus IgM Ab [Units/volume] in Serum or Plasma by Immunoassay;119364003;Serum specimen;;Negatif < 0.70<BR>Equivocal : 0.70 - 0.90<BR>Positif : >= 0.90;;;;;;;;;;;ELISA
+I0240;;IgG Anti CMV;5124-3;Cytomegalovirus IgG Ab [Units/volume] in Serum or Plasma by Immunoassay;119364003;Serum specimen;aU/mL;Negatif < 4<BR>Equivocal : 4 - 6<BR>Positif : >= 6;;;;;;;;;;;ELISA
+I0241;;IgM Anti HSV 2;;;;;;Negatif < 0.90<BR>Equivocal : >0.90 - <1.0<BR>Positif : >= 1.0;;;;;;;;;;;ELISA
+I0242;;IgG Anti HSV 2;;;;;;Negatif < 0.90<BR>Equivocal : >0.90 - <1.0<BR>Positif : >= 1.0;;;;;;;;;;;ELISA
+I0243;;Test Kehamilan;;;;;;;;;;;;;;;;;immunochromatographic
+I0244;;Widal 2 Set;;;;;;;;;;;;;;;;; 
+I024401;;- S.Typhi  O;;;;;;Negatif;;;;;;;;;;;Agglutination 
+I024402;;- S.Typhi  H;;;;;;Negatif;;;;;;;;;;;Agglutination 
+I0245;;ICT TB;;;;;;;;;;;;;;;;;immunochromatographic
+I024501;;IgG ICT TB;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I024502;;IgM ICT TB;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0246;;Anti HIV;59419-2;HIV 1 RNA [#/volume] (viral load) in Plasma by Probe with signal amplification;119364003;Serum specimen;;Non Reaktif;;;;;;;;;;;immunochromatographic
+I0247;;RF;;;;;;Negatif;;;;;;;;;;; 
+I0248;;VDRL Titer;50690-7;Reagin Ab [Titer] in Serum by VDRL;119364003;Serum specimen;;;;;;;;;;;;;Agglutination 
+I0249;;TPHA Titer;26009-1;Treponema pallidum Ab [Titer] in Serum by Hemagglutination;119364003;Serum specimen;;;;;;;;;;;;;agglutination
+I0250;;FT3;;;;;pg/ml;2.15 - 5.83;2.15;5.83;;;;;;;;;ELISA
+I0251;;ANA Test;;;;;Unit;Negatif : < 20<BR>Equivocal : 20 - 60<BR>Positif : > 60;;;;;;;;;;; 
+I0252;;Mantoux Test;;;;;;Negatif :<BR>Indurasi < 6 mm<BR>Positif :<BR>Indurasi >= 6 mm;;;;;;;;;;; 
+I0253;;Anti Hbs Titer;32019-2;Hepatitis B virus surface Ab [Titer] in Serum;119364003;Serum specimen;IU/L;Negatif < 10;;;;;;;;;;;ELISA 
+I0254;;TORCH;;;;;;;;;;;;;;;;; 
+I0255;;Aviditas Toxoplasma IgG;56990-5;Toxoplasma gondii IgG Ab avidity [Ratio] in Serum by Immunoassay;119364003;Serum specimen;;Low avidity IgG :<BR>< 0.20<BR>Borderline avidity IgG :<BR>0.20 - < 0.30<BR>High Avidity IgG :<BR>>= 0.30;;;;;;;;;;; ELFA
+I0256;;Aviditas CMV IgG;52984-2;Cytomegalovirus IgG Ab avidity [Ratio] in Serum or Plasma by Immunoassay;119364003;Serum specimen;;< 0.8 Infeksi primer kurang dari 3 bulan<BR>>= 0.8 Infeksi primer lebih dari 3 bulan;;;;;;;;;;;ELFA
+I0257;;IgM Salmonella Typhi;;;;;;;;;;;;;;;;; 
+I0258;;Salmonella Typhi;;;;;;;;;;;;;;;;; 
+I025801;;IgG;;;;;;;;;;;;;;;;; 
+I025802;;IgM;;;;;;;;;;;;;;;;; 
+I0259;;Dengue NS1 Antigen;75377-2;Dengue virus NS1 Ag [Presence] in Serum, Plasma or Blood by Rapid immunoassay; 119364003; Serum specimen ;;;;;;;;;;;;Immunochromatographic
+I0261;;FT4 (Jangan dipakai);;;;;ng/dL;0.77 - 1.59;;;;;;;;;;;ELISA
+I0265;;Salmonella Typhi;;;;;;;;;;;;;;;;;immunochromatographic
+I026501;;Salmonella Typhi IgG;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I026502;;Salmonella Typhi IgM;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0266;;TSHs;11580-8;Thyrotropin [Units/volume] in Serum or Plasma by Detection limit <= 0.005 mIU/L; 119364003; Serum specimen ;uIU/ml;Eutiroid : 0.34 - 4.22<BR>Hipertiroid : < 0.34<BR>Hipotiroid : > 4.2;;;;;;;;;;; 
+I0267;;HbsAg Titer;63557-3;Hepatitis B virus surface Ag [Units/volume] in Serum or Plasma by Immunoassay;119364003;Serum specimen;;Non Reaktif < 0.13<BR>Reaktif >= 0.13;;;;;;;;;;;ELISA
+I0268;;ICT Malaria;;;;;;;;;;;;;;;;;immunochromatographic
+I026801;;Plasmodium falciparum;;;;;;Negatif;;;;;;;;;;; 
+I026802;;Plasmodium vivax;;;;;;Negatif;;;;;;;;;;; 
+I0269;;IgM Anti HBc;24113-3;Hepatitis B virus core IgM Ab [Presence] in Serum or Plasma by Immunoassay;119364003;Serum specimen;;;;;;;;;;;;; 
+I0270;;IgG Anti HSV 1;;;;;;Negatif : < 0.6Equivocal : >= 0.6 - < 1.0Positif : >= 1.0;;;;;;;;;;; ECLIA
+I0271;;IgM Anti HSV 1;;;;;;Negatif : < 0.90<BR>Equivocal : 0.90 - 1.10<BR>Positif : > 1.10;;;;;;;;;;;ELISA
+I0272;;IgM Leptospira;23202-5;Leptospira sp IgM Ab [Presence] in Serum;199364003;Serum specimen;;Negatif;;;;;;;;;;; 
+I0273;;Beta HCG Kuant. Serum;;;;;mIU/ml;NILAI NORMAL BETA HCG;;;;;;;;;;; 
+I027301;;- Wanita tdk hamil premenopause;;;;;;Wanita tidak hamil premenopause < 5.3 mIU/ml;;;;;;;;;;;
+I027302;;- Wanita Post Menopause;;;;;;Wanita Post Menopause < 8.3 mIU/ml;;;;;;;;;;;
+I027303;;- Laki-laki;;;;;;Laki-laki < 2.6 mIU/ml;;;;;;;;;;;
+I027304;;- Hamil 3 minggu;;;;;;Hamil 3 minggu : 5.8 - 71.2 mIU/ml;;;;;;;;;;;
+I027305;;- Hamil 4 minggu;;;;;;Hamil 4 minggu : 9.5 - 750 mIU/ml;;;;;;;;;;;
+I027306;;- Hamil 5 minggu;;;;;;Hamil 5 minggu : 217 - 7138 mIU/ml;;;;;;;;;;;
+I027307;;- Hamil 6 minggu;;;;;;Hamil 6 minggu : 158 - 31798 mIU/ml;;;;;;;;;;;
+I027308;;- Hamil 7 minggu;;;;;;Hamil 7 minggu : 3697 - 163563 mIU/ml;;;;;;;;;;;
+I027309;;- Hamil 8 minggu;;;;;;Hamil 8 minggu : 63803 - 149571 mIU/ml;;;;;;;;;;;
+I027310;;- Hamil 9 minggu;;;;;;Hamil 9 minggu : 63803 - 151410 mIU/ml;;;;;;;;;;;
+I027311;;- Hamil 10 minggu;;;;;;Hamil 10 minggu : 46509 - 186977 mIU/ml;;;;;;;;;;;
+I027312;;- Hamil 12 minggu;;;;;;Hamil 12 minggu : 27832 - 210612 mIU/ml;;;;;;;;;;;
+I027313;;- Hamil 14 minggu;;;;;;Hamil 14 minggu : 13950 - 62530 mIU/ml;;;;;;;;;;;
+I027314;;- Hamil 15 minggu;;;;;;Hamil 15 minggu : 12039 - 70971 mIU/ml;;;;;;;;;;;
+I027315;;- Hamil 16 minggu;;;;;;Hamil 16 minggu : 9040 - 56451 mIU/ml;;;;;;;;;;;
+I027316;;- Hamil 17 minggu;;;;;;Hamil 17 minggu : 8175 - 55868 mlU/ml;;;;;;;;;;;
+I027317;;- Hamil 18 minggu;;;;;;Hamil 18 minggu : 8099 - 58176 mIU/ml;;;;;;;;;;;
+I0277;;Rapid Test Antibodi Anti SARS cov-2;;;;;;;;;;;;;;;;;immunochromatographic
+I027701;;Anti SARS-coV 2 IgM;;;;;;Non Reaktif;;;;;;;;;;;immunochromatographic
+I027702;;Anti SARS-coV 2 IgG;;;;;;Non Reaktif;;;;;;;;;;;immunochromatographic
+I027707;;Keterangan;;;;;;Catatan : <BR>Hasil Non Reaktif tidak menyingkirkan kemungkinan terinfeksi SARS-CoV-2 sehingga masih beresiko menularkan<BR>ke orang lain. Hasil Non Reaktif dapat terjadi pada kondisi :<BR>- Seseorang belum/tidak terinfeksi <BR>- Window period(terinfeksi namun antibodi belum terbentuk)<BR>- Immunocompromised<BR>- Kadar antibodi dibawah level deteksi alat <BR><BR>Saran :<BR>- Ulang pemeriksaan rapid tes antibodi 10 hari kemudian<BR>- Tetap menjaga social/physical distancing <BR>- Pertahankan perilaku hidup bersih dan sehat(Cuci tangan, terapkan etika batuk, gunakan masker saat sakit,<BR>  jaga stamina).;;;;;;;;;;; 
+I027708;;Keterangan;;;;;;Saran :<BR>- Lanjutkan dengan pemeriksaan konfirmasi PCR <BR>- Tetap lakukan Social Distancing/isolasi diri.;;;;;;;;;;; 
+I0279;;Antigen SARS CoV-2;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I027906;;Keterangan;;;;;;<b>Saran</b>: <br><ul><li>Pemeriksaan konfirmasi dengan pemeriksaan RT-PCR</li><li>Lakukan karantina atau isolasi sesuai dengan kriteria</li><li>Menerapkan PHBS (perilaku hidup bersih dan sehat): mencuci tangan, menerapkan etika batuk, menggunakan masker saat sakit, menjaga stamina), dan <i>physical distancing</i>.</li></ul>;;;;;;;;;;; 
+I027907;;Keterangan;;;;;;<b>Catatan :</b><br><ul><li>Hasil negatif tidak menyingkirkan kemungkinan terinfeksi SARS-CoV-2 sehingga masih berisiko menularkan ke orang lain, disarankan tes ulang atau tes konfirmasi dengan NAAT (nucleic acid amplification tests), bila probabilitas pretes relatif tinggi, terutama bila pasien bergejala atau diketahui memiliki kontak dengan orang yang terkonfirmasi COVID-19.</li><li>Hasil negatif dapat terjadi pada kondisi kuantitas antigen pada spesimen dibawah level deteksi alat.</li></ul>;;;;;;;;;;; 
+I0280;;Rapid Syphilis;;;;;;Negatif;;;;;;;;;;;immunochromatographic
+I0282;;hs-CRP;30522-7;C reactive protein [Mass/volume] in Serum or Plasma by High sensitivity method;119364003;Serum specimen;mg/L;0.00 - 10.0;;;;;;;;;;; FIA
+I0285;;Anti SARS-CoV 2 Kuantitatif;;;;;AU/mL;;;;;;;;Negatif : < 10.00 AU/mL<BR>Positif : >= 10.00 AU/mL;Negatif : < 10.00 AU/mL<BR>Positif : >= 10.00 AU/mL;;; Fluorescene Immunochromatography
+I0286;;Dengue Duo;;;;;;;;;;;;;;;I;;Immunochromatographic
+I028601;;Dengue IgG;;;;;;Negatif;;;;;;;;;;;Immunochromatographic
+I028602;;Dengue IgM;;;;;;Negatif;;;;;;;;;;;Immunochromatographic
+I028603;;Dengue NS1;;;;;;Negatif;;;;;;;;;;;Immunochromatographic
+I0288;;CRP Titer;1988-5;C reactive protein [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/L;0.00 - 10.0;;;;;;;;;I;;
+I0289;;Asto Titer;22568-0;Streptolysin O Ab [Titer] in Serum;119364003;Serum specimen;IU/ml;Negatif;;;;;;;;;;;
+I0290;;Tes HIV Konfirmasi;;;;;;Non Reaktif;;;;;;;;;I;;
+I0292;;RPR (Rapid Plasma Reagin) Syphilis;;;;;;Non Reaktif;;;;;;;;;IS;;
+K0301;301;Cholesterol Total;2093-3;Cholesterol [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;< 200;0;200;;;;;;;;Janji :1 jam; CHOD-POD
+K0302;304;Cholesterol LDL;2089-1;Cholesterol in LDL [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;< 100;0;100;;;;;;;;Janji :1 jam; Direct
+K0303;303;Cholesterol HDL;2085-9;Cholesterol in HDL [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;40 - 60;40;60;;;;;;;;Janji :1 jam;Direct
+K0304;302;Trigliserida;2571-8;Triglyceride [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;< 200;0;200;;;;;;;;Janji :1 jam; GPO-POD
+K0305;305;CK;;;;;U/L;< 145;;;;;;;< 145;< 145;;Janji :2 hari; 
+K0306;306;CK-MB;;;;;U/L;;7.0;25.0;0;25;0;25;sampai 25;sampai 25;;Janji :2 hari;Enzimatik
+K0307;307;SGOT;88112-8;Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P;119364003;Serum specimen;U/L;;;;0;35;0;31;Sampai 35;Sampai 31;;Janji : 1 jam; IFCC
+K0308;308;SGPT;1744-2;Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P;199364003;Serum specimen;U/L;;;;0;45;0;34;Sampai 45;Sampai 34;;Janji :1 jam; IFCC
+K0309;309;Gamma GT;2324-2;Gamma glutamyl transferase [Enzymatic activity/volume] in Serum or Plasma;19364003;Serum specimen;U/L;May-85;5;85;;;;;;;;Janji :1 jam; IFCC
+K0311;311;Alkaline Fosfatase;6768-6;Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma;119364003;Serum specimen;U/L;;;;80;306;80;306;80 - 306;80 - 306;;Janji :1 jam;Optimised Standard
+K0312;317;LDH;;Lactate dehydrogenase [Enzymatic activity/volume] in Serum or Plasma by Lactate to pyruvate reaction;;;U/L;;240;480;120;240;120;240;120- 240 ;120 - 240 ;;Janji :2 hari; 
+K0314;318;Kalium;6298-4;Potassium [Moles/volume] in Blood;119364003;Serum specimen;mmol/L;3.5 - 5.5;3.5;5.5;3.5;5.5;3.5;5.5;3.5 - 5.5;3.5 - 5.5;;Janji :1 hari; 
+K0315;319;Natrium;2947-0;Sodium [Moles/volume] in Blood;119364003 ;Serum specimen;mmol/L;135 - 145;135;147;135;145;135;145;135 - 145 ;135 - 145 ;;Janji :1 hari; 
+K0316;320;Chlorida;2069-3;Chloride [Moles/volume] in Blood;119364003;Serum specimen ;mmol/L;96 - 106;96;106;96;106;98;106;96 - 106;96 - 106;;Janji :1 hari;ISE
+K0317;312;Bilirubin Total;1975-2;Bilirubin.total [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;;0;1.00;0;1.00;0;1;Sampai 1.00;Sampai 1.00;;Janji :1 jam;Modified Jendrassik/Grof
+K0318;313;Bilirubin Direct;1968-7;Bilirubin.direct [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;;0.1;0.4;0.1;0.47;0.1;0.4;0.4;;;;Modified Jendrassik/Grof
+K0319;314;Total Protein;2885-2;Protein [Mass/volume] in Serum or Plasma;119364003;Serum specimen;g/dl;6.6 - 8.7;6.6;8.7;;;;;;;;Janji :1 jam; Biuret Reaction
+K0321;315;Albumin;61151-7;Albumin [Mass/volume] in Serum or Plasma by Bromocresol green (BCG) dye binding method;119364003;Serum spesimen;g/dl;3.4 - 4.8;3.4;4.8;;;;;;;;Janji :1 jam; 
+K0322;316;Globulin;10834-0;Globulin [Mass/volume] in Serum by calculation;119364003;Serum specimen;gram%;;1.6;4.9;1.5;3;1.5;3;1.5 - 3.0;1.5 - 3.0;;Janji :1 jam; 
+K0325;;Cholinesterase;;;;;U/L;;;;3000;9300;3000;9300;3000 - 9300 ;3000 - 9300 ;;Janji :1 jam; 
+K0326;329;Glukosa Darah Puasa;2345-7;Glucose [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;70 - 115;70;115;70;115;70;115;70 - 115;70 - 115;;Janji :1 jam; GOD-POD
+K0327;330;Glukosa Darah 2 Jam PP;2345-7;Glucose [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;;;< 140;0;140;0;140;< 140 ;< 140 ;;Janji :1 jam;GOD-POD
+K0328;331;Glukosa Darah Sewaktu;2345-7;Glucose [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;;;< 140;0;140;0;140;< 140;< 140;;Janji :1 jam;GOD-POD
+K0329;326;Ureum;20977-5;Urea [Mass/volume] in Blood;119364003;Serum Spesimen;mg/dl;Oct-50;10;50;;;;;;;;Janji : 1 jam; Urease-GLDH, UV
+K0331;327;Creatinin;2160-0;Creatinine [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;0.6 - 1.3;0.6;1.3;;;;;;;;Janji :1 jam;Sarcosine Oxidase
+K0332;328;Asam Urat;3084-1;Urate [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;;;;3.4;7.0;2.4;5.7;3.4 - 7.0;2.4 - 5.7;;Janji :1 jam; Uricase-Peroxidase
+K0333;333;Amylase;;;;;U/L;;;;0;120;0;120;Sampai 120;Sampai 120;;Janji :2 hari; 
+K0334;334;Lipase;;;;;U/L;;13;60;0;190;0;190;Sampai 190 ;Sampai 190 ;;Janji :2 hari; 
+K0335;332;HbA 1C;59261-8;Hemoglobin A1c/Hemoglobin.total in Blood by IFCC protocol;119297000;Blood specimen;%;< 6.5 : Baik<BR>6.5 - 8.0 : Sedang<BR>> 8 : Buruk;;;;;;;;;;;Barronaite
+K0336;;Troponin I;;;;;ng/ml;0.00 - 0.02<BR>> 0.02 Abnormal;;;;;;;;;;; 
+K0338;;SGOT;88112-8;Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P;119364003;Serum specimen;U/L;;;;0;35;0;31;Sampai 35;Sampai 31;;Janji  : 1 jam; IFCC
+K0339;;SGPT;1744-2;Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P;199364003;Serum specimen;U/L;;;;0;45;0;34;Sampai 45;Sampai 34;;Janji :1 jam; IFCC
+K0340;;Kalsium;17861-6;Calcium [Mass/volume] in Serum or Plasma;;;mg/dL;8.1 - 10.4;;;;;;;;;;;Coloriimetric. Arsenazo III
+K0341;;Elektrolit;;;;;;;;;;;;;;;;;ISE
+K034101;;Kalium;;;;;mmol/L;3.5 - 5.5;3.5;5.5;;;;;3.5 - 5.5;3.5 - 5.5;;;ISE
+K034102;;Natrium;;;;;mmol/L;135 - 145;135;145;;;;;;135 - 145;;;ISE
+K034103;;Klorida;;;;;mmol/L;96 - 106;;;;;;;;;;;ISE
+K0343;;Bilirubin Indirect;1971-1;Bilirubin.indirect [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dl;sampai 0.75;0;;;;;;;;;; 
+K0344;;Alkali Fosfatase;6768-6;Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma;119364003;Serum specimen;U/L;;;;80;306;80;306;80 - 306;80 - 306;;;Kolorimetri
+K0346;;Microalbumin;;;;;mg/L;< 20;;;;;;;;;;; 
+K0347;;Rasio LDL/HDL;9830-1;Cholesterol.total/Cholesterol in HDL [Mass Ratio] in Serum or Plasma;119364003;Serum specimen;;Resiko rendah : < 3<BR>Moderat : 3 - 5<BR>Resiko Tinggi : > 5;;;;;;;;;;; 
+K0348;;Magnesium;19123-9;Magnesium [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dL;1.6 - 2.6;1.6;2.6;;;;;;;;; 
+K0350;;rasio Cholesterol/HDL;9830-1;Cholesterol.total/Cholesterol in HDL [Mass Ratio] in Serum or Plasma;119364003;Serum specimen;;;;;;;;;;;;; 
+K0352;;Vitamin D;;;;;ng/ml;Defisiensi : < 20<BR>Insufisiensi : 20 - 29<BR>Sufficient : 30 - 100<BR>Potential Toxicity :<BR>> 100;;;;;;;;;;;FIA
+K0356;;eGFR;;;;;;>= 60;60;;;;;;;;K;;CKD-EPI
+K0358;;C-Peptide;;;;;ng/ml;1.1 - 4.4;1.1;4.4;;;;;;;K;;ECLIA
+K0359;;Fosfor Anorganik;;;;;;2.7 - 4.5;2.7;4.5;;;;;;;K;;
+M011001;;Sputum Sewaktu ;;;;;;Negatif;;;;;;;;;;; 
+M011002;;Sputum Pagi;;;;;;Negatif;;;;;;;;;;; 
+M013301;;Sputum Sewaktu;;;;;;Negatif;;;;;;;;;;; 
+M013302;;Sputum Pagi;;;;;;Negatif;;;;;;;;;;; 
+P0101;;Dengue Test IgG;100964-6;Dengue virus IgG Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay; 119364003; Serum specimen ;;;Negatif;;;;;;;;;P;Janji :1 jam; 
+P0102;;Dengue Test IgM;25338-5;Dengue virus IgM Ab [Presence] in Serum; 119364003; Serum specimen ;;;Negatif;;;;;;;;;P;Janji :1 jam; 
+P0103;;Helicobacter Pylori;;;;;;Negatif;;;;;;;;;P;Janji :2 hari; 
+P0104;;ICT Malaria;;;;;;Negatif;;;;;;;;;P;Janji :1 hari; 
+P0106;;IgM Salmonella (SPOT Typhi);;;;;;Negatif;;;;;;;;;P;Janji :1 jam; 
+P010702;;SARS-CoV-2 Gene RdRp;;;;;;Negatif >= 40.00;;;;;;;;;;; RT-PCR
+P010703;;SARS-CoV-2 Gene ORF 1ab;;;;;;Negatif >= 40.00;;;;;;;;;;; RT-PCR
+P0108;;SARS-CoV-2 RNA;;;;;;Negatif;;;;;;;;;;TIDAK TERPAKAI; RT-PCR Gen Terdeteksi Orf1ab
+P0109;;SARS-CoV-2 RNA;;;;;;Negatif; ;;;;;;;;P;; 
+P010906;;Keterangan;;;;;;<b>Catatan :</b> <br>Hasil <b>Negatif</b> menunjukkan bahwa tidak terdeteksi adanya RNA Virus SARS-CoV-2.<br>Mohon evaluasi klinis, Riwayat pasien dan informasi pemeriksaan penunjang medis lainnya untuk dapatmenginterpretasikan status pasien.<br><b>Saran</b>:<br>Lakukan Protokol Kesehatan dengan benar dan tepat.;;;;;;;;;;; 
+P010907;;Keterangan;;;;;;<b>Catatan</b> : <br> Hasil <b>Positif</b> menunjukkan bahwa terdeteksi adanya RNA Virus SARS-CoV-2.<br>Mohon evaluasi klinis, Riwayat pasien dan informasi pemeriksaan penunjang medis lainnya untuk dapatmenginterpretasikan status pasien.<br><b>Saran:</b><br>Silahkan melakukan konsultasi lebih lanjut ke dokter.<br>Lakukan Protokol Kesehatan dengan benar dan tepat.;;;;;;;;;;; 
+P011002;;SARS-CoV-2 Gene RdRp;;;;;;Negatif >=40.00;;;;;;;;;;; 
+P011003;;SARS-CoV-2 Gene ORF 1ab;;;;;;Negatif >=40.00;;;;;;;;;;; 
+P011004;;Interpretasi;;;;;;<BR><BR><BR><BR><BR><BR><BR><BR><BR>;;;;;;;;;;; 
+U0101;;Urine Lengkap;;;;;;;;;;;;;;;;Janji :1 jam; 
+U010101;;Warna;;;;;;Kuning;;;;;;;;;;Janji :; Makroskopis
+U010102;;Kejernihan;;;;;;Jernih;;;;;;;;;;Janji :; Makroskopis
+U010103;;PH;;;;;;5.0 - 6.5;;;5.0;6.5;5.0;6.5;;;;Janji :; Carik Celup
+U010104;;Berat Jenis;;;;;;1.025 - 1.035;;;1.025;1.035;1.025;1.035;;;;Janji :; Carik Celup
+U010105;;Nitrit;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010106;;Protein;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010107;;Glukosa;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010108;;Keton;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010109;;Urobilinogen;;;;;;Normal;;;;;;;;;;Janji :; Carik Celup
+U010110;;Bilirubin;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010111;;Darah;;;;;;Negatif;;;;;;;;;;Janji :; Carik Celup
+U010112;;Leukosit;;;;;;Negatif;;;;;;;;;;; Carik Celup
+U01011301;;Eritrosit;;;;;;Negatif;;;0;1;0;1;;;;Janji :; Mikroskopis
+U01011302;;Leukosit;;;;;/lpb;<= 5;;;1;6;1;6;;;;Janji :; Mikroskopis
+U01011303;;Sel Epitel;;;;;/lpk;<= 10;;;0;10;0;10;;;;Janji :; Mikroskopis
+U0101130401;;Leukosit;;;;;;Negatif;;;;;;;;;;; Mikroskopis
+U0101130402;;Eritrosit;;;;;;Negatif;;;;;;;;;;; Mikroskopis
+U0101130403;;Hyaline;;;;;;Negatif;;;;;;;;;;; Mikroskopis
+U0101130404;;Granular;;;;;;Negatif;;;;;;;;;;; Mikroskopis
+U01011305;;Kristal;;;;;;Negatif;;;;;;;;;;Janji :; Mikroskopis
+U01011306;;Bakteri;;;;;;Negatif;;;;;;;;;;; Mikroskopis
+U01011307;;Lain-lain;;;;;;Negatif;;;;;;;;;;Janji :; Mikroskopis
+U0102;;Glukosa Urine;;;;;;Negatif;;;;;;;;;;Janji :1 jam;Carik Celup 
+U0103;;Protein Urine;;;;;;Negatif;;;;;;;;;;Janji :1 jam;Carik Celup
+U0104;;Protein Esbach;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0105;;Bence Jones Protein;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0106;;Mikroalbumin Urine;;;;;mg/L;0 - 30;0;30;;;;;;;;Janji :1 jam; Immunoturbidimetry
+U0107;;Urobilinogen;;;;;;Negatif;;;;;;;;;;Janji :1 jam; 
+U0108;;Bilirubin;34543-9;Bilirubin direct and total panel [Mass/volume] - Serum or Plasma;119364003;Serum specimen;;Negatif;;;;;;;;;;Janji :1 jam; 
+U0110;;Nitrit Urine;;;;;;Negatif;;;;;;;;;;Janji :1 jam;Carik Celup 
+U0111;;PH Urine;;;;;;4.8 - 7.4;;;4.8;7.4;4.8;7.4;;;;Janji :1 jam;Carik Celup 
+U0112;;BJ Urine;;;;;;1.015 - 1.025;;;1.015;1.025;1.015;1.025;;;;Janji :1 jam;Carik Celup 
+U0115;;Magnesium;19123-9;Magnesium [Mass/volume] in Serum or Plasma;119364003;Serum specimen;mg/dL;1.6 - 2.6;1.6;2.6;;;;;;;;Janji :; 
+U0120;;Amphetamine;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0122;;Benzodiazepine;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0123;;Oplat/Morphine;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0124;;Canabinoid;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0125;;Coccain;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0126;;Metamphetamine;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0127;;Ganja/Marijuana;;;;;;Negatif;;;;;;;;;;Janji :1 hari; 
+U0137;;Cannabinoid;;;;;;Negative;;;;;;;;;;; 
+U0139;;Opiat/Morphine;;;;;;Negatif;;;;;;;;;;; 
+U0140;;Glukosa Urine 2 Jam PP;;;;;;Negatif;;;;;;;;;;;Carik Celup 
+W0101;;Widal Test;;;;;0;0;;;;;;;;;W;Janji :2 jam;Agglutination
+W010101;;- S.Typhi  O;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010102;;- S.Typhi  H;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010103;;#NAME?;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010104;;#NAME?;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010105;;#NAME?;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010106;;#NAME?;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+W010107;;#NAME?;;;;;;Negatif;;;;;;;;;W;Janji :;agglutination
+W010108;;#NAME?;;;;;0;Negatif;;;;;;;;;W;Janji :;agglutination
+`;
+
+const lines = csv.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('pc_pxcode'));
+
+let updateLab = 'INSERT INTO ref_lab (kode, nama, kelompok, satuan, jenis_nilai, teks_normal, kode_loinc, display_loinc, kode_specimen, nama_specimen, barcode, janji_hasil, metode) VALUES\n';
+
+let valsLab = [];
+let valsRujukan = [];
+
+const clean = s => s ? "'" + s.replace(/'/g, "''") + "'" : 'NULL';
+const num = s => {
+  if(!s) return 'NULL';
+  const v = parseFloat(s);
+  return isNaN(v) ? 'NULL' : v;
+};
+
+lines.forEach(l => {
+  const p = l.split(';');
+  if(p.length < 20 || !p[0]) return;
+  
+  const kode = p[0];
+  const kelompok = p[1] ? p[1] : (kode.startsWith('A')?'Lainnya':kode.startsWith('H')?'Hematologi':kode.startsWith('I')?'Imunoserologi':kode.startsWith('K')?'Kimia Klinik':kode.startsWith('U')?'Urinalisis':'Lainnya');
+  const nama = p[2];
+  const kode_loinc = p[3];
+  const display_loinc = p[4];
+  const kode_specimen = p[5];
+  const nama_specimen = p[6];
+  const satuan = p[7];
+  let teks_normal = p[8]; // can be used for teks in rujukan
+  const min_normal = p[9];
+  const max_normal = p[10];
+  const min_l = p[11];
+  const max_l = p[12];
+  const min_p = p[13];
+  const max_p = p[14];
+  const text_l = p[15];
+  const text_p = p[16];
+  const barcode = p[17];
+  const janji = p[18];
+  const metode = p[19];
+  
+  // Decide if this is numeric or text
+  let jenis_nilai = 'TEKS';
+  if (num(min_normal) !== 'NULL' || num(max_normal) !== 'NULL' || num(min_l) !== 'NULL' || num(max_p) !== 'NULL') {
+    jenis_nilai = 'ANGKA';
+  }
+  
+  valsLab.push(`(${clean(kode)}, ${clean(nama)}, ${clean(kelompok)}, ${clean(satuan)}, ${clean(jenis_nilai)}, ${clean(teks_normal)}, ${clean(kode_loinc)}, ${clean(display_loinc)}, ${clean(kode_specimen)}, ${clean(nama_specimen)}, ${clean(barcode)}, ${clean(janji)}, ${clean(metode)})`);
+  
+  // We insert into ref_lab_rujukan. Since it needs lab_id, we do it in a PL/pgSQL block
+  // But wait, it's easier to just do it via SELECT id FROM ref_lab
+  
+  let hasL = num(min_l) !== 'NULL' || num(max_l) !== 'NULL' || text_l;
+  let hasP = num(min_p) !== 'NULL' || num(max_p) !== 'NULL' || text_p;
+  
+  if (hasL) {
+    valsRujukan.push(`( (SELECT id FROM ref_lab WHERE kode=${clean(kode)}), 'L', ${num(min_l)}, ${num(max_l)}, ${clean(text_l)} )`);
+  }
+  if (hasP) {
+    valsRujukan.push(`( (SELECT id FROM ref_lab WHERE kode=${clean(kode)}), 'P', ${num(min_p)}, ${num(max_p)}, ${clean(text_p)} )`);
+  }
+  
+  if (!hasL && !hasP) {
+    if (num(min_normal) !== 'NULL' || num(max_normal) !== 'NULL' || teks_normal) {
+      valsRujukan.push(`( (SELECT id FROM ref_lab WHERE kode=${clean(kode)}), NULL, ${num(min_normal)}, ${num(max_normal)}, ${clean(teks_normal)} )`);
+    }
+  }
+});
+
+let sql = `-- INSERT / UPDATE REF_LAB \n`;
+sql += updateLab + valsLab.join(',\n') + '\n';
+sql += `ON CONFLICT (kode) DO UPDATE SET 
+  nama = EXCLUDED.nama,
+  satuan = COALESCE(EXCLUDED.satuan, ref_lab.satuan),
+  jenis_nilai = EXCLUDED.jenis_nilai,
+  teks_normal = COALESCE(EXCLUDED.teks_normal, ref_lab.teks_normal),
+  kode_loinc = COALESCE(EXCLUDED.kode_loinc, ref_lab.kode_loinc),
+  display_loinc = COALESCE(EXCLUDED.display_loinc, ref_lab.display_loinc),
+  kode_specimen = COALESCE(EXCLUDED.kode_specimen, ref_lab.kode_specimen),
+  nama_specimen = COALESCE(EXCLUDED.nama_specimen, ref_lab.nama_specimen),
+  barcode = COALESCE(EXCLUDED.barcode, ref_lab.barcode),
+  janji_hasil = COALESCE(EXCLUDED.janji_hasil, ref_lab.janji_hasil),
+  metode = COALESCE(EXCLUDED.metode, ref_lab.metode);\n\n`;
+
+sql += `-- SEED RUJUKAN \n`;
+sql += `INSERT INTO ref_lab_rujukan (lab_id, jenis_kelamin, batas_bawah, batas_atas, teks) VALUES\n`;
+sql += valsRujukan.join(',\n') + '\n';
+sql += `ON CONFLICT DO NOTHING;\n`; // but ref_lab_rujukan has no unique constraint on (lab_id, jenis_kelamin, umur_min, umur_max), so it might duplicate if run multiple times.
+// We can delete existing rujukan for these labs to prevent duplicates.
+let preSql = `DELETE FROM ref_lab_rujukan WHERE lab_id IN (SELECT id FROM ref_lab WHERE kode IN (${valsLab.map(v => v.split(',')[0].replace('(','')).join(',')}));\n\n`;
+
+fs.writeFileSync('sql/45_seeding_lab.sql', preSql + sql);

@@ -1133,9 +1133,25 @@ const Master = (() => {
           <div class="field mb-0"><label for="lbLoinc">Kode LOINC
               <span class="opt">diisi setelah terdaftar SatuSehat</span></label>
             <input type="text" id="lbLoinc" value="${UI.esc(m?.kode_loinc || '')}"></div>
-          <div class="field mb-0"><label for="lbUrutan">Urutan tampil</label>
-            <input type="number" id="lbUrutan" value="${m?.urutan ?? 0}"></div>
+          <div class="field mb-0"><label for="lbDisplayLoinc">Display LOINC</label>
+            <input type="text" id="lbDisplayLoinc" value="${UI.esc(m?.display_loinc || '')}"></div>
         </div>
+        <div class="form-row c2 mt-12">
+          <div class="field mb-0"><label for="lbKodeSpecimen">Kode Spesimen</label>
+            <input type="text" id="lbKodeSpecimen" value="${UI.esc(m?.kode_specimen || '')}"></div>
+          <div class="field mb-0"><label for="lbNamaSpecimen">Nama Spesimen</label>
+            <input type="text" id="lbNamaSpecimen" value="${UI.esc(m?.nama_specimen || '')}"></div>
+        </div>
+        <div class="form-row c3 mt-12">
+          <div class="field mb-0"><label for="lbBarcode">Barcode</label>
+            <input type="text" id="lbBarcode" value="${UI.esc(m?.barcode || '')}"></div>
+          <div class="field mb-0"><label for="lbMetode">Metode</label>
+            <input type="text" id="lbMetode" value="${UI.esc(m?.metode || '')}"></div>
+          <div class="field mb-0"><label for="lbJanjiHasil">Janji Hasil</label>
+            <input type="text" id="lbJanjiHasil" value="${UI.esc(m?.janji_hasil || '')}"></div>
+        </div>
+        <div class="field mt-12"><label for="lbUrutan">Urutan tampil</label>
+            <input type="number" id="lbUrutan" value="${m?.urutan ?? 0}"></div>
         ${m ? `<label class="check mt-16"><input type="checkbox" id="lbAktif"
           ${m.aktif ? 'checked' : ''}><span>Aktif — muncul saat dokter meminta pemeriksaan</span></label>` : ''}`,
       tombol: [
@@ -1157,6 +1173,12 @@ const Master = (() => {
                 pilihan: pil.length ? pil : null,
                 teks_normal: b.querySelector('#lbNormal').value.trim() || null,
                 kode_loinc: b.querySelector('#lbLoinc').value.trim() || null,
+                display_loinc: b.querySelector('#lbDisplayLoinc').value.trim() || null,
+                kode_specimen: b.querySelector('#lbKodeSpecimen').value.trim() || null,
+                nama_specimen: b.querySelector('#lbNamaSpecimen').value.trim() || null,
+                barcode: b.querySelector('#lbBarcode').value.trim() || null,
+                janji_hasil: b.querySelector('#lbJanjiHasil').value.trim() || null,
+                metode: b.querySelector('#lbMetode').value.trim() || null,
                 urutan: Number(b.querySelector('#lbUrutan').value) || 0,
                 aktif: m ? b.querySelector('#lbAktif').checked : true
               });
