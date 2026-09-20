@@ -495,13 +495,15 @@ const Lab = (() => {
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 30px 40px; color: #000; line-height: 1.4; }
-        .header { display: flex; justify-content: center; align-items: flex-start; margin-bottom: 20px; position: relative; }
-        .header-logo { text-align: center; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-bpjs { flex: 1; text-align: left; }
+        .header-bpjs img { height: 45px; width: auto; }
+        .header-logo { flex: 1; text-align: center; }
         .header-logo img { width: 50px; height: auto; }
         .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
         .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -4px; }
         
-        .header-text { position: absolute; right: 0; top: 10px; text-align: left; font-size: 11px; }
+        .header-text { flex: 1; text-align: left; font-size: 11px; padding-left: 20px; }
         .header-text b { font-size: 12px; }
         
         .barcode { margin-bottom: 5px; }
@@ -528,6 +530,9 @@ const Lab = (() => {
       </style></head><body>
       
       <div class="header">
+        <div class="header-bpjs">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Logo_BPJS_Kesehatan.svg" alt="BPJS Kesehatan">
+        </div>
         <div class="header-logo">
           <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}logo.png" onerror="this.style.display='none'">
           <div class="brand">UTAMA</div>
