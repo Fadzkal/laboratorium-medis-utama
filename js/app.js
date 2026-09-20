@@ -64,7 +64,7 @@ const App = (() => {
   const JUDUL = {
     beranda: 'Beranda', pendaftaran: 'Pendaftaran Pasien', antrian: 'Antrean Hari Ini',
     pasien: 'Data Pasien', riwayat: 'Riwayat Kunjungan', 'pantau-kronis': 'Pemantauan Kronis', kajian: 'Kajian Awal',
-    periksa: 'Pemeriksaan Dokter', rekam: 'Rekam Medis', laporan: 'Laporan',
+    periksa: 'Hasil Pemeriksaan Laboratorium', rekam: 'Hasil Pemeriksaan Laboratorium', laporan: 'Laporan',
     lab: 'Lab & Pemeriksaan Penunjang',
     kasir: 'Kasir', surat: 'Surat Keterangan',
     tarif: 'Tarif & Tampilan Invoice',

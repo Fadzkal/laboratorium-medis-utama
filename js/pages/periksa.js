@@ -208,34 +208,13 @@ const Periksa = (() => {
 
       <div class="split">
         <div>
-          ${kartuVital(terkunci)}
-          ${poliGigi ? kartuGigi(pgigi, terkunci) : ''}
-          ${kartuAnamnesis(terkunci)}
-          ${kartuFisik(terkunci)}
           ${kartuPenunjang(terkunci, bolehTulis)}
-          ${kartuSoap(terkunci)}
         </div>
 
         <div>
-          ${kartuTindakLanjut(terkunci)}
           ${kartuSimpan(terkunci, bolehTulis)}
           ${kartuKirim()}
 
-          <div class="card no-print">
-            <div class="card-head">
-              <div class="flex-1"><h2>Buku Kronis</h2>
-                <div class="sub">Diagnosis kronis, obat rutin, dan kuota statin BPJS pasien ini</div></div>
-            </div>
-            <div class="card-body" id="kartuKronis">${UI.memuat(1)}</div>
-          </div>
-
-          <div class="card no-print">
-            <div class="card-head">
-              <div class="flex-1"><h2>Surat keterangan</h2>
-                <div class="sub">Surat sakit, rujukan, kontrol, keterangan sehat</div></div>
-            </div>
-            <div class="card-body" id="kartuSurat">${UI.memuat(1)}</div>
-          </div>
 
           <div class="card no-print">
             <div class="card-head"><h2>Riwayat sebelumnya</h2></div>
