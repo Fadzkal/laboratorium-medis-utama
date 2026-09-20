@@ -235,6 +235,7 @@ const Lab = (() => {
             <select id="selFormatCetakInt" style="font-size: 12px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; margin-right: 4px;">
               <option value="M3">Format 3(M3)</option>
               <option value="Standar">Format Standar</option>
+              <option value="Asli">Format Asli</option>
             </select>
             <button class="btn btn-secondary btn-sm" id="btnCetak">${UI.ikon('cetak',15)} Cetak</button>
             ${p.status === 'SELESAI' && adminSaja()
@@ -591,7 +592,32 @@ const Lab = (() => {
         </tbody>
       </table>
       
-      ${format === 'Standar' ? `
+      ${format === 'Asli' ? `
+      <div class="signatures">
+        <div class="sig-box">
+          <div>Verifikator</div>
+          <div style="height: 60px;"></div>
+          <div>${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
+          <div>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</div>
+        </div>
+        <div class="sig-box" style="align-items: flex-start;">
+          <div>Penanggung Jawab</div>
+          <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
+          <div>dr. Minto Rahaju Sp. PK</div>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <div>
+          Hal. 1 dari 1 Halaman<br>
+          Jam Sampel ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
+        </div>
+        <div style="text-align: right;">
+          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}<br>
+          <b>Hasil tidak memerlukan tanda tangan karena dicetak secara elektronik. Hasil sudah di verifikasi dan divalidasi</b>
+        </div>
+      </div>
+      ` : format === 'Standar' ? `
       <div style="margin-top: 30px; font-size: 11px; font-weight: bold;">
         Keterangan : (*) Diluar nilai normal
       </div>
@@ -1371,6 +1397,7 @@ const Lab = (() => {
                 <select id="selFormatCetakExt" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   <option value="M3">Format 3(M3)</option>
                   <option value="Standar">Format Standar</option>
+                  <option value="Asli">Format Asli</option>
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>Cetak</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
