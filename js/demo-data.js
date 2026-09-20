@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    DEMO — pengganti db.js untuk halaman demo.html
    Semua data ada di memori; tidak ada koneksi ke internet atau database.
    Perubahan hilang saat halaman dimuat ulang.
@@ -533,6 +533,8 @@ const DB = (() => {
     apoteker:    { ...PEGAWAI.find(p => p.peran === 'apoteker'), email: 'apotek@labutama.id' },
     kasir:       { id: 'peg-6', nama: 'Yanti Kolondam', peran: 'kasir', aktif: true,
                    email: 'kasir@labutama.id' },
+    karyawan:    { id: 'peg-7', nama: 'Budi (Karyawan)', peran: 'karyawan', aktif: true,
+                   email: 'karyawan@labutama.id' },
     master:      { id: 'peg-0', nama: 'Master Klinik', peran: 'master', aktif: true,
                    email: 'master@labutama.id' }
   };
@@ -552,7 +554,14 @@ const DB = (() => {
              'kajian', 'periksa', 'menu_pendaftaran', 'menu_laporan', 'lab', 'bacaan',
              'lampiran', 'surat', 'kronis_kelola', 'antrean_buat'],
     apoteker: ['pasien_alergi', 'kunjungan_ubah', 'apotek'],
-    kasir: ['menu_kasir', 'kasir', 'menu_tarif']
+    kasir: ['menu_kasir', 'kasir', 'menu_tarif'],
+    karyawan: ['pasien_simpan', 'pasien_hapus', 'pasien_alergi', 'kunjungan_daftar', 'kunjungan_ubah',
+               'kunjungan_hapus', 'kajian', 'periksa', 'lab', 'bacaan', 'lampiran', 'apotek',
+               'kasir', 'surat', 'surat_batal', 'antrean_buat', 'antrean_hapus', 'antrean_pengaturan',
+               'antrol_log', 'kronis_kelola', 'kronis_migrasi', 'kronis_telpon_h1', 'master_data',
+               'master_data_obat', 'laporan_lanjutan', 'audit_lihat', 'menu_pendaftaran',
+               'menu_kasir', 'menu_laporan', 'menu_tarif', 'menu_migrasi', 'menu_pengaturan',
+               'menu_inkaso']
   };
   async function hakAksesSaya() {
     await tunggu(20);

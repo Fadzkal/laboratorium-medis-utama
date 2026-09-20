@@ -175,6 +175,29 @@ const UI = (() => {
   }
 
   const rupiah = (n) => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+  const formatRibuan = (n) => {
+    const clean = String(n ?? '').replace(/\D/g, '');
+    if (!clean) return '0';
+    return Number(clean).toLocaleString('id-ID');
+  };
+  const terbilang = (n) => {
+    n = Math.floor(Math.abs(Number(n) || 0));
+    if (n === 0) return 'Nol Rupiah';
+    const satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+    function sebut(x) {
+      if (x < 12) return satuan[x];
+      if (x < 20) return sebut(x - 10) + ' Belas';
+      if (x < 100) return sebut(Math.floor(x / 10)) + ' Puluh' + (x % 10 > 0 ? ' ' + sebut(x % 10) : '');
+      if (x < 200) return 'Seratus' + (x - 100 > 0 ? ' ' + sebut(x - 100) : '');
+      if (x < 1000) return sebut(Math.floor(x / 100)) + ' Ratus' + (x % 100 > 0 ? ' ' + sebut(x % 100) : '');
+      if (x < 2000) return 'Seribu' + (x - 1000 > 0 ? ' ' + sebut(x - 1000) : '');
+      if (x < 1000000) return sebut(Math.floor(x / 1000)) + ' Ribu' + (x % 1000 > 0 ? ' ' + sebut(x % 1000) : '');
+      if (x < 1000000000) return sebut(Math.floor(x / 1000000)) + ' Juta' + (x % 1000000 > 0 ? ' ' + sebut(x % 1000000) : '');
+      if (x < 1000000000000) return sebut(Math.floor(x / 1000000000)) + ' Miliar' + (x % 1000000000 > 0 ? ' ' + sebut(x % 1000000000) : '');
+      return sebut(Math.floor(x / 1000000000000)) + ' Triliun' + (x % 1000000000000 > 0 ? ' ' + sebut(x % 1000000000000) : '');
+    }
+    return sebut(n).trim() + ' Rupiah';
+  };
   // Gelar dilewati supaya avatar menampilkan inisial nama, bukan "DR"
   const GELAR = /^(dr|drg|ns|apt|prof|sp|s\.?kep|a\.?md|h|hj|tn|ny|sdr|sdri)\.?$/i;
   const inisial = (nama) => {
@@ -225,7 +248,12 @@ const UI = (() => {
     jam:      '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/>',
     grafik:   '<path d="M3 17h14M4 14l4-4 4 2 5-6M13 6h4v4"/>',
     surat:    '<rect x="3.5" y="4" width="13" height="12" rx="1.2"/><path d="M6.5 8h7M6.5 11h7M6.5 14h4"/>',
-    hapus:    '<path d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6M6.5 6l.6 10a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-10"/>'
+    hapus:    '<path d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6M6.5 6l.6 10a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-10"/>',
+    ulang:    '<path d="M17 10A7 7 0 1 1 14.5 4.5L17 7M17 3v4h-4"/>',
+    info:     '<circle cx="10" cy="10" r="7"/><path d="M10 9v4M10 7v.1"/>',
+    dokumen:  '<path d="M5 3h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v3h3"/><path d="M7 11h6M7 14h4"/>',
+    pensil:   '<path d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"/>',
+    centang:  '<path d="M4 10.5l4 4 8-9"/>'
   };
   function ikon(nama, ukuran = 18) {
     const d = PATH[nama] || PATH.cek;
@@ -283,6 +311,6 @@ const UI = (() => {
 
   return { esc, toast, modal, konfirmasi, tglIndo, tglPendek, jam, hariIni,
            bulanIni, geserBulan, labelBulan,
-           umur, umurTeks, rupiah, inisial, badgeStatus, badgeBayar, ikon,
+           umur, umurTeks, rupiah, uang: rupiah, formatRibuan, terbilang, inisial, badgeStatus, badgeBayar, ikon,
            kosong, memuat, nilaiForm, isiForm, tunda, vitalTidakNormal, HARI, BULAN };
 })();

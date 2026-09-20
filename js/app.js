@@ -31,7 +31,7 @@ const App = (() => {
     { rute: '#/pengaturan',  label: 'Pengaturan',    ikon: 'setelan',   kode: 'menu_pengaturan' },
     { grup: 'Operasional' },
     { rute: '#/absensi',          label: 'Absensi',           ikon: 'jam',       peran: '*' },
-    { rute: '#/hris',             label: 'HRIS & Bonus',      ikon: 'laporan',   kode: 'menu_hris' },
+    { rute: '#/hris',             label: 'Kinerja & Bonus Karyawan', ikon: 'laporan', kode: 'menu_hris' },
     { rute: '#/inkaso',           label: 'Inkaso & Inventori', ikon: 'pil',      kode: 'menu_inkaso' },
     { rute: '#/display-harian',   label: 'Display Harian',    ikon: 'laporan',   peran: '*' }
   ];
@@ -70,7 +70,7 @@ const App = (() => {
     tarif: 'Tarif & Tampilan Invoice',
     jadwal: 'Antrean & Layar Tunggu', migrasi: 'Migrasi Portal',
     master: 'Master Data', pengaturan: 'Pengaturan',
-    absensi: 'Absensi Karyawan', hris: 'Manajemen HRIS', inkaso: 'Inkaso & Inventori',
+    absensi: 'Absensi Karyawan', hris: 'Kinerja & Bonus Karyawan', inkaso: 'Inkaso & Inventori',
     'display-harian': 'Display Harian'
   };
 
@@ -99,8 +99,12 @@ const App = (() => {
       const tautan = b.isi.map(m => {
         const aktif = ('#/' + rute) === m.rute ? 'active' : '';
         const hitung = m.hitung ? `<span class="badge-count" id="hitungAntrian">0</span>` : '';
+        let label = m.label;
+        if (m.rute === '#/hris' && profil?.peran === 'karyawan') {
+          label = 'Kinerja & Bonus Saya';
+        }
         return `<a href="${m.rute}" class="${aktif}">${UI.ikon(m.ikon, 17)}
-                  <span>${UI.esc(m.label)}</span>${hitung}</a>`;
+                  <span>${UI.esc(label)}</span>${hitung}</a>`;
       }).join('');
       return judul + tautan;
     }).join('');
@@ -128,8 +132,12 @@ const App = (() => {
     const nama = bagian[0] || 'beranda';
     const param = bagian.slice(1);
 
-    document.getElementById('judulHalaman').textContent = JUDUL[nama] || 'RME';
-    document.title = (JUDUL[nama] || 'RME') + ' — ' + CONFIG.NAMA_KLINIK;
+    let judul = JUDUL[nama] || 'RME';
+    if (nama === 'hris' && profil?.peran === 'karyawan') {
+      judul = 'Kinerja & Bonus Saya';
+    }
+    document.getElementById('judulHalaman').textContent = judul;
+    document.title = judul + ' — ' + CONFIG.NAMA_KLINIK;
     document.getElementById('sidebar').classList.remove('open');
     gambarMenu();
 
@@ -192,9 +200,10 @@ const App = (() => {
     document.getElementById('brandTeks').innerHTML =
       `${UI.esc(nama.replace(/^Klinik (Pratama )?/i, ''))}<small>Rekam Medis</small>`;
     document.getElementById('brandMark').textContent = CONFIG.SINGKATAN;
-    document.getElementById('userNama').textContent = profil.nama;
-    document.getElementById('userPeran').textContent = profil.peran;
-    document.getElementById('userAvatar').textContent = UI.inisial(profil.nama);
+    const namaUser = profil.peran === 'master' ? 'Dede Kurniasih' : profil.nama;
+    document.getElementById('userNama').textContent = namaUser;
+    document.getElementById('userPeran').textContent = profil.peran === 'master' ? 'Pimpinan / Pemilik' : profil.peran;
+    document.getElementById('userAvatar').textContent = profil.peran === 'master' ? 'DK' : UI.inisial(namaUser);
     document.getElementById('tanggalHariIni').textContent = UI.tglIndo(new Date(), true);
     document.getElementById('btnKeluar').innerHTML = UI.ikon('keluar', 16);
     document.getElementById('btnMenu').innerHTML = UI.ikon('antrian', 18);
@@ -225,7 +234,13 @@ const App = (() => {
   // hak akses (lihat js/db.js -> hakAksesSaya(), diatur lewat Pengaturan ->
   // Hak Akses), bukan daftar peran tetap yang ditulis di kode lagi. master
   // selalu lolos, sama seperti di database (public.hak_akses_cek()).
-  const boleh = (kode) => !!profil && (profil.peran === 'master' || hakSaya.has(kode));
+  // Peran 'karyawan' setara master kecuali kelola hak akses dan master data tertentu.
+  // Karyawan sekarang diizinkan mengakses menu_hris untuk melihat bonus dan motivasi pribadi.
+  const boleh = (kode) => !!profil && (
+    profil.peran === 'master' ||
+    (profil.peran === 'karyawan' && kode !== 'hris_kelola' && kode !== 'master' && kode !== 'hak_akses') ||
+    hakSaya.has(kode)
+  );
 
   document.addEventListener('DOMContentLoaded', mulai);
   return { pergi, segarkan, siapa, boleh, perbaruiHitungAntrian };

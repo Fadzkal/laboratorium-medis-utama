@@ -30,6 +30,12 @@ const DB = (() => {
       .select('*, poli:poli_default(id,nama,kode)').eq('id', s.user.id).single();
     if (error) throw error;
     _saya = { ...data, email: s.user.email };
+    if (_saya.peran === 'master') {
+      _saya.nama = 'DEDE KURNIASIH';
+      if (data.nama !== 'DEDE KURNIASIH') {
+        sb.from('pegawai').update({ nama: 'DEDE KURNIASIH' }).eq('id', s.user.id).then(() => {}).catch(() => {});
+      }
+    }
     return _saya;
   }
 
@@ -86,8 +92,30 @@ const DB = (() => {
     return data;
   }
   async function daftarPegawai() {
-    const { data, error } = await sb.from('pegawai').select('*').order('nama');
+    const { data, error } = await sb.from('pegawai').select('*').order('created_at', { ascending: false });
     if (error) throw error; return data;
+  }
+  async function tambahPengguna(payload) {
+    const { data, error } = await sb.rpc('tambah_pengguna_langsung', {
+      p_nama: payload.nama,
+      p_email: payload.email,
+      p_password: payload.password,
+      p_peran: payload.peran || 'admin',
+      p_jenis_dokter: payload.jenis_dokter || null,
+      p_no_sip: payload.no_sip || null
+    });
+    if (error) throw error;
+    return data;
+  }
+  async function hapusPengguna(id) {
+    const { data, error } = await sb.rpc('hapus_pengguna_langsung', { p_id: id });
+    if (error) throw error;
+    return data;
+  }
+  async function resetPasswordPengguna(id, passwordBaru) {
+    const { data, error } = await sb.rpc('reset_password_pengguna', { p_id: id, p_password_baru: passwordBaru });
+    if (error) throw error;
+    return data;
   }
 
   /* ------------------------- Hak akses (9 Sep 2026) -------------------- */
@@ -2030,19 +2058,95 @@ const DB = (() => {
 
   /* ========================= HRIS & INVENTORY ========================== */
 
-  /* --- Absensi --- */
+  /* --- Absensi & Geofencing Multi-Lokasi --- */
+  async function daftarMasterLokasi(hanyaAktif = false) {
+    let q = sb.from('master_lokasi_absensi').select('*').order('nama');
+    if (hanyaAktif) q = q.eq('aktif', true);
+    const { data, error } = await q;
+    if (error || !data || data.length === 0) {
+      // Fallback default jika tabel belum di-migrasi atau kosong
+      const f = await faskes().catch(() => null);
+      return [{
+        id: 'default',
+        nama: f?.nama || 'Laboratorium Medis Utama (Pusat)',
+        alamat: [f?.alamat, f?.kelurahan, f?.kecamatan, f?.kabupaten].filter(Boolean).join(', ') || 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga',
+        latitude: -7.3872280,
+        longitude: 109.3637170,
+        radius_meter: 100,
+        aktif: true
+      }];
+    }
+    return data;
+  }
+
+  async function simpanMasterLokasi(rec, id = null) {
+    const q = id ? sb.from('master_lokasi_absensi').update(rec).eq('id', id).select().single()
+                 : sb.from('master_lokasi_absensi').insert(rec).select().single();
+    const { data, error } = await q;
+    if (error) throw error; return data;
+  }
+
+  async function hapusMasterLokasi(id) {
+    const { error } = await sb.from('master_lokasi_absensi').delete().eq('id', id);
+    if (error) throw error; return true;
+  }
+
+  /* --- Pengaturan Jam Kerja Kantor --- */
+  async function pengaturanJamKerja() {
+    try {
+      const { data, error } = await sb.from('pengaturan_absensi').select('*').eq('id', 1).maybeSingle();
+      if (!error && data) return data;
+    } catch (e) {
+      console.warn('pengaturan_absensi query fallback:', e);
+    }
+
+    try {
+      const lokal = localStorage.getItem('lab_pengaturan_jam_kerja');
+      if (lokal) return JSON.parse(lokal);
+    } catch (e) {}
+
+    return {
+      id: 1,
+      jam_masuk: '08:00',
+      jam_pulang: '16:00',
+      toleransi_keterlambatan_menit: 15
+    };
+  }
+
+  async function simpanPengaturanJamKerja(rec) {
+    const payload = {
+      id: 1,
+      jam_masuk: rec.jam_masuk,
+      jam_pulang: rec.jam_pulang,
+      toleransi_keterlambatan_menit: parseInt(rec.toleransi_keterlambatan_menit, 10) || 0,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem('lab_pengaturan_jam_kerja', JSON.stringify(payload));
+    } catch (e) {}
+
+    const { data, error } = await sb.from('pengaturan_absensi').upsert(payload).select().single();
+    if (error) {
+      console.warn('Tabel pengaturan_absensi Supabase:', error.message);
+      return payload;
+    }
+    return data;
+  }
+
   async function absensiPegawai(pegawaiId, dari, sampai) {
     const { data, error } = await sb.from('pegawai_absensi').select('*')
       .eq('pegawai_id', pegawaiId)
       .gte('tanggal', dari).lte('tanggal', sampai).order('tanggal', { ascending: false });
     if (error) throw error; return data;
   }
+
   async function absensiHariIni() {
     const hari = UI.hariIni();
     const { data, error } = await sb.from('pegawai_absensi').select('*')
       .eq('pegawai_id', _saya?.id).eq('tanggal', hari).maybeSingle();
     if (error) throw error; return data;
   }
+
   async function absensiMasuk(keterangan = null, lokasi = null) {
     const hari = UI.hariIni();
     const { data, error } = await sb.from('pegawai_absensi').insert({
@@ -2052,6 +2156,7 @@ const DB = (() => {
     }).select().single();
     if (error) throw error; return data;
   }
+
   async function absensiKeluar(id, keterangan = null, lokasi = null) {
     const { data, error } = await sb.from('pegawai_absensi').update({
       waktu_keluar: new Date().toISOString(),
@@ -2059,6 +2164,7 @@ const DB = (() => {
     }).eq('id', id).select().single();
     if (error) throw error; return data;
   }
+
   async function absensiLaporan(dari, sampai) {
     return await ambilSemua(() =>
       sb.from('pegawai_absensi').select('*, pegawai:pegawai_id(nama,peran)')
@@ -2066,7 +2172,125 @@ const DB = (() => {
     );
   }
 
-  /* --- KPI & Bonus --- */
+  async function absensiSemuaHariIni(tanggal = null) {
+    const tgl = tanggal || UI.hariIni();
+    const [semuaPegawai, semuaAbsensi] = await Promise.all([
+      daftarPegawai(),
+      sb.from('pegawai_absensi').select('*').eq('tanggal', tgl)
+    ]);
+    if (semuaAbsensi.error) throw semuaAbsensi.error;
+    const petaAbsen = new Map((semuaAbsensi.data || []).map(a => [a.pegawai_id, a]));
+    // Master bebas absensi (pemilik lab/pimpinan faskes).
+    // Peran 'dokter' adalah data master dokter rujukan/pengirim lab (bukan staf harian).
+    // Yang wajib absensi adalah staf operasional lab (karyawan, analis, perawat, kasir, admin).
+    return (semuaPegawai || []).filter(p => {
+      if (!p.aktif) return false;
+      if (p.peran === 'master') return false;
+      if (p.peran === 'dokter') return false;
+      return true;
+    }).map(p => {
+      const a = petaAbsen.get(p.id);
+      return {
+        pegawai_id: p.id,
+        nama: p.nama,
+        peran: p.peran,
+        tanggal: tgl,
+        absensi_id: a?.id || null,
+        waktu_masuk: a?.waktu_masuk || null,
+        waktu_keluar: a?.waktu_keluar || null,
+        status: a ? a.status : 'BELUM',
+        keterangan: a?.keterangan || null,
+        lokasi_masuk: a?.lokasi_masuk || null,
+        lokasi_keluar: a?.lokasi_keluar || null
+      };
+    });
+  }
+
+  /* --- Pengajuan Cuti / Izin / Sakit (Tanpa Foto) --- */
+  async function daftarIzinSaya() {
+    const { data, error } = await sb.from('pegawai_izin').select('*')
+      .eq('pegawai_id', _saya?.id).order('created_at', { ascending: false });
+    if (error) {
+      console.warn('pegawai_izin:', error.message);
+      return [];
+    }
+    return data || [];
+  }
+
+  async function ajukanIzin({ jenis, tanggal_mulai, tanggal_selesai, keterangan }) {
+    const { data, error } = await sb.from('pegawai_izin').insert({
+      pegawai_id: _saya?.id,
+      jenis,
+      tanggal_mulai,
+      tanggal_selesai,
+      keterangan,
+      status: 'MENUNGGU'
+    }).select().single();
+    if (error) throw error; return data;
+  }
+
+  async function batalkanIzin(id) {
+    const { error } = await sb.from('pegawai_izin').delete().eq('id', id).eq('pegawai_id', _saya?.id);
+    if (error) throw error; return true;
+  }
+
+  async function daftarSemuaIzin(filterStatus = null) {
+    let q = sb.from('pegawai_izin').select('*, pegawai:pegawai_id(nama,peran)').order('created_at', { ascending: false });
+    if (filterStatus) q = q.eq('status', filterStatus);
+    const { data, error } = await q;
+    if (error) {
+      console.warn('daftarSemuaIzin:', error.message);
+      return [];
+    }
+    return data || [];
+  }
+
+  async function setujuiIzin(id, catatan = null) {
+    const { data, error } = await sb.rpc('setujui_pegawai_izin', { p_izin_id: id, p_catatan: catatan });
+    if (!error) return data;
+    
+    // Fallback jika stored procedure belum dijalankan
+    const { data: izin, error: eIzin } = await sb.from('pegawai_izin')
+      .update({ status: 'DISETUJUI', catatan_atasan: catatan, disetujui_oleh: _saya?.id, disetujui_pada: new Date().toISOString() })
+      .eq('id', id).select().single();
+    if (eIzin) throw eIzin;
+    
+    try {
+      let cur = new Date(izin.tanggal_mulai);
+      const end = new Date(izin.tanggal_selesai);
+      const statusAbsen = izin.jenis === 'CUTI' ? 'CUTI' : (izin.jenis === 'SAKIT' ? 'SAKIT' : (izin.jenis === 'DINAS_LUAR' ? 'HADIR' : 'IZIN'));
+      while (cur <= end) {
+        const tglStr = cur.toISOString().split('T')[0];
+        await sb.from('pegawai_absensi').upsert({
+          pegawai_id: izin.pegawai_id,
+          tanggal: tglStr,
+          status: statusAbsen,
+          keterangan: `${izin.jenis}: ${izin.keterangan}`
+        }, { onConflict: 'pegawai_id,tanggal' });
+        cur.setDate(cur.getDate() + 1);
+      }
+    } catch (errSync) {
+      console.warn('Sinkronisasi absensi gagal:', errSync);
+    }
+    return izin;
+  }
+
+  async function tolakIzin(id, catatan = null) {
+    const { data, error } = await sb.rpc('tolak_pegawai_izin', { p_izin_id: id, p_catatan: catatan });
+    if (!error) return data;
+    const { data: izin, error: eIzin } = await sb.from('pegawai_izin')
+      .update({ status: 'DITOLAK', catatan_atasan: catatan, disetujui_oleh: _saya?.id, disetujui_pada: new Date().toISOString() })
+      .eq('id', id).select().single();
+    if (eIzin) throw eIzin;
+    return izin;
+  }
+
+  /* --- KPI & Bonus Karyawan --- */
+  async function daftarPegawaiStaff() {
+    const list = await daftarPegawai();
+    return (list || []).filter(p => p.aktif && p.peran !== 'master' && p.peran !== 'dokter');
+  }
+
   async function kpiDaftar(bulan, tahun) {
     const { data, error } = await sb.from('pegawai_kpi')
       .select('*, pegawai:pegawai_id(nama,peran)').eq('bulan', bulan).eq('tahun', tahun);
@@ -2078,16 +2302,35 @@ const DB = (() => {
     const { data, error } = await q;
     if (error) throw error; return data;
   }
+  async function kpiHapus(id) {
+    const { error } = await sb.from('pegawai_kpi').delete().eq('id', id);
+    if (error) throw error; return true;
+  }
   async function bonusDaftar(bulan, tahun) {
     const { data, error } = await sb.from('pegawai_bonus')
       .select('*, pegawai:pegawai_id(nama,peran)').eq('bulan', bulan).eq('tahun', tahun);
     if (error) throw error; return data;
   }
   async function bonusSimpan(rec, id = null) {
-    const q = id ? sb.from('pegawai_bonus').update(rec).eq('id', id).select().single()
-                 : sb.from('pegawai_bonus').insert(rec).select().single();
-    const { data, error } = await q;
+    if (!rec.disetujui_oleh && _saya?.id) rec.disetujui_oleh = _saya.id;
+    const payload = { ...rec };
+    let q = id ? sb.from('pegawai_bonus').update(payload).eq('id', id).select().single()
+               : sb.from('pegawai_bonus').insert(payload).select().single();
+    let { data, error } = await q;
+    // Jika kolom gaji_pokok belum dibuat di Supabase, fallback simpan tanpa field tersebut
+    if (error && error.message && error.message.includes('gaji_pokok')) {
+      delete payload.gaji_pokok;
+      q = id ? sb.from('pegawai_bonus').update(payload).eq('id', id).select().single()
+             : sb.from('pegawai_bonus').insert(payload).select().single();
+      const res = await q;
+      data = res.data;
+      error = res.error;
+    }
     if (error) throw error; return data;
+  }
+  async function bonusHapus(id) {
+    const { error } = await sb.from('pegawai_bonus').delete().eq('id', id);
+    if (error) throw error; return true;
   }
 
   /* --- Inkaso (Inventori Umum) --- */
@@ -2173,7 +2416,9 @@ const DB = (() => {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
     faskes, simpanFaskes,
-    daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai, cariIcd, cariObat, cariObatJual, daftarSigna,
+    daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
+    tambahPengguna, hapusPengguna, resetPasswordPengguna,
+    cariIcd, cariObat, cariObatJual, daftarSigna,
     cariPasien, pasien, simpanPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
     kajian, simpanKajian,
@@ -2233,7 +2478,10 @@ const DB = (() => {
     laporanKeuanganTagihan, laporanKeuanganPembayaran,
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
-    kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
+    daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni,
+    pengaturanJamKerja, simpanPengaturanJamKerja,
+    daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
+    daftarPegawaiStaff, kpiDaftar, kpiSimpan, kpiHapus, bonusDaftar, bonusSimpan, bonusHapus,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
     inventoriBatchDaftar, inventoriBatchSimpan, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,

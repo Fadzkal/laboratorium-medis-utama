@@ -12,7 +12,7 @@ const InkasoBarang = (() => {
   let dataRiwayat = [];
 
   async function render(el, param) {
-    if (!App.boleh('master') && !App.boleh('admin')) {
+    if (!App.boleh('menu_inkaso') && !App.boleh('master') && !App.boleh('admin')) {
       el.innerHTML = UI.kosong('Akses ditolak', 'Anda tidak punya izin membuka Inventori Barang.');
       return;
     }

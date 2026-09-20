@@ -220,7 +220,7 @@ const Pengaturan = (() => {
     // 'kasir' ditambahkan sekalian — sebelumnya hilang dari daftar ini
     // (bug lama, bukan bagian dari penukaran nama), padahal perannya
     // sudah ada di enum sejak 07_peran_kasir.sql.
-    const PERAN = ['master','admin','perawat','dokter','apoteker','kasir'];
+    const PERAN = ['master','admin','karyawan','perawat','dokter','apoteker','kasir'];
     w.innerHTML = `
       <div class="banner info">
         <div><b>Cara menambah pengguna:</b> buka dasbor Supabase → <i>Authentication</i> → <i>Users</i> →
@@ -302,8 +302,8 @@ const Pengaturan = (() => {
      lolos semua kode lewat jaring pengaman (public.hak_akses_cek() di
      database, App.boleh() di sini) apa pun isi tabelnya, jadi kolomnya
      tidak berguna dan hanya membingungkan. */
-  const PERAN_DIATUR = ['admin', 'perawat', 'dokter', 'apoteker', 'kasir'];
-  const LABEL_PERAN = { admin: 'Admin', perawat: 'Perawat', dokter: 'Dokter',
+  const PERAN_DIATUR = ['karyawan', 'admin', 'perawat', 'dokter', 'apoteker', 'kasir'];
+  const LABEL_PERAN = { karyawan: 'Karyawan', admin: 'Admin', perawat: 'Perawat', dokter: 'Dokter',
     apoteker: 'Apoteker', kasir: 'Kasir' };
 
   // kode -> [label singkat, deskripsi untuk staf non-teknis], dikelompokkan

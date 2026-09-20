@@ -17,10 +17,14 @@ const Pengaturan = (() => {
     }
     if (param && param[0]) tabAktif = param[0];
     if (tabAktif === 'hak' && !App.boleh('hak_akses')) tabAktif = 'klinik';
+    if (tabAktif === 'pengguna' && App.siapa()?.peran !== 'master') tabAktif = 'klinik';
 
-    const semuaTab = [['klinik','Profil Klinik'],['poli','Poli'],['pengguna','Pengguna'],
+    const semuaTab = [['klinik','Profil Klinik'],['poli','Poli']];
+    if (App.siapa()?.peran === 'master') semuaTab.push(['pengguna','Pengguna']);
+    semuaTab.push(
        ['surat','Kop &amp; Surat'],['resep','Resep'],
-       ['rujukan','Rujukan &amp; Kode PCare'],['bridging','Bridging']];
+       ['rujukan','Rujukan &amp; Kode PCare'],['bridging','Bridging']
+    );
     if (App.boleh('hak_akses')) semuaTab.push(['hak','Hak Akses']);
 
     el.innerHTML = `
@@ -215,70 +219,280 @@ const Pengaturan = (() => {
 
   /* ---------------- Pengguna ---------------- */
   async function tabPengguna(w) {
-    const d = await DB.daftarPegawai();
-    // 9 Sep 2026: 'admin' lama -> 'master', 'pendaftaran' lama -> 'admin'.
-    // 'kasir' ditambahkan sekalian — sebelumnya hilang dari daftar ini
-    // (bug lama, bukan bagian dari penukaran nama), padahal perannya
-    // sudah ada di enum sejak 07_peran_kasir.sql.
-    const PERAN = ['master','admin','perawat','dokter','apoteker','kasir'];
+    if (App.siapa()?.peran !== 'master') {
+      w.innerHTML = UI.kosong('Akses ditolak', 'Tab Pengguna hanya dapat diakses oleh Master Klinik.');
+      return;
+    }
+
+    let d = await DB.daftarPegawai();
+    const PERAN = ['master','admin','karyawan','perawat','dokter','apoteker','kasir'];
+    const sayaId = App.siapa()?.id;
+
     w.innerHTML = `
-      <div class="banner info">
-        <div><b>Cara menambah pengguna:</b> buka dasbor Supabase → <i>Authentication</i> → <i>Users</i> →
-        <i>Add user</i>. Isi email dan kata sandi. Baris pegawai akan dibuat otomatis, lalu ubah
-        perannya di tabel ini. Untuk dokter, isi juga <b>jenis dokter</b> agar pilihan dokter
-        saat pendaftaran menyesuaikan poli.</div>
-      </div>
       <div class="card">
-        <div class="card-head"><h2>Pengguna sistem</h2>
-          <span class="text-sm text-muted">${d.length} akun</span></div>
+        <div class="card-head" style="flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2>Pengguna Sistem</h2>
+            <span class="text-sm text-muted" id="hitungAkun">${d.length} akun</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="search" id="cariPegawai" placeholder="Cari nama / SIP..."
+                   class="ctl-sm" style="width:180px;">
+            <select id="filterPeranPegawai" class="ctl-sm">
+              <option value="">Semua Peran</option>
+              ${PERAN.map(r => `<option value="${r}">${r}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" id="btnTambahPengguna">
+              ${UI.ikon('plus',14)} Tambah Pengguna
+            </button>
+          </div>
+        </div>
         <div class="card-body tight">
-          <div class="table-wrap"><table class="tbl"><thead><tr><th>Nama</th><th>Peran</th><th>Jenis dokter</th>
-            <th>No. SIP / SIPA</th>
-            <th>Kode dokter PCare</th><th>IHS Practitioner</th><th>Status</th></tr></thead>
-            <tbody>${d.map(p => `<tr>
-              <td><b>${UI.esc(p.nama)}</b></td>
-              <td><select data-peran="${p.id}" class="ctl-sm">
-                ${PERAN.map(r => `<option ${p.peran === r ? 'selected' : ''}>${r}</option>`).join('')}
-              </select></td>
-              <td>${p.peran !== 'dokter' ? '<span class="muted">—</span>'
-                : `<select data-jenis-dokter="${p.id}" class="ctl-sm">
-                     <option value="">— belum diisi —</option>
-                     <option value="UMUM" ${p.jenis_dokter === 'UMUM' ? 'selected' : ''}>Dokter umum</option>
-                     <option value="GIGI" ${p.jenis_dokter === 'GIGI' ? 'selected' : ''}>Dokter gigi</option>
-                   </select>`}</td>
-              <td><input type="text" data-no-sip="${p.id}" value="${UI.esc(p.no_sip || '')}"
-                class="ctl-sm mono" style="width:150px"
-                placeholder="${p.peran === 'apoteker' ? 'No. SIPA' : p.peran === 'dokter' ? 'No. SIP' : '—'}"></td>
-              <td class="mono muted">${UI.esc(p.kode_dokter_pcare || '—')}</td>
-              <td class="mono muted">${UI.esc(p.satusehat_practitioner_id || '—')}</td>
-              <td class="check-cell"><label class="check"><input type="checkbox" data-aktif="${p.id}"
-                ${p.aktif ? 'checked' : ''}><span>Aktif</span></label></td>
-            </tr>`).join('')}</tbody></table></div>
+          <div class="table-wrap">
+            <table class="tbl" id="tabelPengguna">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Peran</th>
+                  <th>Jenis Dokter</th>
+                  <th>No. SIP / SIPA</th>
+                  <th>Kode PCare</th>
+                  <th>IHS</th>
+                  <th>Status</th>
+                  <th style="text-align:center;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="badanTabelPegawai"></tbody>
+            </table>
+          </div>
         </div>
       </div>`;
 
-    w.querySelectorAll('[data-peran]').forEach(s => s.addEventListener('change', async () => {
-      const { error } = await DB.sb.from('pegawai').update({ peran: s.value }).eq('id', s.dataset.peran);
-      UI.toast(error ? error.message : 'Peran diperbarui.', error ? 'err' : 'ok');
-    }));
-    w.querySelectorAll('[data-jenis-dokter]').forEach(sel => sel.addEventListener('change', async () => {
-      const { error } = await DB.sb.from('pegawai')
-        .update({ jenis_dokter: sel.value || null }).eq('id', sel.dataset.jenisDokter);
-      UI.toast(error ? error.message : 'Jenis dokter diperbarui.', error ? 'err' : 'ok');
-    }));
-    w.querySelectorAll('[data-aktif]').forEach(c => c.addEventListener('change', async () => {
-      const { error } = await DB.sb.from('pegawai').update({ aktif: c.checked }).eq('id', c.dataset.aktif);
-      UI.toast(error ? error.message : 'Status diperbarui.', error ? 'err' : 'ok');
-    }));
-    // Satu kolom no_sip dipakai bergantian sebagai No. SIP (dokter/perawat)
-    // atau No. SIPA (apoteker) — lihat komentar kolomnya di 01_schema.sql.
-    // Nilai ini yang dipakai menandatangani Salinan Resep saat apoteker
-    // menyerahkan obat (lihat cetakSalinanResep() di js/pages/apotek.js).
-    w.querySelectorAll('[data-no-sip]').forEach(inp => inp.addEventListener('change', async () => {
-      const { error } = await DB.sb.from('pegawai')
-        .update({ no_sip: inp.value.trim() || null }).eq('id', inp.dataset.noSip);
-      UI.toast(error ? error.message : 'No. SIP/SIPA diperbarui.', error ? 'err' : 'ok');
-    }));
+    function renderBaris(list) {
+      const tbody = w.querySelector('#badanTabelPegawai');
+      const hitung = w.querySelector('#hitungAkun');
+      if (hitung) hitung.textContent = `${list.length} akun` + (list.length !== d.length ? ` (dari ${d.length})` : '');
+
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-16">Tidak ada pengguna yang cocok dengan pencarian.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(p => `
+        <tr>
+          <td>
+            <input type="text" data-nama="${p.id}" value="${UI.esc(p.nama)}" class="ctl-sm" style="font-weight:600; min-width:140px;">
+          </td>
+          <td>
+            <select data-peran="${p.id}" class="ctl-sm">
+              ${PERAN.map(r => `<option value="${r}" ${p.peran === r ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+          </td>
+          <td>
+            ${p.peran !== 'dokter' ? '<span class="muted">—</span>'
+              : `<select data-jenis-dokter="${p.id}" class="ctl-sm">
+                   <option value="">— belum diisi —</option>
+                   <option value="UMUM" ${p.jenis_dokter === 'UMUM' ? 'selected' : ''}>Dokter umum</option>
+                   <option value="GIGI" ${p.jenis_dokter === 'GIGI' ? 'selected' : ''}>Dokter gigi</option>
+                 </select>`}
+          </td>
+          <td>
+            <input type="text" data-no-sip="${p.id}" value="${UI.esc(p.no_sip || '')}"
+              class="ctl-sm mono" style="width:130px"
+              placeholder="${p.peran === 'apoteker' ? 'No. SIPA' : p.peran === 'dokter' ? 'No. SIP' : '—'}">
+          </td>
+          <td class="mono muted">${UI.esc(p.kode_dokter_pcare || '—')}</td>
+          <td class="mono muted">${UI.esc(p.satusehat_practitioner_id || '—')}</td>
+          <td class="check-cell">
+            <label class="check">
+              <input type="checkbox" data-aktif="${p.id}" ${p.aktif ? 'checked' : ''}>
+              <span>Aktif</span>
+            </label>
+          </td>
+          <td style="text-align:center; white-space:nowrap;">
+            <button class="btn btn-secondary btn-sm" data-sandi="${p.id}" data-nama="${UI.esc(p.nama)}" title="Reset Kata Sandi">
+              Sandi
+            </button>
+            ${p.id !== sayaId ? `
+              <button class="btn btn-danger btn-sm" data-hapus="${p.id}" data-nama="${UI.esc(p.nama)}" title="Hapus Pengguna">
+                Hapus
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('[data-nama]').forEach(inp => inp.addEventListener('change', async () => {
+        const val = inp.value.trim();
+        if (!val) { UI.toast('Nama tidak boleh kosong.', 'err'); return; }
+        const { error } = await DB.sb.from('pegawai').update({ nama: val }).eq('id', inp.dataset.nama);
+        UI.toast(error ? error.message : 'Nama diperbarui.', error ? 'err' : 'ok');
+      }));
+
+      tbody.querySelectorAll('[data-peran]').forEach(s => s.addEventListener('change', async () => {
+        const { error } = await DB.sb.from('pegawai').update({ peran: s.value }).eq('id', s.dataset.peran);
+        UI.toast(error ? error.message : 'Peran diperbarui.', error ? 'err' : 'ok');
+        const item = d.find(x => x.id === s.dataset.peran);
+        if (item) { item.peran = s.value; renderBaris(filterList()); }
+      }));
+
+      tbody.querySelectorAll('[data-jenis-dokter]').forEach(sel => sel.addEventListener('change', async () => {
+        const { error } = await DB.sb.from('pegawai')
+          .update({ jenis_dokter: sel.value || null }).eq('id', sel.dataset.jenisDokter);
+        UI.toast(error ? error.message : 'Jenis dokter diperbarui.', error ? 'err' : 'ok');
+      }));
+
+      tbody.querySelectorAll('[data-aktif]').forEach(c => c.addEventListener('change', async () => {
+        const { error } = await DB.sb.from('pegawai').update({ aktif: c.checked }).eq('id', c.dataset.aktif);
+        UI.toast(error ? error.message : 'Status diperbarui.', error ? 'err' : 'ok');
+      }));
+
+      tbody.querySelectorAll('[data-no-sip]').forEach(inp => inp.addEventListener('change', async () => {
+        const { error } = await DB.sb.from('pegawai')
+          .update({ no_sip: inp.value.trim() || null }).eq('id', inp.dataset.noSip);
+        UI.toast(error ? error.message : 'No. SIP/SIPA diperbarui.', error ? 'err' : 'ok');
+      }));
+
+      tbody.querySelectorAll('[data-sandi]').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.dataset.sandi;
+        const nama = btn.dataset.nama;
+        const formHtml = `
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <p style="margin:0; font-size:13px;">Masukkan kata sandi baru untuk <b>${UI.esc(nama)}</b>:</p>
+            <input type="password" id="inputSandiBaru" placeholder="Minimal 6 karakter" class="ctl-sm" style="width:100%; padding:8px;" required minlength="6">
+          </div>
+        `;
+        UI.modal('Reset Kata Sandi', formHtml, [
+          { label: 'Batal' },
+          { label: 'Simpan Kata Sandi', class: 'btn-primary', fn: async (m) => {
+            const pass = m.querySelector('#inputSandiBaru').value;
+            if (!pass || pass.length < 6) {
+              UI.toast('Kata sandi minimal 6 karakter.', 'err');
+              return false;
+            }
+            try {
+              await DB.resetPasswordPengguna(id, pass);
+              UI.toast('Kata sandi berhasil diubah.', 'ok');
+              return true;
+            } catch (err) {
+              UI.toast(err.message || 'Gagal mengubah kata sandi', 'err');
+              return false;
+            }
+          }}
+        ]);
+      }));
+
+      tbody.querySelectorAll('[data-hapus]').forEach(btn => btn.addEventListener('click', async () => {
+        const id = btn.dataset.hapus;
+        const nama = btn.dataset.nama;
+        if (await UI.konfirmasi('Hapus Pengguna?', `Akun dan data pegawai "${nama}" akan dihapus permanen.`, 'Hapus')) {
+          try {
+            await DB.hapusPengguna(id);
+            UI.toast('Akun berhasil dihapus.', 'ok');
+            d = d.filter(x => x.id !== id);
+            renderBaris(filterList());
+          } catch (err) {
+            UI.toast(err.message || 'Gagal menghapus pengguna.', 'err');
+          }
+        }
+      }));
+    }
+
+    function filterList() {
+      const q = (w.querySelector('#cariPegawai')?.value || '').toLowerCase().trim();
+      const p = w.querySelector('#filterPeranPegawai')?.value || '';
+      return d.filter(x => {
+        const cocokKata = !q || (x.nama && x.nama.toLowerCase().includes(q)) || (x.no_sip && x.no_sip.toLowerCase().includes(q));
+        const cocokPeran = !p || x.peran === p;
+        return cocokKata && cocokPeran;
+      });
+    }
+
+    w.querySelector('#cariPegawai').addEventListener('input', () => renderBaris(filterList()));
+    w.querySelector('#filterPeranPegawai').addEventListener('change', () => renderBaris(filterList()));
+
+    w.querySelector('#btnTambahPengguna').addEventListener('click', () => {
+      const modalHtml = `
+        <form id="formTambahPegawai" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="field">
+            <label>Nama Lengkap *</label>
+            <input type="text" id="tbNama" placeholder="Nama lengkap pegawai" required style="width:100%; padding:6px 8px;">
+          </div>
+          <div class="field">
+            <label>Email Login *</label>
+            <input type="email" id="tbEmail" placeholder="nama@klinik.id" required style="width:100%; padding:6px 8px;">
+          </div>
+          <div class="field">
+            <label>Kata Sandi * (min. 6 karakter)</label>
+            <input type="password" id="tbPassword" placeholder="••••••••" required minlength="6" style="width:100%; padding:6px 8px;">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="field">
+              <label>Peran *</label>
+              <select id="tbPeran" style="width:100%; padding:6px 8px;">
+                ${PERAN.map(r => `<option value="${r}" ${r === 'karyawan' ? 'selected' : ''}>${r}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field" id="wrapTbJenisDokter" style="display:none;">
+              <label>Jenis Dokter</label>
+              <select id="tbJenisDokter" style="width:100%; padding:6px 8px;">
+                <option value="">— pilih jenis dokter —</option>
+                <option value="UMUM">Dokter umum</option>
+                <option value="GIGI">Dokter gigi</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>No. SIP / SIPA (Opsional)</label>
+            <input type="text" id="tbSip" placeholder="Nomor izin praktik" style="width:100%; padding:6px 8px;">
+          </div>
+        </form>
+      `;
+
+      UI.modal('Tambah Pengguna Baru', modalHtml, [
+        { label: 'Batal' },
+        { label: 'Simpan Akun', class: 'btn-primary', fn: async (m) => {
+          const nama = m.querySelector('#tbNama').value.trim();
+          const email = m.querySelector('#tbEmail').value.trim();
+          const password = m.querySelector('#tbPassword').value;
+          const peran = m.querySelector('#tbPeran').value;
+          const jenis_dokter = m.querySelector('#tbJenisDokter').value || null;
+          const no_sip = m.querySelector('#tbSip').value.trim() || null;
+
+          if (!nama || !email || !password) {
+            UI.toast('Nama, email, dan kata sandi wajib diisi.', 'err');
+            return false;
+          }
+          if (password.length < 6) {
+            UI.toast('Kata sandi minimal 6 karakter.', 'err');
+            return false;
+          }
+
+          try {
+            await DB.tambahPengguna({ nama, email, password, peran, jenis_dokter, no_sip });
+            UI.toast('Pengguna baru berhasil ditambahkan.', 'ok');
+            d = await DB.daftarPegawai();
+            renderBaris(filterList());
+            return true;
+          } catch (err) {
+            UI.toast(err.message || 'Gagal menambahkan pengguna.', 'err');
+            return false;
+          }
+        }}
+      ]);
+
+      setTimeout(() => {
+        const selPeran = document.getElementById('tbPeran');
+        const wrapJenis = document.getElementById('wrapTbJenisDokter');
+        if (selPeran && wrapJenis) {
+          selPeran.addEventListener('change', () => {
+            wrapJenis.style.display = selPeran.value === 'dokter' ? 'block' : 'none';
+          });
+        }
+      }, 50);
+    });
+
+    renderBaris(d);
   }
 
   /* ---------------- Hak Akses (9 Sep 2026) ----------------
@@ -302,8 +516,8 @@ const Pengaturan = (() => {
      lolos semua kode lewat jaring pengaman (public.hak_akses_cek() di
      database, App.boleh() di sini) apa pun isi tabelnya, jadi kolomnya
      tidak berguna dan hanya membingungkan. */
-  const PERAN_DIATUR = ['admin', 'perawat', 'dokter', 'apoteker', 'kasir'];
-  const LABEL_PERAN = { admin: 'Admin', perawat: 'Perawat', dokter: 'Dokter',
+  const PERAN_DIATUR = ['karyawan', 'admin', 'perawat', 'dokter', 'apoteker', 'kasir'];
+  const LABEL_PERAN = { karyawan: 'Karyawan', admin: 'Admin', perawat: 'Perawat', dokter: 'Dokter',
     apoteker: 'Apoteker', kasir: 'Kasir' };
 
   // kode -> [label singkat, deskripsi untuk staf non-teknis], dikelompokkan
