@@ -2143,6 +2143,20 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  /* ================= REKANAN LAB ================= */
+  async function daftarRekanan() {
+    const { data, error } = await sb.from('ref_rekanan').select('*').order('nama');
+    if (error) throw error; return data;
+  }
+  async function simpanRekanan(rec) {
+    const { error } = await sb.from('ref_rekanan').upsert(rec);
+    if (error) throw error;
+  }
+  async function hapusRekanan(id) {
+    const { error } = await sb.from('ref_rekanan').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   return {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
@@ -2210,7 +2224,7 @@ const DB = (() => {
     kpiDaftar, kpiSimpan, bonusDaftar, bonusSimpan,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
     inventoriBatchDaftar, inventoriBatchSimpan, labResepDaftar, labResepSimpan, labResepHapus,
-    statistikEksekutif
+    statistikEksekutif,
+    daftarRekanan, simpanRekanan, hapusRekanan
   };
 })();
-

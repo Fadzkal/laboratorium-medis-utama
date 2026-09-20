@@ -1353,80 +1353,145 @@ const Master = (() => {
 
   
   /* ================================================================ *
-   *  TAB REKANAN (SEMENTARA HARCODED)
+   *  TAB REKANAN (CRUD)
    * ================================================================ */
   async function tabRekanan(w) {
-    const dataRekanan = [
-      { id: '151203133', nama: 'umum', alamat: '-', telp: '-', kontak: '-', disc: '0' },
-      { id: '21071019', nama: 'Apotek Sehati', alamat: '', telp: '', kontak: '', disc: '0' },
-      { id: '1908950', nama: 'Apotek Menara', alamat: 'Banyumas', telp: '( 0281 ) 796357', kontak: 'Apotek', disc: '0' },
-      { id: '2103993', nama: 'BAKEUDA (Badan Keuangan Daerah) Purbalingga', alamat: 'Jl. Onje No. 1B, Purbalingga Lor', telp: '', kontak: 'Bu Dede', disc: '0' },
-      { id: '2006971', nama: 'Bank DRI Cab. Purbalingga', alamat: 'Jl. Jend. Soedirman No. 214 A, Bancar, Purbalingga', telp: '085642023137', kontak: 'Bu Cici', disc: '' },
-      { id: '22021031', nama: 'Bank CIMB Niaga Cab. Purbalingga', alamat: 'Jl. Jend. Sudirman No.37, Purbalingga Kulon, Purbalingga', telp: '(0281) 6597194', kontak: '', disc: '0' },
-      { id: '21061012', nama: 'Bank Jateng Cab. Purbalingga', alamat: '', telp: '', kontak: '', disc: '0' },
-      { id: '2012982', nama: 'BNI Cab. Banjarnegara', alamat: 'Jl. Letjend S. Parman, Parakancanggah, Banjarnegara', telp: '081325356786', kontak: 'Pak Farid', disc: '' },
-      { id: '2012981', nama: 'BNI Cab Purbalingga', alamat: 'Jl. Onje, Purbalingga Lor (Alun-Alun)', telp: '081325356786', kontak: 'Pak Farid', disc: '' }
-    ];
+    try {
+      const dataRekanan = await DB.daftarRekanan();
+      let trs = '';
+      dataRekanan.forEach((d, i) => {
+        trs += `
+          <tr class="clickable row-rek" data-id="${UI.esc(d.id)}" style="cursor:pointer">
+            <td class="text-center text-muted" style="border-right:1px solid #eee">${i+1}</td>
+            <td class="text-center cb-sel" style="border-right:1px solid #eee"><input type="checkbox" data-id="${UI.esc(d.id)}"></td>
+            <td style="color:#1565C0">${UI.esc(d.id)}</td>
+            <td style="font-weight:600">${UI.esc(d.nama)}</td>
+            <td>${UI.esc(d.alamat || '')}</td>
+            <td>${UI.esc(d.telp || '')}</td>
+            <td>${UI.esc(d.kontak || '')}</td>
+            <td class="text-right">${d.disc || 0}%</td>
+          </tr>
+        `;
+      });
 
-    let trs = '';
-    dataRekanan.forEach((d, i) => {
-      trs += `
-        <tr>
-          <td class="text-center text-muted" style="border-right:1px solid #eee">${i+1}</td>
-          <td class="text-center" style="border-right:1px solid #eee"><input type="checkbox"></td>
-          <td style="color:#1565C0">${UI.esc(d.id)}</td>
-          <td style="font-weight:600">${UI.esc(d.nama)}</td>
-          <td>${UI.esc(d.alamat)}</td>
-          <td>${UI.esc(d.telp)}</td>
-          <td>${UI.esc(d.kontak)}</td>
-          <td class="text-right">${UI.esc(d.disc)}</td>
-        </tr>
+      w.innerHTML = `
+        <div class="card mb-16">
+          <div class="card-head flex align-center" style="gap:12px; background:#1976D2; color:#fff; padding:12px 16px;">
+            <span style="font-weight:600">Master Rekanan</span>
+          </div>
+          <div style="background:#f1f5f9; padding:8px 16px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #ddd">
+            <button class="btn btn-sm" id="btnRekTambah" style="background:#d32f2f;color:#fff;border:none">Tambah</button>
+            <button class="btn btn-sm" id="btnRekHapus" style="background:#d32f2f;color:#fff;border:none">Hapus</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl" style="width:100%; min-width:800px" id="tblRekanan">
+              <thead style="background:#7CB342; color:#fff">
+                <tr>
+                  <th style="width:40px;color:#fff"></th>
+                  <th style="width:30px;color:#fff"><input type="checkbox" id="cbRekAll"></th>
+                  <th style="width:120px;color:#fff">ID Rekanan</th>
+                  <th style="color:#fff">Nama Rekanan</th>
+                  <th style="color:#fff">Alamat Rekanan</th>
+                  <th style="width:120px;color:#fff">Telp</th>
+                  <th style="width:120px;color:#fff">Nama Kontak</th>
+                  <th style="width:80px;color:#fff" class="text-right">Disc</th>
+                </tr>
+              </thead>
+              <tbody>${trs}</tbody>
+            </table>
+          </div>
+        </div>
       `;
-    });
 
-    w.innerHTML = `
-      <div class="card mb-16">
-        <div class="card-head flex align-center" style="gap:12px; background:#1976D2; color:#fff; padding:12px 16px;">
-          <span style="font-weight:600">Master Rekanan</span>
+      // Checkbox all
+      const cbAll = w.querySelector('#cbRekAll');
+      const cbs = w.querySelectorAll('tbody input[type="checkbox"]');
+      cbAll.addEventListener('change', () => cbs.forEach(cb => cb.checked = cbAll.checked));
+
+      // Hapus
+      w.querySelector('#btnRekHapus').addEventListener('click', async () => {
+        const checked = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.dataset.id);
+        if (!checked.length) return UI.toast('Pilih rekanan yang akan dihapus', 'err');
+        if (!confirm(`Hapus ${checked.length} rekanan?`)) return;
+        try {
+          for (let id of checked) await DB.hapusRekanan(id);
+          UI.toast('Berhasil dihapus', 'ok');
+          tabRekanan(w);
+        } catch(e) { UI.toast('Gagal hapus: ' + e.message, 'err'); }
+      });
+
+      // Tambah
+      w.querySelector('#btnRekTambah').addEventListener('click', () => {
+        formRekanan(null, () => tabRekanan(w));
+      });
+
+      // Edit (klik baris, bukan checkbox)
+      w.querySelectorAll('.row-rek').forEach(tr => {
+        tr.addEventListener('click', (e) => {
+          if (e.target.closest('.cb-sel')) return; // Abaikan klik di kolom checkbox
+          const id = tr.dataset.id;
+          const rek = dataRekanan.find(r => String(r.id) === String(id));
+          if (rek) formRekanan(rek, () => tabRekanan(w));
+        });
+      });
+
+    } catch(e) {
+      w.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
+    }
+  }
+
+  function formRekanan(rek, cbSukses) {
+    UI.modal({
+      judul: rek ? 'Edit Rekanan' : 'Tambah Rekanan',
+      isi: `
+        <div class="pdft-field mb-12">
+          <label>ID Rekanan</label>
+          <input type="text" id="rId" value="${rek ? UI.esc(rek.id) : ('RK' + Date.now().toString().slice(-6))}" ${rek ? 'readonly style="background:#eee"' : ''}>
         </div>
-        <div style="background:#f1f5f9; padding:8px 16px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #ddd">
-          <label style="font-size:12px;font-weight:600;color:#555">Filter</label>
-          <input type="text" class="input input-sm" placeholder="Search..." style="width:150px">
-          <select class="input input-sm"><option>Nama Rekanan</option></select>
-          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Tambah</button>
-          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Hapus</button>
-          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Excel</button>
+        <div class="pdft-field mb-12">
+          <label>Nama Rekanan</label>
+          <input type="text" id="rNama" value="${rek ? UI.esc(rek.nama) : ''}">
         </div>
-        <div style="overflow-x:auto">
-          <table class="tbl" style="width:100%; min-width:800px">
-            <thead style="background:#7CB342; color:#fff">
-              <tr>
-                <th style="width:40px;color:#fff"></th>
-                <th style="width:30px;color:#fff"></th>
-                <th style="width:120px;color:#fff">ID Rekanan</th>
-                <th style="color:#fff">Nama Rekanan</th>
-                <th style="color:#fff">Alamat Rekanan</th>
-                <th style="width:120px;color:#fff">Telp</th>
-                <th style="width:120px;color:#fff">Nama Kontak</th>
-                <th style="width:80px;color:#fff" class="text-right">Disc</th>
-              </tr>
-            </thead>
-            <tbody>${trs}</tbody>
-          </table>
+        <div class="pdft-field mb-12">
+          <label>Alamat</label>
+          <input type="text" id="rAlamat" value="${rek ? UI.esc(rek.alamat||'') : ''}">
         </div>
-        <div class="card-foot" style="background:#f1f5f9; padding:8px 16px; display:flex; justify-content:space-between; align-items:center; font-size:12px">
-          <div class="flex gap-4 align-center">
-            <button class="btn btn-sm btn-icon" disabled><</button>
-            <button class="btn btn-sm btn-icon" disabled>></button>
-            <span>Page <input type="text" value="1" class="input input-sm" style="width:40px;text-align:center" readonly> of 1</span>
-          </div>
-          <div class="flex gap-8 align-center">
-            <span>Records per page: <select class="input input-sm"><option>100000</option></select></span>
-            <span>Displaying 1 to ${dataRekanan.length} of ${dataRekanan.length} items</span>
-          </div>
+        <div class="pdft-field mb-12">
+          <label>No. Telp</label>
+          <input type="text" id="rTelp" value="${rek ? UI.esc(rek.telp||'') : ''}">
         </div>
-      </div>
-    `;
+        <div class="pdft-field mb-12">
+          <label>Kontak Person</label>
+          <input type="text" id="rKontak" value="${rek ? UI.esc(rek.kontak||'') : ''}">
+        </div>
+        <div class="pdft-field mb-12">
+          <label>Discount (%)</label>
+          <input type="number" id="rDisc" value="${rek ? (rek.disc||0) : 0}">
+        </div>
+      `,
+      tombol: [{ teks: 'Batal', nilai: null }, { teks: 'Simpan', nilai: 'ok', utm: true }],
+      siap: (b) => setTimeout(() => b.querySelector('#rNama').focus(), 100),
+      kembali: async (val, body) => {
+        if (!val) return;
+        const dat = {
+          id: body.querySelector('#rId').value.trim(),
+          nama: body.querySelector('#rNama').value.trim(),
+          alamat: body.querySelector('#rAlamat').value.trim(),
+          telp: body.querySelector('#rTelp').value.trim(),
+          kontak: body.querySelector('#rKontak').value.trim(),
+          disc: parseFloat(body.querySelector('#rDisc').value) || 0
+        };
+        if (!dat.id || !dat.nama) { UI.toast('ID dan Nama harus diisi', 'err'); return false; }
+        try {
+          await DB.simpanRekanan(dat);
+          UI.toast('Tersimpan', 'ok');
+          cbSukses();
+        } catch(e) {
+          UI.toast('Gagal simpan: ' + e.message, 'err');
+          return false;
+        }
+      }
+    });
   }
 
   /* ================================================================ *

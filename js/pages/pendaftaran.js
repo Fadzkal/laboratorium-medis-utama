@@ -6,24 +6,12 @@ const Pendaftaran = (() => {
   let masterPaket = [];   // daftar ref_lab_paket
   let masterDokter= [];   // daftar dokter
   let masterPoli  = [];   // daftar poli
+  let masterRekanan = []; // daftar ref_rekanan
   let tarifMap    = {};   // kode → harga dari kasir_tarif
 
   /* ---- State form kanan ---- */
   let pasienTerpilih = null;
   let rekananTerpilih = null;
-
-  /* ---- Data rekanan (hardcoded sesuai master) ---- */
-  const REKANAN = [
-    { id: '151203133', nama: 'Umum / Pasien Mandiri',   disc: 0 },
-    { id: '21071019',  nama: 'Apotek Sehati',            disc: 0 },
-    { id: '1908950',   nama: 'Apotek Menara',             disc: 0 },
-    { id: '2103993',   nama: 'BAKEUDA Purbalingga',       disc: 0 },
-    { id: '2006971',   nama: 'Bank BRI Cab. Purbalingga', disc: 0 },
-    { id: '22021031',  nama: 'Bank CIMB Niaga Purbalingga',disc: 0 },
-    { id: '21061012',  nama: 'Bank Jateng Purbalingga',   disc: 0 },
-    { id: '2012982',   nama: 'BNI Cab. Banjarnegara',     disc: 0 },
-    { id: '2012981',   nama: 'BNI Cab. Purbalingga',      disc: 0 },
-  ];
 
   /* ---- Baris tabel pemeriksaan (15 baris) ---- */
   const JUMLAH_BARIS = 15;
@@ -36,11 +24,12 @@ const Pendaftaran = (() => {
     el.innerHTML = `<div class="p-16">${UI.memuat(3)}</div>`;
 
     try {
-      [masterLab, masterPaket, masterDokter, masterPoli] = await Promise.all([
+      [masterLab, masterPaket, masterDokter, masterPoli, masterRekanan] = await Promise.all([
         DB.refLab(true),
         DB.refLabPaket(),
         DB.daftarDokter(),
-        DB.daftarPoli()
+        DB.daftarPoli(),
+        DB.daftarRekanan()
       ]);
 
       // Muat tarif
@@ -56,7 +45,7 @@ const Pendaftaran = (() => {
       }));
 
       pasienTerpilih  = null;
-      rekananTerpilih = REKANAN[0];
+      rekananTerpilih = masterRekanan.find(r => r.id === '151203133') || masterRekanan[0];
 
       gambarHalaman(el);
     } catch(e) {
@@ -740,18 +729,19 @@ const Pendaftaran = (() => {
       judul: 'Pilih Rekanan / Instansi Pengirim',
       isi: `<div class="table-wrap"><table class="tbl">
         <thead><tr><th>#</th><th>ID</th><th>Nama Rekanan</th><th>Disc %</th></tr></thead>
-        <tbody>${REKANAN.map((r, i) =>
+        <tbody>${masterRekanan.map((r, i) =>
           `<tr class="clickable" data-rek="${i}" style="cursor:pointer">
             <td>${i+1}</td><td class="mono muted">${r.id}</td>
             <td><b>${UI.esc(r.nama)}</b></td>
-            <td class="text-right">${r.disc}%</td>
-          </tr>`).join('')}
-        </tbody></table></div>`,
+            <td>${r.disc}%</td>
+          </tr>`
+        ).join('')}</tbody>
+      </table></div>`,
       tombol: [{ teks: 'Batal', nilai: null }],
       siap: (body) => {
         body.querySelectorAll('[data-rek]').forEach(row => {
           row.addEventListener('click', () => {
-            UI.tutupModal(REKANAN[+row.dataset.rek]);
+            UI.tutupModal(masterRekanan[+row.dataset.rek]);
           });
         });
       }
