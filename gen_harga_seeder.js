@@ -483,6 +483,14 @@ U0149;USG Prostat;410000;;;
 W0101;Widal Test;0;W;W;`;
 
 let outSql = 'BEGIN;\n\n';
+outSql += `-- Hapus duplikat tarif LAB yang mungkin tercipta akibat script sebelumnya\n`;
+outSql += `DELETE FROM kasir_tarif a USING (\n`;
+outSql += `    SELECT MIN(id) as min_id, kode\n`;
+outSql += `    FROM kasir_tarif\n`;
+outSql += `    WHERE jenis = 'LAB'\n`;
+outSql += `    GROUP BY kode HAVING COUNT(*) > 1\n`;
+outSql += `) b\n`;
+outSql += `WHERE a.kode = b.kode AND a.jenis = 'LAB' AND a.id <> b.min_id;\n\n`;
 
 for (let line of raw.split('\n')) {
   line = line.trim();
@@ -497,11 +505,8 @@ for (let line of raw.split('\n')) {
   
   if (kode) {
     if (harga > 0) {
-      outSql += `INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) VALUES ('LAB', '${kode}', '${nama.replace(/'/g, "''")}', ${harga}, true)
-ON CONFLICT (id) DO UPDATE SET tarif = ${harga}; -- Wait, ON CONFLICT id doesn't work here. Better to UPDATE, then INSERT.
-`;
-      // Actually, kasir_tarif doesn't have a unique constraint on kode.
-      // We can just use an upsert-like logic or delete and insert.
+      // kasir_tarif doesn't have a unique constraint on kode.
+      // We use an UPDATE then an INSERT WHERE NOT EXISTS logic.
       outSql += `UPDATE kasir_tarif SET tarif = ${harga} WHERE jenis = 'LAB' AND kode = '${kode}';\n`;
       outSql += `INSERT INTO kasir_tarif (jenis, kode, nama, tarif, aktif) SELECT 'LAB', '${kode}', '${nama.replace(/'/g, "''")}', ${harga}, true WHERE NOT EXISTS (SELECT 1 FROM kasir_tarif WHERE jenis = 'LAB' AND kode = '${kode}');\n`;
     }
