@@ -220,10 +220,11 @@ const Pendaftaran = (() => {
               </div>
               <div class="pdft-field" style="display:flex;gap:4px;align-items:flex-end">
                 <div style="flex:1">
-                  <label>NRP</label>
+                  <label>NRP / No. BPJS</label>
                   <input type="text" id="fNrp" placeholder="">
                 </div>
-                <button id="btnReset" title="Reset / Pasien Baru" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">C</button>
+                <button id="btnCekNrp" title="Cek Pasien" style="background:#388E3C;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Cek</button>
+                <button id="btnReset" title="Reset / Pasien Baru" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Baru</button>
               </div>
             </div>
 
@@ -659,6 +660,40 @@ const Pendaftaran = (() => {
     el.querySelector('#btnReset').addEventListener('click', () => {
       pasienTerpilih = null;
       resetFormPasien(el);
+    });
+
+    /* ---- Cek Pasien via NRP/NIK ---- */
+    el.querySelector('#btnCekNrp').addEventListener('click', async () => {
+      const nrp = el.querySelector('#fNrp').value.trim();
+      const nik = el.querySelector('#fNik').value.trim();
+      const kata = nrp || nik;
+      if (!kata) return UI.toast('Isi NRP atau NIK terlebih dahulu', 'err');
+      
+      const res = await DB.cariPasien(kata, 1);
+      if (res && res.length > 0) {
+         pasienTerpilih = res[0];
+         isiFormPasien(el, pasienTerpilih);
+         UI.toast('Data pasien ditemukan!', 'ok');
+         
+         const p = pasienTerpilih;
+         const strPlant = (p.plant || '').toLowerCase();
+         const strBagian = (p.bagian || '').toLowerCase();
+         const isBpjs = !!p.no_bpjs 
+           || strPlant.includes('bpjs') || strPlant.includes('bps')
+           || strBagian.includes('bpjs') || strBagian.includes('bps');
+           
+         if (isBpjs) {
+            const cb = el.querySelector('#filterBpjs');
+            if (cb && !cb.checked) {
+               cb.checked = true;
+               cb.dispatchEvent(new Event('change'));
+            }
+            const jb = el.querySelector('#bJenisBayar');
+            if (jb) jb.value = 'BPJS';
+         }
+      } else {
+         UI.toast('Pasien tidak ditemukan.', 'err');
+      }
     });
 
     /* ---- Tombol REGISTRASI PASIEN ---- */
