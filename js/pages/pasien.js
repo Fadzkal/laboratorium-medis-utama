@@ -350,6 +350,7 @@ const Pasien = (() => {
     labTgl.sort((a,b) => a.tgl.localeCompare(b.tgl));
 
     let tabelStatistik = '';
+    let chartGridHtml = '';
     if (labTgl.length > 0) {
       tabelStatistik = `
         <div class="card mb-16">
@@ -360,7 +361,6 @@ const Pasien = (() => {
                 <tr>
                   <th>Pemeriksaan</th>
                   ${labTgl.map(t => `<th class="right nowrap"><b>${UI.tglPendek(t.tgl)}</b></th>`).join('')}
-                  <th width="40"></th>
                 </tr>
               </thead>
               <tbody>
@@ -374,11 +374,20 @@ const Pasien = (() => {
                       const isAbnormal = h.tanda === 'T' || h.tanda === 'R' || h.tanda === 'H' || h.tanda === 'L' || h.tanda === '*';
                       return `<td class="right ${isAbnormal ? 'text-danger fw-bold' : ''}">${UI.esc(val)}</td>`;
                     }).join('')}
-                    <td><button class="btn btn-ghost btn-sm btn-chart" data-nama="${UI.esc(p.nama)}" data-kode="${UI.esc(p.kode)}">${UI.ikon('grafik', 14)}</button></td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
+          </div>
+        </div>
+      `;
+
+      chartGridHtml = `
+        <div class="card mb-16">
+          <div class="card-head"><h2>Visualisasi Tren Lab</h2></div>
+          <div class="card-body">
+            <div id="chart-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+            </div>
           </div>
         </div>
       `;
@@ -420,6 +429,7 @@ const Pasien = (() => {
       </div>
 
       ${tabelStatistik}
+      ${chartGridHtml}
 
       <div class="split">
         <div class="card">
@@ -516,58 +526,63 @@ const Pasien = (() => {
       }
     });
 
-    el.querySelectorAll('.btn-chart').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kode = btn.dataset.kode;
-        const nama = btn.dataset.nama;
-        const paramData = labParams[kode];
-        
-        // Buat data untuk Chart
-        const labels = labTgl.map(t => UI.tglPendek(t.tgl));
+    if (labTgl.length > 0) {
+      const container = el.querySelector('#chart-container');
+      const labels = labTgl.map(t => UI.tglPendek(t.tgl));
+      
+      let chartCount = 0;
+      Object.values(labParams).forEach(paramData => {
         const dataPoints = labTgl.map(t => {
           const h = paramData.hasil[t.id];
           if (!h) return null;
           if (h.angka !== null) return h.angka;
-          
-          // Jika teks tapi bisa di-parse jadi angka (misal "5.4" jadi 5.4), usahakan masuk ke grafik
           const n = parseFloat(h.teks);
           return !isNaN(n) && isFinite(n) ? n : null;
         });
 
-        // Tampilkan modal berisi canvas
-        UI.modal({
-          judul: `Grafik Tren: ${nama}`,
-          isi: `<canvas id="chartTren" width="400" height="250"></canvas>`,
-          tombol: [{ teks: 'Tutup', nilai: null }]
-        });
+        // Hanya buat grafik jika ada setidaknya satu titik data yang bisa digambar
+        if (dataPoints.some(d => d !== null)) {
+          chartCount++;
+          const cid = 'c' + Math.random().toString(36).substr(2, 9);
+          const div = document.createElement('div');
+          div.style = 'border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fff;';
+          div.innerHTML = `<h3 style="margin: 0 0 10px; font-size: 14px;">${UI.esc(paramData.nama)} ${paramData.satuan ? '<span class="text-muted text-xs">('+UI.esc(paramData.satuan)+')</span>' : ''}</h3>
+                           <canvas id="${cid}" style="max-height: 150px;"></canvas>`;
+          container.appendChild(div);
 
-        // Render Chart
-        setTimeout(() => {
-          const ctx = document.getElementById('chartTren').getContext('2d');
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: labels,
-              datasets: [{
-                label: nama + (paramData.satuan ? ` (${paramData.satuan})` : ''),
-                data: dataPoints,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                pointBackgroundColor: 'rgb(75, 192, 192)',
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                tension: 0.2,
-                spanGaps: true
-              }]
-            },
-            options: {
-              responsive: true,
-              scales: { y: { beginAtZero: false } }
-            }
-          });
-        }, 100);
+          setTimeout(() => {
+            const ctx = document.getElementById(cid).getContext('2d');
+            new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [{
+                  data: dataPoints,
+                  borderColor: 'rgb(75, 192, 192)',
+                  backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                  pointBackgroundColor: 'rgb(75, 192, 192)',
+                  pointRadius: 4,
+                  pointHoverRadius: 6,
+                  tension: 0.2,
+                  spanGaps: true
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: false } }
+              }
+            });
+          }, 50);
+        }
       });
-    });
+      
+      // Sembunyikan container jika tidak ada satupun tes yang berupa angka
+      if (chartCount === 0) {
+        container.parentElement.parentElement.style.display = 'none';
+      }
+    }
   }
 
   return { render, formIdentitas, modalPasien, validasi };
