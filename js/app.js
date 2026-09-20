@@ -16,7 +16,6 @@ const App = (() => {
     { rute: '#/pendaftaran', label: 'Pendaftaran',   ikon: 'daftar',    kode: 'menu_pendaftaran' },
     { rute: '#/antrian',     label: 'Antrean Hari Ini', ikon: 'antrian', peran: '*', hitung: true },
     { rute: '#/lab',         label: 'Lab & Penunjang', ikon: 'stetoskop', peran: '*' },
-    { rute: '#/apotek',      label: 'Apotek',        ikon: 'pil',       peran: '*' },
     { rute: '#/kasir',       label: 'Kasir',         ikon: 'jantung',   kode: 'menu_kasir' },
     { rute: '#/surat',       label: 'Surat Keterangan', ikon: 'surat',  peran: '*' },
     { grup: 'Data' },

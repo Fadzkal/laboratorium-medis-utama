@@ -372,14 +372,12 @@ const Pasien = (() => {
             ${riwayat.length === 0
               ? UI.kosong('Belum ada kunjungan', 'Riwayat pemeriksaan akan tampil setelah kunjungan pertama.')
               : `<div class="table-wrap"><table class="tbl">
-                  <thead><tr><th>Tanggal</th><th>Poli</th><th>Diagnosa</th><th>Dokter</th><th>Status</th><th></th></tr></thead>
+                  <thead><tr><th>Tanggal</th><th>Poli</th><th>Dokter</th><th>Status</th><th></th></tr></thead>
                   <tbody>${riwayat.map(k => `
                     <tr class="clickable" onclick="location.hash='#/rekam/${k.id}'">
                       <td class="nowrap"><b>${UI.tglPendek(k.tanggal)}</b>
                         <div class="text-xs text-muted mono">${UI.esc(k.no_kunjungan)}</div></td>
                       <td>${UI.esc(k.nama_poli)}</td>
-                      <td>${k.daftar_diagnosa
-                        ? UI.esc(k.daftar_diagnosa) : '<span class="muted">—</span>'}</td>
                       <td class="muted">${UI.esc(k.nama_dokter || '—')}</td>
                       <td>${UI.badgeStatus(k.status)}</td>
                       <td>${UI.ikon('kembali',14)}</td>

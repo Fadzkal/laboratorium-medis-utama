@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    PEMERIKSAAN DOKTER — terstruktur, siap PCare & SatuSehat
 
    Sampai September 2026 layar ini empat kotak teks bebas (S, O, A, P).
@@ -212,10 +212,7 @@ const Periksa = (() => {
           ${poliGigi ? kartuGigi(pgigi, terkunci) : ''}
           ${kartuAnamnesis(terkunci)}
           ${kartuFisik(terkunci)}
-          ${kartuDiagnosa(terkunci)}
-          ${kartuTindakan(terkunci)}
           ${kartuPenunjang(terkunci, bolehTulis)}
-          ${kartuTerapi(terkunci)}
           ${kartuSoap(terkunci)}
         </div>
 

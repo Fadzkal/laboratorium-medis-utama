@@ -91,8 +91,8 @@ const Master = (() => {
     tabAktif = hanyaObat ? 'obat' : ((param && param[0]) || tabAktif);
 
     const daftarTab = penuh
-      ? [['obat','Obat'],['icd10','Diagnosa (ICD-10)'],['icd9','Tindakan (ICD-9-CM)'],['lab','Pemeriksaan Lab']]
-      : [['obat','Obat']];
+      ? [['lab','Pemeriksaan Lab']]
+      : [];
 
     el.innerHTML = `
       <div class="mb-16">

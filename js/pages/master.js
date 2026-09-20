@@ -86,7 +86,7 @@ const Master = (() => {
           dokter memeriksa pasien.</p>
       </div>
       <div class="tabs" id="tabsMaster">
-        ${[['eksekutif', 'Statistik Eksekutif'],['obat','Obat'],['icd10','Diagnosa (ICD-10)'],['icd9','Tindakan (ICD-9-CM)'],
+        ${[['eksekutif', 'Statistik Eksekutif'],
            ['kodepx', 'Kode Pemeriksaan'],['hargapx', 'Harga Pemeriksaan'],['lab','Pemeriksaan Lab'],['dokter','Dokter'],['rekanan','Rekanan']]
           .map(([k,t]) => `<button class="tab ${tabAktif === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('')}
       </div>
