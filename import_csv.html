@@ -156,13 +156,17 @@
         const dokter_id = dokter_nama ? dokterMap.get(dokter_nama.toLowerCase()) || null : null;
         const keluhan_singkat = dokter_nama ? 'Dokter Pengirim: ' + dokter_nama : '';
         const cara_bayar = cols[11].toUpperCase() === 'BPJS' ? 'BPJS' : 'UMUM';
-        // SELALU gunakan UUID deterministik dari no_lab agar tidak bentrok dengan sisa UUID yang lama
-        const encounter_ss = uuidFromString('ENCOUNTER_' + no_lab);
+        let encounter_ss = cols[12] ? cols[12].trim() : '';
         const rd_pxcode = cols[14] ? cols[14].trim() : '';
         const px_name = cols[15] ? cols[15].trim() : '';
         const nilai_teks = cols[16];
         let satuan = cols[18] ? cols[18].trim() : '';
         let rd_normal = cols[19] ? cols[19].trim() : '';
+        
+        // Gunakan UUID dari file CSV (karena sebagian besar data sudah terlanjur masuk dengan UUID tersebut)
+        if (!encounter_ss) {
+          encounter_ss = uuidFromString('ENCOUNTER_' + no_lab);
+        }
 
         let nilai_angka = null;
         let n = parseFloat(nilai_teks);
@@ -170,8 +174,13 @@
           nilai_angka = n;
         }
 
-        const nik = cols[3] ? cols[3].trim() : null;
+        let nik = cols[3] ? cols[3].trim() : null;
         const instansi = cols[11] ? cols[11].trim() : null;
+        
+        // NIK harus persis 16 angka, jika tidak (misal scientific notation 3,303E+15), abaikan agar tidak bentrok constraint unik
+        if (nik && nik.length !== 16) {
+          nik = null;
+        }
 
         const pasien_id = uuidFromString('PASIEN_' + no_rm);
         if (!pasienMap.has(no_rm)) {
