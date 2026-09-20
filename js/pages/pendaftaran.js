@@ -762,12 +762,15 @@ const Pendaftaran = (() => {
   async function modalRekanan() {
     return await UI.modal({
       judul: 'Pilih Rekanan / Instansi Pengirim',
-      isi: `<div class="table-wrap"><table class="tbl">
+      isi: `<div style="margin-bottom:10px">
+              <input type="search" id="cariRknModal" class="input" placeholder="Cari nama rekanan..." style="width:100%">
+            </div>
+            <div class="table-wrap" style="max-height:400px;overflow-y:auto"><table class="tbl">
         <thead><tr><th>#</th><th>ID</th><th>Nama Rekanan</th><th>Disc %</th></tr></thead>
         <tbody>${masterRekanan.map((r, i) =>
-          `<tr class="clickable" data-rek="${i}" style="cursor:pointer">
+          `<tr class="clickable rkn-row" data-rek="${i}" style="cursor:pointer">
             <td>${i+1}</td><td class="mono muted">${r.id}</td>
-            <td><b>${UI.esc(r.nama)}</b></td>
+            <td class="rkn-nama"><b>${UI.esc(r.nama)}</b></td>
             <td>${r.disc}%</td>
           </tr>`
         ).join('')}</tbody>
@@ -779,6 +782,18 @@ const Pendaftaran = (() => {
             UI.tutupModal(masterRekanan[+row.dataset.rek]);
           });
         });
+        const inpCari = body.querySelector('#cariRknModal');
+        if (inpCari) {
+          inpCari.addEventListener('input', () => {
+            const kata = inpCari.value.toLowerCase();
+            body.querySelectorAll('.rkn-row').forEach(row => {
+              const nama = row.querySelector('.rkn-nama').textContent.toLowerCase();
+              row.style.display = nama.includes(kata) ? '' : 'none';
+            });
+          });
+          // Focus otomatis saat modal terbuka
+          setTimeout(() => inpCari.focus(), 100);
+        }
       }
     });
   }
