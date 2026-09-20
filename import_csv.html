@@ -97,6 +97,12 @@
       const refLabMap = new Map(refLab.map(r => [r.kode.toLowerCase(), r.id]));
       log("Berhasil memuat " + refLabMap.size + " master lab.");
 
+      log("Mengambil data dokter dari database...");
+      const { data: dbDokter, error: errDok } = await sb.from('pegawai').select('id, nama').eq('peran', 'dokter');
+      if (errDok) { log("Error pegawai: " + errDok.message); return; }
+      const dokterMap = new Map(dbDokter.map(r => [r.nama.trim().toLowerCase(), r.id]));
+      log("Berhasil memuat " + dokterMap.size + " dokter.");
+
       const pasienMap = new Map();
       const kunjunganMap = new Map();
       const permintaanMap = new Map();
@@ -106,6 +112,32 @@
       const missingCodes = new Map();
       let skip = 0;
       
+      log("Memindai dokter baru dari CSV...");
+      const csvDokters = new Set();
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(';');
+        if (cols.length >= 20 && cols[10] && cols[10].trim()) {
+          csvDokters.add(cols[10].trim());
+        }
+      }
+      
+      let newDocs = 0;
+      for (let nama of csvDokters) {
+        if (!dokterMap.has(nama.toLowerCase())) {
+          log("Menambahkan dokter baru: " + nama + "...");
+          const { data: idBaru, error: errBaru } = await sb.rpc('simpan_pegawai_dokter', {
+            p_id: null, p_nama: nama, p_alamat: null, p_telepon: null, p_hp: null, p_kode_detailer: null, p_spesialisasi: null
+          });
+          if (errBaru) {
+            log("<span style='color:red'>Gagal menambah dokter " + nama + ": " + errBaru.message + "</span>");
+          } else {
+            dokterMap.set(nama.toLowerCase(), idBaru);
+            newDocs++;
+          }
+        }
+      }
+      if (newDocs > 0) log("Berhasil menambahkan " + newDocs + " dokter baru.");
+
       log("Memproses baris CSV...");
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -120,7 +152,9 @@
         const tgl_lahir = parseTanggal(cols[5]);
         const alamat = cols[7];
         const tgl_periksa = parseTanggal(cols[8]);
-        const keluhan_singkat = cols[10] ? 'Dokter Pengirim: ' + cols[10] : '';
+        const dokter_nama = cols[10] ? cols[10].trim() : '';
+        const dokter_id = dokter_nama ? dokterMap.get(dokter_nama.toLowerCase()) || null : null;
+        const keluhan_singkat = dokter_nama ? 'Dokter Pengirim: ' + dokter_nama : '';
         const cara_bayar = cols[11].toUpperCase() === 'BPJS' ? 'BPJS' : 'UMUM';
         let encounter_ss = cols[12] ? cols[12].trim() : '';
         const rd_pxcode = cols[14] ? cols[14].trim() : '';
@@ -159,6 +193,7 @@
             pasien_id,
             tanggal: tgl_periksa,
             poli_id,
+            dokter_id,
             cara_bayar,
             keluhan_singkat,
             status: 'SELESAI'
