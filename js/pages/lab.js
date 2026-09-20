@@ -231,7 +231,11 @@ const Lab = (() => {
         <div class="card-head">
           <div class="flex-1"><h2>Hasil pemeriksaan</h2>
             <div class="sub" id="ringkasLembar">${ringkas.terisi} dari ${ringkas.total} terisi</div></div>
-          <div class="btn-group no-print">
+          <div class="btn-group no-print" style="align-items: center;">
+            <select id="selFormatCetakInt" style="font-size: 12px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; margin-right: 4px;">
+              <option value="M3">Format 3(M3)</option>
+              <option value="Standar">Format Standar</option>
+            </select>
             <button class="btn btn-secondary btn-sm" id="btnCetak">${UI.ikon('cetak',15)} Cetak</button>
             ${p.status === 'SELESAI' && adminSaja()
               ? `<button class="btn btn-secondary btn-sm" id="btnBuka">Buka kunci</button>` : ''}
@@ -265,7 +269,10 @@ const Lab = (() => {
 
     pasangIsian(el, p, rujukanPakai);
 
-    el.querySelector('#btnCetak').addEventListener('click', () => cetakLembar(p, rujukanPakai));
+    el.querySelector('#btnCetak').addEventListener('click', () => {
+      const selFormat = el.querySelector('#selFormatCetakInt');
+      cetakLembar(p, rujukanPakai, selFormat ? selFormat.value : 'Standar');
+    });
 
     const bSelesai = el.querySelector('#btnSelesai');
     if (bSelesai) bSelesai.addEventListener('click', async () => {
@@ -459,9 +466,7 @@ const Lab = (() => {
   }
 
   /* ------------------------------------------------------------------ */
-  /*  Lembar hasil untuk dicetak                                        */
-  /* ------------------------------------------------------------------ */
-  async function cetakLembar(p, rujukanPakai) {
+  async function cetakLembar(p, rujukanPakai, format = 'Standar') {
     const f = await DB.faskes().catch(() => null);
     const grup = LabCore.kelompokkan(
       p.hasil.map(h => Object.assign({}, h, { kelompok: h.ref && h.ref.kelompok })), master);
@@ -581,30 +586,43 @@ const Lab = (() => {
         </tbody>
       </table>
       
+      ${format === 'Standar' ? `
+      <div style="margin-top: 30px; font-size: 11px; font-weight: bold;">
+        Keterangan : (*) Diluar nilai normal
+      </div>
       <div class="signatures">
         <div class="sig-box">
-          <div>Verifikator</div>
+          <div><b>Verifikator,</b></div>
           <div style="height: 60px;"></div>
-          <div>${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
-          <div>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</div>
+          <div><b>${UI.esc(p.penutup?.nama || dicetakOleh)}</b></div>
+          <div><b>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</b></div>
         </div>
         <div class="sig-box" style="align-items: flex-start;">
-          <div>Penanggung Jawab</div>
+          <div><b>Penanggung Jawab,</b></div>
           <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
-          <div>dr. Minto Rahaju Sp. PK</div>
+          <div><b>dr. Minto Rahaju, Sp. PK,</b></div>
         </div>
       </div>
       
       <div class="footer">
         <div>
+          Jam Sampel : ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}<br>
           Hal. 1 dari 1 Halaman<br>
-          Jam Sampel ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
-        </div>
-        <div style="text-align: right;">
-          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}<br>
-          <b>Hasil tidak memerlukan tanda tangan karena dicetak secara elektronik. Hasil sudah di verifikasi dan divalidasi</b>
+          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}
         </div>
       </div>
+      ` : `
+      <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+        <div style="font-size: 12px; display: flex; flex-direction: column; justify-content: flex-end;">
+          Jam Sampel : ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
+        </div>
+        <div style="text-align: center; margin-right: 50px; font-size: 12px;">
+          Pemeriksa,
+          <br><br><br><br><br>
+          <b>dr. Minto Rahayu, Sp.PK</b>
+        </div>
+      </div>
+      `}
       
       </body></html>`);
     w.document.close();
@@ -1345,9 +1363,9 @@ const Lab = (() => {
               </div>
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
                 ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
-                <select style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
-                  <option>Format 3(M3)</option>
-                  <option>Format Standar</option>
+                <select id="selFormatCetakExt" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
+                  <option value="M3">Format 3(M3)</option>
+                  <option value="Standar">Format Standar</option>
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>Cetak</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
@@ -1542,7 +1560,8 @@ const Lab = (() => {
 
         // Cetak
         const btnC = kanan.querySelector('#btnHasilCetak');
-        if (btnC) btnC.onclick = () => cetakLembar(p, rujukanPakai);
+        const selF = kanan.querySelector('#selFormatCetakExt');
+        if (btnC) btnC.onclick = () => cetakLembar(p, rujukanPakai, selF ? selF.value : 'Standar');
 
         // Simpan Catatan
         const btnSC = kanan.querySelector('#btnSimpanCatatan');
