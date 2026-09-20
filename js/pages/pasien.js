@@ -16,20 +16,6 @@ const Pasien = (() => {
     <fieldset class="fieldset">
       <legend>Identitas</legend>
       <div class="form-row c2">
-        <div class="field field-compact">
-          <label for="f-title">Title / Sapaan</label>
-          <select id="f-title" name="title">
-            <option value="">—</option>
-            ${['Tn.','Ny.','Sdra.','Sdri.','An.','By.'].map(t =>
-              `<option value="${t}" ${p.title === t ? 'selected' : ''}>${t}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field">
-          <label for="f-nrp">NRP <span class="opt">(Nomor Registrasi Pegawai)</span></label>
-          <input type="text" id="f-nrp" name="nrp" value="${UI.esc(p.nrp)}" placeholder="Opsional, untuk pasien instansi">
-        </div>
-      </div>
-      <div class="form-row c2">
         <div class="field">
           <label for="f-nama">Nama lengkap <span class="req">*</span></label>
           <input type="text" id="f-nama" name="nama" value="${UI.esc(p.nama)}" required
@@ -81,16 +67,6 @@ const Pasien = (() => {
       <div class="field">
         <label for="f-kerja">Pekerjaan</label>
         <input type="text" id="f-kerja" name="pekerjaan" value="${UI.esc(p.pekerjaan)}">
-      </div>
-      <div class="form-row c2">
-        <div class="field">
-          <label for="f-bagian">Bagian / Departemen</label>
-          <input type="text" id="f-bagian" name="bagian" value="${UI.esc(p.bagian)}" placeholder="Misal: HRD, Produksi, dll">
-        </div>
-        <div class="field">
-          <label for="f-plant">Plant / Lokasi</label>
-          <input type="text" id="f-plant" name="plant" value="${UI.esc(p.plant)}" placeholder="Misal: Plant 1, Cibitung">
-        </div>
       </div>
     </fieldset>
 
@@ -404,11 +380,7 @@ const Pasien = (() => {
           <div class="card">
             <div class="card-head"><h2>Identitas lengkap</h2></div>
             <div class="card-body text-sm">
-              ${[['Title / Sapaan', p.title],
-                 ['NRP', p.nrp],
-                 ['Bagian', p.bagian],
-                 ['Plant', p.plant],
-                 ['Tempat lahir', p.tempat_lahir], ['Agama', p.agama], ['Pekerjaan', p.pekerjaan],
+              ${[['Tempat lahir', p.tempat_lahir], ['Agama', p.agama], ['Pekerjaan', p.pekerjaan],
                  ['Pendidikan', p.pendidikan], ['Status kawin', p.status_kawin],
                  ['Gol. darah', p.gol_darah],
                  ['Alamat', [p.alamat, p.rt && 'RT ' + p.rt, p.rw && 'RW ' + p.rw,
