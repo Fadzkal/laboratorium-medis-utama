@@ -22,19 +22,27 @@ WHERE peran = 'dokter'
     nama ILIKE 'SIKES %'
   );
 
--- 2. Hapus duplikat nama dokter yang sama persis (hanya menyisakan satu)
-DELETE FROM pegawai a
-USING pegawai b
-WHERE a.peran = 'dokter' 
-  AND b.peran = 'dokter'
-  AND a.nama = b.nama
-  AND a.id > b.id;
-
--- 3. Hapus duplikat nama dokter yang beda spasi/tanda baca sedikit (misal: 'Adly Nanda Sp. OG' vs 'Adly Nanda Sp.OG')
-DELETE FROM pegawai a
-USING pegawai b
-WHERE a.peran = 'dokter' 
-  AND b.peran = 'dokter'
-  AND REPLACE(REPLACE(a.nama, ' ', ''), '.', '') = REPLACE(REPLACE(b.nama, ' ', ''), '.', '')
-  AND a.id > b.id;
-
+-- 2. Hapus duplikat nama dokter (menyatukan yang beda spasi/titik) dan HANYA MENYISAKAN 1
+-- Prioritas yang disisakan adalah data yang paling lengkap (punya alamat/telp/dll)
+WITH RankedPegawai AS (
+  SELECT 
+    id, 
+    ROW_NUMBER() OVER(
+      -- Kelompokkan berdasarkan nama (mengabaikan spasi, titik, dan koma, serta case-insensitive)
+      PARTITION BY REPLACE(REPLACE(REPLACE(LOWER(nama), ' ', ''), '.', ''), ',', '')
+      ORDER BY 
+        -- Beri nilai tinggi pada baris yang datanya lebih lengkap
+        (CASE WHEN alamat IS NOT NULL AND alamat != '' THEN 1 ELSE 0 END +
+         CASE WHEN telepon IS NOT NULL AND telepon != '' THEN 1 ELSE 0 END +
+         CASE WHEN no_hp IS NOT NULL AND no_hp != '' THEN 1 ELSE 0 END +
+         CASE WHEN spesialisasi IS NOT NULL AND spesialisasi != '' THEN 1 ELSE 0 END) DESC,
+        -- Jika kelengkapannya sama, ambil yang paling baru diinput (terakhir dibuat)
+        created_at DESC
+    ) as rn
+  FROM pegawai
+  WHERE peran = 'dokter'
+)
+DELETE FROM pegawai 
+WHERE id IN (
+  SELECT id FROM RankedPegawai WHERE rn > 1
+);
