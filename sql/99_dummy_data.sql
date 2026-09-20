@@ -101,38 +101,57 @@ insert into ref_lab_rujukan (lab_id, jenis_kelamin, batas_bawah, batas_atas, kri
   ((select id from ref_lab where kode='UV_BJ'), null, 1.003, 1.030, null, null);
 
 -- 4. PAKET PEMERIKSAAN
-insert into ref_lab_paket (kode, nama, urutan) values
-  ('DARUT', 'Darah Rutin (Lengkap)', 1),
-  ('LEMAK', 'Profil Lipid', 2),
-  ('GINJAL', 'Fungsi Ginjal', 3),
-  ('HATI', 'Fungsi Hati', 4),
-  ('DM', 'Panel Diabetes', 5)
+insert into ref_lab_paket (kode, nama, bruto, netto, urutan, aktif) values
+  ('TORCH1',       'TORCH 1',                        1400000, 1400000, 1, true),
+  ('DIABETES',     'Diabetes',                       null,    null,    2, true),
+  ('CUS',          'Check Up Sederhana',             null,    null,    3, true),
+  ('PAKETGULA',    'Tes paket gula',                 30000,   0,       4, true),
+  ('PROLANIS_HT',  'Prolanis Hipertensi',            535000,  0,       5, true),
+  ('PROLANIS_DM',  'Prolanis Diabetes Non 2 Jam PP', 750000,  0,       6, true),
+  ('PROLANIS_2JPP','Prolanis Diabetes Plus 2JPP',    780000,  0,       7, true),
+  ('PROLANIS_GDS', 'Prolanis Diabetes GDS',          750000,  0,       8, true)
 on conflict (kode) do nothing;
 
 insert into ref_lab_paket_item (paket_id, lab_id, urutan)
-select p.id, l.id, k.u from (select id from ref_lab_paket where kode='DARUT') p,
-(values ('HB',0),('HT',1),('LEU',2),('TRO',3),('ERI',4),('MCV',5),('MCH',6),('MCHC',7),('LED',8)) k(kode,u)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='TORCH1') p,
+(values ('HbsAg',0),('AntiHCV',1),('HIV_RDT',2)) k(kode,u)
 join ref_lab l on l.kode=k.kode on conflict do nothing;
 
 insert into ref_lab_paket_item (paket_id, lab_id, urutan)
-select p.id, l.id, k.u from (select id from ref_lab_paket where kode='LEMAK') p,
-(values ('CHOL',0),('TG',1),('HDL',2),('LDL',3)) k(kode,u)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='DIABETES') p,
+(values ('GDP',0),('GD2PP',1),('HBA1C',2),('GDS',3)) k(kode,u)
 join ref_lab l on l.kode=k.kode on conflict do nothing;
 
 insert into ref_lab_paket_item (paket_id, lab_id, urutan)
-select p.id, l.id, k.u from (select id from ref_lab_paket where kode='GINJAL') p,
-(values ('UREUM',0),('KREAT',1),('UA',2)) k(kode,u)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='CUS') p,
+(values ('HB',0),('LEU',1),('TRO',2),('GDS',3),('CHOL',4)) k(kode,u)
 join ref_lab l on l.kode=k.kode on conflict do nothing;
 
 insert into ref_lab_paket_item (paket_id, lab_id, urutan)
-select p.id, l.id, k.u from (select id from ref_lab_paket where kode='HATI') p,
-(values ('AST',0),('ALT',1)) k(kode,u)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='PAKETGULA') p,
+(values ('GDP',0),('GD2PP',1)) k(kode,u)
 join ref_lab l on l.kode=k.kode on conflict do nothing;
 
 insert into ref_lab_paket_item (paket_id, lab_id, urutan)
-select p.id, l.id, k.u from (select id from ref_lab_paket where kode='DM') p,
-(values ('GDP',0),('GD2PP',1),('HBA1C',2)) k(kode,u)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='PROLANIS_HT') p,
+(values ('HB',0),('LEU',1),('TRO',2),('GDS',3),('CHOL',4),('KREAT',5),('UA',6)) k(kode,u)
 join ref_lab l on l.kode=k.kode on conflict do nothing;
+
+insert into ref_lab_paket_item (paket_id, lab_id, urutan)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='PROLANIS_DM') p,
+(values ('GDP',0),('HBA1C',1),('CHOL',2),('KREAT',3)) k(kode,u)
+join ref_lab l on l.kode=k.kode on conflict do nothing;
+
+insert into ref_lab_paket_item (paket_id, lab_id, urutan)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='PROLANIS_2JPP') p,
+(values ('GDP',0),('GD2PP',1),('HBA1C',2),('CHOL',3),('KREAT',4)) k(kode,u)
+join ref_lab l on l.kode=k.kode on conflict do nothing;
+
+insert into ref_lab_paket_item (paket_id, lab_id, urutan)
+select p.id, l.id, k.u from (select id from ref_lab_paket where kode='PROLANIS_GDS') p,
+(values ('GDS',0),('HBA1C',1),('CHOL',2)) k(kode,u)
+join ref_lab l on l.kode=k.kode on conflict do nothing;
+
 -- 5. MASTER REAGEN INVENTORI
 insert into inventori_barang (kode, nama, kategori, purchase_unit, usage_unit, conversion_factor, stok_minimum_usage, aktif) values
   ('REG-HEM-001', 'Reagen Hematology 3-Part Diff', 'Reagen', 'Kit', 'Test', 500, 50, true),

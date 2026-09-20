@@ -58,7 +58,7 @@ const DB = (() => {
   }
   async function daftarDokter(jenis = null) {
     let q = sb.from('pegawai')
-      .select('id,nama,peran,no_sip,kode_dokter_pcare,jenis_dokter')
+      .select('*')
       .eq('peran', 'dokter').eq('aktif', true).order('nama');
     const { data, error } = await q;
     if (error) throw error;
@@ -66,6 +66,24 @@ const DB = (() => {
     // Dokter tanpa keterangan jenis tetap ditampilkan agar tidak ada yang hilang
     // hanya karena kolomnya belum diisi.
     return data.filter(d => !d.jenis_dokter || d.jenis_dokter === jenis);
+  }
+  async function simpanPegawaiDokter(rec, id = null) {
+    const { data, error } = await sb.rpc('simpan_pegawai_dokter', {
+      p_id: id || null,
+      p_nama: rec.nama || '',
+      p_alamat: rec.alamat || '',
+      p_telepon: rec.telepon || '',
+      p_hp: rec.no_hp || '',
+      p_kode_detailer: rec.kode_detailer || '',
+      p_spesialisasi: rec.spesialisasi || ''
+    });
+    if (error) throw error;
+    return data;
+  }
+  async function hapusPegawaiDokter(id) {
+    const { data, error } = await sb.from('pegawai').update({ aktif: false }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
   }
   async function daftarPegawai() {
     const { data, error } = await sb.from('pegawai').select('*').order('nama');
@@ -1159,6 +1177,24 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  async function updateHargaLab(kode, nama, harga) {
+    const { data: tarif, error } = await sb.from('kasir_tarif')
+      .select('id').eq('jenis', 'LAB').eq('kode', kode).limit(1);
+    if (error) throw error;
+    
+    if (tarif && tarif.length > 0) {
+      return await simpanTarif({ tarif: harga, nama: nama }, tarif[0].id);
+    } else {
+      return await simpanTarif({
+        jenis: 'LAB',
+        kode: kode,
+        nama: nama,
+        tarif: harga,
+        aktif: true
+      });
+    }
+  }
+
   async function simpanTarif(rec, id = null) {
     const q = id ? sb.from('kasir_tarif').update(rec).eq('id', id).select().single()
                  : sb.from('kasir_tarif').insert(rec).select().single();
@@ -1261,10 +1297,10 @@ const DB = (() => {
   }
   async function labPermintaan(id) {
     const { data, error } = await sb.from('lab_permintaan')
-      .select(`*, pasien:pasien_id(id,no_rm,nama,tanggal_lahir,jenis_kelamin,no_bpjs),
+      .select(`*, pasien:pasien_id(id,no_rm,nama,tanggal_lahir,jenis_kelamin,no_bpjs,nik),
                kunjungan:kunjungan_id(id,no_kunjungan,tanggal,cara_bayar),
                peminta:diminta_oleh(nama), penutup:selesai_oleh(nama),
-               hasil:lab_hasil(*, ref:lab_id(id,kode,nama,kelompok,satuan,jenis_nilai,pilihan,teks_normal,desimal))`)
+               hasil:lab_hasil(*, ref:lab_id(id,kode,nama,kelompok,satuan,jenis_nilai,pilihan,teks_normal,desimal,kode_loinc,display_loinc,kode_specimen,nama_specimen,barcode,janji_hasil,metode))`)
       .eq('id', id).single();
     if (error) throw error;
     if (data && data.hasil) data.hasil.sort((a, b) => (a.urutan || 0) - (b.urutan || 0));
@@ -2111,7 +2147,7 @@ const DB = (() => {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
     faskes, simpanFaskes,
-    daftarPoli, daftarDokter, daftarPegawai, cariIcd, cariObat, cariObatJual, daftarSigna,
+    daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai, cariIcd, cariObat, cariObatJual, daftarSigna,
     cariPasien, pasien, simpanPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
     kajian, simpanKajian,
@@ -2139,7 +2175,7 @@ const DB = (() => {
     kasirLengkap, kasirSusunDariKunjungan, kasirCatatPembayaran,
     kasirHapusPembayaran, kasirHapusTagihan, kasirBuatTagihanBebas,
     kasirTambahItem, kasirUbahItem, kasirHapusItem, kasirJualObatBebas,
-    daftarTarif, simpanTarif, kasirRekap,
+    daftarTarif, simpanTarif, updateHargaLab, kasirRekap,
     templateInvoice, simpanTemplateInvoice,
     refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,

@@ -31,9 +31,10 @@ const App = (() => {
     { rute: '#/migrasi',     label: 'Migrasi Portal', ikon: 'unduh',    kode: 'menu_migrasi' },
     { rute: '#/pengaturan',  label: 'Pengaturan',    ikon: 'setelan',   kode: 'menu_pengaturan' },
     { grup: 'Operasional' },
-    { rute: '#/absensi',     label: 'Absensi',       ikon: 'jam',       peran: '*' },
-    { rute: '#/hris',        label: 'HRIS & Bonus',  ikon: 'laporan',   kode: 'menu_hris' },
-    { rute: '#/inkaso',      label: 'Inkaso & Inventori', ikon: 'pil',  kode: 'menu_inkaso' }
+    { rute: '#/absensi',          label: 'Absensi',           ikon: 'jam',       peran: '*' },
+    { rute: '#/hris',             label: 'HRIS & Bonus',      ikon: 'laporan',   kode: 'menu_hris' },
+    { rute: '#/inkaso',           label: 'Inkaso & Inventori', ikon: 'pil',      kode: 'menu_inkaso' },
+    { rute: '#/display-harian',   label: 'Display Harian',    ikon: 'laporan',   peran: '*' }
   ];
 
   const RUTE = {
@@ -58,7 +59,8 @@ const App = (() => {
     'pengaturan':  (p) => Pengaturan.render(view(), p),
     'absensi':     (p) => Absensi.render(view(), p),
     'hris':        (p) => HrisLaporan.render(view(), p),
-    'inkaso':      (p) => InkasoBarang.render(view(), p)
+    'inkaso':      (p) => InkasoBarang.render(view(), p),
+    'display-harian': (p) => DisplayHarian.render(view(), p)
   };
 
   const JUDUL = {
@@ -70,7 +72,8 @@ const App = (() => {
     tarif: 'Tarif & Tampilan Invoice',
     jadwal: 'Antrean & Layar Tunggu', migrasi: 'Migrasi Portal',
     master: 'Master Data', pengaturan: 'Pengaturan',
-    absensi: 'Absensi Karyawan', hris: 'Manajemen HRIS', inkaso: 'Inkaso & Inventori'
+    absensi: 'Absensi Karyawan', hris: 'Manajemen HRIS', inkaso: 'Inkaso & Inventori',
+    'display-harian': 'Display Harian'
   };
 
   let profil = null;

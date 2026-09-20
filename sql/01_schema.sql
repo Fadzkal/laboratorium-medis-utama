@@ -172,7 +172,11 @@ create table if not exists pasien (
   nik               text unique,
   no_bpjs           text,
   no_kk             text,
+  title             text,                -- sapaan: Tn., Ny., Sdra., Sdri., An., By.
   nama              text not null,
+  nrp               text,                -- Nomor Registrasi Pegawai (pasien instansi)
+  bagian            text,                -- Bagian / Departemen
+  plant             text,                -- Plant / Lokasi
   tempat_lahir      text,
   tanggal_lahir     date not null,
   jenis_kelamin     jenis_kelamin_t not null,
@@ -193,6 +197,7 @@ create table if not exists pasien (
   kode_pos          text,
   -- Kontak
   no_hp             text,
+  no_telp           text,               -- telepon rumah / kantor
   email             text,
   -- Penanggung jawab
   pj_nama           text,

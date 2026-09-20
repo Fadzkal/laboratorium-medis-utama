@@ -87,7 +87,7 @@ const Master = (() => {
       </div>
       <div class="tabs" id="tabsMaster">
         ${[['eksekutif', 'Statistik Eksekutif'],['obat','Obat'],['icd10','Diagnosa (ICD-10)'],['icd9','Tindakan (ICD-9-CM)'],
-           ['lab','Pemeriksaan Lab']]
+           ['kodepx', 'Kode Pemeriksaan'],['hargapx', 'Harga Pemeriksaan'],['lab','Pemeriksaan Lab'],['dokter','Dokter'],['rekanan','Rekanan']]
           .map(([k,t]) => `<button class="tab ${tabAktif === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('')}
       </div>
       <div id="isiMaster">${UI.memuat(3)}</div>`;
@@ -110,7 +110,11 @@ const Master = (() => {
       if (tabAktif === 'obat')  return await tabObat(w);
       if (tabAktif === 'icd10') return await tabIcd10(w);
       if (tabAktif === 'icd9')  return await tabIcd9(w);
+      if (tabAktif === 'kodepx') return await tabKodePx(w);
+      if (tabAktif === 'hargapx') return await tabHargaPx(w);
       if (tabAktif === 'lab')   return await tabLab(w);
+      if (tabAktif === 'dokter') return await tabDokter(w);
+      if (tabAktif === 'rekanan') return await tabRekanan(w);
     } catch (e) {
       w.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
     }
@@ -1091,8 +1095,12 @@ const Master = (() => {
       isi: `
         <div class="form-row c2">
           <div class="field"><label for="lbKode">Kode internal</label>
-            <input type="text" id="lbKode" value="${UI.esc(m?.kode || '')}"
-              placeholder="mis. HB" ${m ? 'readonly' : ''}></div>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="lbKode" value="${UI.esc(m?.kode || '')}"
+                placeholder="mis. H0101" ${m ? 'readonly' : ''} style="flex:1;">
+              ${m ? '' : `<button type="button" class="btn btn-secondary" id="btnAutoKode" title="Buat kode otomatis berdasarkan awalan" style="padding: 0 12px; font-weight: 500;">Auto</button>`}
+            </div>
+          </div>
           <div class="field"><label for="lbKelompok">Kelompok</label>
             <select id="lbKelompok">${KELOMPOK_LAB.map(k =>
               `<option ${m?.kelompok === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
@@ -1343,5 +1351,778 @@ const Master = (() => {
     });
   }
 
+  
+  /* ================================================================ *
+   *  TAB REKANAN (SEMENTARA HARCODED)
+   * ================================================================ */
+  async function tabRekanan(w) {
+    const dataRekanan = [
+      { id: '151203133', nama: 'umum', alamat: '-', telp: '-', kontak: '-', disc: '0' },
+      { id: '21071019', nama: 'Apotek Sehati', alamat: '', telp: '', kontak: '', disc: '0' },
+      { id: '1908950', nama: 'Apotek Menara', alamat: 'Banyumas', telp: '( 0281 ) 796357', kontak: 'Apotek', disc: '0' },
+      { id: '2103993', nama: 'BAKEUDA (Badan Keuangan Daerah) Purbalingga', alamat: 'Jl. Onje No. 1B, Purbalingga Lor', telp: '', kontak: 'Bu Dede', disc: '0' },
+      { id: '2006971', nama: 'Bank DRI Cab. Purbalingga', alamat: 'Jl. Jend. Soedirman No. 214 A, Bancar, Purbalingga', telp: '085642023137', kontak: 'Bu Cici', disc: '' },
+      { id: '22021031', nama: 'Bank CIMB Niaga Cab. Purbalingga', alamat: 'Jl. Jend. Sudirman No.37, Purbalingga Kulon, Purbalingga', telp: '(0281) 6597194', kontak: '', disc: '0' },
+      { id: '21061012', nama: 'Bank Jateng Cab. Purbalingga', alamat: '', telp: '', kontak: '', disc: '0' },
+      { id: '2012982', nama: 'BNI Cab. Banjarnegara', alamat: 'Jl. Letjend S. Parman, Parakancanggah, Banjarnegara', telp: '081325356786', kontak: 'Pak Farid', disc: '' },
+      { id: '2012981', nama: 'BNI Cab Purbalingga', alamat: 'Jl. Onje, Purbalingga Lor (Alun-Alun)', telp: '081325356786', kontak: 'Pak Farid', disc: '' }
+    ];
+
+    let trs = '';
+    dataRekanan.forEach((d, i) => {
+      trs += `
+        <tr>
+          <td class="text-center text-muted" style="border-right:1px solid #eee">${i+1}</td>
+          <td class="text-center" style="border-right:1px solid #eee"><input type="checkbox"></td>
+          <td style="color:#1565C0">${UI.esc(d.id)}</td>
+          <td style="font-weight:600">${UI.esc(d.nama)}</td>
+          <td>${UI.esc(d.alamat)}</td>
+          <td>${UI.esc(d.telp)}</td>
+          <td>${UI.esc(d.kontak)}</td>
+          <td class="text-right">${UI.esc(d.disc)}</td>
+        </tr>
+      `;
+    });
+
+    w.innerHTML = `
+      <div class="card mb-16">
+        <div class="card-head flex align-center" style="gap:12px; background:#1976D2; color:#fff; padding:12px 16px;">
+          <span style="font-weight:600">Master Rekanan</span>
+        </div>
+        <div style="background:#f1f5f9; padding:8px 16px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #ddd">
+          <label style="font-size:12px;font-weight:600;color:#555">Filter</label>
+          <input type="text" class="input input-sm" placeholder="Search..." style="width:150px">
+          <select class="input input-sm"><option>Nama Rekanan</option></select>
+          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Tambah</button>
+          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Hapus</button>
+          <button class="btn btn-sm btn-danger" style="background:#d32f2f;color:#fff;border:none">Excel</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl" style="width:100%; min-width:800px">
+            <thead style="background:#7CB342; color:#fff">
+              <tr>
+                <th style="width:40px;color:#fff"></th>
+                <th style="width:30px;color:#fff"></th>
+                <th style="width:120px;color:#fff">ID Rekanan</th>
+                <th style="color:#fff">Nama Rekanan</th>
+                <th style="color:#fff">Alamat Rekanan</th>
+                <th style="width:120px;color:#fff">Telp</th>
+                <th style="width:120px;color:#fff">Nama Kontak</th>
+                <th style="width:80px;color:#fff" class="text-right">Disc</th>
+              </tr>
+            </thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>
+        <div class="card-foot" style="background:#f1f5f9; padding:8px 16px; display:flex; justify-content:space-between; align-items:center; font-size:12px">
+          <div class="flex gap-4 align-center">
+            <button class="btn btn-sm btn-icon" disabled><</button>
+            <button class="btn btn-sm btn-icon" disabled>></button>
+            <span>Page <input type="text" value="1" class="input input-sm" style="width:40px;text-align:center" readonly> of 1</span>
+          </div>
+          <div class="flex gap-8 align-center">
+            <span>Records per page: <select class="input input-sm"><option>100000</option></select></span>
+            <span>Displaying 1 to ${dataRekanan.length} of ${dataRekanan.length} items</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ================================================================ *
+   *  TAB DOKTER (CRUD)
+   * ================================================================ */
+  async function tabDokter(w) {
+    w.innerHTML = `<div class="p-16">${UI.memuat(4)}</div>`;
+    
+    let dataDokter = [];
+    try {
+      dataDokter = await DB.daftarDokter();
+    } catch (e) {
+      UI.toast('Gagal memuat daftar dokter: ' + e.message, 'err');
+      return;
+    }
+
+    const renderTabel = () => {
+      let trs = '';
+      if (!dataDokter.length) {
+        trs = `<tr><td colspan="9" class="text-center text-muted" style="padding: 24px">Tidak ada data.</td></tr>`;
+      } else {
+        dataDokter.forEach((d, i) => {
+          trs += `
+            <tr>
+              <td class="text-center text-muted" style="border-right:1px solid #eee">${i+1}</td>
+              <td class="text-center" style="border-right:1px solid #eee"><input type="checkbox" value="${d.id}"></td>
+              <td style="color:#1565C0">${UI.esc(d.id)}</td>
+              <td style="font-weight:600">${UI.esc(d.nama)}</td>
+              <td>${UI.esc(d.alamat || '')}</td>
+              <td>${UI.esc(d.telepon || '')}</td>
+              <td>${UI.esc(d.no_hp || '')}</td>
+              <td>${UI.esc(d.kode_detailer || '')}</td>
+              <td>${UI.esc(d.spesialisasi || '')}</td>
+            </tr>
+          `;
+        });
+      }
+      
+      w.innerHTML = `
+        <div class="card mb-16">
+          <div class="card-head flex align-center" style="gap:12px; background:#1976D2; color:#fff; padding:12px 16px;">
+            <span style="font-weight:600">Master Dokter</span>
+          </div>
+          <div style="background:#f1f5f9; padding:8px 16px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #ddd">
+            <button class="btn btn-sm btn-primary" onclick="window.tambahDokter()" style="background:#1976D2;color:#fff;border:none">Tambah</button>
+            <button class="btn btn-sm btn-primary" onclick="window.editDokter()" style="background:#1976D2;color:#fff;border:none">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="window.hapusDokter()" style="background:#d32f2f;color:#fff;border:none">Hapus</button>
+          </div>
+          <div style="overflow-x:auto; height: 500px">
+            <table class="tbl" style="width:100%; min-width:800px" id="tblDokter">
+              <thead style="background:#7CB342; color:#fff; position: sticky; top: 0">
+                <tr>
+                  <th style="width:40px;color:#fff"></th>
+                  <th style="width:30px;color:#fff"><input type="checkbox" onchange="document.querySelectorAll('#tblDokter tbody input[type=checkbox]').forEach(cb => cb.checked = this.checked)"></th>
+                  <th style="width:250px;color:#fff">ID Dokter (UUID)</th>
+                  <th style="color:#fff">Nama Dokter</th>
+                  <th style="color:#fff">Alamat</th>
+                  <th style="width:120px;color:#fff">Telp.</th>
+                  <th style="width:120px;color:#fff">HP</th>
+                  <th style="width:120px;color:#fff">Kode Detailer</th>
+                  <th style="width:120px;color:#fff">Spesialisasi</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${trs}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+
+    window.tambahDokter = () => {
+      bukaFormDokter();
+    };
+
+    window.editDokter = () => {
+      const checked = document.querySelectorAll('#tblDokter tbody input[type=checkbox]:checked');
+      if (checked.length !== 1) return UI.toast('Pilih satu dokter untuk diedit', 'err');
+      const id = checked[0].value;
+      const d = dataDokter.find(x => x.id === id);
+      if (d) bukaFormDokter(d);
+    };
+
+    window.hapusDokter = async () => {
+      const checked = document.querySelectorAll('#tblDokter tbody input[type=checkbox]:checked');
+      if (checked.length === 0) return UI.toast('Pilih dokter yang akan dihapus', 'err');
+      if (!confirm(`Hapus ${checked.length} dokter terpilih?`)) return;
+      
+      let fail = 0;
+      for (const cb of checked) {
+        try {
+          const { error } = await DB.sb.from('pegawai').delete().eq('id', cb.value);
+          if (error) throw error;
+        } catch(e) { fail++; console.error(e); }
+      }
+      
+      if (fail > 0) UI.toast(`Gagal menghapus ${fail} dokter`, 'err');
+      else UI.toast('Berhasil dihapus', 'ok');
+      
+      tabDokter(w); // reload
+    };
+
+    function bukaFormDokter(m = null) {
+      const h = `
+        <form id="modal-dokter-form" style="display:flex;flex-direction:column;gap:12px;">
+          <div class="field"><label>Nama Dokter</label><input type="text" id="dfNama" required value="${UI.esc(m?.nama||'')}"></div>
+          <div class="field"><label>Alamat</label><input type="text" id="dfAlamat" value="${UI.esc(m?.alamat||'')}"></div>
+          <div class="field"><label>Telepon</label><input type="text" id="dfTelp" value="${UI.esc(m?.telepon||'')}"></div>
+          <div class="field"><label>HP</label><input type="text" id="dfHp" value="${UI.esc(m?.no_hp||'')}"></div>
+          <div class="field"><label>Kode Detailer</label><input type="text" id="dfKd" value="${UI.esc(m?.kode_detailer||'')}"></div>
+          <div class="field"><label>Spesialisasi</label><input type="text" id="dfSp" value="${UI.esc(m?.spesialisasi||'')}"></div>
+          <div class="flex gap-8" style="justify-content:flex-end;margin-top:12px">
+            <button type="button" class="btn btn-secondary" onclick="UI.tutupModal()">Batal</button>
+            <button type="submit" class="btn btn-primary">${m ? 'Simpan Perubahan' : 'Tambah'}</button>
+          </div>
+        </form>
+      `;
+      UI.modal(`${m ? 'Edit' : 'Tambah'} Dokter`, h, { width: 400 });
+      
+      document.getElementById('modal-dokter-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const rec = {
+          nama: document.getElementById('dfNama').value,
+          alamat: document.getElementById('dfAlamat').value,
+          telepon: document.getElementById('dfTelp').value,
+          no_hp: document.getElementById('dfHp').value,
+          kode_detailer: document.getElementById('dfKd').value,
+          spesialisasi: document.getElementById('dfSp').value,
+        };
+        try {
+          const btn = e.target.querySelector('button[type=submit]');
+          btn.disabled = true; btn.textContent = 'Menyimpan...';
+          await DB.simpanPegawaiDokter(rec, m?.id);
+          UI.tutupModal();
+          UI.toast('Data dokter berhasil disimpan', 'ok');
+          tabDokter(w);
+        } catch(err) {
+          UI.toast('Gagal menyimpan: ' + err.message, 'err');
+          btn.disabled = false; btn.textContent = m ? 'Simpan Perubahan' : 'Tambah';
+        }
+      };
+    }
+
+    renderTabel();
+  }
+
+  /* ================================================================ *
+   *  KODE PEMERIKSAAN (Tree View Skylab)
+   * ================================================================ */
+  async function tabKodePx(w) {
+    // Styling tambahan sementara untuk mempermudah layout tree view
+    w.innerHTML = `
+      <style>
+        .split-layout { display: flex; height: 75vh; border: 1px solid #ddd; background: #fff; }
+        .split-left { width: 300px; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        .split-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .tree-header { background: #A01B22; color: #fff; padding: 12px 16px; font-weight: bold; font-size: 1.1em; display:flex; justify-content: space-between; align-items:center; }
+        .tree-content { flex: 1; overflow-y: auto; padding: 12px; }
+        .tree-node { margin-bottom: 4px; }
+        .tree-node summary { cursor: pointer; padding: 4px 8px; border-radius: 4px; display:flex; gap: 8px; align-items:center;}
+        .tree-node summary:hover { background: #f5f5f5; }
+        .tree-node.active > summary { background: #e3f2fd; color: #0d47a1; font-weight: 500; }
+        .tree-node .node-icon { font-family: monospace; font-size: 1.2em; line-height:1; }
+        
+        .detail-header { display: flex; gap: 32px; padding: 16px; border-bottom: 1px solid #ddd; }
+        .detail-header-item { display: flex; gap: 16px; }
+        .detail-header-item .lbl { color: #666; width: 60px; }
+        .detail-header-item .val { font-weight: bold; }
+        
+        .detail-actions { padding: 16px; display:flex; gap:12px; align-items: center; border-bottom: 1px solid #ddd;}
+        .detail-table-wrap { flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9;}
+        
+        table.skylab-tbl { width: 100%; border-collapse: collapse; background: #fff; }
+        table.skylab-tbl th { background: #f0f0f0; border: 1px solid #ddd; padding: 8px; text-align: left; font-weight:bold; }
+        table.skylab-tbl td { border: 1px solid #ddd; padding: 8px; }
+        table.skylab-tbl tbody tr:nth-child(even) { background: #fafafa; }
+      </style>
+      <div class="split-layout">
+        <div class="split-left">
+          <div class="tree-header">Daftar Parameter Pemeriksaan</div>
+          <div class="tree-content" id="treePx">Memuat...</div>
+        </div>
+        <div class="split-right">
+          <div class="detail-header" id="detailHeader">
+             <!-- Diisi JS -->
+          </div>
+          <div class="detail-actions">
+            <label style="margin-bottom:0">Nama Anak Baru :</label>
+            <input type="text" id="inAnakBaru" placeholder="Ketik nama pemeriksaan..." style="width:250px" disabled>
+            <button class="btn btn-secondary btn-sm" id="btnTambahAnak" disabled>Tambah</button>
+          </div>
+          <div class="detail-table-wrap">
+            <table class="skylab-tbl">
+              <thead>
+                <tr>
+                  <th style="width: 150px">Kode PX</th>
+                  <th>Nama PX</th>
+                  <th style="width: 80px" class="text-center">Opsi</th>
+                </tr>
+              </thead>
+              <tbody id="tblAnak">
+                 <!-- Diisi JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Pastikan cache lab terisi
+    if (!cache.lab.length) cache.lab = await DB.refLab(false);
+
+    let prefixAktif = null;
+
+    function renderTree() {
+      // Dapatkan semua prefix (huruf pertama) unik dari cache.lab
+      const listPrefix = [...new Set(cache.lab.map(x => x.kode.charAt(0).toUpperCase()))].sort();
+      
+      const tc = w.querySelector('#treePx');
+      if (listPrefix.length === 0) {
+        tc.innerHTML = '<i>Belum ada parameter lab.</i>';
+        return;
+      }
+
+      tc.innerHTML = listPrefix.map(p => `
+        <details class="tree-node ${prefixAktif === p ? 'active' : ''}" data-prefix="${p}" ${prefixAktif === p ? 'open' : ''}>
+          <summary>
+            <span class="node-icon">⊞</span> ${p}
+          </summary>
+        </details>
+      `).join('');
+
+      // Event listener klik
+      tc.querySelectorAll('summary').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault(); 
+          const det = el.parentElement;
+          const pref = det.getAttribute('data-prefix');
+          prefixAktif = pref;
+          renderTree(); 
+          renderDetail();
+        });
+      });
+    }
+
+    function renderDetail() {
+      const dh = w.querySelector('#detailHeader');
+      const inA = w.querySelector('#inAnakBaru');
+      const btnA = w.querySelector('#btnTambahAnak');
+      const tb = w.querySelector('#tblAnak');
+
+      if (!prefixAktif) {
+        dh.innerHTML = `<div style="color:#999; font-style:italic">Pilih kode di kiri terlebih dahulu</div>`;
+        inA.disabled = true;
+        btnA.disabled = true;
+        tb.innerHTML = '';
+        return;
+      }
+
+      const kodeID = prefixAktif.charCodeAt(0) - 64; 
+      dh.innerHTML = `
+        <div>
+          <div class="detail-header-item"><span class="lbl">Kode</span> <span class="val">${kodeID}</span></div>
+          <div class="detail-header-item"><span class="lbl">Nama</span> <span class="val">${prefixAktif}</span></div>
+        </div>
+      `;
+
+      inA.disabled = false;
+      btnA.disabled = false;
+
+      const anak = cache.lab.filter(x => x.kode.startsWith(prefixAktif)).sort((a, b) => a.kode.localeCompare(b.kode));
+      
+      if (anak.length === 0) {
+         tb.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Belum ada anak untuk prefix ini</td></tr>`;
+      } else {
+         tb.innerHTML = anak.map(a => `
+            <tr>
+              <td>${UI.esc(a.kode)}</td>
+              <td>${UI.esc(a.nama)}</td>
+              <td class="text-center">
+                <button class="btn-icon text-danger btnHapusAnak" data-id="${a.id}" title="Hapus">${UI.ikon('hapus',14)}</button>
+              </td>
+            </tr>
+         `).join('');
+      }
+
+      tb.querySelectorAll('.btnHapusAnak').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if (!confirm('Hapus parameter ini?')) return;
+          try {
+            await DB.hapusLab(id);
+            UI.toast('Parameter dihapus', 'ok');
+            cache.lab = await DB.refLab(false);
+            renderDetail();
+          } catch(err) {
+            UI.toast(jelaskanError(err), 'err');
+          }
+        });
+      });
+    }
+
+    w.querySelector('#btnTambahAnak').addEventListener('click', async () => {
+      const inA = w.querySelector('#inAnakBaru');
+      const val = inA.value.trim();
+      if (!val) return;
+      if (!prefixAktif) return;
+
+      const existing = cache.lab.filter(x => x.kode.startsWith(prefixAktif));
+      let max = 0;
+      existing.forEach(x => {
+        const strNum = x.kode.substring(1);
+        const num = parseInt(strNum, 10);
+        if (!isNaN(num) && num > max && strNum === num.toString().padStart(strNum.length, '0')) {
+          max = num;
+        }
+      });
+      let nextKode = prefixAktif + "0101";
+      if (max > 0) {
+        nextKode = prefixAktif + (max + 1).toString().padStart(4, '0');
+      }
+
+      try {
+        const row = {
+          kode: nextKode,
+          nama: nextKode + "-" + val,
+          kelompok: 'Lainnya',
+          aktif: true,
+          urutan: max + 1
+        };
+        await DB.simpanRefLab(row);
+        UI.toast('Anak baru ditambahkan', 'ok');
+        inA.value = '';
+        cache.lab = await DB.refLab(false);
+        renderTree();
+        renderDetail();
+      } catch(e) {
+        UI.toast(jelaskanError(e), 'err');
+      }
+    });
+
+    w.querySelector('#inAnakBaru').addEventListener('keyup', (e) => {
+       if (e.key === 'Enter') w.querySelector('#btnTambahAnak').click();
+    });
+
+    renderTree();
+    renderDetail();
+  }
+
+  /* ================================================================ *
+   *  HARGA PEMERIKSAAN
+   * ================================================================ */
+  async function tabHargaPx(w) {
+    w.innerHTML = `
+      <style>
+        .skylab-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; background: #fff; }
+        .skylab-table th { background: #4a90e2; color: #fff; border: 1px solid #ddd; padding: 8px; text-align: left; font-weight: normal; }
+        .skylab-table td { border: 1px solid #ddd; padding: 8px; vertical-align: middle; }
+        .skylab-table tr:nth-child(even) { background: #f9f9f9; }
+        .skylab-table tr:hover { background: #e3f2fd; }
+        
+        .harga-input { 
+           width: 150px; 
+           padding: 4px 8px; 
+           border: 1px solid transparent; 
+           background: transparent; 
+           font-family: inherit;
+           font-size: 14px;
+        }
+        .harga-input:hover { border: 1px solid #ccc; background: #fff; }
+        .harga-input:focus { border: 1px solid #4a90e2; background: #fff; outline: none; }
+        
+        .toolbar-harga { background: #0056b3; padding: 12px; display: flex; gap: 12px; align-items: center; color: #fff; }
+        .toolbar-harga input { padding: 4px 8px; border: none; border-radius: 2px; }
+        .toolbar-harga select { padding: 4px; border: none; border-radius: 2px; }
+      </style>
+      
+      <div class="toolbar-harga mb-16">
+        <label style="margin:0">Filter</label>
+        <input type="text" id="cariHarga" placeholder="Search..">
+        <select><option>Kode Px</option><option>Nama Px</option></select>
+        <!-- Tombol Tambah/Hapus ditiadakan sesuai diskusi krn sudah ada di tab Kode Px -->
+        <div style="flex:1"></div>
+        <div style="font-size: 12px; color: #a1c9f4;">*Ketik di kolom Harga lalu Enter untuk menyimpan</div>
+      </div>
+      
+      <div style="overflow-x: auto;">
+        <table class="skylab-table">
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center"><input type="checkbox" disabled></th>
+              <th style="width:120px">Kode Px</th>
+              <th>Nama Px</th>
+              <th style="width:180px">Harga</th>
+              <th>Barcode</th>
+              <th>Grup CN</th>
+              <th>Jasmed</th>
+            </tr>
+          </thead>
+          <tbody id="tblHarga">
+            <tr><td colspan="7" class="text-center">Memuat...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // 1. Fetch Lab Master
+    const labList = await DB.refLab(false);
+    // 2. Fetch Kasir Tarif (jenis = LAB)
+    const tarifList = await DB.daftarTarif({ jenis: 'LAB' });
+         
+    // Gabungkan
+    const dictTarif = {};
+    if (tarifList) tarifList.forEach(t => dictTarif[t.kode] = t.tarif);
+    
+    let combined = labList.map(l => ({
+       kode: l.kode,
+       nama: l.nama,
+       kelompok: l.kelompok,
+       harga: dictTarif[l.kode] || 0
+    }));
+
+    const tbody = w.querySelector('#tblHarga');
+    const cariInput = w.querySelector('#cariHarga');
+
+    function renderTabel() {
+      const kata = cariInput.value.toLowerCase().trim();
+      let filtered = combined;
+      if (kata) {
+         filtered = combined.filter(x => x.kode.toLowerCase().includes(kata) || x.nama.toLowerCase().includes(kata));
+      }
+      
+      if (filtered.length === 0) {
+         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Tidak ada data</td></tr>';
+         return;
+      }
+
+      tbody.innerHTML = filtered.map((x, i) => `
+        <tr>
+          <td class="text-center"><input type="checkbox"></td>
+          <td>${UI.esc(x.kode)}</td>
+          <td>${UI.esc(x.nama)}</td>
+          <td style="padding: 2px">
+            <input type="number" class="harga-input" data-kode="${UI.esc(x.kode)}" data-nama="${UI.esc(x.nama)}" value="${x.harga}">
+          </td>
+          <td></td>
+          <td>${UI.esc(x.kelompok === 'Lainnya' ? x.kode.charAt(0) : (x.kelompok || 'A'))}</td>
+          <td></td>
+        </tr>
+      `).join('');
+      
+      // Event Listener utk Input Harga
+      tbody.querySelectorAll('.harga-input').forEach(inp => {
+        let isSaving = false;
+        const saveHarga = async () => {
+           if (isSaving) return;
+           const v = Number(inp.value) || 0;
+           const old = Number(inp.getAttribute('value')) || 0;
+           if (v === old) return; // tidak ada perubahan
+           
+           isSaving = true;
+           inp.style.backgroundColor = '#ffffcc';
+           const kd = inp.getAttribute('data-kode');
+           const nm = inp.getAttribute('data-nama');
+           
+           try {
+              await DB.updateHargaLab(kd, nm, v);
+              inp.setAttribute('value', v);
+              inp.style.backgroundColor = '#e8f5e9';
+              // Update state lokal
+              const found = combined.find(c => c.kode === kd);
+              if (found) found.harga = v;
+              UI.toast('Harga ' + nm + ' tersimpan!', 'ok');
+           } catch(e) {
+              inp.value = old;
+              inp.style.backgroundColor = '#ffebee';
+              UI.toast('Gagal menyimpan harga: ' + e.message, 'err');
+           }
+           isSaving = false;
+        };
+        
+        inp.addEventListener('blur', saveHarga);
+        inp.addEventListener('keyup', (e) => {
+           if (e.key === 'Enter') { inp.blur(); }
+        });
+      });
+    }
+
+    cariInput.addEventListener('input', UI.tunda(renderTabel, 200));
+    renderTabel();
+  }
+
+  /* ================================================================ *
+   *  KODE PEMERIKSAAN (Tree View Skylab)
+   * ================================================================ */
+  async function tabKodePx(w) {
+    // Styling tambahan sementara untuk mempermudah layout tree view
+    w.innerHTML = `
+      <style>
+        .split-layout { display: flex; height: 75vh; border: 1px solid #ddd; background: #fff; }
+        .split-left { width: 300px; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        .split-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .tree-header { background: #A01B22; color: #fff; padding: 12px 16px; font-weight: bold; font-size: 1.1em; display:flex; justify-content: space-between; align-items:center; }
+        .tree-content { flex: 1; overflow-y: auto; padding: 12px; }
+        .tree-node { margin-bottom: 4px; }
+        .tree-node summary { cursor: pointer; padding: 4px 8px; border-radius: 4px; display:flex; gap: 8px; align-items:center;}
+        .tree-node summary:hover { background: #f5f5f5; }
+        .tree-node.active > summary { background: #e3f2fd; color: #0d47a1; font-weight: 500; }
+        .tree-node .node-icon { font-family: monospace; font-size: 1.2em; line-height:1; }
+        
+        .detail-header { display: flex; gap: 32px; padding: 16px; border-bottom: 1px solid #ddd; }
+        .detail-header-item { display: flex; gap: 16px; }
+        .detail-header-item .lbl { color: #666; width: 60px; }
+        .detail-header-item .val { font-weight: bold; }
+        
+        .detail-actions { padding: 16px; display:flex; gap:12px; align-items: center; border-bottom: 1px solid #ddd;}
+        .detail-table-wrap { flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9;}
+        
+        table.skylab-tbl { width: 100%; border-collapse: collapse; background: #fff; }
+        table.skylab-tbl th { background: #f0f0f0; border: 1px solid #ddd; padding: 8px; text-align: left; font-weight:bold; }
+        table.skylab-tbl td { border: 1px solid #ddd; padding: 8px; }
+        table.skylab-tbl tbody tr:nth-child(even) { background: #fafafa; }
+      </style>
+      <div class="split-layout">
+        <div class="split-left">
+          <div class="tree-header">Daftar Parameter Pemeriksaan</div>
+          <div class="tree-content" id="treePx">Memuat...</div>
+        </div>
+        <div class="split-right">
+          <div class="detail-header" id="detailHeader">
+             <!-- Diisi JS -->
+          </div>
+          <div class="detail-actions">
+            <label style="margin-bottom:0">Nama Anak Baru :</label>
+            <input type="text" id="inAnakBaru" placeholder="Ketik nama pemeriksaan..." style="width:250px" disabled>
+            <button class="btn btn-secondary btn-sm" id="btnTambahAnak" disabled>Tambah</button>
+          </div>
+          <div class="detail-table-wrap">
+            <table class="skylab-tbl">
+              <thead>
+                <tr>
+                  <th style="width: 150px">Kode PX</th>
+                  <th>Nama PX</th>
+                  <th style="width: 80px" class="text-center">Opsi</th>
+                </tr>
+              </thead>
+              <tbody id="tblAnak">
+                 <!-- Diisi JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Pastikan cache lab terisi
+    if (!cache.lab.length) cache.lab = await DB.refLab(false);
+
+    let prefixAktif = null;
+
+    function renderTree() {
+      // Dapatkan semua prefix (huruf pertama) unik dari cache.lab
+      const listPrefix = [...new Set(cache.lab.map(x => x.kode.charAt(0).toUpperCase()))].sort();
+      
+      const tc = w.querySelector('#treePx');
+      if (listPrefix.length === 0) {
+        tc.innerHTML = '<i>Belum ada parameter lab.</i>';
+        return;
+      }
+
+      tc.innerHTML = listPrefix.map(p => `
+        <details class="tree-node ${prefixAktif === p ? 'active' : ''}" data-prefix="${p}" ${prefixAktif === p ? 'open' : ''}>
+          <summary>
+            <span class="node-icon">⊞</span> ${p}
+          </summary>
+        </details>
+      `).join('');
+
+      // Event listener klik
+      tc.querySelectorAll('summary').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault(); 
+          const det = el.parentElement;
+          const pref = det.getAttribute('data-prefix');
+          prefixAktif = pref;
+          renderTree(); 
+          renderDetail();
+        });
+      });
+    }
+
+    function renderDetail() {
+      const dh = w.querySelector('#detailHeader');
+      const inA = w.querySelector('#inAnakBaru');
+      const btnA = w.querySelector('#btnTambahAnak');
+      const tb = w.querySelector('#tblAnak');
+
+      if (!prefixAktif) {
+        dh.innerHTML = `<div style="color:#999; font-style:italic">Pilih kode di kiri terlebih dahulu</div>`;
+        inA.disabled = true;
+        btnA.disabled = true;
+        tb.innerHTML = '';
+        return;
+      }
+
+      const kodeID = prefixAktif.charCodeAt(0) - 64; 
+      dh.innerHTML = `
+        <div>
+          <div class="detail-header-item"><span class="lbl">Kode</span> <span class="val">${kodeID}</span></div>
+          <div class="detail-header-item"><span class="lbl">Nama</span> <span class="val">${prefixAktif}</span></div>
+        </div>
+      `;
+
+      inA.disabled = false;
+      btnA.disabled = false;
+
+      const anak = cache.lab.filter(x => x.kode.startsWith(prefixAktif)).sort((a, b) => a.kode.localeCompare(b.kode));
+      
+      if (anak.length === 0) {
+         tb.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Belum ada anak untuk prefix ini</td></tr>`;
+      } else {
+         tb.innerHTML = anak.map(a => `
+            <tr>
+              <td>${UI.esc(a.kode)}</td>
+              <td>${UI.esc(a.nama)}</td>
+              <td class="text-center">
+                <button class="btn-icon text-danger btnHapusAnak" data-id="${a.id}" title="Hapus">${UI.ikon('hapus',14)}</button>
+              </td>
+            </tr>
+         `).join('');
+      }
+
+      tb.querySelectorAll('.btnHapusAnak').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if (!confirm('Hapus parameter ini?')) return;
+          try {
+            await DB.hapusLab(id);
+            UI.toast('Parameter dihapus', 'ok');
+            cache.lab = await DB.refLab(false);
+            renderDetail();
+          } catch(err) {
+            UI.toast(jelaskanError(err), 'err');
+          }
+        });
+      });
+    }
+
+    w.querySelector('#btnTambahAnak').addEventListener('click', async () => {
+      const inA = w.querySelector('#inAnakBaru');
+      const val = inA.value.trim();
+      if (!val) return;
+      if (!prefixAktif) return;
+
+      const existing = cache.lab.filter(x => x.kode.startsWith(prefixAktif));
+      let max = 0;
+      existing.forEach(x => {
+        const strNum = x.kode.substring(1);
+        const num = parseInt(strNum, 10);
+        if (!isNaN(num) && num > max && strNum === num.toString().padStart(strNum.length, '0')) {
+          max = num;
+        }
+      });
+      let nextKode = prefixAktif + "0101";
+      if (max > 0) {
+        nextKode = prefixAktif + (max + 1).toString().padStart(4, '0');
+      }
+
+      try {
+        const row = {
+          kode: nextKode,
+          nama: nextKode + "-" + val,
+          kelompok: 'Lainnya',
+          aktif: true,
+          urutan: max + 1
+        };
+        await DB.simpanRefLab(row);
+        UI.toast('Anak baru ditambahkan', 'ok');
+        inA.value = '';
+        cache.lab = await DB.refLab(false);
+        renderTree();
+        renderDetail();
+      } catch(e) {
+        UI.toast(jelaskanError(e), 'err');
+      }
+    });
+
+    w.querySelector('#inAnakBaru').addEventListener('keyup', (e) => {
+       if (e.key === 'Enter') w.querySelector('#btnTambahAnak').click();
+    });
+
+    renderTree();
+    renderDetail();
+  }
+
   return { render, bacaCsv, petakanBarisObat, petakanBarisIcd10 };
+
 })();

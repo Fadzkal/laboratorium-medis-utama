@@ -27,7 +27,7 @@ const Lab = (() => {
   // medis terkunci, bukan pekerjaan sehari-hari peran mana pun.
   const adminSaja  = () => App.siapa() && App.siapa().peran === 'master';
 
-  const TAB = { antrean: 'Antrean lab', penunjang: 'Bacaan penunjang', arsip: 'Arsip berkas' };
+  const TAB = { hasil: 'Hasil Pemeriksaan', antrean: 'Antrean lab', penunjang: 'Bacaan penunjang', arsip: 'Arsip berkas' };
 
   /* ================================================================== */
   /*  Kerangka                                                          */
@@ -59,6 +59,7 @@ const Lab = (() => {
   async function gambarTab(w) {
     w.innerHTML = UI.memuat();
     try {
+      if (tabAktif === 'hasil')    return await tabHasil(w);
       if (tabAktif === 'antrean')   return await tabAntrean(w);
       if (tabAktif === 'penunjang') return await tabPenunjang(w);
       if (tabAktif === 'arsip')     return await tabArsip(w);
@@ -1116,6 +1117,477 @@ const Lab = (() => {
       ]
     });
     return hasil === true;
+  }
+
+  /* ================================================================== */
+  /*  TAB HASIL PEMERIKSAAN (Skylab style)                              */
+  /* ================================================================== */
+  let hasilState = {
+    dari: null, sampai: null,
+    cari: '', status: '',
+    terpilih: null,
+    daftar: []
+  };
+
+  async function tabHasil(w) {
+    if (!hasilState.dari) {
+      hasilState.dari = UI.hariIni();
+      hasilState.sampai = UI.hariIni();
+    }
+    if (!master.length) master = await DB.refLab(false);
+
+    w.innerHTML = `
+      <style>
+        .skylab-wrap { display:flex; height:calc(100vh - 130px); min-height:500px; overflow:hidden; }
+        .skylab-left { width:280px; min-width:220px; background:#fff; border-right:1px solid #ddd; display:flex; flex-direction:column; overflow:hidden; }
+        .skylab-search { background:#e8740a; color:#fff; padding:10px 12px; font-weight:700; font-size:13px; flex-shrink:0; }
+        .skylab-filters { padding:8px 10px; border-bottom:1px solid #eee; flex-shrink:0; background:#fafafa; }
+        .skylab-filters .frow { display:flex; gap:6px; align-items:center; margin-bottom:5px; }
+        .skylab-filters .frow label { font-size:10px; color:#555; min-width:60px; }
+        .skylab-filters input, .skylab-filters select { font-size:11px; padding:3px 6px; border:1px solid #ccc; border-radius:3px; flex:1; }
+        .skylab-list { overflow-y:auto; flex:1; }
+        .skylab-list table { width:100%; border-collapse:collapse; font-size:11px; }
+        .skylab-list th { background:#3c5a9a; color:#fff; padding:5px 6px; font-size:10px; font-weight:600; text-align:left; position:sticky;top:0; }
+        .skylab-list tr.baris { cursor:pointer; border-bottom:1px solid #f0f0f0; }
+        .skylab-list tr.baris:hover { opacity:0.85; }
+        .skylab-list tr.baris.verified { background:#1a73e8; color:#fff; }
+        .skylab-list tr.baris.verified td { color:#fff; }
+        .skylab-list tr.baris.aktif { outline:2px solid #f97316 !important; outline-offset:-1px; }
+        .skylab-list td { padding:4px 6px; }
+        .skylab-right { flex:1; display:flex; flex-direction:column; overflow:hidden; background:#f5f5f5; }
+        .skylab-info { background:#1a73e8; color:#fff; padding:10px 16px; flex-shrink:0; }
+        .skylab-info .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 24px; font-size:11px; }
+        .skylab-info .info-row { display:flex; gap:6px; }
+        .skylab-info .info-lbl { min-width:100px; opacity:0.85; }
+        .skylab-info .info-val { font-weight:500; }
+        .skylab-actions { display:flex; align-items:center; gap:8px; padding:6px 16px; border-bottom:1px solid #ddd; background:#fff; flex-shrink:0; }
+        .skylab-tbl-wrap { flex:1; overflow:auto; }
+        .skylab-tbl { width:100%; border-collapse:collapse; font-size:11px; }
+        .skylab-tbl thead th { background:#5a8a3c; color:#fff; padding:6px 8px; text-align:left; position:sticky; top:0; font-size:10px; font-weight:600; }
+        .skylab-tbl tbody tr { border-bottom:1px solid #f0f0f0; }
+        .skylab-tbl tbody tr:hover { background:#f0f7ff; }
+        .skylab-tbl td { padding:5px 8px; }
+        .skylab-tbl td.kode { color:#1a73e8; font-weight:600; }
+        .skylab-tbl td.hasil-input input { width:100%; font-size:11px; padding:2px 5px; border:1px solid #ccc; border-radius:3px; }
+        .skylab-tbl td.abnormal { color:#c00; font-weight:700; }
+        .skylab-empty { display:flex; align-items:center; justify-content:center; height:100%; color:#aaa; font-size:13px; flex-direction:column; gap:8px; }
+        .skylab-catatan { padding:8px 16px; border-top:1px solid #ddd; background:#fff; flex-shrink:0; display:flex; gap:8px; align-items:flex-end; }
+        .skylab-catatan textarea { flex:1; font-size:11px; padding:5px 8px; border:1px solid #ccc; border-radius:3px; resize:none; height:50px; }
+        .btn-verify { background:#e8740a; color:#fff; border:none; padding:5px 14px; border-radius:3px; cursor:pointer; font-weight:600; font-size:11px; }
+        .btn-cetak  { background:#e8740a; color:#fff; border:none; padding:5px 14px; border-radius:3px; cursor:pointer; font-size:11px; }
+        .btn-wa     { background:#e8740a; color:#fff; border:none; padding:5px 14px; border-radius:3px; cursor:pointer; font-size:11px; }
+        .btn-cetak:disabled, .btn-verify:disabled, .btn-wa:disabled { opacity:0.5; cursor:not-allowed; }
+      </style>
+      <div class="skylab-wrap" id="skylabWrap">
+        <div class="skylab-left">
+          <div class="skylab-search">Pencarian</div>
+          <div class="skylab-filters" style="background:#fff; border-bottom:1px solid #ddd; padding:10px 8px;">
+            <div class="frow">
+              <select class="f-sel" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;"><option>Hari ini</option></select>
+              <input type="date" id="hsDari" class="f-inp" style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" value="${hasilState.dari}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="hsOptInstansi" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;">
+                <option value="">Semua Instansi</option>
+                <option value="umum">Umum</option>
+                <option value="bpjs">BPJS</option>
+              </select>
+              <input type="text" id="hsInstansi" class="f-inp" placeholder="Ketik instansi..." style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" value="${UI.esc(hasilState.instansi||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;"><option>Semua Dokter/Pasien</option></select>
+              <input type="text" id="hsCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" value="${UI.esc(hasilState.cari||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;">
+                <option>Pembayaran(Semua)</option>
+                <option>Lunas</option>
+                <option>Belum Lunas</option>
+              </select>
+              <input type="text" class="f-inp" style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" disabled>
+            </div>
+            <div class="frow">
+              <select class="f-sel" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;"><option>Semua Px</option></select>
+              <input type="text" class="f-inp" style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" disabled>
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="hsStatus" style="width:130px;font-size:11px;padding:3px;border:1px solid #777;border-radius:2px;">
+                <option value="">Semua No Lab</option>
+                <option value="SELESAI" ${hasilState.status==='SELESAI'?'selected':''}>Selesai</option>
+                <option value="AKTIF" ${hasilState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
+              </select>
+              <input type="text" class="f-inp" style="flex:1;font-size:11px;padding:3px;border:1px solid #ccc;border-radius:2px;" disabled>
+              <button id="hsBtnRefresh" style="background:none;border:none;font-size:18px;font-weight:bold;cursor:pointer;padding:0 4px;" title="Muat Ulang">&#x21bb;</button>
+            </div>
+          </div>
+          <div class="skylab-list" id="skyDaftar"><div class="skylab-empty">Memuat...</div></div>
+        </div>
+        <div class="skylab-right" id="skyKanan">
+          <div class="skylab-empty" style="height:100%">
+            <span style="font-size:36px">&#128203;</span>
+            <span>Pilih pasien dari daftar kiri</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const muat = async () => {
+      const daftar = document.getElementById('skyDaftar');
+      daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
+      try {
+        let data = await DB.labAntrean(hasilState.dari, hasilState.sampai, hasilState.status || null);
+        
+        let cariIns = hasilState.instansi || '';
+        if (hasilState.optInstansi) cariIns = hasilState.optInstansi;
+        
+        if (cariIns) {
+          const ins = cariIns.toLowerCase();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins));
+        }
+        
+        if (hasilState.cari) {
+          const k = hasilState.cari.toLowerCase();
+          data = data.filter(d => 
+            (d.nama_pasien||'').toLowerCase().includes(k) || 
+            (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.nama_dokter||'').toLowerCase().includes(k)
+          );
+        }
+        
+        hasilState.daftar = data;
+        gambarDaftar(daftar, data);
+      } catch(e) {
+        daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
+      }
+    };
+
+    const gambarDaftar = (el, data) => {
+      if (!data.length) {
+        el.innerHTML = '<div class="skylab-empty">Tidak ada data</div>';
+        return;
+      }
+      let no = 0;
+      el.innerHTML = `<table class="skylab-tbl">
+        <thead><tr><th>#</th><th>No Lab</th><th>Nama Pasien</th></tr></thead>
+        <tbody>
+          ${data.map(d => {
+            no++;
+            const verified = d.status === 'SELESAI';
+            const aktif = hasilState.terpilih === d.id;
+            return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
+              <td>${no}</td>
+              <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
+              <td>${UI.esc(d.nama_pasien||d.pasien?.nama||'')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>`;
+      el.querySelectorAll('tr.baris').forEach(tr => {
+        tr.onclick = () => bukaHasil(tr.dataset.id);
+      });
+    };
+
+    const bukaHasil = async (id) => {
+      hasilState.terpilih = id;
+      // highlight
+      w.querySelectorAll('tr.baris').forEach(r => r.classList.toggle('aktif', r.dataset.id === id));
+      const kanan = document.getElementById('skyKanan');
+      kanan.innerHTML = '<div class="skylab-empty"><span>Memuat...</span></div>';
+      try {
+        const p = await DB.labPermintaan(id);
+        const umurBln = LabCore.umurBulan(p.pasien.tanggal_lahir, p.tanggal);
+        const rujukanPakai = {};
+        p.hasil.forEach(h => {
+          const m = master.find(x => x.id === h.lab_id);
+          rujukanPakai[h.id] = m ? LabCore.pilihRujukan(m.rujukan||[], p.pasien.jenis_kelamin, umurBln) : null;
+        });
+        const terkunci = p.status === 'SELESAI' || p.status === 'BATAL';
+
+        const nilaiStr = (h) => {
+          const m = h.ref || {};
+          if (m.jenis_nilai === 'ANGKA') return h.nilai_angka === null ? '' : LabCore.formatNilai(h.nilai_angka, m.desimal);
+          return h.nilai_teks || '';
+        };
+        const rujStr = (ruj) => {
+          if (!ruj) return '';
+          if (ruj.batas_bawah !== null && ruj.batas_atas !== null) return `${ruj.batas_bawah} - ${ruj.batas_atas}`;
+          if (ruj.batas_bawah !== null) return `> ${ruj.batas_bawah}`;
+          if (ruj.batas_atas !== null) return `< ${ruj.batas_atas}`;
+          return ruj.teks || '';
+        };
+        const isAbnormal = (h, ruj) => {
+          if (!ruj || h.ref?.jenis_nilai !== 'ANGKA' || h.nilai_angka === null) return false;
+          if (ruj.batas_bawah !== null && h.nilai_angka < ruj.batas_bawah) return true;
+          if (ruj.batas_atas !== null && h.nilai_angka > ruj.batas_atas) return true;
+          return false;
+        };
+
+        const catatan = p.catatan_klinis || '';
+
+        kanan.innerHTML = `
+          <div style="background: #0f6cba; color: #fff; padding: 8px; font-family: Arial, sans-serif;">
+            <div style="font-size: 13px; margin-bottom: 8px; margin-left: 4px;">Hasil Pemeriksaan</div>
+            <div style="border: 1px solid #419641; padding: 12px 8px 8px 8px;">
+              <div style="display: flex; font-size: 12px; line-height: 1.4;">
+                <div style="flex: 1; display: grid; grid-template-columns: 80px 10px auto; gap: 0;">
+                  <div>Nama</div><div>:</div><div>${UI.esc(p.pasien.nama)}</div>
+                  <div>Gender</div><div>:</div><div>${p.pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan'}</div>
+                  <div>Usia</div><div>:</div><div>${UI.umurTeks(p.pasien.tanggal_lahir)}</div>
+                  <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien.alamat||'-')}</div>
+                  <div>NIK</div><div>:</div><div>${UI.esc(p.pasien.nik||'-')}</div>
+                </div>
+                <div style="flex: 1; display: grid; grid-template-columns: 130px 10px auto; gap: 0;">
+                  <div>No Lab/No MedRec</div><div>:</div><div>${UI.esc(p.no_lab)}/${UI.esc(p.pasien.no_rm)}</div>
+                  <div>Tgl Periksa</div><div>:</div><div>${UI.tglIndo(p.tanggal)}</div>
+                  <div>Pengirim</div><div>:</div><div>${UI.esc(p.peminta?.nama||'-')}</div>
+                  <div>Instansi</div><div>:</div><div>${UI.esc(p.kunjungan?.cara_bayar||'umum')}</div>
+                  <div>Encounter SS</div><div>:</div><div>-</div>
+                </div>
+              </div>
+              <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
+                ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                <select style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
+                  <option>Format 3(M3)</option>
+                  <option>Format Standar</option>
+                </select>
+                <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>Cetak</button>
+                <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
+                ${terkunci && adminSaja() ? `<button id="btnBukaKunci" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
+              </div>
+            </div>
+          </div>
+          
+          <div class="skylab-tbl-wrap" style="flex:1; border-left:1px solid #ccc; border-right:1px solid #ccc; background:#fff;">
+            <table class="skylab-tbl" style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="background:#65a12a; color:#fff; text-align:left;">
+                  <th style="width:30px; padding:6px; border:1px solid #ccc; background:#e0e0e0; color:#333;"></th>
+                  <th style="width:80px; padding:6px; border:1px solid #ccc;">Kode PX <span style="font-size:8px; color:#1a73e8;">▲</span></th>
+                  <th style="padding:6px; border:1px solid #ccc;">Nama Px</th>
+                  <th style="width:130px; padding:6px; border:1px solid #ccc;">Hasil Pemeriksaan</th>
+                  <th style="width:30px; padding:6px; border:1px solid #ccc; text-align:center;">*</th>
+                  <th style="width:70px; padding:6px; border:1px solid #ccc;">Unit</th>
+                  <th style="width:120px; padding:6px; border:1px solid #ccc;">Nilai Normal</th>
+                  <th style="width:100px; padding:6px; border:1px solid #ccc;">Rujukan</th>
+                  <th style="width:100px; padding:6px; border:1px solid #ccc;">Inggris</th>
+                  <th style="width:100px; padding:6px; border:1px solid #ccc;">Induk(Ing)</th>
+                  <th style="width:100px; padding:6px; border:1px solid #ccc;">Methode</th>
+                  <th style="width:60px; padding:6px; border:1px solid #ccc;">Min L</th>
+                  <th style="width:60px; padding:6px; border:1px solid #ccc;">Max L</th>
+                  <th style="width:60px; padding:6px; border:1px solid #ccc;">Min P</th>
+                  <th style="width:60px; padding:6px; border:1px solid #ccc;">Max P</th>
+                  <th style="width:80px; padding:6px; border:1px solid #ccc;">Normal L</th>
+                  <th style="width:80px; padding:6px; border:1px solid #ccc;">Normal P</th>
+                  <th style="width:50px; padding:6px; border:1px solid #ccc;">Urut</th>
+                  <th style="width:80px; padding:6px; border:1px solid #ccc;">N. Rujukan</th>
+                  <th style="width:60px; padding:6px; border:1px solid #ccc;">Fullrow</th>
+                </tr>
+              </thead>
+              <tbody id="skyTbody" style="background:#fff;">
+                ${p.hasil.map((h, idx) => {
+                  const ruj = rujukanPakai[h.id];
+                  const abnormal = isAbnormal(h, ruj);
+                  const val = nilaiStr(h);
+                  const m = h.ref || {};
+                  
+                  // Extract rujukan for L and P for display
+                  let rL = null; let rP = null;
+                  if (m.rujukan) {
+                    rL = m.rujukan.find(r => r.jenis_kelamin === 'L');
+                    rP = m.rujukan.find(r => r.jenis_kelamin === 'P');
+                  }
+
+                  return `<tr data-hid="${h.id}">
+                    <td style="padding:4px; border:1px solid #eee; background:#f5faff; color:#1a73e8; text-align:center;">${idx + 1}</td>
+                    <td style="padding:4px; border:1px solid #eee;">${UI.esc(m.kode||'')}</td>
+                    <td style="padding:4px; border:1px solid #eee;">${UI.esc(m.nama||h.ref?.nama||'')}</td>
+                    <td style="padding:4px; border:1px solid #eee;">
+                      ${terkunci
+                        ? `<span class="${abnormal?'abnormal':''}">${UI.esc(val)||'—'}</span>`
+                        : `<input type="text" class="hasil-val" data-hid="${h.id}" data-jenis="${m.jenis_nilai||'ANGKA'}" value="${UI.esc(val)}" placeholder="isi hasil..." style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit;">`
+                      }
+                    </td>
+                    <td style="padding:4px; border:1px solid #eee; text-align:center; color:${abnormal?'#c00':'#333'};">${ abnormal ? '↑' : '' }</td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="satuan" data-labid="${m.id}" value="${UI.esc(m.satuan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;">${UI.esc(rujStr(ruj))}</td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="catatan_aktif" data-rid="${ruj?.id||''}" data-jk="${ruj?.jenis_kelamin||''}" data-labid="${m.id}" value="${UI.esc(ruj?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="keterangan" data-labid="${m.id}" value="${UI.esc(m.keterangan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${rL?.batas_bawah??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${rL?.batas_atas??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${rP?.batas_bawah??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${rP?.batas_atas??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(rL?.teks||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${UI.esc(rP?.teks||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" class="ref-val" data-col="urutan" data-labid="${m.id}" value="${m.urutan||''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="n_rujukan" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(rL?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="padding:8px 16px; border-top:1px solid #ccc; background:#fff; display:flex; gap:8px; align-items:center; flex-shrink:0;">
+            <span style="font-size:12px; font-family:Arial, sans-serif;">Catatan :</span>
+            <textarea id="skyNote" style="flex:1; max-width:400px; height:28px; border:1px solid #ccc; padding:4px; font-family:inherit; font-size:12px; resize:none;">${UI.esc(catatan)}</textarea>
+            <button id="btnSimpanCatatan" style="background:#5cb85c; color:#fff; border:none; padding:6px 12px; cursor:pointer; font-size:12px;">Simpan Catatan</button>
+          </div>
+        `;
+
+        if (!terkunci) {
+          kanan.querySelectorAll('.hasil-val').forEach(inp => {
+            inp.addEventListener('change', async (e) => {
+              const el = e.target;
+              const hid = el.dataset.hid;
+              const j = el.dataset.jenis;
+              let v = el.value.trim();
+              if (j === 'ANGKA') v = v.replace(/,/g, '.');
+
+              el.style.background = '#fff8e1';
+              try {
+                const patch = {};
+                if (j === 'ANGKA') patch.nilai_angka = v === '' ? null : parseFloat(v);
+                else patch.nilai_teks = v === '' ? null : v;
+
+                await DB.simpanHasilLab(hid, patch);
+                el.style.background = '#e8f5e9';
+                setTimeout(() => el.style.background = '', 1000);
+
+                const ht = p.hasil.find(x => x.id === hid);
+                if (ht) {
+                  if (j === 'ANGKA') ht.nilai_angka = patch.nilai_angka;
+                  else ht.nilai_teks = patch.nilai_teks;
+                }
+                const ri = LabCore.ringkasLembar(p.hasil);
+                if (w.querySelector('#ringkasLembar')) w.querySelector('#ringkasLembar').textContent = `${ri.terisi} dari ${ri.total} terisi`;
+                if (w.querySelector('#btnSelesai')) w.querySelector('#btnSelesai').disabled = !ri.siapDitutup;
+              } catch (err) {
+                el.style.background = '#ffebee';
+                UI.toast('Gagal simpan: ' + err.message);
+              }
+            });
+          });
+
+          // Event listener untuk kolom referensi master data
+          kanan.querySelectorAll('.ref-val').forEach(inp => {
+            inp.addEventListener('change', async (e) => {
+              const el = e.target;
+              const col = el.dataset.col;
+              const labId = el.dataset.labid;
+              let val = el.value.trim();
+              const rid = el.dataset.rid;
+              
+              if (!labId || labId === 'undefined') return;
+              if (el.type === 'number' && val !== '') val = parseFloat(val);
+
+              el.style.background = '#ffebee';
+              try {
+                if (['satuan', 'keterangan', 'urutan'].includes(col)) {
+                  const patch = { id: labId };
+                  if (col === 'urutan') patch[col] = parseInt(val) || 0;
+                  else patch[col] = val === '' ? null : val;
+                  await DB.simpanRefLab(patch);
+                } 
+                else if (['min_l','max_l','min_p','max_p','teks_l','teks_p','n_rujukan','catatan_aktif'].includes(col)) {
+                  let jk = el.dataset.jk;
+                  if (!jk) jk = col.endsWith('_p') ? 'P' : 'L';
+                  
+                  const rCol = col.startsWith('min_') ? 'batas_bawah' : 
+                               col.startsWith('max_') ? 'batas_atas' : 
+                               (col === 'n_rujukan' || col === 'catatan_aktif') ? 'catatan' : 'teks';
+                  
+                  const patch = { lab_id: labId, jenis_kelamin: jk };
+                  if (rid) patch.id = rid;
+                  patch[rCol] = val === '' ? null : val;
+                  
+                  const res = await DB.simpanRujukan(patch);
+                  if (!rid) el.dataset.rid = res.id;
+                }
+                el.style.background = '#e8f5e9';
+                setTimeout(() => el.style.background = 'transparent', 1000);
+              } catch (err) {
+                console.error(err);
+                el.style.background = '#ffcdd2';
+                UI.toast('Gagal menyimpan master data: ' + err.message);
+              }
+            });
+          });
+
+          // Verify
+          const btnV = kanan.querySelector('#btnVerify');
+          if (btnV) btnV.onclick = async () => {
+            if (!await UI.konfirmasi('Yakin ingin memverifikasi (mengunci) lembar hasil ini? Setelah diverifikasi, hasil tidak bisa diubah.')) return;
+            try {
+              await DB.labSelesaikan(p.id);
+              UI.toast('Lembar berhasil diverifikasi!');
+              await muat();
+              await bukaHasil(p.id);
+            } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }
+          };
+        }
+
+        // Buka kunci
+        const btnBK = kanan.querySelector('#btnBukaKunci');
+        if (btnBK) btnBK.onclick = async () => {
+          const alasan = prompt('Alasan membuka kunci:');
+          if (!alasan) return;
+          try {
+            await DB.labBukaKunci(p.id, alasan);
+            UI.toast('Kunci dibuka.');
+            await muat();
+            await bukaHasil(p.id);
+          } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }
+        };
+
+        // Cetak
+        const btnC = kanan.querySelector('#btnHasilCetak');
+        if (btnC) btnC.onclick = () => cetakLembar(p, rujukanPakai);
+
+        // Simpan Catatan
+        const btnSC = kanan.querySelector('#btnSimpanCatatan');
+        if (btnSC) btnSC.onclick = async () => {
+          const note = kanan.querySelector('#skyNote').value;
+          try {
+            // Simpan catatan klinis ke catatan_klinis jika ada
+            UI.toast('Catatan belum tersimpan ke DB (tidak ada field di schema).', 'info');
+          } catch(e) { UI.toast(e.message, 'err'); }
+        };
+
+      } catch(e) {
+        kanan.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
+      }
+    };
+
+    // Filter event listeners
+    const bind = (id, prop, fn) => {
+      const el = w.querySelector('#' + id);
+      if (el) el.addEventListener(fn || 'change', e => { hasilState[prop] = e.target.value; muat(); });
+    };
+    bind('hsDari', 'dari');
+    bind('hsSampai', 'sampai');
+    bind('hsStatus', 'status');
+    bind('hsOptInstansi', 'optInstansi');
+    const cariEl = w.querySelector('#hsCari');
+    if (cariEl) {
+      let debounce;
+      cariEl.addEventListener('input', e => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => { hasilState.cari = e.target.value; muat(); }, 400);
+      });
+    }
+    const instansiEl = w.querySelector('#hsInstansi');
+    if (instansiEl) {
+      let debounce;
+      instansiEl.addEventListener('input', e => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => { hasilState.instansi = e.target.value; muat(); }, 400);
+      });
+    }
+    const btnRefresh = w.querySelector('#hsBtnRefresh');
+    if (btnRefresh) btnRefresh.onclick = muat;
+
+    await muat();
   }
 
   return { render, modalBacaan, modalArsip, daftarPilihLab, lencanaTanda, lencanaStatus };
