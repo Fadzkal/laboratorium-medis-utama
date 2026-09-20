@@ -384,15 +384,68 @@ const DisplayHarian = (() => {
           </div>
         `;
 
-        // Tombol Print Barcode
+        // Tombol Print Barcode — cetak label QR langsung via driver Windows (iframe tersembunyi)
         kanan.querySelector('#btnBarcode').onclick = () => {
-          const w = window.open('', '_blank', 'width=400,height=200');
-          w.document.write(`<html><body style="margin:0;padding:10px;font-family:monospace">
-            <div style="font-size:14px;font-weight:bold">${noLab}</div>
-            <div style="font-size:11px">${pasien.nama || ''} &mdash; ${umur}</div>
-            <div style="font-size:10px">${instansiVal} | ${pengirim}</div>
-            <script>window.print();window.close();<\/script>
+          const qrData  = noLab;
+          const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData)}`;
+          const lbarMm  = 40;
+          const tggiMm  = 30;
+          const tglStr  = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+          // Buat / daur-ulang iframe tersembunyi agar layout web utama tidak berantakan
+          let iframe = document.getElementById('print-iframe-blueprint');
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'print-iframe-blueprint';
+            Object.assign(iframe.style, {
+              position: 'fixed', right: '0', bottom: '0',
+              width: '0', height: '0', border: '0'
+            });
+            document.body.appendChild(iframe);
+          }
+
+          const doc = iframe.contentWindow.document;
+          doc.open();
+          doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>Cetak Label QR</title>
+            <style>
+              @page { size: ${lbarMm}mm ${tggiMm}mm; margin: 0mm !important; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              html, body { width: ${lbarMm}mm; height: ${tggiMm}mm; overflow: hidden;
+                background: #fff; color: #000; font-family: Arial, sans-serif; }
+              .container { width: ${lbarMm}mm; height: ${tggiMm}mm;
+                display: flex; flex-direction: row; align-items: center;
+                justify-content: space-between; padding: 1.5mm 2.2mm; overflow: hidden; }
+              .qr-box { width: ${tggiMm - 4}mm; height: ${tggiMm - 4}mm; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center; }
+              .qr-box img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+              .info-box { flex: 1; margin-left: 2mm; display: flex; flex-direction: column;
+                justify-content: center; overflow: hidden; line-height: 1.15; }
+              .unit-title { font-size: 6pt; font-weight: bold; text-transform: uppercase;
+                border-bottom: 0.8px solid #000; padding-bottom: 0.4mm;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .main-id  { font-size: 7.5pt; font-weight: 800; margin-top: 0.5mm; white-space: nowrap; }
+              .sub-name { font-size: 6.5pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .sub-date { font-size: 5.5pt; color: #333; }
+            </style>
+          </head><body>
+            <div class="container">
+              <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
+              <div class="info-box">
+                <div class="unit-title">LABORATORIUM UTAMA</div>
+                <div class="main-id">${noLab}</div>
+                <div class="sub-name">${pasien.nama || ''}</div>
+                <div class="sub-date">Tgl: ${tglStr} | ${instansiVal}</div>
+              </div>
+            </div>
           </body></html>`);
+          doc.close();
+
+          // Tunggu QR ter-load lalu langsung cetak
+          const img = doc.querySelector('img');
+          const doCetak = () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); };
+          if (img.complete) setTimeout(doCetak, 60);
+          else { img.onload = () => setTimeout(doCetak, 60); img.onerror = () => setTimeout(doCetak, 60); }
         };
 
         // Tombol Check NIK — notifikasi (implementasi SatuSehat)
