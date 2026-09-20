@@ -138,6 +138,7 @@
       }
       if (newDocs > 0) log("Berhasil menambahkan " + newDocs + " dokter baru.");
 
+      const seenNiks = new Set();
       log("Memproses baris CSV...");
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -184,6 +185,11 @@
 
         const pasien_id = uuidFromString('PASIEN_' + no_rm);
         if (!pasienMap.has(no_rm)) {
+          if (nik && seenNiks.has(nik)) {
+            nik = null; // NIK ini sudah dipakai pasien lain di CSV yang sama! Abaikan untuk cegah error constraint.
+          }
+          if (nik) seenNiks.add(nik);
+
           pasienMap.set(no_rm, {
             id: pasien_id,
             no_rm,
