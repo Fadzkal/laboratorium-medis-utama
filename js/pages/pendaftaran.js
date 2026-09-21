@@ -61,6 +61,7 @@ const Pendaftaran = (() => {
       if (draft && draft.form) {
          const f = draft.form;
          el.querySelector('#fRm').value = f.rm || '(Otomatis)';
+         if (el.querySelector('#fNik')) el.querySelector('#fNik').value = f.nik || '';
          el.querySelector('#fNrp').value = f.nrp || '';
          el.querySelector('#fNama').value = f.nama || '';
          el.querySelector('#fTitle').value = f.title || '';
@@ -247,7 +248,7 @@ const Pendaftaran = (() => {
               </div>
             </div>
 
-            <!-- No RM & NRP -->
+            <!-- No RM & NIK -->
             <div class="frow frow-13">
               <div class="pdft-field">
                 <label>No. RM</label>
@@ -255,10 +256,10 @@ const Pendaftaran = (() => {
               </div>
               <div class="pdft-field" style="display:flex;gap:4px;align-items:flex-end">
                 <div style="flex:1">
-                  <label>NRP / No. BPJS</label>
-                  <input type="text" id="fNrp" placeholder="">
+                  <label>NIK * (16 Digit)</label>
+                  <input type="text" id="fNik" maxlength="16" inputmode="numeric" placeholder="16 digit KTP/KK">
                 </div>
-                <button id="btnCekNrp" title="Cek Pasien" style="background:#388E3C;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Cek</button>
+                <button id="btnCekNrp" title="Cek Pasien Berdasarkan NIK" style="background:#388E3C;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Cek</button>
                 <button id="btnReset" title="Reset / Pasien Baru" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Baru</button>
               </div>
             </div>
@@ -279,12 +280,16 @@ const Pendaftaran = (() => {
               </div>
               <div class="pdft-field">
                 <label>Nama Px *</label>
-                <input type="text" id="fNama" placeholder="">
+                <input type="text" id="fNama" placeholder="Sesuai KTP / Identitas">
               </div>
             </div>
 
-            <!-- Bagian & Plant -->
-            <div class="frow frow-2">
+            <!-- NRP, Bagian & Plant -->
+            <div class="frow frow-3">
+              <div class="pdft-field">
+                <label>NRP / No. BPJS</label>
+                <input type="text" id="fNrp" placeholder="Opsional">
+              </div>
               <div class="pdft-field">
                 <label>Bagian</label>
                 <input type="text" id="fBagian" placeholder="">
@@ -770,16 +775,18 @@ const Pendaftaran = (() => {
       simpanDraftPendaftaran(el);
     });
 
-    /* ---- Cek Pasien via NRP/NIK ---- */
+    /* ---- Cek Pasien via NIK / NRP ---- */
     el.querySelector('#btnCekNrp').addEventListener('click', async () => {
-      const kata = el.querySelector('#fNrp').value.trim();
-      if (!kata) return UI.toast('Isi NRP / BPJS terlebih dahulu', 'err');
+      const nikVal = el.querySelector('#fNik')?.value.trim() || '';
+      const nrpVal = el.querySelector('#fNrp')?.value.trim() || '';
+      const kata = nikVal || nrpVal;
+      if (!kata) return UI.toast('Isi NIK terlebih dahulu', 'err');
       
       const res = await DB.cariPasien(kata, 1);
       if (res && res.length > 0) {
          pasienTerpilih = res[0];
          isiFormPasien(el, pasienTerpilih);
-         UI.toast('Data pasien ditemukan!', 'ok');
+         UI.toast(`Data pasien ditemukan: ${res[0].nama} (RM: ${res[0].no_rm})`, 'ok');
          
          const p = pasienTerpilih;
          const strPlant = (p.plant || '').toLowerCase();
@@ -851,7 +858,8 @@ const Pendaftaran = (() => {
   ================================================================ */
   function isiFormPasien(el, p) {
     el.querySelector('#fRm').value       = p.no_rm || '';
-    el.querySelector('#fNrp').value      = p.nrp   || '';
+    if (el.querySelector('#fNik')) el.querySelector('#fNik').value = p.nik || '';
+    el.querySelector('#fNrp').value      = p.nrp   || p.no_bpjs || '';
     el.querySelector('#fNama').value     = p.nama  || '';
     el.querySelector('#fTitle').value    = p.title || '';
     el.querySelector('#fBagian').value   = p.bagian || '';
@@ -860,12 +868,12 @@ const Pendaftaran = (() => {
     el.querySelector('#fJk').value       = p.jenis_kelamin || 'L';
     el.querySelector('#fAlamat').value   = p.alamat || '';
     el.querySelector('#fTelp').value     = p.no_hp || p.no_telp || '';
-    el.querySelector('#fNrp').value      = p.nrp || p.nik || p.no_bpjs || '';
     el.querySelector('#bJenisBayar').value = p.no_bpjs ? 'BPJS' : 'UMUM';
   }
 
   function resetFormPasien(el) {
     el.querySelector('#fRm').value       = '(Otomatis)';
+    if (el.querySelector('#fNik')) el.querySelector('#fNik').value = '';
     el.querySelector('#fNrp').value      = '';
     el.querySelector('#fNama').value     = '';
     el.querySelector('#fTitle').value    = '';
@@ -892,6 +900,7 @@ const Pendaftaran = (() => {
       pasienTerpilih, rekananTerpilih, barisPemeriksaan,
       form: {
         rm: el.querySelector('#fRm')?.value,
+        nik: el.querySelector('#fNik')?.value,
         nrp: el.querySelector('#fNrp')?.value,
         nama: el.querySelector('#fNama')?.value,
         title: el.querySelector('#fTitle')?.value,
@@ -957,9 +966,22 @@ const Pendaftaran = (() => {
      DAFTARKAN PASIEN (simpan & buat kunjungan lab)
   ================================================================ */
   async function daftarkanPasien(el) {
+    const nikInput = (el.querySelector('#fNik')?.value || '').trim();
     const nama     = el.querySelector('#fNama').value.trim();
     const tglLahir = el.querySelector('#fTglLahir').value;
     const jk       = el.querySelector('#fJk').value;
+
+    // VALIDASI WAJIB NIK (16 DIGIT)
+    if (!nikInput) {
+      UI.toast('NIK wajib diisi (16 digit) agar data pasien aman dan tidak ganda.', 'err');
+      el.querySelector('#fNik')?.focus();
+      return;
+    }
+    if (!/^\d{16}$/.test(nikInput)) {
+      UI.toast('NIK harus terdiri dari tepat 16 digit angka.', 'err');
+      el.querySelector('#fNik')?.focus();
+      return;
+    }
 
     if (!nama)     { UI.toast('Nama pasien wajib diisi.', 'err'); return; }
     if (!tglLahir) { UI.toast('Tanggal lahir wajib diisi.', 'err'); return; }
@@ -973,10 +995,9 @@ const Pendaftaran = (() => {
     try {
       let pasien = pasienTerpilih;
 
-      const nrpInput = el.querySelector('#fNrp').value.trim();
-      let nikVal = null, bpjsVal = null, nrpVal = nrpInput || null;
-      if (nrpInput.length === 16) { nikVal = nrpInput; }
-      else if (nrpInput.length === 13) { bpjsVal = nrpInput; }
+      const nrpInput = (el.querySelector('#fNrp')?.value || '').trim();
+      let bpjsVal = null, nrpVal = nrpInput || null;
+      if (nrpInput.length === 13) { bpjsVal = nrpInput; }
 
       const dataPasien = {
         title:         el.querySelector('#fTitle').value || null,
@@ -984,8 +1005,8 @@ const Pendaftaran = (() => {
         nrp:           nrpVal,
         bagian:        el.querySelector('#fBagian').value.trim() || null,
         plant:         el.querySelector('#fPlant').value.trim() || null,
-        nik:           nikVal,
-        no_bpjs:       bpjsVal,
+        nik:           nikInput,
+        no_bpjs:       bpjsVal || pasien?.no_bpjs || null,
         jenis_kelamin: jk,
         tanggal_lahir: tglLahir,
         alamat:        el.querySelector('#fAlamat').value.trim() || null,
@@ -993,20 +1014,30 @@ const Pendaftaran = (() => {
       };
 
       if (!pasien) {
-        // Cegah pembuatan pasien ganda jika NIK/BPJS/NRP sudah ada
-        if (nrpInput) {
-          const resCek = await DB.cariPasien(nrpInput, 1);
-          if (resCek && resCek.length > 0) {
-            UI.toast(`Gagal: NIK/BPJS sudah terdaftar atas nama ${resCek[0].nama}. Silakan klik tombol Cek.`, 'err');
-            btn.disabled = false;
-            btn.textContent = 'REGISTRASI PASIEN';
-            return;
-          }
+        // Cegah pembuatan pasien ganda jika NIK sudah ada
+        const resCek = await DB.cariPasien(nikInput, 1);
+        if (resCek && resCek.length > 0) {
+          pasienTerpilih = resCek[0];
+          isiFormPasien(el, pasienTerpilih);
+          UI.toast(`NIK sudah terdaftar atas nama ${resCek[0].nama} (No. RM: ${resCek[0].no_rm}). Data pasien dimuat, silakan klik SAVE untuk konfirmasi pendaftaran.`, 'warn');
+          btn.disabled = false;
+          btn.textContent = 'REGISTRASI PASIEN';
+          return;
         }
         // Buat pasien baru
         pasien = await DB.simpanPasien(dataPasien, null);
         UI.toast(`Pasien baru terdaftar. No. RM: ${pasien.no_rm}`, 'ok');
       } else {
+        // Jika pasien lama, pastikan perubahan NIK tidak bentrok dengan pasien lain
+        if (nikInput !== pasien.nik) {
+          const resCek = await DB.cariPasien(nikInput, 1);
+          if (resCek && resCek.length > 0 && resCek[0].id !== pasien.id) {
+            UI.toast(`Gagal: NIK ${nikInput} sudah digunakan oleh pasien ${resCek[0].nama} (RM: ${resCek[0].no_rm}).`, 'err');
+            btn.disabled = false;
+            btn.textContent = 'REGISTRASI PASIEN';
+            return;
+          }
+        }
         // Update data identitas pasien lama dengan isian form terbaru
         pasien = await DB.simpanPasien(dataPasien, pasien.id);
       }

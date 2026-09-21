@@ -189,7 +189,7 @@ const DB = (() => {
   /* --------------------------- Pasien ---------------------------------- */
   async function cariPasien(kata, batas = 30) {
     let q = sb.from('pasien')
-      .select('id,no_rm,nik,no_bpjs,nama,tanggal_lahir,jenis_kelamin,alamat,no_hp,catatan_penting')
+      .select('id,no_rm,nik,no_bpjs,nama,title,nrp,bagian,plant,tanggal_lahir,jenis_kelamin,alamat,no_hp,catatan_penting')
       .eq('aktif', true).order('nama').limit(batas);
     if (kata && kata.trim().length >= 2) {
       const k = kata.trim();
