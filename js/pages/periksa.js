@@ -800,29 +800,31 @@ const Periksa = (() => {
       if (ba) ba.addEventListener('click', () => modalAddendum());
     }
 
-    el.querySelector('#btnCetakResep').addEventListener('click', cetakResep);
-
+    const btnCetakResep = el.querySelector('#btnCetakResep');
+    if (btnCetakResep) btnCetakResep.addEventListener('click', cetakResep);
     const bp = el.querySelector('#btnLihatPayload');
     if (bp) bp.addEventListener('click', modalPayload);
 
     const selTl = el.querySelector('#tl');
     const selTacc = el.querySelector('#tacc');
     const perbaruiTl = () => {
+      if (!selTl) return;
       const v = selTl.value;
-      el.querySelector('#wadahKontrol').hidden  = v !== 'KONTROL';
-      el.querySelector('#wadahInternal').hidden = v !== 'RUJUK_INTERNAL';
-      el.querySelector('#wadahRujuk').hidden    = !(v === 'RUJUK_LANJUT' || v === 'RUJUK_IGD');
+      const wK = el.querySelector('#wadahKontrol');  if (wK) wK.hidden  = v !== 'KONTROL';
+      const wI = el.querySelector('#wadahInternal'); if (wI) wI.hidden = v !== 'RUJUK_INTERNAL';
+      const wR = el.querySelector('#wadahRujuk');    if (wR) wR.hidden  = !(v === 'RUJUK_LANJUT' || v === 'RUJUK_IGD');
       perbaruiTacc();
       perbaruiRingkasKirim();
     };
     const perbaruiTacc = () => {
       if (!selTacc) return;
       const t = refTacc.find(x => x.kode === selTacc.value);
-      el.querySelector('#wadahTacc').hidden = !(t && t.perlu_alasan);
+      const wT = el.querySelector('#wadahTacc');
+      if (wT) wT.hidden = !(t && t.perlu_alasan);
     };
-    selTl.addEventListener('change', perbaruiTl);
+    if (selTl) selTl.addEventListener('change', perbaruiTl);
     if (selTacc) selTacc.addEventListener('change', perbaruiTacc);
-    perbaruiTl();
+    if (selTl) perbaruiTl();
 
     /* Ringkasan kesiapan ikut berubah begitu ada yang diisi, bukan hanya
        saat menyimpan — kalau baru muncul di akhir, dokter sudah telanjur

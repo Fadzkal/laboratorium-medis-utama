@@ -338,7 +338,17 @@ const Pasien = (() => {
         labTgl.push({ id: h.permintaan_id, tgl: h.tanggal });
       }
       if (!labParams[h.kode]) {
-        labParams[h.kode] = { kode: h.kode, nama: h.nama, satuan: h.satuan || '', hasil: {} };
+        let rujukan = h.rujukan_teks || '';
+        if (!rujukan && (h.rujukan_bawah !== null || h.rujukan_atas !== null)) {
+          if (h.rujukan_bawah !== null && h.rujukan_atas !== null) {
+            rujukan = `${h.rujukan_bawah} - ${h.rujukan_atas}`;
+          } else if (h.rujukan_bawah !== null) {
+            rujukan = `> ${h.rujukan_bawah}`;
+          } else if (h.rujukan_atas !== null) {
+            rujukan = `< ${h.rujukan_atas}`;
+          }
+        }
+        labParams[h.kode] = { kode: h.kode, nama: h.nama, satuan: h.satuan || '', rujukan: rujukan, hasil: {} };
       }
       labParams[h.kode].hasil[h.permintaan_id] = {
         angka: h.nilai_angka,
@@ -360,6 +370,7 @@ const Pasien = (() => {
               <thead>
                 <tr>
                   <th>Pemeriksaan</th>
+                  <th>Nilai Rujukan</th>
                   ${labTgl.map(t => `<th class="right nowrap"><b>${UI.tglPendek(t.tgl)}</b></th>`).join('')}
                 </tr>
               </thead>
@@ -367,6 +378,7 @@ const Pasien = (() => {
                 ${Object.values(labParams).map(p => `
                   <tr>
                     <td class="nowrap"><b>${UI.esc(p.nama)}</b> <span class="text-xs text-muted">${UI.esc(p.satuan)}</span></td>
+                    <td class="nowrap text-muted">${UI.esc(p.rujukan)}</td>
                     ${labTgl.map(t => {
                       const h = p.hasil[t.id];
                       if (!h) return '<td class="right muted">—</td>';

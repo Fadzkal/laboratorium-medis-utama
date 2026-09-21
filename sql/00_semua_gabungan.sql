@@ -1,4 +1,4 @@
-﻿-- =====================================================================
+-- =====================================================================
 --  RME Laboratorium Medis Utama - SKEMA DATABASE
 --  Rekam Medis Elektronik Klinik Pratama (Rawat Jalan)
 --  Target: Supabase (PostgreSQL 15+)
@@ -4585,8 +4585,14 @@ begin
   -- hematologi dulu, kimia klinik, lalu urinalisis. Petugas membaca lembar
   -- yang bentuknya tetap jauh lebih cepat daripada yang urutannya berubah.
   for r in select l.id, l.nama, l.satuan from ref_lab l
-            where l.id = any(p_lab_ids) and l.aktif
-            order by l.kelompok, l.urutan, l.nama
+            where l.aktif
+              and (l.id = any(p_lab_ids) 
+                   or exists (
+                     select 1 from ref_lab p 
+                     where p.id = any(p_lab_ids) 
+                       and l.kode like (p.kode || '%') 
+                   ))
+            order by l.kelompok, l.urutan, l.kode
   loop
     v_urut := v_urut + 1;
     insert into lab_hasil (permintaan_id, lab_id, nama, satuan, urutan)

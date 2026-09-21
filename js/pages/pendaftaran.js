@@ -616,6 +616,78 @@ const Pendaftaran = (() => {
       }
     });
 
+    /* ---- Cari Lab (Atas) ---- */
+    const inpCariLab = el.querySelector('#cariLab');
+    let acCariLabList = null;
+    
+    function tutupAcCariLab() {
+      if (acCariLabList) { acCariLabList.remove(); acCariLabList = null; }
+    }
+
+    inpCariLab.addEventListener('input', () => {
+      const kata = inpCariLab.value.trim().toLowerCase();
+      tutupAcCariLab();
+      if (!kata) return;
+
+      const isBpjs = el.querySelector('#filterBpjs')?.checked;
+      let cocok = masterLab
+        .filter(m => m.nama.toLowerCase().includes(kata) || m.kode.toLowerCase().includes(kata));
+      if (isBpjs) cocok = cocok.filter(m => m.kelompok && m.kelompok.toLowerCase().includes('bpjs'));
+      cocok = cocok.slice(0, 12);
+
+      if (!cocok.length) return;
+
+      acCariLabList = document.createElement('div');
+      acCariLabList.className = 'pdft-ac-list';
+      acCariLabList.style.position = 'absolute';
+      acCariLabList.style.zIndex = '1000';
+      acCariLabList.style.width = '100%';
+      acCariLabList.style.top = '100%';
+      acCariLabList.style.left = '0';
+      acCariLabList.style.background = '#fff';
+      acCariLabList.style.border = '1px solid #ccc';
+      acCariLabList.style.boxShadow = '0 4px 12px rgba(0,0,0,.15)';
+      
+      acCariLabList.innerHTML = cocok.map(m => {
+        const hrg = tarifMap[m.kode] || m.harga || 0;
+        return `<div class="pdft-ac-item" data-id="${m.id}" data-kode="${UI.esc(m.kode)}"
+          data-nama="${UI.esc(m.nama)}" data-harga="${hrg}"
+          style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #eee; font-size:12px;">
+          <b>${UI.esc(m.kode)}</b> - ${UI.esc(m.nama)}
+        </div>`;
+      }).join('');
+
+      inpCariLab.parentElement.style.position = 'relative';
+      inpCariLab.parentElement.appendChild(acCariLabList);
+
+      acCariLabList.querySelectorAll('.pdft-ac-item').forEach(item => {
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const discRek = rekananTerpilih?.disc || 0;
+          const harga = +item.dataset.harga;
+          const net = Math.round(harga * (1 - discRek / 100));
+          
+          let idxKosong = -1;
+          for (let i = 0; i < barisPemeriksaan.length; i++) {
+            if (!barisPemeriksaan[i].labId) { idxKosong = i; break; }
+          }
+          if (idxKosong === -1) {
+            UI.toast('Baris pemeriksaan penuh.', 'err');
+          } else {
+            barisPemeriksaan[idxKosong] = {
+              labId: item.dataset.id, kode: item.dataset.kode, nama: item.dataset.nama,
+              harga, disc: discRek, net, ket: ''
+            };
+            hitungUlang(el);
+            gambarBarisPemeriksaan(el);
+          }
+          tutupAcCariLab();
+          inpCariLab.value = '';
+        });
+      });
+    });
+    inpCariLab.addEventListener('blur', () => setTimeout(tutupAcCariLab, 150));
+
     /* ---- Paket ---- */
     el.querySelector('#btnTambahPaket').addEventListener('click', () => {
       const selPaket = el.querySelector('#pilihPaket');
@@ -919,7 +991,62 @@ const Pendaftaran = (() => {
       // Buat permintaan lab
       await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
 
-      UI.toast('Pendaftaran lab berhasil disimpan. Silakan cetak dokumen yang diperlukan.', 'ok');
+      // --- TAMBAHAN KASIR ---
+      // 1. Buat Kasir Tagihan
+      const jb = el.querySelector('#bJenisBayar').value || 'UMUM';
+      const penjamin = (jb === 'TRANSFER') ? 'UMUM' : jb;
+      const isBPJS = (jb === 'BPJS' || jb === 'GRATIS');
+      
+      const tagihan = await DB.kasirBuatTagihanBebas({
+        kunjungan_id: kunjungan.id,
+        pasien_id: pasien.id,
+        nama_pembayar: pasien.nama,
+        tanggal: UI.hariIni(),
+        penjamin: penjamin
+      });
+
+      // 2. Tambah item ke Tagihan
+      let urutan = 1;
+      const globalDisc = +(el.querySelector('#bDiscPct').value) || 0;
+      
+      for (const b of labDipilih) {
+        // Hitung diskon gabungan: diskon per item dan diskon global
+        // Rumus: 1 - ((1 - disc_item) * (1 - disc_global))
+        const dItem = (+b.disc || 0) / 100;
+        const dGlobal = globalDisc / 100;
+        const effectiveDiscPct = 100 * (1 - ((1 - dItem) * (1 - dGlobal)));
+
+        await DB.kasirTambahItem({
+          tagihan_id: tagihan.id,
+          sumber: 'MANUAL', // Menggunakan MANUAL agar tidak dihapus otomatis jika Kasir melakukan 'Susun Ulang'
+          ref_id: b.labId,
+          ref_kode: b.kode,
+          nama: 'Lab: ' + b.nama,
+          qty: 1,
+          harga_satuan: b.harga || 0,
+          diskon_pct: effectiveDiscPct,
+          ditanggung_penjamin: false, // Biarkan false agar nilai bersih (setelah diskon) tetap tertagih ke pasien
+          urutan: urutan++
+        });
+      }
+
+      // 3. Catat Pembayaran jika pasien langsung membayar
+      const uangPasien = +(el.querySelector('#bUangPasien').value) || 0;
+      const netto = +(el.querySelector('#bNetti').value) || 0;
+      
+      if (uangPasien > 0) {
+        const metode = (jb === 'TRANSFER') ? 'transfer' : 'tunai';
+        const jumlahBayar = Math.min(uangPasien, netto); // Yang terhitung sbg pelunasan tagihan maksimal adalah netto
+        await DB.kasirCatatPembayaran({
+          tagihan_id: tagihan.id,
+          jumlah: jumlahBayar,
+          tanggal: UI.hariIni(),
+          metode: metode,
+          uang_diterima: uangPasien
+        });
+      }
+
+      UI.toast('Pendaftaran lab dan Tagihan Kasir berhasil disimpan. Silakan cetak dokumen yang diperlukan.', 'ok');
       localStorage.removeItem('draft_pendaftaran');
 
       // Form dan tabel dibiarkan utuh agar data tidak hilang sebelum dicetak

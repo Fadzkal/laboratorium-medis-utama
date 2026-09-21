@@ -1069,25 +1069,59 @@ const Master = (() => {
       t.innerHTML = UI.kosong('Tidak ada pemeriksaan', 'Coba kata kunci lain.');
       return;
     }
-    t.innerHTML = `<div class="table-wrap"><table class="tbl">
-      <thead><tr><th style="width:90px">Kode</th><th>Pemeriksaan</th>
-        <th style="width:130px">Kelompok</th><th style="width:80px">Satuan</th>
-        <th style="width:90px">Jenis</th><th style="width:120px">Nilai rujukan</th>
-        <th style="width:170px"></th></tr></thead>
+    t.innerHTML = `<div class="table-wrap" style="overflow-x:auto;">
+      <table class="tbl" style="width:2000px; font-size:12px; white-space:nowrap;">
+      <thead>
+        <tr style="background:#52932f; color:#fff;">
+          <th style="width:70px">Kode</th>
+          <th style="width:60px">Urutan</th>
+          <th style="width:200px">Nama PX</th>
+          <th style="width:90px">Kode Loinc</th>
+          <th style="width:150px">Display LOINC</th>
+          <th style="width:100px">Kode Specimen</th>
+          <th style="width:150px">Nama Specimen</th>
+          <th style="width:70px">Unit</th>
+          <th style="width:120px">Nilai Normal</th>
+          <th style="width:80px">Min Normal</th>
+          <th style="width:80px">Max Normal</th>
+          <th style="width:70px">Min L</th>
+          <th style="width:70px">Max L</th>
+          <th style="width:70px">Min P</th>
+          <th style="width:70px">Max P</th>
+          <th style="width:100px">Normal L</th>
+          <th style="width:100px">Normal P</th>
+          <th style="width:80px">Barcode</th>
+          <th style="width:120px">Ket/Janji Hasil</th>
+          <th style="width:120px">Metode</th>
+          <th style="width:140px; position:sticky; right:0; background:#4a8229; text-align:center;">Aksi</th>
+        </tr>
+      </thead>
       <tbody>${data.map(m => `<tr ${m.aktif ? '' : 'style="opacity:.55"'}>
         <td class="mono"><b>${UI.esc(m.kode)}</b></td>
+        <td>${m.urutan}</td>
         <td>${UI.esc(m.nama)}${m.aktif ? '' : ' <span class="badge b-batal">nonaktif</span>'}</td>
-        <td class="muted">${UI.esc(m.kelompok)}</td>
-        <td class="muted">${UI.esc(m.satuan || '—')}</td>
-        <td class="muted">${UI.esc(m.jenis_nilai)}</td>
-        <td>${(m.rujukan || []).length
-          ? `<span class="badge b-ok">${m.rujukan.length} baris</span>`
-          : `<span class="badge b-warn">belum ada</span>`}</td>
-        <td class="text-right">
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="resep">Resep Reagen</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="rujukan">Nilai rujukan</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="ubah">Ubah</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="hapus">Hapus</button>
+        <td class="muted">${UI.esc(m.kode_loinc || '')}</td>
+        <td class="muted">${UI.esc(m.loinc_display || '')}</td>
+        <td class="muted">${UI.esc(m.kode_specimen || '')}</td>
+        <td class="muted">${UI.esc(m.nama_specimen || '')}</td>
+        <td>${UI.esc(m.satuan || '')}</td>
+        <td>${UI.esc(m.nilai_normal || '')}</td>
+        <td>${m.min_normal ?? ''}</td>
+        <td>${m.max_normal ?? ''}</td>
+        <td>${m.min_l ?? ''}</td>
+        <td>${m.max_l ?? ''}</td>
+        <td>${m.min_p ?? ''}</td>
+        <td>${m.max_p ?? ''}</td>
+        <td>${UI.esc(m.normal_l || '')}</td>
+        <td>${UI.esc(m.normal_p || '')}</td>
+        <td class="muted">${UI.esc(m.barcode || '')}</td>
+        <td class="muted">${UI.esc(m.janji_hasil || '')}</td>
+        <td class="muted">${UI.esc(m.metode || '')}</td>
+        <td class="text-right" style="position:sticky; right:0; background:#fff; border-left:1px solid #ddd;">
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="resep" title="Resep Reagen">💊</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="rujukan" title="Multi-Umur (Lama)">⚙️</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="ubah" title="Ubah">✏️</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="hapus" title="Hapus">🗑️</button>
         </td></tr>`).join('')}</tbody></table></div>`;
   }
 

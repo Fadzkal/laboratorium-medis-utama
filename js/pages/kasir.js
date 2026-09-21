@@ -63,7 +63,8 @@ const Kasir = (() => {
       DB.kasirDaftarTagihan({ dari: filter.dari, sampai: filter.sampai,
                               status: filter.status || null })
     ]);
-    menunggu = m; daftar = d;
+    menunggu = m.filter(x => !x.nama_poli.toLowerCase().includes('histori / impor')); 
+    daftar = d;
     if (!templateSiap) {
       try { await DB.templateInvoice(); } catch (e) { console.warn('template invoice:', e.message); }
       templateSiap = true;
@@ -83,8 +84,7 @@ const Kasir = (() => {
       <div class="page-header">
         <div class="page-heading">
           <h1>Kasir</h1>
-          <div class="page-sub">Tagihan disusun dari tindakan dokter dan obat yang
-            benar-benar diserahkan apotek.</div>
+          <div class="page-sub">Mengelola tagihan pemeriksaan laboratorium dan pembayaran pasien.</div>
         </div>
         ${bolehTulis() ? `<div class="page-actions">
           <button class="btn btn-secondary btn-sm" id="btnBebas">
@@ -160,8 +160,7 @@ const Kasir = (() => {
     }
     el.innerHTML = `<div class="card">
       <div class="card-head"><div><h2>Kunjungan menunggu ditagih</h2>
-        <div class="sub">Menyusun tagihan menarik tindakan dari catatan dokter dan obat
-          dari apa yang sudah diserahkan apotek.</div></div></div>
+        <div class="sub">Menyusun tagihan untuk kunjungan yang belum memiliki rincian biaya.</div></div></div>
       <div class="card-body tight"><div class="table-wrap"><table class="tbl">
         <thead><tr><th class="col-w56">No.</th><th>Pasien</th><th>Poli / dokter</th>
           <th>Bayar</th><th>Isi</th><th>Status</th><th class="col-shrink"></th></tr></thead>
@@ -172,7 +171,7 @@ const Kasir = (() => {
           <td class="text-xs">${UI.esc(m.nama_poli)}
             <div class="text-muted">${UI.esc(m.nama_dokter || '—')}</div></td>
           <td>${UI.badgeBayar(m.cara_bayar)}</td>
-          <td class="text-xs text-muted">${m.jumlah_tindakan} tindakan · ${m.jumlah_obat} obat</td>
+          <td class="text-xs text-muted">Belum ada tagihan</td>
           <td>${m.resep_belum_diserahkan
             ? '<span class="badge b-warn">Resep belum diserahkan</span>'
             : UI.badgeStatus(m.status_kunjungan)}</td>

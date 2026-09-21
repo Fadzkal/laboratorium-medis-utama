@@ -180,9 +180,20 @@ const Lab = (() => {
     const rujukanPakai = {};
     p.hasil.forEach(h => {
       const m = master.find(x => x.id === h.lab_id);
-      rujukanPakai[h.id] = m
-        ? LabCore.pilihRujukan(m.rujukan || [], p.pasien.jenis_kelamin, umurBln)
-        : null;
+      if (!m) { rujukanPakai[h.id] = null; return; }
+      const jk = p.pasien.jenis_kelamin;
+      if (m.rujukan && m.rujukan.length > 0) {
+        rujukanPakai[h.id] = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
+      } else {
+        const bBawah = jk === 'P' && m.min_p != null ? m.min_p : (jk === 'L' && m.min_l != null ? m.min_l : m.min_normal);
+        const bAtas  = jk === 'P' && m.max_p != null ? m.max_p : (jk === 'L' && m.max_l != null ? m.max_l : m.max_normal);
+        const tNormal = jk === 'P' && m.normal_p ? m.normal_p : (jk === 'L' && m.normal_l ? m.normal_l : m.nilai_normal);
+        rujukanPakai[h.id] = {
+          batas_bawah: bBawah != null ? bBawah : null,
+          batas_atas:  bAtas != null ? bAtas : null,
+          teks: tNormal || ''
+        };
+      }
     });
 
     const grup = LabCore.kelompokkan(
@@ -1346,8 +1357,21 @@ const Lab = (() => {
         const umurBln = LabCore.umurBulan(p.pasien.tanggal_lahir, p.tanggal);
         const rujukanPakai = {};
         p.hasil.forEach(h => {
-          const m = master.find(x => x.id === h.lab_id);
-          rujukanPakai[h.id] = m ? LabCore.pilihRujukan(m.rujukan||[], p.pasien.jenis_kelamin, umurBln) : null;
+          const m = h.ref;
+          if (!m) { rujukanPakai[h.id] = null; return; }
+          const jk = p.pasien.jenis_kelamin;
+          if (m.rujukan && m.rujukan.length > 0) {
+            rujukanPakai[h.id] = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
+          } else {
+            const bBawah = jk === 'P' && m.min_p != null ? m.min_p : (jk === 'L' && m.min_l != null ? m.min_l : m.min_normal);
+            const bAtas  = jk === 'P' && m.max_p != null ? m.max_p : (jk === 'L' && m.max_l != null ? m.max_l : m.max_normal);
+            const tNormal = jk === 'P' && m.normal_p ? m.normal_p : (jk === 'L' && m.normal_l ? m.normal_l : m.nilai_normal);
+            rujukanPakai[h.id] = {
+              batas_bawah: bBawah != null ? bBawah : null,
+              batas_atas:  bAtas != null ? bAtas : null,
+              teks: tNormal || ''
+            };
+          }
         });
         const terkunci = p.status === 'SELESAI' || p.status === 'BATAL';
 

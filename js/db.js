@@ -1300,8 +1300,28 @@ const DB = (() => {
   /* Permintaan & hasil */
   async function labMinta(kunjunganId, labIds, catatan = null,
                           asal = 'INTERNAL', namaLabLuar = null) {
+    
+    // Ekspansi otomatis: jika yang diminta adalah grup/paket (misal H0101),
+    // sertakan juga seluruh anak-anaknya (H0101xx)
+    let finalIds = new Set(labIds);
+    try {
+      const allLab = await refLab(true);
+      for (const id of labIds) {
+        const parent = allLab.find(m => m.id === id);
+        if (parent) {
+          for (const m of allLab) {
+            if (m.kode.startsWith(parent.kode) && m.kode !== parent.kode) {
+              finalIds.add(m.id);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal ekspansi lab paket', e);
+    }
+
     const { data, error } = await sb.rpc('lab_minta', {
-      p_kunjungan_id: kunjunganId, p_lab_ids: labIds,
+      p_kunjungan_id: kunjunganId, p_lab_ids: Array.from(finalIds),
       p_catatan: catatan || null, p_asal: asal,
       p_nama_lab_luar: namaLabLuar || null
     });
@@ -1313,8 +1333,25 @@ const DB = (() => {
      yang sudah jadi. */
   async function labMintaLuar({ pasien_id, kunjungan_id, lab_ids, tanggal,
                                 nama_lab, no_lembar, catatan }) {
+    let finalIds = new Set(lab_ids);
+    try {
+      const allLab = await refLab(true);
+      for (const id of lab_ids) {
+        const parent = allLab.find(m => m.id === id);
+        if (parent) {
+          for (const m of allLab) {
+            if (m.kode.startsWith(parent.kode) && m.kode !== parent.kode) {
+              finalIds.add(m.id);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal ekspansi lab paket', e);
+    }
+
     const { data, error } = await sb.rpc('lab_minta', {
-      p_kunjungan_id: kunjungan_id || null, p_lab_ids: lab_ids,
+      p_kunjungan_id: kunjungan_id || null, p_lab_ids: Array.from(finalIds),
       p_catatan: catatan || null, p_asal: 'EKSTERNAL',
       p_nama_lab_luar: nama_lab || null, p_pasien_id: pasien_id,
       p_tanggal: tanggal || null, p_no_lembar_luar: no_lembar || null
