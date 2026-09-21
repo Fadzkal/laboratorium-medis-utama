@@ -253,7 +253,10 @@ const UI = (() => {
     info:     '<circle cx="10" cy="10" r="7"/><path d="M10 9v4M10 7v.1"/>',
     dokumen:  '<path d="M5 3h7l3 3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v3h3"/><path d="M7 11h6M7 14h4"/>',
     pensil:   '<path d="M13.5 3.5l3 3L6 17H3v-3L13.5 3.5z"/>',
-    centang:  '<path d="M4 10.5l4 4 8-9"/>'
+    centang:  '<path d="M4 10.5l4 4 8-9"/>',
+    lokasi:   '<path d="M10 2a5 5 0 0 0-5 5c0 3.75 5 11 5 11s5-7.25 5-11a5 5 0 0 0-5-5z"/><circle cx="10" cy="7" r="2"/>',
+    peta:     '<polygon points="1 4 7 1 13 4 19 1 19 16 13 19 7 16 1 19 1 4"/><line x1="7" y1="1" x2="7" y2="16"/><line x1="13" y1="4" x2="13" y2="19"/>',
+    faskes:   '<path d="M3 18h14M4 18V6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v12M9 9h2M10 8v2M8 14h4"/>'
   };
   function ikon(nama, ukuran = 18) {
     const d = PATH[nama] || PATH.cek;

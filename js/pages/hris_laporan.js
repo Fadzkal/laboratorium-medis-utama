@@ -396,6 +396,95 @@ const HrisLaporan = (() => {
     });
   }
 
+  function dialogDetailPresensi(peg, rekap) {
+    const list = rekap.daftarHadir || [];
+    UI.modal({
+      judul: `Detail Presensi: ${UI.esc(peg.nama)} (${UI.esc(peg.peran).toUpperCase()})`,
+      lebar: true,
+      isi: `
+        <div class="absensi-banner-box mb-16" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px 18px; border-radius: 10px;">
+          <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">
+            Rekap Periode ${NAMA_BULAN[filterBulan - 1]} ${filterTahun}:
+          </div>
+          <div class="flex items-center gap-14 mt-6 text-xs flex-wrap" style="color: #0F172A;">
+            <span>Total Hadir: <b>${rekap.hadir} hari</b></span>
+            <span>Tepat Waktu: <b style="color:var(--ok-700);">${rekap.tepatWaktu} hari</b></span>
+            <span>Terlambat: <b style="color:var(--danger-700);">${rekap.terlambat} kali (${rekap.totalMenitTelat} mnt)</b></span>
+            <span>Izin / Cuti: <b>${rekap.izinCuti} hari</b></span>
+            <span>Kedisiplinan: <b class="badge b-selesai" style="font-size:11px;">${rekap.disiplinPersen}%</b></span>
+          </div>
+        </div>
+
+        ${!list.length ? `
+          <div class="empty text-center p-20 text-muted" style="border: 1px dashed #CBD5E1; border-radius: 8px; background: #F8FAFC;">
+            Belum ada catatan presensi masuk untuk pegawai ini pada periode terpilih.
+          </div>
+        ` : `
+          <div class="absensi-table-wrap" style="max-height: 420px; overflow-y: auto;">
+            <table class="tbl w-full">
+              <thead><tr>
+                <th>TANGGAL</th>
+                <th>JAM MASUK</th>
+                <th>JAM KELUAR</th>
+                <th>STATUS</th>
+                <th>LOKASI PRESENSI</th>
+                <th>KETERANGAN</th>
+              </tr></thead>
+              <tbody>
+                ${list.map(a => {
+                  const chk = a.waktu_masuk ? cekStatusKeterlambatan(a.waktu_masuk, jamKerja.jam_masuk, jamKerja.toleransi_keterlambatan_menit) : null;
+                  const badgeMasuk = chk ? (chk.terlambat
+                    ? `<span class="badge b-danger" style="font-size:10px; margin-left:4px; padding:2px 5px;">+${chk.menit}m</span>`
+                    : `<span class="badge b-selesai" style="font-size:10px; margin-left:4px; padding:2px 5px;">Tepat</span>`) : '';
+
+                  const teksLok = a.lokasi_masuk || '—';
+                  const lower = teksLok.toLowerCase();
+                  let iconName = 'lokasi';
+                  let badgeClass = 'b-menunggu';
+                  if (lower.includes('laboratorium') || lower.includes('lab pusat')) {
+                    iconName = 'faskes';
+                    badgeClass = 'b-selesai';
+                  } else if (lower.includes('puskesmas')) {
+                    iconName = 'faskes';
+                    badgeClass = 'b-kajian';
+                  } else if (lower.includes('rs') || lower.includes('rumah sakit')) {
+                    iconName = 'faskes';
+                    badgeClass = 'b-dokter';
+                  } else if (teksLok !== '—') {
+                    iconName = 'lokasi';
+                    badgeClass = 'b-warn';
+                  }
+
+                  return `
+                    <tr>
+                      <td><b>${UI.tglIndo(a.tanggal, true)}</b></td>
+                      <td class="mono" style="font-size: 12.5px;">${a.waktu_masuk ? UI.jam(a.waktu_masuk) + ' WIB ' + badgeMasuk : '—'}</td>
+                      <td class="mono" style="font-size: 12.5px;">${a.waktu_keluar ? UI.jam(a.waktu_keluar) + ' WIB' : '—'}</td>
+                      <td>
+                        <span class="badge ${a.status === 'HADIR' ? 'b-selesai' : (a.status === 'ALFA' ? 'b-danger' : 'b-kajian')}" style="font-size: 11px;">
+                          ${UI.esc(a.status)}
+                        </span>
+                      </td>
+                      <td>
+                        ${teksLok === '—' ? '<span class="text-muted text-xs">—</span>' : `
+                          <span class="badge ${badgeClass}" style="font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                            ${UI.ikon(iconName, 12)} <span>${UI.esc(teksLok)}</span>
+                          </span>
+                        `}
+                      </td>
+                      <td class="text-xs text-muted">${UI.esc(a.keterangan || '—')}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      `,
+      tombol: [{ teks: 'Tutup', nilai: true }]
+    });
+  }
+
   /* =====================================================================
      MASTER - TAB 2: EVALUASI KINERJA & KPI KARYAWAN
      ===================================================================== */

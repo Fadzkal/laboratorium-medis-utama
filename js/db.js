@@ -2059,24 +2059,59 @@ const DB = (() => {
   /* ========================= HRIS & INVENTORY ========================== */
 
   /* --- Absensi & Geofencing Multi-Lokasi --- */
+  const FASKES_PURBALINGGA_DEFAULT = [
+    { id: 'lab-pusat', nama: 'Laboratorium Medis Utama (Pusat)', alamat: 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga', latitude: -7.3872280, longitude: 109.3637170, radius_meter: 150, tipe: 'LAB', aktif: true },
+    { id: 'pusk-pbg', nama: 'Puskesmas Purbalingga', alamat: 'Jl. Jend. Soedirman No. 165, Purbalingga', latitude: -7.3895000, longitude: 109.3615000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-bojong', nama: 'Puskesmas Bojong', alamat: 'Jl. Letjen S. Parman No. 2, Bojong, Purbalingga', latitude: -7.4042000, longitude: 109.3668000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kalimanah', nama: 'Puskesmas Kalimanah', alamat: 'Jl. Mayjen Sungkono, Selabaya, Kalimanah', latitude: -7.4025000, longitude: 109.3362000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-padamara', nama: 'Puskesmas Padamara', alamat: 'Jl. Raya Padamara, Padamara, Purbalingga', latitude: -7.3789000, longitude: 109.3245000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kutasari', nama: 'Puskesmas Kutasari', alamat: 'Jl. Raya Kutasari No. 1, Kutasari, Purbalingga', latitude: -7.3621000, longitude: 109.3378000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-karangcegak', nama: 'Puskesmas Karangcegak', alamat: 'Desa Karangcegak, Kec. Kutasari, Purbalingga', latitude: -7.3480000, longitude: 109.3210000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-bojongsari', nama: 'Puskesmas Bojongsari', alamat: 'Jl. Raya Bojongsari, Bojongsari, Purbalingga', latitude: -7.3524000, longitude: 109.3652000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-mrebet', nama: 'Puskesmas Mrebet', alamat: 'Jl. Raya Mangunnegara, Mrebet, Purbalingga', latitude: -7.3315000, longitude: 109.3551000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-bobotsari', nama: 'Puskesmas Bobotsari', alamat: 'Jl. Kolonel Sugiri, Bobotsari, Purbalingga', latitude: -7.3056000, longitude: 109.3784000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-karangreja', nama: 'Puskesmas Karangreja', alamat: 'Jl. Raya Karangreja, Karangreja, Purbalingga', latitude: -7.2625000, longitude: 109.3289000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-serang', nama: 'Puskesmas Serang', alamat: 'Desa Serang, Kec. Karangreja, Purbalingga', latitude: -7.2415000, longitude: 109.2882000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-karanganyar', nama: 'Puskesmas Karanganyar', alamat: 'Jl. Raya Karanganyar, Karanganyar, Purbalingga', latitude: -7.3182000, longitude: 109.4312000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kertanegara', nama: 'Puskesmas Kertanegara', alamat: 'Jl. Raya Kertanegara, Kertanegara, Purbalingga', latitude: -7.3087000, longitude: 109.4678000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-karangmoncol', nama: 'Puskesmas Karangmoncol', alamat: 'Jl. Raya Karangmoncol, Pekiringan, Karangmoncol', latitude: -7.2912000, longitude: 109.4895000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-rembang', nama: 'Puskesmas Rembang', alamat: 'Jl. Raya Bantarbarang, Rembang, Purbalingga', latitude: -7.2885000, longitude: 109.5281000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kaligondang', nama: 'Puskesmas Kaligondang', alamat: 'Jl. Raya Kaligondang, Kaligondang, Purbalingga', latitude: -7.3882000, longitude: 109.4185000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-pengadegan', nama: 'Puskesmas Pengadegan', alamat: 'Jl. Raya Pengadegan, Pengadegan, Purbalingga', latitude: -7.3712000, longitude: 109.4821000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kejobong', nama: 'Puskesmas Kejobong', alamat: 'Jl. Raya Kejobong, Kejobong, Purbalingga', latitude: -7.4125000, longitude: 109.4985000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-bukateja', nama: 'Puskesmas Bukateja', alamat: 'Jl. Raya Purwandaru, Bukateja, Purbalingga', latitude: -7.4412000, longitude: 109.4325000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kutawis', nama: 'Puskesmas Kutawis', alamat: 'Desa Kutawis, Kec. Bukateja, Purbalingga', latitude: -7.4285000, longitude: 109.4562000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-kemangkon', nama: 'Puskesmas Kemangkon', alamat: 'Jl. Raya Panican, Kemangkon, Purbalingga', latitude: -7.4582000, longitude: 109.3782000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'pusk-karangjambe', nama: 'Puskesmas Karangjambe', alamat: 'Desa Karangjambe, Kec. Kemangkon, Purbalingga', latitude: -7.4395000, longitude: 109.3512000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
+    { id: 'rs-goeteng', nama: 'RSUD dr. R. Goeteng Taroenadibrata', alamat: 'Jl. Tentara Pelajar No.22, Kembaran Kulon, Purbalingga', latitude: -7.3948000, longitude: 109.3565000, radius_meter: 300, tipe: 'RS', aktif: true },
+    { id: 'rs-harapanibu', nama: 'RS Harapan Ibu Purbalingga', alamat: 'Jl. Mayjen Soengkono KM.1, Blater, Kalimanah', latitude: -7.4082000, longitude: 109.3495000, radius_meter: 300, tipe: 'RS', aktif: true },
+    { id: 'rs-pkubobotsari', nama: 'RS PKU Muhammadiyah Bobotsari', alamat: 'Jl. Raya Bobotsari, Bobotsari, Purbalingga', latitude: -7.3025000, longitude: 109.3812000, radius_meter: 300, tipe: 'RS', aktif: true },
+    { id: 'rs-nirmala', nama: 'RSU Nirmala Purbalingga', alamat: 'Jl. Mayjen Sungkono, Kalimanah, Purbalingga', latitude: -7.4015000, longitude: 109.3452000, radius_meter: 300, tipe: 'RS', aktif: true }
+  ];
+
   async function daftarMasterLokasi(hanyaAktif = false) {
-    let q = sb.from('master_lokasi_absensi').select('*').order('nama');
-    if (hanyaAktif) q = q.eq('aktif', true);
-    const { data, error } = await q;
-    if (error || !data || data.length === 0) {
-      // Fallback default jika tabel belum di-migrasi atau kosong
-      const f = await faskes().catch(() => null);
-      return [{
-        id: 'default',
-        nama: f?.nama || 'Laboratorium Medis Utama (Pusat)',
-        alamat: [f?.alamat, f?.kelurahan, f?.kecamatan, f?.kabupaten].filter(Boolean).join(', ') || 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga',
-        latitude: -7.3872280,
-        longitude: 109.3637170,
-        radius_meter: 100,
-        aktif: true
-      }];
+    try {
+      let q = sb.from('master_lokasi_absensi').select('*').order('nama');
+      if (hanyaAktif) q = q.eq('aktif', true);
+      const { data, error } = await q;
+      if (!error && data && data.length >= 10) {
+        return data;
+      }
+      if (!error && data && data.length > 0) {
+        // Gabungkan lokasi kustom dengan data puskesmas bawaan
+        const namaAda = new Set(data.map(d => d.nama.toLowerCase()));
+        const gabungan = [...data];
+        FASKES_PURBALINGGA_DEFAULT.forEach(f => {
+          if (!namaAda.has(f.nama.toLowerCase())) {
+            gabungan.push(f);
+          }
+        });
+        return gabungan;
+      }
+    } catch (e) {
+      console.warn('daftarMasterLokasi query fallback:', e);
     }
-    return data;
+    return FASKES_PURBALINGGA_DEFAULT;
   }
 
   async function simpanMasterLokasi(rec, id = null) {
@@ -2147,22 +2182,61 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
-  async function absensiMasuk(keterangan = null, lokasi = null) {
+  async function absensiMasuk(keterangan = null, lokasi = null, meta = {}) {
     const hari = UI.hariIni();
+    const payloadLengkap = {
+      pegawai_id: _saya?.id,
+      tanggal: hari,
+      waktu_masuk: new Date().toISOString(),
+      status: 'HADIR',
+      keterangan,
+      lokasi_masuk: lokasi,
+      tipe_lokasi_masuk: meta.tipe || null,
+      lat_masuk: meta.lat || null,
+      lng_masuk: meta.lng || null
+    };
+
+    try {
+      const { data, error } = await sb.from('pegawai_absensi').insert(payloadLengkap).select().single();
+      if (!error && data) return data;
+    } catch (e) {}
+
+    // Fallback jika kolom baru belum dimigrasi di Supabase
     const { data, error } = await sb.from('pegawai_absensi').insert({
-      pegawai_id: _saya?.id, tanggal: hari,
-      waktu_masuk: new Date().toISOString(), status: 'HADIR',
-      keterangan, lokasi_masuk: lokasi
+      pegawai_id: _saya?.id,
+      tanggal: hari,
+      waktu_masuk: new Date().toISOString(),
+      status: 'HADIR',
+      keterangan,
+      lokasi_masuk: lokasi
     }).select().single();
-    if (error) throw error; return data;
+    if (error) throw error;
+    return data;
   }
 
-  async function absensiKeluar(id, keterangan = null, lokasi = null) {
+  async function absensiKeluar(id, keterangan = null, lokasi = null, meta = {}) {
+    const payloadLengkap = {
+      waktu_keluar: new Date().toISOString(),
+      keterangan,
+      lokasi_keluar: lokasi,
+      tipe_lokasi_keluar: meta.tipe || null,
+      lat_keluar: meta.lat || null,
+      lng_keluar: meta.lng || null
+    };
+
+    try {
+      const { data, error } = await sb.from('pegawai_absensi').update(payloadLengkap).eq('id', id).select().single();
+      if (!error && data) return data;
+    } catch (e) {}
+
+    // Fallback jika kolom baru belum dimigrasi di Supabase
     const { data, error } = await sb.from('pegawai_absensi').update({
       waktu_keluar: new Date().toISOString(),
-      keterangan, lokasi_keluar: lokasi
+      keterangan,
+      lokasi_keluar: lokasi
     }).eq('id', id).select().single();
-    if (error) throw error; return data;
+    if (error) throw error;
+    return data;
   }
 
   async function absensiLaporan(dari, sampai) {
