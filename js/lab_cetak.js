@@ -49,9 +49,9 @@ const LabCetak = (() => {
   }
 
   // Data pasien yang seragam
-  function formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
+  function formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom = null) {
     return {
-      no_lab: 'LB' + Date.now().toString().slice(-6), // Dummy No Lab
+      no_lab: noLabKustom || pasien.no_lembar || ('LB' + Date.now().toString().slice(-6)),
       no_reg: pasien.no_rm || ('RG' + Date.now().toString().slice(-6)),
       nama: pasien.nama || '-',
       umur: UI.umurTeks(pasien.tanggal_lahir),
@@ -67,9 +67,9 @@ const LabCetak = (() => {
     };
   }
 
-  async function cetakNotaM1(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
+  async function cetakNotaM1(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom = null) {
     await muatPdfMake();
-    const data = formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar);
+    const data = formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom);
 
     const docDef = {
       pageSize: 'A5',
@@ -179,7 +179,7 @@ const LabCetak = (() => {
     pdfMake.createPdf(docDef).open();
   }
 
-  async function cetakNoLab(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar) {
+  async function cetakNoLab(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom = null) {
     await muatPdfMake();
     
     // Gunakan logo.png
@@ -192,7 +192,7 @@ const LabCetak = (() => {
       kopImage = { image: KopKlinik.gambar(), width: 80 };
     }
 
-    const data = formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar);
+    const data = formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom);
 
     const docDef = {
       pageSize: 'A5',
@@ -217,7 +217,7 @@ const LabCetak = (() => {
             {
               width: 130,
               stack: [
-                { text: 'No Lab : ' + data.no_lab, margin: [0, 0, 0, 4] },
+                { text: 'No Lab : ' + data.no_lab, margin: [0, 0, 0, 4], bold: true },
                 { text: 'Tanggal : ' + tglIndo(data.tanggal), margin: [0, 0, 0, 4] },
                 { text: 'Sampel : ' + data.tanggal + ' ' + data.waktu }
               ],
@@ -278,5 +278,115 @@ const LabCetak = (() => {
     pdfMake.createPdf(docDef).open();
   }
 
-  return { cetakNotaM1, cetakNoLab };
+  async function cetakIC(pasien, jenis = 'UMUM') {
+    await muatPdfMake();
+
+    let judul = 'SURAT PERSETUJUAN TINDAKAN MEDIS LABORATORIUM';
+    let deskripsiTindakan = 'pengambilan sampel darah, urine, atau cairan tubuh lainnya untuk analisis klinis';
+    if (jenis === 'ANTIGEN') {
+      judul = 'SURAT PERSETUJUAN TINDAKAN (INFORMED CONSENT) RAPID TEST ANTIGEN';
+      deskripsiTindakan = 'pengambilan swab nasofaring / orofaring untuk pemeriksaan Rapid Test Antigen SARS-CoV-2';
+    } else if (jenis === 'PCR') {
+      judul = 'SURAT PERSETUJUAN TINDAKAN (INFORMED CONSENT) SWAB RT-PCR';
+      deskripsiTindakan = 'pengambilan swab nasofaring dan orofaring untuk pemeriksaan Nucleic Acid Amplification Test (RT-PCR)';
+    }
+
+    const tglSekarang = tglIndo(new Date().toISOString().split('T')[0]);
+    const namaPasien = pasien.nama || '-';
+    const noRm = pasien.no_rm || '-';
+    const nik = pasien.nik || '-';
+    const jk = pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+    const umur = UI.umurTeks(pasien.tanggal_lahir) || '-';
+    const alamat = pasien.alamat || '-';
+    const telp = pasien.no_telp || pasien.no_hp || '-';
+
+    const docDef = {
+      pageSize: 'A4',
+      pageOrientation: 'portrait',
+      pageMargins: [40, 35, 40, 35],
+      defaultStyle: { fontSize: 10, lineHeight: 1.3 },
+      content: [
+        {
+          stack: [
+            { text: 'LABORATORIUM MEDIS UTAMA', bold: true, fontSize: 14, alignment: 'center' },
+            { text: 'Jl. DI Panjaitan No. 94, Purbalingga - Jawa Tengah | Telp. 0281-6580099 / 08121482308', fontSize: 9, alignment: 'center', color: '#555' },
+            { text: '', margin: [0, 4, 0, 4], canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5 }] }
+          ],
+          margin: [0, 0, 0, 15]
+        },
+        { text: judul, bold: true, fontSize: 11, alignment: 'center', margin: [0, 0, 0, 15], decoration: 'underline' },
+        { text: 'Saya yang bertanda tangan di bawah ini / bertindak atas nama pasien:', margin: [0, 0, 0, 8] },
+        {
+          columns: [
+            { width: 130, text: 'Nama Pasien' },
+            { width: 'auto', text: ': ' + namaPasien, bold: true }
+          ], margin: [10, 0, 0, 4]
+        },
+        {
+          columns: [
+            { width: 130, text: 'No. Rekam Medis / NIK' },
+            { width: 'auto', text: ': ' + noRm + ' / ' + nik }
+          ], margin: [10, 0, 0, 4]
+        },
+        {
+          columns: [
+            { width: 130, text: 'Umur / Jenis Kelamin' },
+            { width: 'auto', text: ': ' + umur + ' / ' + jk }
+          ], margin: [10, 0, 0, 4]
+        },
+        {
+          columns: [
+            { width: 130, text: 'Alamat' },
+            { width: 'auto', text: ': ' + alamat }
+          ], margin: [10, 0, 0, 4]
+        },
+        {
+          columns: [
+            { width: 130, text: 'No. HP / Telepon' },
+            { width: 'auto', text: ': ' + telp }
+          ], margin: [10, 0, 0, 12]
+        },
+        {
+          text: 'Menyatakan dengan sesungguhnya bahwa:', bold: true, margin: [0, 0, 0, 6]
+        },
+        {
+          ol: [
+            `Telah mendapatkan penjelasan secara rinci dan memadai mengenai maksud, tujuan, prosedur tindakan ${deskripsiTindakan}, serta kemungkinan rasa tidak nyaman yang timbul.`,
+            'Telah diberikan kesempatan untuk mengajukan pertanyaan dan telah dijawab secara memuaskan oleh petugas laboratorium.',
+            'Dengan penuh kesadaran dan tanpa paksaan dari pihak mana pun, memberikan PERSETUJUAN (INFORMED CONSENT) untuk dilakukannya tindakan pemeriksaan laboratorium tersebut.',
+            'Menyetujui bahwa hasil pemeriksaan ini akan digunakan untuk kepentingan diagnosis medis dan tata laksana kesehatan yang sesuai.'
+          ],
+          margin: [10, 0, 0, 20]
+        },
+        { text: 'Demikian surat persetujuan tindakan ini dibuat dengan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.', margin: [0, 0, 0, 25] },
+        {
+          columns: [
+            {
+              width: '*',
+              alignment: 'center',
+              stack: [
+                'Petugas Pelaksana Lab,',
+                { text: '', margin: [0, 45, 0, 0] },
+                { text: '( .................................................... )', bold: true }
+              ]
+            },
+            {
+              width: '*',
+              alignment: 'center',
+              stack: [
+                `Purbalingga, ${tglSekarang}`,
+                'Yang Menyatakan (Pasien / Wali),',
+                { text: '', margin: [0, 45, 0, 0] },
+                { text: `( ${namaPasien} )`, bold: true }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    pdfMake.createPdf(docDef).open();
+  }
+
+  return { cetakNotaM1, cetakNoLab, cetakIC };
 })();

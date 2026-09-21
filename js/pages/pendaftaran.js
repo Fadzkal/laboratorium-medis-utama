@@ -12,6 +12,7 @@ const Pendaftaran = (() => {
   /* ---- State form kanan ---- */
   let pasienTerpilih = null;
   let rekananTerpilih = null;
+  let terakhirTerdaftar = null;
 
   /* ---- Baris tabel pemeriksaan (50 baris) ---- */
   const JUMLAH_BARIS = 50;
@@ -69,11 +70,17 @@ const Pendaftaran = (() => {
          el.querySelector('#fJk').value = f.jk || 'L';
          el.querySelector('#fAlamat').value = f.alamat || '';
          el.querySelector('#fTelp').value = f.telp || '';
+         if (f.dokter) el.querySelector('#fDokterNama').value = f.dokter;
          el.querySelector('#bJenisBayar').value = f.jenisBayar || 'UMUM';
          el.querySelector('#bUangPasien').value = f.uangPasien || '';
          el.querySelector('#bDiscPct').value = f.discPct || '';
          const cb = el.querySelector('#filterBpjs');
          if (cb) { cb.checked = !!f.filterBpjs; }
+      }
+      if (!el.querySelector('#fJanjiTgl').value) el.querySelector('#fJanjiTgl').value = UI.hariIni();
+      if (!el.querySelector('#fJanjiJam').value) {
+        const dj = new Date(Date.now() + 2 * 3600 * 1000);
+        el.querySelector('#fJanjiJam').value = ('0' + dj.getHours()).slice(-2) + ':' + ('0' + dj.getMinutes()).slice(-2);
       }
       hitungUlang(el);
     } catch(e) {
@@ -233,7 +240,7 @@ const Pendaftaran = (() => {
           <div class="pdft-form">
             <!-- Pencarian pasien lama -->
             <div class="pdft-search-pasien">
-              <label>🔍 PENCARIAN PASIEN LAMA</label>
+              <label>PENCARIAN PASIEN LAMA</label>
               <div style="position:relative">
                 <input type="search" id="cariPasien" placeholder="Ketik No RM, NIK, atau Nama untuk memuat pasien lama…">
                 <div id="hasilCariPasien" style="position:absolute;top:100%;left:0;right:0;z-index:100"></div>
@@ -400,6 +407,7 @@ const Pendaftaran = (() => {
               <button class="btn-aksi btn-ic" id="btnIcPcr">IC PCR</button>
               <button class="btn-aksi btn-ic2" id="btnIc1">IC.1</button>
               <button class="btn-aksi btn-ic2" id="btnIc2">IC.2</button>
+              <button class="btn-aksi" id="btnSelesaiBaru" style="background:#0284c7; margin-left:auto;" title="Selesai dan bersihkan form untuk pasien berikutnya">+ Pasien Baru</button>
             </div>
           </div>
         </div>
@@ -820,6 +828,22 @@ const Pendaftaran = (() => {
 
     /* ---- Tombol IC.2 ---- */
     el.querySelector('#btnIc2').addEventListener('click', () => cetakIC(el, 'IC2'));
+
+    /* ---- Tombol PASIEN BARU ---- */
+    el.querySelector('#btnSelesaiBaru')?.addEventListener('click', () => {
+      pasienTerpilih = null;
+      terakhirTerdaftar = null;
+      resetFormPasien(el);
+      barisPemeriksaan = Array.from({ length: JUMLAH_BARIS }, () => ({
+        labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: ''
+      }));
+      localStorage.removeItem('draft_pendaftaran');
+      hitungUlang(el);
+      gambarBarisPemeriksaan(el);
+      UI.toast('Form siap untuk pendaftaran pasien baru.', 'ok');
+      const inp = el.querySelector('#cariPasien');
+      if (inp) inp.focus();
+    });
   }
 
   /* ================================================================
@@ -851,6 +875,15 @@ const Pendaftaran = (() => {
     el.querySelector('#fJk').value       = 'L';
     el.querySelector('#fAlamat').value   = '';
     el.querySelector('#fTelp').value     = '';
+    el.querySelector('#fDokterNama').value = '';
+    el.querySelector('#bJenisBayar').value = 'UMUM';
+    el.querySelector('#bUangPasien').value = '0';
+    el.querySelector('#bDiscPct').value   = '0';
+    const cb = el.querySelector('#filterBpjs');
+    if (cb) cb.checked = false;
+    el.querySelector('#fJanjiTgl').value = UI.hariIni();
+    const dj = new Date(Date.now() + 2 * 3600 * 1000);
+    el.querySelector('#fJanjiJam').value = ('0' + dj.getHours()).slice(-2) + ':' + ('0' + dj.getMinutes()).slice(-2);
   }
 
   function simpanDraftPendaftaran(el) {
@@ -868,7 +901,7 @@ const Pendaftaran = (() => {
         jk: el.querySelector('#fJk')?.value,
         alamat: el.querySelector('#fAlamat')?.value,
         telp: el.querySelector('#fTelp')?.value,
-        dokter: el.querySelector('#fDokter')?.value,
+        dokter: el.querySelector('#fDokterNama')?.value,
         jenisBayar: el.querySelector('#bJenisBayar')?.value,
         uangPasien: el.querySelector('#bUangPasien')?.value,
         discPct: el.querySelector('#bDiscPct')?.value,
@@ -966,7 +999,7 @@ const Pendaftaran = (() => {
           if (resCek && resCek.length > 0) {
             UI.toast(`Gagal: NIK/BPJS sudah terdaftar atas nama ${resCek[0].nama}. Silakan klik tombol Cek.`, 'err');
             btn.disabled = false;
-            btn.textContent = txt;
+            btn.textContent = 'REGISTRASI PASIEN';
             return;
           }
         }
@@ -997,8 +1030,21 @@ const Pendaftaran = (() => {
       });
 
       // Buat permintaan lab
+      let reqId = null;
       if (labDipilih.length > 0) {
-        await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
+        reqId = await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
+      }
+
+      let noLabResmi = null;
+      if (reqId) {
+        try {
+          const { data: lpData } = await DB.sb.from('lab_permintaan').select('no_lab').eq('id', reqId).single();
+          if (lpData && lpData.no_lab) {
+            noLabResmi = lpData.no_lab;
+          }
+        } catch (errLp) {
+          console.warn('Gagal mengambil no_lab resmi:', errLp);
+        }
       }
 
       // --- TAMBAHAN KASIR ---
@@ -1056,17 +1102,23 @@ const Pendaftaran = (() => {
         });
       }
 
-      UI.toast('Pendaftaran lab dan Tagihan Kasir berhasil disimpan. Silakan cetak dokumen yang diperlukan.', 'ok');
-      localStorage.removeItem('draft_pendaftaran');
+      terakhirTerdaftar = {
+        pasien,
+        kunjungan,
+        noLab: noLabResmi,
+        labDipilih,
+        bruto: +(el.querySelector('#bBruto').value) || 0,
+        netto: +(el.querySelector('#bNetti').value) || 0,
+        bayar: +(el.querySelector('#bUangPasien').value) || 0,
+        kurang: +(el.querySelector('#bKurang').value) || 0,
+        jenisBayar: el.querySelector('#bJenisBayar').value || 'UMUM'
+      };
+      pasienTerpilih = pasien;
+      el.querySelector('#fRm').value = pasien.no_rm || '';
 
-      // Form dan tabel dibiarkan utuh agar data tidak hilang sebelum dicetak
-      /*
-      barisPemeriksaan = Array.from({ length: JUMLAH_BARIS }, () => ({
-        labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: ''
-      }));
-      hitungUlang(el);
-      gambarBarisPemeriksaan(el);
-      */
+      const pesanLab = noLabResmi ? ` (No. Lab: ${noLabResmi})` : '';
+      UI.toast(`Pendaftaran lab${pesanLab} dan Tagihan Kasir berhasil disimpan. Silakan cetak dokumen yang diperlukan.`, 'ok');
+      localStorage.removeItem('draft_pendaftaran');
 
     } catch(e) {
       UI.toast('Gagal mendaftarkan: ' + (e.message || e), 'err');
@@ -1080,46 +1132,57 @@ const Pendaftaran = (() => {
      FUNGSI CETAK
   ================================================================ */
   function cetakNoLab(el) {
-    if (!pasienTerpilih) { UI.toast('Pilih/simpan pasien terlebih dahulu', 'err'); return; }
+    const p = terakhirTerdaftar?.pasien || pasienTerpilih;
+    if (!p) { UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err'); return; }
     
-    const labDipilih = barisPemeriksaan.filter(b => b.labId);
+    const labDipilih = (terakhirTerdaftar?.labDipilih && terakhirTerdaftar.labDipilih.length)
+      ? terakhirTerdaftar.labDipilih
+      : barisPemeriksaan.filter(b => b.labId);
     if (!labDipilih.length) { UI.toast('Tidak ada pemeriksaan yang dipilih.', 'err'); return; }
 
-    const bruto = +el.querySelector('#bBruto').value || 0;
-    const netto = +el.querySelector('#bNetti').value || 0;
-    const bayar = +el.querySelector('#bUangPasien').value || 0;
-    const kurang = +el.querySelector('#bKurang').value || 0;
-    const jenisBayar = el.querySelector('#bJenisBayar').value;
+    const bruto = +el.querySelector('#bBruto').value || terakhirTerdaftar?.bruto || 0;
+    const netto = +el.querySelector('#bNetti').value || terakhirTerdaftar?.netto || 0;
+    const bayar = +el.querySelector('#bUangPasien').value || terakhirTerdaftar?.bayar || 0;
+    const kurang = +el.querySelector('#bKurang').value || terakhirTerdaftar?.kurang || 0;
+    const jenisBayar = el.querySelector('#bJenisBayar').value || terakhirTerdaftar?.jenisBayar || 'UMUM';
+    const noLabKustom = terakhirTerdaftar?.noLab || null;
 
-    LabCetak.cetakNoLab(pasienTerpilih, labDipilih, bruto, netto, bayar, kurang, jenisBayar).catch(e => {
+    LabCetak.cetakNoLab(p, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
       UI.toast('Gagal mencetak No Lab: ' + e.message, 'err');
     });
   }
 
   function cetakNota(el, jenis) {
-    if (!pasienTerpilih) { UI.toast('Pilih/simpan pasien terlebih dahulu', 'err'); return; }
+    const p = terakhirTerdaftar?.pasien || pasienTerpilih;
+    if (!p) { UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err'); return; }
 
-    const labDipilih = barisPemeriksaan.filter(b => b.labId);
+    const labDipilih = (terakhirTerdaftar?.labDipilih && terakhirTerdaftar.labDipilih.length)
+      ? terakhirTerdaftar.labDipilih
+      : barisPemeriksaan.filter(b => b.labId);
     if (!labDipilih.length) { UI.toast('Tidak ada pemeriksaan yang dipilih.', 'err'); return; }
 
-    const bruto = +el.querySelector('#bBruto').value || 0;
-    const netto = +el.querySelector('#bNetti').value || 0;
-    const bayar = +el.querySelector('#bUangPasien').value || 0;
-    const kurang = +el.querySelector('#bKurang').value || 0;
-    const jenisBayar = el.querySelector('#bJenisBayar').value;
+    const bruto = +el.querySelector('#bBruto').value || terakhirTerdaftar?.bruto || 0;
+    const netto = +el.querySelector('#bNetti').value || terakhirTerdaftar?.netto || 0;
+    const bayar = +el.querySelector('#bUangPasien').value || terakhirTerdaftar?.bayar || 0;
+    const kurang = +el.querySelector('#bKurang').value || terakhirTerdaftar?.kurang || 0;
+    const jenisBayar = el.querySelector('#bJenisBayar').value || terakhirTerdaftar?.jenisBayar || 'UMUM';
+    const noLabKustom = terakhirTerdaftar?.noLab || null;
 
     if (jenis === 'M1' || jenis === 'N2') {
-      LabCetak.cetakNotaM1(pasienTerpilih, labDipilih, bruto, netto, bayar, kurang, jenisBayar).catch(e => {
+      LabCetak.cetakNotaM1(p, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
         UI.toast(`Gagal mencetak Nota ${jenis}: ` + e.message, 'err');
       });
     } else {
-      UI.toast(`Mencetak Nota ${jenis} untuk: ` + pasienTerpilih.nama, 'ok');
+      UI.toast(`Mencetak Nota ${jenis} untuk: ` + p.nama, 'ok');
     }
   }
 
   function cetakIC(el, jenis) {
-    if (!pasienTerpilih) { UI.toast('Pilih/simpan pasien terlebih dahulu', 'err'); return; }
-    UI.toast(`Mencetak IC ${jenis} untuk: ` + pasienTerpilih.nama, 'ok');
+    const p = terakhirTerdaftar?.pasien || pasienTerpilih;
+    if (!p) { UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err'); return; }
+    LabCetak.cetakIC(p, jenis).catch(e => {
+      UI.toast(`Gagal mencetak Informed Consent (${jenis}): ` + e.message, 'err');
+    });
   }
 
   return { render };
