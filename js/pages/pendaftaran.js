@@ -144,8 +144,6 @@ const Pendaftaran = (() => {
         /* ---- Header kanan ---- */
         .pdft-rhead { background: #c62828; color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
         .pdft-rhead .bruto-netto { font-size: 14px; font-weight: 700; }
-        .pdft-rhead .btn-daftar { background: #fff; color: #c62828; border: none; padding: 6px 16px; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; }
-        .pdft-rhead .btn-daftar:hover { background: #ffecb3; }
 
         /* ---- Form pasien (kanan) ---- */
         .pdft-form { padding: 10px 14px; }
@@ -234,8 +232,8 @@ const Pendaftaran = (() => {
         <!-- ======================== PANEL KANAN ======================== -->
         <div class="pdft-right">
           <div class="pdft-rhead">
-            <div class="bruto-netto">Bruto : <span id="lblBruto">0</span> &nbsp; Netto : <span id="lblNetto">0</span></div>
-            <button class="btn-daftar" id="btnDaftarkan">REGISTRASI PASIEN</button>
+            <div class="bruto-netto">Bruto : <span id="lblBruto">0</span> &nbsp;|&nbsp; Netto : <span id="lblNetto">0</span></div>
+            <div style="font-size:12px;opacity:.95;font-weight:700;letter-spacing:.04em">PEMERIKSAAN LAB</div>
           </div>
 
           <div class="pdft-form">
@@ -809,9 +807,6 @@ const Pendaftaran = (() => {
       }
     });
 
-    /* ---- Tombol REGISTRASI PASIEN ---- */
-    el.querySelector('#btnDaftarkan').addEventListener('click', () => daftarkanPasien(el));
-
     /* ---- Tombol SAVE ---- */
     el.querySelector('#btnSave').addEventListener('click', () => daftarkanPasien(el));
 
@@ -988,9 +983,11 @@ const Pendaftaran = (() => {
 
     const labDipilih = barisPemeriksaan.filter(b => b.labId);
 
-    const btn = el.querySelector('#btnDaftarkan');
-    btn.disabled = true;
-    btn.textContent = 'Menyimpan…';
+    const btn = el.querySelector('#btnSave');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan…';
+    }
 
     try {
       let pasien = pasienTerpilih;
@@ -1023,8 +1020,10 @@ const Pendaftaran = (() => {
           pasienTerpilih = resCek[0];
           isiFormPasien(el, pasienTerpilih);
           UI.toast(`NIK sudah terdaftar atas nama ${resCek[0].nama} (No. RM: ${resCek[0].no_rm}). Data pasien dimuat, silakan klik SAVE untuk konfirmasi pendaftaran.`, 'warn');
-          btn.disabled = false;
-          btn.textContent = 'REGISTRASI PASIEN';
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+          }
           return;
         }
         // Buat pasien baru
@@ -1036,8 +1035,10 @@ const Pendaftaran = (() => {
           const resCek = await DB.cariPasien(nikInput, 1);
           if (resCek && resCek.length > 0 && resCek[0].id !== pasien.id) {
             UI.toast(`Gagal: NIK ${nikInput} sudah digunakan oleh pasien ${resCek[0].nama} (RM: ${resCek[0].no_rm}).`, 'err');
-            btn.disabled = false;
-            btn.textContent = 'REGISTRASI PASIEN';
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = 'Save';
+            }
             return;
           }
         }
@@ -1168,8 +1169,10 @@ const Pendaftaran = (() => {
     } catch(e) {
       UI.toast('Gagal mendaftarkan: ' + (e.message || e), 'err');
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'REGISTRASI PASIEN';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+      }
     }
   }
 
