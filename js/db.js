@@ -2353,7 +2353,8 @@ const DB = (() => {
           shift1_toleransi: data.shift1_toleransi ?? data.toleransi_keterlambatan_menit ?? 15,
           shift2_masuk: data.shift2_masuk || '14:00',
           shift2_pulang: data.shift2_pulang || '21:00',
-          shift2_toleransi: data.shift2_toleransi ?? 15
+          shift2_toleransi: data.shift2_toleransi ?? 15,
+          tarif_uang_makan: data.tarif_uang_makan ?? 20000
         };
       }
     } catch (e) {
@@ -2374,7 +2375,8 @@ const DB = (() => {
           shift1_toleransi: p.shift1_toleransi ?? p.toleransi_keterlambatan_menit ?? 15,
           shift2_masuk: p.shift2_masuk || '14:00',
           shift2_pulang: p.shift2_pulang || '21:00',
-          shift2_toleransi: p.shift2_toleransi ?? 15
+          shift2_toleransi: p.shift2_toleransi ?? 15,
+          tarif_uang_makan: p.tarif_uang_makan ?? 20000
         };
       }
     } catch (e) {}
@@ -2389,7 +2391,8 @@ const DB = (() => {
       shift1_toleransi: 15,
       shift2_masuk: '14:00',
       shift2_pulang: '21:00',
-      shift2_toleransi: 15
+      shift2_toleransi: 15,
+      tarif_uang_makan: 20000
     };
   }
 
@@ -2400,6 +2403,7 @@ const DB = (() => {
     const shift2_masuk = rec.shift2_masuk || '14:00';
     const shift2_pulang = rec.shift2_pulang || '21:00';
     const shift2_toleransi = parseInt(rec.shift2_toleransi, 10) || 0;
+    const tarif_uang_makan = parseInt(rec.tarif_uang_makan, 10) || 20000;
 
     const payload = {
       id: 1,
@@ -2412,6 +2416,7 @@ const DB = (() => {
       shift2_masuk,
       shift2_pulang,
       shift2_toleransi,
+      tarif_uang_makan,
       updated_at: new Date().toISOString()
     };
 
@@ -2419,15 +2424,23 @@ const DB = (() => {
       localStorage.setItem('lab_pengaturan_jam_kerja', JSON.stringify(payload));
     } catch (e) {}
 
-    // 1. Coba upsert dengan kolom 2 shift lengkap
+    // 1. Coba upsert dengan kolom 2 shift dan tarif uang makan lengkap
     try {
       const { data, error } = await sb.from('pengaturan_absensi').upsert(payload).select().single();
       if (!error && data) return Object.assign({}, payload, data);
     } catch (e) {
-      console.warn('Upsert 2 shift pengaturan_absensi fallback:', e);
+      console.warn('Upsert tarif_uang_makan pengaturan_absensi fallback:', e);
     }
 
-    // 2. Fallback upsert kolom standar jika migrasi DB belum dijalankan
+    // 2. Fallback upsert kolom tanpa tarif_uang_makan jika migrasi 64 belum dijalankan
+    try {
+      const payloadTanpaMakan = { ...payload };
+      delete payloadTanpaMakan.tarif_uang_makan;
+      const { data, error } = await sb.from('pengaturan_absensi').upsert(payloadTanpaMakan).select().single();
+      if (!error && data) return Object.assign({}, payload, data);
+    } catch (e) {}
+
+    // 3. Fallback upsert kolom standar jika migrasi DB 63 belum dijalankan
     try {
       const fallbackPayload = {
         id: 1,
@@ -2722,6 +2735,12 @@ const DB = (() => {
     if (error) throw error; return true;
   }
   async function bonusDaftar(bulan, tahun) {
+    try {
+      const { data, error } = await sb.from('pegawai_bonus')
+        .select('*, pegawai:pegawai_id(*)').eq('bulan', bulan).eq('tahun', tahun);
+      if (!error && data) return data;
+    } catch (e) {}
+
     const { data, error } = await sb.from('pegawai_bonus')
       .select('*, pegawai:pegawai_id(nama,peran)').eq('bulan', bulan).eq('tahun', tahun);
     if (error) throw error; return data;
@@ -2732,20 +2751,58 @@ const DB = (() => {
     let q = id ? sb.from('pegawai_bonus').update(payload).eq('id', id).select().single()
                : sb.from('pegawai_bonus').insert(payload).select().single();
     let { data, error } = await q;
-    // Jika kolom gaji_pokok belum dibuat di Supabase, fallback simpan tanpa field tersebut
-    if (error && error.message && error.message.includes('gaji_pokok')) {
-      delete payload.gaji_pokok;
-      q = id ? sb.from('pegawai_bonus').update(payload).eq('id', id).select().single()
-             : sb.from('pegawai_bonus').insert(payload).select().single();
-      const res = await q;
-      data = res.data;
-      error = res.error;
+
+    // Fallback jika kolom baru belum ada di Supabase
+    if (error && error.message) {
+      let retry = false;
+      const newFields = ['total_gaji_transfer', 'uang_makan', 'hari_uang_makan', 'tarif_uang_makan', 'gaji_pokok'];
+      for (const f of newFields) {
+        if (error.message.includes(f) && payload[f] !== undefined) {
+          delete payload[f];
+          retry = true;
+        }
+      }
+      if (retry) {
+        q = id ? sb.from('pegawai_bonus').update(payload).eq('id', id).select().single()
+               : sb.from('pegawai_bonus').insert(payload).select().single();
+        const res = await q;
+        data = res.data;
+        error = res.error;
+      }
     }
     if (error) throw error; return data;
   }
   async function bonusHapus(id) {
     const { error } = await sb.from('pegawai_bonus').delete().eq('id', id);
     if (error) throw error; return true;
+  }
+
+  /* --- Rekening Bank Karyawan (Transfer Manual Penggajian) --- */
+  async function simpanRekeningPegawai(pegawaiId, bankData) {
+    const payload = {
+      nama_bank: (bankData.nama_bank || '').trim(),
+      nomor_rekening: (bankData.nomor_rekening || '').trim(),
+      atas_nama_rekening: (bankData.atas_nama_rekening || '').trim()
+    };
+    try {
+      localStorage.setItem(`lab_rek_${pegawaiId}`, JSON.stringify(payload));
+    } catch (e) {}
+
+    try {
+      const { data, error } = await sb.from('pegawai').update(payload).eq('id', pegawaiId).select().single();
+      if (!error && data) return data;
+    } catch (e) {
+      console.warn('Simpan rekening pegawai ke DB fallback:', e);
+    }
+    return payload;
+  }
+
+  function ambilRekeningPegawaiLokal(pegawaiId) {
+    try {
+      const val = localStorage.getItem(`lab_rek_${pegawaiId}`);
+      if (val) return JSON.parse(val);
+    } catch (e) {}
+    return null;
   }
 
   /* --- Inkaso (Inventori Umum) --- */
@@ -2904,6 +2961,7 @@ const DB = (() => {
     pengaturanJamKerja, simpanPengaturanJamKerja,
     daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
     daftarPegawaiStaff, kpiDaftar, kpiSimpan, kpiHapus, bonusDaftar, bonusSimpan, bonusHapus,
+    simpanRekeningPegawai, ambilRekeningPegawaiLokal,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
     inventoriBatchDaftar, inventoriBatchSimpan, inventoriBatchHapus, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,
