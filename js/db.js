@@ -2443,9 +2443,12 @@ const DB = (() => {
     if (error) throw error;
   }
   
-  async function inventoriBatchDaftar(barangId) {
-    const { data, error } = await sb.from('inventori_batch')
-      .select('*').eq('barang_id', barangId).order('expired_date', { ascending: true });
+  async function inventoriBatchDaftar(barangId = null) {
+    let q = sb.from('inventori_batch')
+      .select('*, barang:barang_id(id, nama, kode, purchase_unit, usage_unit, conversion_factor, kategori, stok_sekarang_usage, stok_minimum_usage)')
+      .order('expired_date', { ascending: true });
+    if (barangId) q = q.eq('barang_id', barangId);
+    const { data, error } = await q;
     if (error) throw error; return data;
   }
   async function inventoriBatchSimpan(rec, id = null) {
@@ -2453,6 +2456,10 @@ const DB = (() => {
                  : sb.from('inventori_batch').insert(rec).select().single();
     const { data, error } = await q;
     if (error) throw error; return data;
+  }
+  async function inventoriBatchHapus(id) {
+    const { error } = await sb.from('inventori_batch').delete().eq('id', id);
+    if (error) throw error; return true;
   }
   async function labResepDaftar(labId) {
     const { data, error } = await sb.from('lab_resep')
@@ -2575,7 +2582,7 @@ const DB = (() => {
     daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
     daftarPegawaiStaff, kpiDaftar, kpiSimpan, kpiHapus, bonusDaftar, bonusSimpan, bonusHapus,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
-    inventoriBatchDaftar, inventoriBatchSimpan, labResepDaftar, labResepSimpan, labResepHapus,
+    inventoriBatchDaftar, inventoriBatchSimpan, inventoriBatchHapus, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,
     daftarRekanan, simpanRekanan, hapusRekanan
   };
