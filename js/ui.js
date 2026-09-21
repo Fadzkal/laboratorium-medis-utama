@@ -33,7 +33,7 @@ const UI = (() => {
       const bg = document.createElement('div');
       bg.className = 'modal-bg open';
       const tombolHtml = tombol.map((b, i) =>
-        `<button class="btn ${b.kelas || 'btn-secondary'}" data-idx="${i}">${esc(b.teks)}</button>`
+        `<button class="btn ${b.kelas || 'btn-secondary'}" data-idx="${i}">${b.html ? b.html : esc(b.teks)}</button>`
       ).join('');
       bg.innerHTML = `
         <div class="modal ${lebar ? 'wide' : ''}">

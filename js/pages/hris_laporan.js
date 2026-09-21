@@ -1849,9 +1849,10 @@ const HrisLaporan = (() => {
   }
 
   /* =====================================================================
-     CETAK SLIP RINCIAN GAJI, UANG MAKAN & BONUS RESMI
+  /* =====================================================================
+     CETAK SLIP RINCIAN GAJI, UANG MAKAN & BONUS RESMI (PAS 1 LEMBAR)
      ===================================================================== */
-  function susunHtmlSlipCetak(pegawai, bonus, rekap) {
+  function susunIsiSlip(pegawai, bonus, rekap) {
     const noSlip = bonus?.nomor_slip || `SLP/LMU/${filterTahun}${String(filterBulan).padStart(2, '0')}/${pegawai.id.slice(0, 6).toUpperCase()}`;
     const tglCetak = UI.tglIndo(new Date(), true);
     const namaPeriode = `${NAMA_BULAN[filterBulan - 1]} ${filterTahun}`;
@@ -1868,235 +1869,353 @@ const HrisLaporan = (() => {
     const totalTransfer = bonus?.total_gaji_transfer ? Number(bonus.total_gaji_transfer) : (gajiPokok + uangMakan + totBonus);
 
     return `
+      <div class="slip-doc-sheet">
+        <!-- Kop Header Resmi -->
+        <div class="slip-kop">
+          <div>
+            <div class="kop-brand">LABORATORIUM MEDIS UTAMA</div>
+            <div class="kop-sub">Layanan Diagnostik &amp; Rekam Medis • Jl. D.I. Panjaitan No.94, Purbalingga • Telp: (0281) 891234</div>
+          </div>
+          <div class="slip-badge">
+            ${bonus?.status_bayar === 'DIBAYAR' ? 'RESMI • SUDAH DITRANSFER' : 'RESMI • DRAFT PENETAPAN'}
+          </div>
+        </div>
+
+        <div class="slip-title">SLIP RINCIAN GAJI, UANG MAKAN &amp; BONUS KARYAWAN</div>
+
+        <!-- Identitas Karyawan & Rekening -->
+        <div class="identitas-grid">
+          <div><b>Nama Karyawan:</b> ${UI.esc(pegawai.nama)}</div>
+          <div><b>Periode Gaji:</b> ${namaPeriode}</div>
+          <div><b>Jabatan / Peran:</b> ${UI.esc(pegawai.peran).toUpperCase()}</div>
+          <div><b>Nomor Dokumen:</b> ${UI.esc(noSlip)}</div>
+          <div class="col-span-2">
+            <b>Rekening Transfer:</b> ${pegawai.nama_bank ? `${UI.esc(pegawai.nama_bank)} — <b>${UI.esc(pegawai.nomor_rekening)}</b> (a.n. ${UI.esc(pegawai.atas_nama_rekening || pegawai.nama)})` : '<span style="color:#94A3B8;">Transfer Perbankan Manual (Belum disetel)</span>'}
+          </div>
+        </div>
+
+        <!-- Rangkuman Kehadiran Lengkap -->
+        <div class="rekap-info-box">
+          <b>Verifikasi Presensi:</b> Total Hadir: <b>${rekap.hadir} hari</b> (Hadir Lengkap Datang &amp; Pulang: <b style="color:#0F766E;">${hariMakan} hari</b>) • Tepat Waktu: ${rekap.tepatWaktu} hari • Terlambat: ${rekap.terlambat} kali (${rekap.totalMenitTelat} mnt) • Izin: ${rekap.izinCuti} hari • Indeks Disiplin: <b>${rekap.disiplinPersen}%</b>
+        </div>
+
+        <!-- Tabel 5 Komponen Penggajian: Gaji Pokok + Uang Makan + Bonus = Total Transfer -->
+        <table class="tbl-slip">
+          <thead>
+            <tr>
+              <th style="width: 38px; text-align: center;">NO</th>
+              <th>KOMPONEN PENERIMAAN</th>
+              <th style="text-align: right; width: 150px;">JUMLAH (RP)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="text-align: center;">1</td>
+              <td>
+                <div class="komp-judul">Gaji Pokok / Tunjangan Pokok</div>
+                <div class="komp-sub">Tunjangan tugas operasional bulanan</div>
+              </td>
+              <td class="col-rp font-bold">${UI.rupiah(gajiPokok)}</td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">2</td>
+              <td>
+                <div class="komp-judul">Uang Makan Kehadiran</div>
+                <div class="komp-sub">Dihitung dari ${hariMakan} hari hadir lengkap (masuk &amp; pulang) @ ${UI.rupiah(tarifMakan)}</div>
+              </td>
+              <td class="col-rp font-bold" style="color: #0F766E;">${UI.rupiah(uangMakan)}</td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">3</td>
+              <td>
+                <div class="komp-judul">Bonus Kehadiran &amp; Kedisiplinan Kerja</div>
+                <div class="komp-sub">Apresiasi kehadiran tepat waktu dan jam kerja penuh</div>
+              </td>
+              <td class="col-rp">${UI.rupiah(bonus?.komponen_absensi || 0)}</td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">4</td>
+              <td>
+                <div class="komp-judul">Apresiasi Kinerja Pimpinan / Produktivitas Lab</div>
+                <div class="komp-sub">Penghargaan mutu analisis dan dedikasi pelayanan laboratorium</div>
+              </td>
+              <td class="col-rp">${UI.rupiah(bonus?.komponen_kpi || 0)}</td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">5</td>
+              <td>
+                <div class="komp-judul">Insentif Tambahan / Tunjangan Khusus</div>
+                <div class="komp-sub">Insentif lembur atau apresiasi tambahan pimpinan</div>
+              </td>
+              <td class="col-rp">${UI.rupiah(bonus?.komponen_lainnya || 0)}</td>
+            </tr>
+            <tr class="row-subtotal">
+              <td colspan="2" style="text-align: right;">SUBTOTAL BONUS &amp; INSENTIF:</td>
+              <td class="col-rp font-bold" style="color: #166534;">${UI.rupiah(totBonus)}</td>
+            </tr>
+            <tr class="row-total">
+              <td colspan="2" style="text-align: right;">TOTAL DITERIMA (DITRANSFER):</td>
+              <td class="col-rp font-bold total-val">${UI.rupiah(totalTransfer)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="terbilang-box">
+          Terbilang: <b>${UI.terbilang(totalTransfer)}</b>
+        </div>
+
+        ${bonus?.catatan ? `
+          <div class="catatan-box">
+            <b>Pesan Motivasi Pimpinan (Ibu Dede Kurniasih):</b> "${UI.esc(bonus.catatan)}"
+          </div>
+        ` : ''}
+
+        <!-- Tanda Tangan Formal -->
+        <div class="ttd-box">
+          <div class="ttd-col">
+            <div>Penerima,</div>
+            <div class="ttd-space"></div>
+            <div class="ttd-nama">${UI.esc(pegawai.nama)}</div>
+            <div class="ttd-role">${UI.esc(pegawai.peran).toUpperCase()}</div>
+          </div>
+          <div class="ttd-col">
+            <div>Purbalingga, ${tglCetak}</div>
+            <div>Mengetahui &amp; Menyetujui,</div>
+            <div class="ttd-space"></div>
+            <div class="ttd-nama">DEDE KURNIASIH</div>
+            <div class="ttd-role">Kepala Laboratorium Medis Utama</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function susunHtmlSlipCetak(pegawai, bonus, rekap) {
+    const namaPeriode = `${NAMA_BULAN[filterBulan - 1]} ${filterTahun}`;
+    const slipIsi = susunIsiSlip(pegawai, bonus, rekap);
+
+    return `
       <!DOCTYPE html>
       <html lang="id">
       <head>
         <meta charset="UTF-8">
-        <title>Slip Gaji & Bonus — ${UI.esc(pegawai.nama)} — ${namaPeriode}</title>
+        <title>Slip Gaji &amp; Bonus — ${UI.esc(pegawai.nama)} — ${namaPeriode}</title>
         <style>
           @page {
-            size: A5 landscape;
-            margin: 10mm;
+            size: A4 portrait;
+            margin: 10mm 14mm;
           }
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 8px;
-            color: #0F172A;
+            padding: 0;
+          }
+          html, body {
+            width: 100%;
+            height: auto;
+            margin: 0;
+            padding: 0;
             background: #fff;
+            color: #0F172A;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.35;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .slip-wrapper {
+          @media print {
+            body {
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            .slip-doc-sheet {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              border: 1.5px solid #0F8B7E !important;
+              box-shadow: none !important;
+              margin: 0 !important;
+            }
+            .tbl-slip, .tbl-slip tr, .ttd-box {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
+          .slip-doc-sheet {
+            max-width: 680px;
+            margin: 0 auto;
             border: 1.5px solid #0F8B7E;
             border-radius: 8px;
             padding: 14px 18px;
             background: #fff;
           }
-          .kop-header {
+          .slip-kop {
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 2px solid #0F8B7E;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
           }
           .kop-brand {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 800;
             color: #0F8B7E;
             letter-spacing: 0.5px;
           }
           .kop-sub {
-            font-size: 10.5px;
+            font-size: 9.5px;
             color: #64748B;
             margin-top: 2px;
           }
           .slip-badge {
             background: #F0FDF4;
-            border: 1px solid #BBF7D0;
+            border: 1px solid #86EFAC;
             color: #166534;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
             font-weight: 700;
+            letter-spacing: 0.3px;
           }
           .slip-title {
             text-align: center;
-            font-size: 13.5px;
+            font-size: 12.5px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.6px;
             color: #0F172A;
-            margin-bottom: 10px;
+            margin: 6px 0 8px 0;
           }
           .identitas-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            font-size: 11.5px;
-            margin-bottom: 10px;
+            gap: 4px 12px;
+            font-size: 10.5px;
+            margin-bottom: 8px;
             background: #F8FAFC;
-            padding: 8px 12px;
+            padding: 7px 12px;
             border-radius: 6px;
             border: 1px solid #E2E8F0;
           }
-          .tbl-rincian {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11.5px;
-            margin-bottom: 10px;
-          }
-          .tbl-rincian th {
-            background: #F1F5F9;
-            padding: 6px 10px;
-            text-align: left;
-            border-bottom: 1.5px solid #CBD5E1;
-            font-size: 10.5px;
-            color: #475569;
-          }
-          .tbl-rincian td {
-            padding: 6px 10px;
-            border-bottom: 1px solid #F1F5F9;
-          }
-          .tbl-rincian .total-row td {
-            background: #ECFDF5;
-            font-size: 13px;
-            font-weight: 800;
-            color: #064E3B;
-            border-top: 1.5px solid #86EFAC;
-            border-bottom: none;
+          .identitas-grid .col-span-2 {
+            grid-column: span 2;
+            border-top: 1px dashed #CBD5E1;
+            padding-top: 4px;
+            margin-top: 2px;
           }
           .rekap-info-box {
-            font-size: 10.5px;
+            font-size: 9.5px;
             color: #475569;
             background: #FAF5FF;
             border: 1px solid #E9D5FF;
-            padding: 6px 10px;
-            border-radius: 6px;
-            margin-bottom: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+          }
+          .tbl-slip {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5px;
+            margin-bottom: 8px;
+          }
+          .tbl-slip th {
+            background: #F1F5F9;
+            padding: 5px 8px;
+            text-align: left;
+            border-bottom: 1.5px solid #CBD5E1;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #334155;
+            text-transform: uppercase;
+          }
+          .tbl-slip td {
+            padding: 4.5px 8px;
+            border-bottom: 1px solid #F1F5F9;
+            vertical-align: middle;
+          }
+          .komp-judul {
+            font-weight: 700;
+            color: #0F172A;
+          }
+          .komp-sub {
+            font-size: 9.5px;
+            color: #64748B;
+            margin-top: 1px;
+          }
+          .col-rp {
+            text-align: right;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+          }
+          .font-bold {
+            font-weight: 700;
+          }
+          .row-subtotal td {
+            background: #F8FAFC;
+            font-weight: 700;
+            border-top: 1px solid #CBD5E1;
+            color: #334155;
+            padding: 5px 8px;
+          }
+          .row-total td {
+            background: #ECFDF5;
+            font-size: 12px;
+            font-weight: 800;
+            color: #064E3B;
+            border-top: 1.5px solid #86EFAC;
+            border-bottom: 1.5px solid #86EFAC;
+            padding: 6px 8px;
+          }
+          .total-val {
+            font-size: 13px !important;
+            color: #064E3B !important;
+          }
+          .terbilang-box {
+            font-size: 10px;
+            color: #166534;
+            font-style: italic;
+            margin-bottom: 6px;
+            padding: 4px 8px;
+            background: #F0FDF4;
+            border-radius: 4px;
+            border: 1px dashed #BBF7D0;
+          }
+          .catatan-box {
+            font-size: 9.5px;
+            color: #475569;
+            font-style: italic;
+            margin-bottom: 6px;
+            background: #F8FAFC;
+            padding: 4px 8px;
+            border-radius: 4px;
           }
           .ttd-box {
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             margin-top: 12px;
-            font-size: 11px;
+            font-size: 10px;
           }
           .ttd-col {
             text-align: center;
-            min-width: 160px;
+            min-width: 150px;
           }
           .ttd-space {
-            height: 38px;
+            height: 32px;
           }
           .ttd-nama {
             font-weight: 800;
             text-decoration: underline;
           }
+          .ttd-role {
+            font-size: 9.5px;
+            color: #64748B;
+            margin-top: 2px;
+          }
         </style>
       </head>
       <body>
-        <div class="slip-wrapper">
-          <div class="kop-header">
-            <div>
-              <div class="kop-brand">LABORATORIUM MEDIS UTAMA</div>
-              <div class="kop-sub">Jl. D.I. Panjaitan No.94, Purbalingga • Telp: (0281) 891234</div>
-            </div>
-            <div class="slip-badge">
-              RESMI • ${bonus?.status_bayar === 'DIBAYAR' ? 'SUDAH DITRANSFER' : 'DRAFT PENETAPAN'}
-            </div>
-          </div>
-
-          <div class="slip-title">SLIP RINCIAN GAJI, UANG MAKAN & BONUS KARYAWAN</div>
-
-          <div class="identitas-grid">
-            <div><b>Nama Penerima:</b> ${UI.esc(pegawai.nama)}</div>
-            <div><b>Periode Evaluasi:</b> ${namaPeriode}</div>
-            <div><b>Jabatan:</b> ${UI.esc(pegawai.peran).toUpperCase()}</div>
-            <div><b>Nomor Slip:</b> ${UI.esc(noSlip)}</div>
-            <div style="grid-column: span 2;">
-              <b>Rekening Transfer:</b> ${pegawai.nama_bank ? `${UI.esc(pegawai.nama_bank)} — ${UI.esc(pegawai.nomor_rekening)} (a.n. ${UI.esc(pegawai.atas_nama_rekening || pegawai.nama)})` : '<span style="color:#94A3B8;">Transfer Perbankan Manual</span>'}
-            </div>
-          </div>
-
-          <div class="rekap-info-box">
-            <b>Rangkuman Presensi:</b> Total Hadir: ${rekap.hadir} hari (Hadir Lengkap Datang & Pulang: <b>${hariMakan} hari</b>) • Tepat Waktu: ${rekap.tepatWaktu} hari • Terlambat: ${rekap.terlambat} kali (${rekap.totalMenitTelat} menit) • Izin: ${rekap.izinCuti} hari • Indeks Disiplin: <b>${rekap.disiplinPersen}%</b>
-          </div>
-
-          <table class="tbl-rincian">
-            <thead>
-              <tr>
-                <th style="width: 35px;">NO</th>
-                <th>KOMPONEN PENERIMAAN</th>
-                <th style="text-align: right; width: 140px;">JUMLAH (RP)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${gajiPokok > 0 ? `
-                <tr>
-                  <td>1</td>
-                  <td><b>Gaji Pokok / Tunjangan Tetap</b><br><small style="color:#64748B;">Tunjangan tugas operasional bulanan</small></td>
-                  <td style="text-align: right; font-family: monospace; font-size: 12px; font-weight:700;">${UI.rupiah(gajiPokok)}</td>
-                </tr>
-              ` : ''}
-              <tr>
-                <td>${gajiPokok > 0 ? '2' : '1'}</td>
-                <td><b>Uang Makan Kehadiran</b><br><small style="color:#64748B;">Dihitung dari ${hariMakan} hari kehadiran lengkap (masuk & pulang) @ ${UI.rupiah(tarifMakan)}</small></td>
-                <td style="text-align: right; font-family: monospace; font-size: 12px; font-weight:700; color:#0F766E;">${UI.rupiah(uangMakan)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '3' : '2'}</td>
-                <td><b>Bonus Kehadiran & Kedisiplinan Kerja</b><br><small style="color:#64748B;">Apresiasi kehadiran tepat waktu dan kepatuhan jam operasional</small></td>
-                <td style="text-align: right; font-family: monospace; font-size: 12px;">${UI.rupiah(bonus?.komponen_absensi || 0)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '4' : '3'}</td>
-                <td><b>Apresiasi Kinerja Pimpinan / Produktivitas Lab</b><br><small style="color:#64748B;">Penghargaan mutu analisis dan pelayanan laboratorium</small></td>
-                <td style="text-align: right; font-family: monospace; font-size: 12px;">${UI.rupiah(bonus?.komponen_kpi || 0)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '5' : '4'}</td>
-                <td><b>Insentif Tambahan / Tunjangan Khusus</b><br><small style="color:#64748B;">Insentif lembur atau apresiasi tambahan langsung dari pimpinan</small></td>
-                <td style="text-align: right; font-family: monospace; font-size: 12px;">${UI.rupiah(bonus?.komponen_lainnya || 0)}</td>
-              </tr>
-              <tr style="background:#F8FAFC;">
-                <td colspan="2" style="text-align: right; font-weight: 700; color:#475569;">SUBTOTAL BONUS KINERJA:</td>
-                <td style="text-align: right; font-family: monospace; font-weight: 700; color:#166534;">${UI.rupiah(totBonus)}</td>
-              </tr>
-              <tr class="total-row">
-                <td colspan="2" style="text-align: right;">TOTAL DITERIMA (DITRANSFER):</td>
-                <td style="text-align: right; font-family: monospace; font-size: 14px;">${UI.rupiah(totalTransfer)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style="font-size: 10px; color: #166534; font-style: italic; margin-bottom: 6px;">
-            Terbilang: <b>${UI.terbilang(totalTransfer)}</b>
-          </div>
-
-          ${bonus?.catatan ? `
-            <div style="font-size: 10.5px; font-style: italic; color: #475569; margin-bottom: 6px; background:#F8FAFC; padding:4px 8px; border-radius:4px;">
-              <b>Pesan Motivasi Pimpinan:</b> "${UI.esc(bonus.catatan)}"
-            </div>
-          ` : ''}
-
-          <div class="ttd-box">
-            <div class="ttd-col">
-              <div>Penerima,</div>
-              <div class="ttd-space"></div>
-              <div class="ttd-nama">${UI.esc(pegawai.nama)}</div>
-              <div style="font-size: 10px; color: #64748B;">Karyawan Staf</div>
-            </div>
-            <div class="ttd-col">
-              <div>Purbalingga, ${tglCetak}</div>
-              <div>Mengetahui & Menyetujui,</div>
-              <div class="ttd-space"></div>
-              <div class="ttd-nama">DEDE KURNIASIH</div>
-              <div style="font-size: 10px; color: #64748B;">Kepala Laboratorium Medis Utama</div>
-            </div>
-          </div>
-        </div>
+        ${slipIsi}
       </body>
       </html>
     `;
@@ -2147,142 +2266,205 @@ const HrisLaporan = (() => {
 
   function dialogCetakSlip(pegawai, bonus, rekap) {
     const slipHtml = susunHtmlSlipCetak(pegawai, bonus, rekap);
-    const namaPeriode = `${NAMA_BULAN[filterBulan - 1]} ${filterTahun}`;
-    const noSlip = bonus?.nomor_slip || `SLP/LMU/${filterTahun}${String(filterBulan).padStart(2, '0')}/${pegawai.id.slice(0, 6).toUpperCase()}`;
-
-    const gajiPokok = Number(bonus?.gaji_pokok || 0);
-    const hariMakan = (bonus?.hari_uang_makan !== undefined && bonus?.hari_uang_makan !== null) 
-      ? Number(bonus.hari_uang_makan) 
-      : rekap.hadirLengkapMakan;
-    const tarifMakan = Number(bonus?.tarif_uang_makan || jamKerja.tarif_uang_makan || 20000);
-    const uangMakan = (bonus?.uang_makan !== undefined && bonus?.uang_makan !== null && Number(bonus.uang_makan) > 0) 
-      ? Number(bonus.uang_makan) 
-      : (hariMakan * tarifMakan);
-    const totBonus = Number(bonus?.total_bonus || 0);
-    const totalTransfer = bonus?.total_gaji_transfer ? Number(bonus.total_gaji_transfer) : (gajiPokok + uangMakan + totBonus);
+    const slipIsi = susunIsiSlip(pegawai, bonus, rekap);
 
     UI.modal({
       judul: `Slip Rincian Gaji & Bonus: ${UI.esc(pegawai.nama)}`,
       lebar: true,
       isi: `
-        <div class="slip-bonus-card">
-          <div class="slip-header">
-            <div style="font-size: 18px; font-weight: 800; color: #0F8B7E; letter-spacing: 0.5px;">
-              LABORATORIUM MEDIS UTAMA
-            </div>
-            <div style="font-size: 12px; color: #64748B; margin-top: 2px;">
-              Layanan Diagnostik & Rekam Medis • Jl. D.I. Panjaitan No.94, Purbalingga
-            </div>
-            <div class="slip-title">SLIP RINCIAN GAJI, UANG MAKAN & BONUS KARYAWAN</div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; background: #F8FAFC; padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0; margin-bottom: 14px;">
-            <div><b>Nama Karyawan:</b> ${UI.esc(pegawai.nama)}</div>
-            <div><b>Periode:</b> ${namaPeriode}</div>
-            <div><b>Jabatan / Peran:</b> ${UI.esc(pegawai.peran).toUpperCase()}</div>
-            <div><b>Nomor Dokumen:</b> ${UI.esc(noSlip)}</div>
-            <div style="grid-column: span 2;">
-              <b>Rekening Transfer:</b> ${pegawai.nama_bank ? `${UI.esc(pegawai.nama_bank)} — ${UI.esc(pegawai.nomor_rekening)} (a.n. ${UI.esc(pegawai.atas_nama_rekening || pegawai.nama)})` : '<span class="text-muted">Transfer Perbankan Manual</span>'}
-            </div>
-          </div>
-
-          <div style="font-size: 12px; background: #FAF5FF; border: 1px solid #E9D5FF; color: #6B21A8; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px;">
-            <b>Rangkuman Kehadiran:</b> Hadir ${rekap.hadir} hari (Hadir Lengkap Datang & Pulang: <b>${hariMakan} hari</b>) • Tepat Waktu: ${rekap.tepatWaktu} hari • Terlambat: ${rekap.terlambat} kali [${rekap.totalMenitTelat} mnt] • Izin: ${rekap.izinCuti} hari • Indeks Disiplin: <b>${rekap.disiplinPersen}%</b>
-          </div>
-
-          <table class="slip-table">
-            <thead>
-              <tr>
-                <th style="width: 40px;">NO</th>
-                <th>KOMPONEN PENERIMAAN</th>
-                <th style="text-align: right; width: 150px;">JUMLAH (RP)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${gajiPokok > 0 ? `
-                <tr>
-                  <td>1</td>
-                  <td>
-                    <b>Gaji Pokok / Tunjangan Tetap</b>
-                    <div class="text-xs text-muted">Tunjangan tugas operasional bulanan</div>
-                  </td>
-                  <td class="mono text-right font-bold" style="font-size: 13px;">${UI.rupiah(gajiPokok)}</td>
-                </tr>
-              ` : ''}
-              <tr>
-                <td>${gajiPokok > 0 ? '2' : '1'}</td>
-                <td>
-                  <b>Uang Makan Kehadiran</b>
-                  <div class="text-xs text-muted">Dihitung dari ${hariMakan} hari hadir lengkap (masuk & pulang) @ ${UI.rupiah(tarifMakan)}</div>
-                </td>
-                <td class="mono text-right font-bold" style="font-size: 13px; color:#0F766E;">${UI.rupiah(uangMakan)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '3' : '2'}</td>
-                <td>
-                  <b>Bonus Kehadiran & Kedisiplinan Kerja</b>
-                  <div class="text-xs text-muted">Apresiasi kehadiran tepat waktu dan jam kerja penuh</div>
-                </td>
-                <td class="mono text-right font-bold" style="font-size: 13px;">${UI.rupiah(bonus?.komponen_absensi || 0)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '4' : '3'}</td>
-                <td>
-                  <b>Apresiasi Kinerja Pimpinan / Produktivitas Lab</b>
-                  <div class="text-xs text-muted">Apresiasi mutu kerja dan dedikasi pelayanan laboratorium</div>
-                </td>
-                <td class="mono text-right font-bold" style="font-size: 13px;">${UI.rupiah(bonus?.komponen_kpi || 0)}</td>
-              </tr>
-              <tr>
-                <td>${gajiPokok > 0 ? '5' : '4'}</td>
-                <td>
-                  <b>Insentif Tambahan / Tunjangan Khusus</b>
-                  <div class="text-xs text-muted">Insentif lembur atau apresiasi tambahan pimpinan</div>
-                </td>
-                <td class="mono text-right font-bold" style="font-size: 13px;">${UI.rupiah(bonus?.komponen_lainnya || 0)}</td>
-              </tr>
-              <tr style="background:#F8FAFC;">
-                <td colspan="2" style="text-align: right; font-weight: 700; color:#475569;">SUBTOTAL BONUS KINERJA:</td>
-                <td class="mono text-right font-bold" style="font-size: 14px; color: #166534;">${UI.rupiah(totBonus)}</td>
-              </tr>
-              <tr class="slip-total-row">
-                <td colspan="2" style="text-align: right; font-weight: 800;">TOTAL DITERIMA (DITRANSFER):</td>
-                <td class="mono text-right font-bold" style="font-size: 16px; color: #064E3B;">${UI.rupiah(totalTransfer)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div style="font-size: 11px; color: #166534; font-style: italic; margin-top: 4px; margin-bottom: 12px;">
-            Terbilang: <b>${UI.terbilang(totalTransfer)}</b>
-          </div>
-
-          ${bonus?.catatan ? `
-            <div style="font-size: 12px; color: #475569; font-style: italic; margin-bottom: 16px; background: #F1F5F9; padding: 8px 12px; border-radius: 6px;">
-              <b>Pesan Motivasi Pimpinan (Ibu Dede Kurniasih):</b> "${UI.esc(bonus.catatan)}"
-            </div>
-          ` : ''}
-
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; font-size: 12px;">
-            <div style="text-align: center; min-width: 160px;">
-              <div>Penerima,</div>
-              <div style="height: 48px;"></div>
-              <div style="font-weight: 800; text-decoration: underline;">${UI.esc(pegawai.nama)}</div>
-              <div class="text-muted text-xs">${UI.esc(pegawai.peran).toUpperCase()}</div>
-            </div>
-            <div style="text-align: center; min-width: 180px;">
-              <div>Purbalingga, ${UI.tglIndo(new Date(), true)}</div>
-              <div>Mengetahui & Menyetujui,</div>
-              <div style="height: 48px;"></div>
-              <div style="font-weight: 800; text-decoration: underline;">DEDE KURNIASIH</div>
-              <div class="text-muted text-xs">Kepala Laboratorium Medis Utama</div>
-            </div>
-          </div>
+        <style>
+          .slip-preview-container {
+            background: #F1F5F9;
+            padding: 14px;
+            border-radius: 8px;
+            max-height: calc(100vh - 240px);
+            overflow-y: auto;
+          }
+          .slip-preview-container .slip-doc-sheet {
+            max-width: 680px;
+            margin: 0 auto;
+            border: 1.5px solid #0F8B7E;
+            border-radius: 8px;
+            padding: 16px 20px;
+            background: #fff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.35;
+            color: #0F172A;
+          }
+          .slip-preview-container .slip-kop {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #0F8B7E;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+          }
+          .slip-preview-container .kop-brand {
+            font-size: 16px;
+            font-weight: 800;
+            color: #0F8B7E;
+            letter-spacing: 0.5px;
+          }
+          .slip-preview-container .kop-sub {
+            font-size: 9.5px;
+            color: #64748B;
+            margin-top: 2px;
+          }
+          .slip-preview-container .slip-badge {
+            background: #F0FDF4;
+            border: 1px solid #86EFAC;
+            color: #166534;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+          }
+          .slip-preview-container .slip-title {
+            text-align: center;
+            font-size: 12.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #0F172A;
+            margin: 6px 0 8px 0;
+          }
+          .slip-preview-container .identitas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
+            font-size: 10.5px;
+            margin-bottom: 8px;
+            background: #F8FAFC;
+            padding: 7px 12px;
+            border-radius: 6px;
+            border: 1px solid #E2E8F0;
+          }
+          .slip-preview-container .identitas-grid .col-span-2 {
+            grid-column: span 2;
+            border-top: 1px dashed #CBD5E1;
+            padding-top: 4px;
+            margin-top: 2px;
+          }
+          .slip-preview-container .rekap-info-box {
+            font-size: 9.5px;
+            color: #475569;
+            background: #FAF5FF;
+            border: 1px solid #E9D5FF;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+          }
+          .slip-preview-container .tbl-slip {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5px;
+            margin-bottom: 8px;
+          }
+          .slip-preview-container .tbl-slip th {
+            background: #F1F5F9;
+            padding: 5px 8px;
+            text-align: left;
+            border-bottom: 1.5px solid #CBD5E1;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #334155;
+            text-transform: uppercase;
+          }
+          .slip-preview-container .tbl-slip td {
+            padding: 4.5px 8px;
+            border-bottom: 1px solid #F1F5F9;
+            vertical-align: middle;
+          }
+          .slip-preview-container .komp-judul {
+            font-weight: 700;
+            color: #0F172A;
+          }
+          .slip-preview-container .komp-sub {
+            font-size: 9.5px;
+            color: #64748B;
+            margin-top: 1px;
+          }
+          .slip-preview-container .col-rp {
+            text-align: right;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+          }
+          .slip-preview-container .font-bold {
+            font-weight: 700;
+          }
+          .slip-preview-container .row-subtotal td {
+            background: #F8FAFC;
+            font-weight: 700;
+            border-top: 1px solid #CBD5E1;
+            color: #334155;
+            padding: 5px 8px;
+          }
+          .slip-preview-container .row-total td {
+            background: #ECFDF5;
+            font-size: 12px;
+            font-weight: 800;
+            color: #064E3B;
+            border-top: 1.5px solid #86EFAC;
+            border-bottom: 1.5px solid #86EFAC;
+            padding: 6px 8px;
+          }
+          .slip-preview-container .total-val {
+            font-size: 13px !important;
+            color: #064E3B !important;
+          }
+          .slip-preview-container .terbilang-box {
+            font-size: 10px;
+            color: #166534;
+            font-style: italic;
+            margin-bottom: 6px;
+            padding: 4px 8px;
+            background: #F0FDF4;
+            border-radius: 4px;
+            border: 1px dashed #BBF7D0;
+          }
+          .slip-preview-container .catatan-box {
+            font-size: 9.5px;
+            color: #475569;
+            font-style: italic;
+            margin-bottom: 6px;
+            background: #F8FAFC;
+            padding: 4px 8px;
+            border-radius: 4px;
+          }
+          .slip-preview-container .ttd-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 12px;
+            font-size: 10px;
+          }
+          .slip-preview-container .ttd-col {
+            text-align: center;
+            min-width: 150px;
+          }
+          .slip-preview-container .ttd-space {
+            height: 32px;
+          }
+          .slip-preview-container .ttd-nama {
+            font-weight: 800;
+            text-decoration: underline;
+          }
+          .slip-preview-container .ttd-role {
+            font-size: 9.5px;
+            color: #64748B;
+            margin-top: 2px;
+          }
+        </style>
+        <div class="slip-preview-container">
+          ${slipIsi}
         </div>
       `,
       tombol: [
         { teks: 'Tutup', nilai: false },
         {
-          teks: `${UI.ikon('cetak', 14)} Cetak / Print Dokumen`,
+          teks: 'Cetak / Print Dokumen',
           kelas: 'btn-primary',
           aksi: () => {
             cetakSlipIframe(slipHtml);
