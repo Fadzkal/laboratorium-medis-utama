@@ -327,8 +327,8 @@ const Pendaftaran = (() => {
 
             <!-- Dokter -->
             <div class="pdft-field" style="margin-bottom:6px">
-              <label>Dokter</label>
-              <input list="listDokter" id="fDokterNama" placeholder="— Ketik nama dokter —" autocomplete="off">
+              <label>Dokter *</label>
+              <input list="listDokter" id="fDokterNama" placeholder="— Pilih nama dokter —" autocomplete="off" required>
               <datalist id="listDokter">
                 ${masterDokter.map(d => `<option value="${UI.esc(d.nama)}"></option>`).join('')}
               </datalist>
@@ -983,6 +983,22 @@ const Pendaftaran = (() => {
 
     const labDipilih = barisPemeriksaan.filter(b => b.labId);
 
+    // Validasi Dokter: Wajib diisi jika ada pemeriksaan lab yang didaftarkan
+    const dokterNama = (el.querySelector('#fDokterNama')?.value || '').trim();
+    if (labDipilih.length > 0) {
+      if (!dokterNama) {
+        UI.toast('Dokter pemeriksa / pengirim wajib diisi.', 'err');
+        el.querySelector('#fDokterNama')?.focus();
+        return;
+      }
+      const dokterAda = masterDokter.find(d => (d.nama || '').trim().toLowerCase() === dokterNama.toLowerCase());
+      if (!dokterAda) {
+        UI.toast(`Dokter "${dokterNama}" tidak terdaftar dalam master data dokter. Silakan pilih dari pilihan yang tersedia.`, 'err');
+        el.querySelector('#fDokterNama')?.focus();
+        return;
+      }
+    }
+
     const btn = el.querySelector('#btnSave');
     if (btn) {
       btn.disabled = true;
@@ -1060,8 +1076,7 @@ const Pendaftaran = (() => {
       const labPoli = masterPoli.find(p => p.nama.toLowerCase().includes('lab')) || masterPoli[0];
 
       // Ambil id dokter dari nama
-      const dokterNama = el.querySelector('#fDokterNama').value.trim();
-      const dokterObj = masterDokter.find(d => d.nama === dokterNama);
+      const dokterObj = masterDokter.find(d => (d.nama || '').trim().toLowerCase() === dokterNama.toLowerCase());
 
       // Buat kunjungan
       const kunjungan = await DB.buatKunjungan({
