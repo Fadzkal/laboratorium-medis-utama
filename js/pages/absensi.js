@@ -23,7 +23,20 @@ const Absensi = (() => {
   let pesanGps = 'Mendeteksi lokasi GPS...';
 
   let masterLokasi = [];
-  let jamKerja = { jam_masuk: '08:00', jam_pulang: '16:00', toleransi_keterlambatan_menit: 15 };
+  let jamKerja = {
+    jam_masuk: '07:30',
+    jam_pulang: '14:30',
+    toleransi_keterlambatan_menit: 15,
+    shift1_masuk: '07:30',
+    shift1_pulang: '14:30',
+    shift1_toleransi: 15,
+    shift2_masuk: '14:00',
+    shift2_pulang: '21:00',
+    shift2_toleransi: 15
+  };
+  let shiftDipilih = 1;
+  let dataAbsenShift1 = null;
+  let dataAbsenShift2 = null;
   let absenHariIni = null;
   let riwayatAbsen = [];
   let daftarIzinSayaList = [];
@@ -33,6 +46,38 @@ const Absensi = (() => {
   let monitoringList = [];
   let izinStafList = [];
   let filterIzinStaf = 'MENUNGGU';
+
+  // Deteksi nomor shift kerja otomatis berbasis waktu saat ini
+  function deteksiShiftOtomatis() {
+    const now = new Date();
+    const jamDesimal = now.getHours() + (now.getMinutes() / 60);
+    // Batas peralihan ke shift siang adalah pukul 13:30 (13.5)
+    return jamDesimal < 13.5 ? 1 : 2;
+  }
+
+  // Dapatkan konfigurasi jam target untuk shift tertentu
+  function getTargetShift(shiftNo = shiftDipilih) {
+    if (Number(shiftNo) === 2) {
+      return {
+        nomor: 2,
+        nama: 'Shift 2 (Siang/Sore)',
+        labelSingkat: 'Shift 2 (Siang)',
+        masuk: jamKerja.shift2_masuk || '14:00',
+        pulang: jamKerja.shift2_pulang || '21:00',
+        toleransi: jamKerja.shift2_toleransi ?? 15,
+        badgeClass: 'b-dokter'
+      };
+    }
+    return {
+      nomor: 1,
+      nama: 'Shift 1 (Pagi)',
+      labelSingkat: 'Shift 1 (Pagi)',
+      masuk: jamKerja.shift1_masuk || jamKerja.jam_masuk || '07:30',
+      pulang: jamKerja.shift1_pulang || jamKerja.jam_pulang || '14:30',
+      toleransi: jamKerja.shift1_toleransi ?? jamKerja.toleransi_keterlambatan_menit ?? 15,
+      badgeClass: 'b-selesai'
+    };
+  }
 
   // Haversine Formula untuk menghitung jarak meter antar koordinat
   function hitungJarak(lat1, lon1, lat2, lon2) {
@@ -230,6 +275,7 @@ const Absensi = (() => {
 
     // Master bebas dari absensi mandiri dan permohonan cuti (fokus monitoring & kelola)
     tabUtama = isMaster ? 'monitoring' : 'absen';
+    shiftDipilih = deteksiShiftOtomatis();
 
     // Hentikan timer sebelumnya jika ada
     if (timerJam) clearInterval(timerJam);
@@ -407,17 +453,30 @@ const Absensi = (() => {
       const awalBulan = new Date(tanggal.getFullYear(), tanggal.getMonth(), 1).toISOString().split('T')[0];
       const akhirBulan = new Date(tanggal.getFullYear(), tanggal.getMonth() + 1, 0).toISOString().split('T')[0];
 
-      const [lokasi, jamK, absenIni, riwayat, izinSaya] = await Promise.all([
+      const [lokasi, jamK, absen1, absen2, riwayat, izinSaya] = await Promise.all([
         DB.daftarMasterLokasi(true),
         DB.pengaturanJamKerja(),
-        !isMaster ? DB.absensiHariIni() : Promise.resolve(null),
+        !isMaster ? DB.absensiHariIni(1) : Promise.resolve(null),
+        !isMaster ? DB.absensiHariIni(2) : Promise.resolve(null),
         !isMaster ? DB.absensiPegawai(saya.id, awalBulan, akhirBulan) : Promise.resolve([]),
         !isMaster ? DB.daftarIzinSaya() : Promise.resolve([])
       ]);
 
       masterLokasi = lokasi || [];
-      jamKerja = jamK || { jam_masuk: '08:00', jam_pulang: '16:00', toleransi_keterlambatan_menit: 15 };
-      absenHariIni = absenIni;
+      jamKerja = jamK || {
+        jam_masuk: '07:30',
+        jam_pulang: '14:30',
+        toleransi_keterlambatan_menit: 15,
+        shift1_masuk: '07:30',
+        shift1_pulang: '14:30',
+        shift1_toleransi: 15,
+        shift2_masuk: '14:00',
+        shift2_pulang: '21:00',
+        shift2_toleransi: 15
+      };
+      dataAbsenShift1 = absen1;
+      dataAbsenShift2 = absen2;
+      absenHariIni = shiftDipilih === 2 ? absen2 : absen1;
       riwayatAbsen = riwayat || [];
       daftarIzinSayaList = izinSaya || [];
 
@@ -470,22 +529,28 @@ const Absensi = (() => {
      ===================================================================== */
   function renderTabAbsen(container) {
     container.innerHTML = `
-      <!-- Banner Jadwal Operasional & Jam Kerja Kantor -->
-      <div class="absensi-banner-box mb-20">
-        <div class="flex items-center gap-14">
-          <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(15, 139, 126, 0.12); display: grid; place-items: center; color: var(--brand-800); flex-shrink: 0;">
-            ${UI.ikon('jam', 22)}
-          </div>
-          <div>
-            <div style="font-size: 14px; font-weight: 700; color: var(--brand-900);">Jadwal Operasional & Jam Kerja Kantor</div>
-            <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">
-              Jam Masuk: <b style="color: #0F172A;">${jamKerja.jam_masuk || '08:00'} WIB</b> &nbsp;•&nbsp;
-              Jam Pulang: <b style="color: #0F172A;">${jamKerja.jam_pulang || '16:00'} WIB</b> &nbsp;•&nbsp;
-              Batas Toleransi Keterlambatan: <b style="color: #0F172A;">${jamKerja.toleransi_keterlambatan_menit ?? 15} Menit</b>
+      <!-- Banner Jadwal Operasional & Jam Kerja Kantor 2 Shift -->
+      <div class="absensi-banner-box mb-20" style="background: #ffffff; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 14px 20px;">
+        <div class="flex items-center justify-between flex-wrap gap-12">
+          <div class="flex items-center gap-12">
+            <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(15, 139, 126, 0.12); display: grid; place-items: center; color: var(--brand-800); flex-shrink: 0;">
+              ${UI.ikon('jam', 22)}
+            </div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 700; color: #0F172A;">Jadwal Operasional 2 Shift Presensi</div>
+              <div class="flex items-center gap-10 mt-3 flex-wrap" style="font-size: 12px;">
+                <span class="badge b-selesai" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">Shift 1 (Pagi)</span>
+                <span style="color: #0F172A; font-weight: 600;">${jamKerja.shift1_masuk || '07:30'} - ${jamKerja.shift1_pulang || '14:30'} WIB</span>
+                <span class="text-muted">(Toleransi ${jamKerja.shift1_toleransi ?? 15}m)</span>
+                <span class="text-muted">•</span>
+                <span class="badge b-dokter" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">Shift 2 (Siang)</span>
+                <span style="color: #0F172A; font-weight: 600;">${jamKerja.shift2_masuk || '14:00'} - ${jamKerja.shift2_pulang || '21:00'} WIB</span>
+                <span class="text-muted">(Toleransi ${jamKerja.shift2_toleransi ?? 15}m)</span>
+              </div>
             </div>
           </div>
+          <span class="badge b-selesai" style="font-size: 11.5px; padding: 6px 12px; font-weight: 600;">Presensi GPS Terkoneksi</span>
         </div>
-        <span class="badge b-selesai" style="font-size: 11.5px; padding: 6px 12px; font-weight: 600;">Presensi GPS Terkoneksi</span>
       </div>
 
       <div class="grid" style="grid-template-columns: 1.15fr 0.85fr; gap: 24px; align-items: start;">
@@ -865,6 +930,10 @@ const Absensi = (() => {
     const p = w.querySelector('#panelAksiAbsen');
     if (!p) return;
 
+    // Sinkronkan absenHariIni dengan shift yang sedang aktif dipilih
+    absenHariIni = shiftDipilih === 2 ? dataAbsenShift2 : dataAbsenShift1;
+    const targetShift = getTargetShift(shiftDipilih);
+
     const deteksi = userCoords ? evaluasiLokasiCerdas(userCoords.lat, userCoords.lng) : null;
     let namaLokasiTampil = deteksi ? deteksi.nama : 'Mendeteksi lokasi...';
     if (deteksi?.tipe === 'DINAS_LUAR' && userCoords) {
@@ -874,35 +943,75 @@ const Absensi = (() => {
       namaLokasiTampil = `${deteksi.nama} (Jarak: ${deteksi.jarak}m)`;
     }
 
+    // Toggle tombol Shift 1 vs Shift 2
+    const htmlToggleShift = `
+      <div class="mb-14" style="background: #F1F5F9; padding: 4px; border-radius: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <button type="button" class="btn btn-sm ${shiftDipilih === 1 ? 'btn-primary' : 'btn-ghost'}" id="btnPilihShift1" 
+                style="font-weight: 700; border-radius: 8px; padding: 7px 4px; font-size: 11.5px; height: auto; line-height: 1.35; ${shiftDipilih === 1 ? 'box-shadow: 0 2px 6px rgba(15,139,126,0.3);' : 'color: #475569;'}">
+          Shift 1 (Pagi)<br>
+          <span class="mono" style="font-size: 10px; font-weight: normal; opacity: 0.9;">${jamKerja.shift1_masuk || '07:30'} - ${jamKerja.shift1_pulang || '14:30'}</span>
+          ${dataAbsenShift1 ? `<div style="font-size: 9.5px; margin-top: 2px; font-weight: 700;">${dataAbsenShift1.waktu_keluar ? '• Selesai Pulang' : '• Sedang Bertugas'}</div>` : ''}
+        </button>
+        <button type="button" class="btn btn-sm ${shiftDipilih === 2 ? 'btn-primary' : 'btn-ghost'}" id="btnPilihShift2" 
+                style="font-weight: 700; border-radius: 8px; padding: 7px 4px; font-size: 11.5px; height: auto; line-height: 1.35; ${shiftDipilih === 2 ? 'background: #7C3AED; color: white; border-color: #7C3AED; box-shadow: 0 2px 6px rgba(124,58,237,0.3);' : 'color: #475569;'}">
+          Shift 2 (Siang)<br>
+          <span class="mono" style="font-size: 10px; font-weight: normal; opacity: 0.9;">${jamKerja.shift2_masuk || '14:00'} - ${jamKerja.shift2_pulang || '21:00'}</span>
+          ${dataAbsenShift2 ? `<div style="font-size: 9.5px; margin-top: 2px; font-weight: 700;">${dataAbsenShift2.waktu_keluar ? '• Selesai Pulang' : '• Sedang Bertugas'}</div>` : ''}
+        </button>
+      </div>
+    `;
+
     if (!absenHariIni) {
-      // Belum absen masuk sama sekali
+      // Belum absen masuk pada shift yang dipilih
       p.innerHTML = `
-        <div style="font-size: 14px; color: var(--ink-600); margin-bottom: 4px;">Status Hari Ini:</div>
-        <div style="font-size: 20px; font-weight: 800; color: var(--warn-700); margin-bottom: 14px;">
+        ${htmlToggleShift}
+        <div style="font-size: 13px; color: var(--ink-600); margin-bottom: 2px;">Status Presensi:</div>
+        <div style="margin-bottom: 8px;">
+          <span class="badge ${targetShift.badgeClass}" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700;">
+            ${targetShift.nama}
+          </span>
+        </div>
+        <div style="font-size: 18px; font-weight: 800; color: var(--warn-700); margin-bottom: 12px;">
           BELUM ABSEN MASUK
         </div>
 
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; text-align: left;">
-          <div style="font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase;">Lokasi Terdeteksi:</div>
-          <div style="font-size: 13.5px; font-weight: 700; color: #0F172A; margin-top: 3px; display: flex; align-items: center; gap: 5px;">
-            ${userCoords ? `${UI.ikon('lokasi', 14)} <span>${UI.esc(namaLokasiTampil)}</span>` : '<span class="text-muted">Mencari koordinat GPS...</span>'}
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; text-align: left;">
+          <div class="flex justify-between text-xs mb-4">
+            <span class="text-muted">Jadwal Masuk:</span>
+            <b style="color: #0F172A;">${targetShift.masuk} WIB</b>
           </div>
-          ${userCoords ? `<div class="text-xs text-muted mt-2 font-mono">${userCoords.lat.toFixed(6)}, ${userCoords.lng.toFixed(6)} (±${userCoords.akurasi}m)</div>` : ''}
+          <div class="flex justify-between text-xs mb-8">
+            <span class="text-muted">Batas Toleransi:</span>
+            <b style="color: #0F172A;">${targetShift.toleransi} Menit</b>
+          </div>
+          <div style="border-top: 1px dashed #E2E8F0; padding-top: 8px;">
+            <div style="font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase;">Lokasi Terdeteksi:</div>
+            <div style="font-size: 13px; font-weight: 700; color: #0F172A; margin-top: 3px; display: flex; align-items: center; gap: 5px;">
+              ${userCoords ? `${UI.ikon('lokasi', 14)} <span>${UI.esc(namaLokasiTampil)}</span>` : '<span class="text-muted">Mencari koordinat GPS...</span>'}
+            </div>
+            ${userCoords ? `<div class="text-xs text-muted mt-2 font-mono">${userCoords.lat.toFixed(6)}, ${userCoords.lng.toFixed(6)} (±${userCoords.akurasi}m)</div>` : ''}
+          </div>
         </div>
 
         <button class="btn btn-primary w-full" id="btnClockIn" 
-          style="font-size: 16px; padding: 14px; font-weight: 700; background: #0F8B7E; color: white;">
-          ${UI.ikon('centang', 20)} Absen Masuk (Clock In)
+          style="font-size: 15px; padding: 13px; font-weight: 700; ${shiftDipilih === 2 ? 'background: #7C3AED; border-color: #7C3AED;' : 'background: #0F8B7E;'} color: white;">
+          ${UI.ikon('centang', 18)} Absen Masuk (${targetShift.labelSingkat})
         </button>
       `;
 
       p.querySelector('#btnClockIn')?.addEventListener('click', prosesClockIn);
 
     } else if (!absenHariIni.waktu_keluar && absenHariIni.status === 'HADIR') {
-      // Sudah absen masuk, belum absen keluar
+      // Sudah absen masuk pada shift ini, belum absen keluar
       p.innerHTML = `
-        <div style="font-size: 13px; color: var(--ink-600); margin-bottom: 4px;">Status Hari Ini:</div>
-        <div style="font-size: 20px; font-weight: 800; color: var(--ok-700); margin-bottom: 12px;">
+        ${htmlToggleShift}
+        <div style="font-size: 13px; color: var(--ink-600); margin-bottom: 2px;">Status Presensi:</div>
+        <div style="margin-bottom: 8px;">
+          <span class="badge ${targetShift.badgeClass}" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700;">
+            ${targetShift.nama}
+          </span>
+        </div>
+        <div style="font-size: 18px; font-weight: 800; color: var(--ok-700); margin-bottom: 12px;">
           SEDANG BEKERJA
         </div>
 
@@ -911,13 +1020,17 @@ const Absensi = (() => {
             <span class="text-muted">Jam Masuk:</span>
             <b style="color: #0F172A;">${UI.jam(absenHariIni.waktu_masuk)} WIB</b>
           </div>
+          <div class="flex justify-between mb-4">
+            <span class="text-muted">Target Jam Pulang:</span>
+            <b style="color: #0F172A;">${targetShift.pulang} WIB</b>
+          </div>
           <div class="flex justify-between">
             <span class="text-muted">Lokasi Masuk:</span>
             <b style="color: #0F8B7E; text-align: right; max-width: 60%;">${UI.esc(absenHariIni.lokasi_masuk || '-')}</b>
           </div>
         </div>
 
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; text-align: left;">
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; text-align: left;">
           <div style="font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase;">Lokasi Pulang Saat Ini:</div>
           <div style="font-size: 13px; font-weight: 700; color: #0F172A; margin-top: 3px; display: flex; align-items: center; gap: 5px;">
             ${userCoords ? `${UI.ikon('lokasi', 14)} <span>${UI.esc(namaLokasiTampil)}</span>` : '<span class="text-muted">Mencari koordinat GPS...</span>'}
@@ -925,8 +1038,8 @@ const Absensi = (() => {
         </div>
 
         <button class="btn btn-secondary w-full" id="btnClockOut" 
-          style="font-size: 16px; padding: 14px; font-weight: 700; color: var(--danger-700); border-color: var(--danger-700);">
-          ${UI.ikon('jam', 20)} Absen Keluar (Clock Out)
+          style="font-size: 15px; padding: 13px; font-weight: 700; color: var(--danger-700); border-color: var(--danger-700);">
+          ${UI.ikon('jam', 18)} Absen Keluar (${targetShift.labelSingkat})
         </button>
       `;
 
@@ -935,7 +1048,8 @@ const Absensi = (() => {
     } else if (absenHariIni.status !== 'HADIR') {
       // Sedang cuti / izin / sakit
       p.innerHTML = `
-        <div style="width: 52px; height: 52px; border-radius: 50%; background: #EFF6FF; color: #2563EB; display: grid; place-items: center; margin: 0 auto 12px auto;">
+        ${htmlToggleShift}
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #EFF6FF; color: #2563EB; display: grid; place-items: center; margin: 0 auto 10px auto;">
           ${UI.ikon('dokumen', 24)}
         </div>
         <div style="font-size: 17px; font-weight: 800; color: var(--brand-800); margin-bottom: 6px;">
@@ -948,16 +1062,22 @@ const Absensi = (() => {
       `;
 
     } else {
-      // Sudah selesai absen masuk dan keluar hari ini
+      // Sudah selesai absen masuk dan keluar pada shift ini
       p.innerHTML = `
-        <div style="width: 52px; height: 52px; border-radius: 50%; background: #F0FDF4; color: #16A34A; display: grid; place-items: center; margin: 0 auto 12px auto;">
+        ${htmlToggleShift}
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #F0FDF4; color: #16A34A; display: grid; place-items: center; margin: 0 auto 10px auto;">
           ${UI.ikon('centang', 26)}
         </div>
-        <div style="font-size: 18px; font-weight: 800; color: #16A34A; margin-bottom: 6px;">
+        <div style="font-size: 18px; font-weight: 800; color: #16A34A; margin-bottom: 4px;">
           PRESENSI SELESAI
         </div>
-        <div class="text-muted text-xs mb-16">
-          Terima kasih atas dedikasi dan kerja keras Anda hari ini!
+        <div style="margin-bottom: 8px;">
+          <span class="badge ${targetShift.badgeClass}" style="font-size: 11px; padding: 3px 8px; font-weight: 700;">
+            ${targetShift.nama}
+          </span>
+        </div>
+        <div class="text-muted text-xs mb-14">
+          Terima kasih atas dedikasi tugas Anda pada ${targetShift.nama} hari ini!
         </div>
 
         <div class="p-14 border rounded text-left text-xs" style="background: #F8FAFC; border-color: #E2E8F0; border-radius: 8px;">
@@ -980,6 +1100,18 @@ const Absensi = (() => {
         </div>
       `;
     }
+
+    // Listener switch tombol shift
+    p.querySelector('#btnPilihShift1')?.addEventListener('click', () => {
+      if (shiftDipilih === 1) return;
+      shiftDipilih = 1;
+      updateTombolPresensi();
+    });
+    p.querySelector('#btnPilihShift2')?.addEventListener('click', () => {
+      if (shiftDipilih === 2) return;
+      shiftDipilih = 2;
+      updateTombolPresensi();
+    });
   }
 
   async function prosesClockIn() {
@@ -1000,29 +1132,31 @@ const Absensi = (() => {
       namaLokasiFormat = `${deteksi.nama} (±${deteksi.jarak}m)`;
     }
 
+    const targetShift = getTargetShift(shiftDipilih);
     const nowIso = new Date().toISOString();
-    const late = cekStatusKeterlambatan(nowIso, jamKerja.jam_masuk, jamKerja.toleransi_keterlambatan_menit);
+    const late = cekStatusKeterlambatan(nowIso, targetShift.masuk, targetShift.toleransi);
 
-    let pesanKonf = `Konfirmasi presensi masuk di:\n• Lokasi: ${namaLokasiFormat}\n\nCatat kehadiran masuk sekarang?`;
+    let pesanKonf = `Konfirmasi presensi masuk ${targetShift.nama} di:\n• Lokasi: ${namaLokasiFormat}\n• Jam Masuk Shift: ${targetShift.masuk} WIB\n\nCatat kehadiran masuk sekarang?`;
     if (late?.terlambat) {
-      pesanKonf = `Perhatian: Jam masuk kerja adalah ${jamKerja.jam_masuk} WIB.\nAnda tercatat terlambat ${late.menit} menit (melewati batas toleransi).\n\nLokasi terdeteksi:\n• Lokasi: ${namaLokasiFormat}\n\nTetap lanjutkan absen masuk?`;
+      pesanKonf = `Perhatian: Jam masuk ${targetShift.nama} adalah ${targetShift.masuk} WIB.\nAnda tercatat terlambat ${late.menit} menit (melewati batas toleransi ${targetShift.toleransi} menit).\n\nLokasi terdeteksi:\n• Lokasi: ${namaLokasiFormat}\n\nTetap lanjutkan absen masuk?`;
     }
 
-    const konf = await UI.konfirmasi('Konfirmasi Absen Masuk', pesanKonf, 'Absen Masuk', late?.terlambat);
+    const konf = await UI.konfirmasi(`Konfirmasi Absen Masuk ${targetShift.labelSingkat}`, pesanKonf, 'Absen Masuk', late?.terlambat);
     if (!konf) return;
 
     try {
-      const ket = late?.terlambat ? `Terlambat ${late.menit} menit` : 'Tepat Waktu';
+      const ket = late?.terlambat ? `Terlambat ${late.menit} menit (${targetShift.labelSingkat})` : `Tepat Waktu (${targetShift.labelSingkat})`;
       await DB.absensiMasuk(ket, namaLokasiFormat, {
         tipe: tipeLokasi,
         lat: userCoords.lat,
-        lng: userCoords.lng
+        lng: userCoords.lng,
+        shift: shiftDipilih
       });
 
       if (late?.terlambat) {
-        UI.toast(`Absen masuk tercatat di ${namaLokasiFormat} (Terlambat ${late.menit} menit). Selamat bertugas!`, 'warn');
+        UI.toast(`Absen masuk ${targetShift.labelSingkat} tercatat di ${namaLokasiFormat} (Terlambat ${late.menit} menit). Selamat bertugas!`, 'warn');
       } else {
-        UI.toast(`Absen masuk berhasil tercatat di ${namaLokasiFormat}! Selamat bertugas.`, 'ok');
+        UI.toast(`Absen masuk ${targetShift.labelSingkat} berhasil tercatat di ${namaLokasiFormat}! Selamat bertugas.`, 'ok');
       }
       await muatData();
     } catch (err) {
@@ -1037,6 +1171,11 @@ const Absensi = (() => {
       return;
     }
 
+    if (!absenHariIni || !absenHariIni.id) {
+      UI.toast('Data absensi masuk hari ini tidak ditemukan.', 'err');
+      return;
+    }
+
     const deteksi = evaluasiLokasiCerdas(userCoords.lat, userCoords.lng);
     let namaLokasiFormat = deteksi?.nama || 'Lokasi Terdeteksi';
     let tipeLokasi = deteksi?.tipe || 'DINAS_LUAR';
@@ -1048,15 +1187,16 @@ const Absensi = (() => {
       namaLokasiFormat = `${deteksi.nama} (±${deteksi.jarak}m)`;
     }
 
+    const targetShift = getTargetShift(shiftDipilih);
     const nowIso = new Date().toISOString();
-    const early = cekPulangCepat(nowIso, jamKerja.jam_pulang);
+    const early = cekPulangCepat(nowIso, targetShift.pulang);
 
-    let pesanKonf = `Konfirmasi presensi keluar/pulang di:\n• Lokasi: ${namaLokasiFormat}\n\nCatat kepulangan sekarang?`;
+    let pesanKonf = `Konfirmasi presensi pulang ${targetShift.nama} di:\n• Lokasi: ${namaLokasiFormat}\n• Jam Pulang Shift: ${targetShift.pulang} WIB\n\nCatat kepulangan sekarang?`;
     if (early?.cepat) {
-      pesanKonf = `Perhatian: Jam pulang kerja resmi adalah ${jamKerja.jam_pulang} WIB.\nSaat ini masih kurang ${early.menit} menit sebelum jam pulang.\n\nLokasi terdeteksi:\n• Lokasi: ${namaLokasiFormat}\n\nTetap lanjutkan absen keluar?`;
+      pesanKonf = `Perhatian: Jam pulang resmi ${targetShift.nama} adalah ${targetShift.pulang} WIB.\nSaat ini masih kurang ${early.menit} menit sebelum jam pulang.\n\nLokasi terdeteksi:\n• Lokasi: ${namaLokasiFormat}\n\nTetap lanjutkan absen keluar?`;
     }
 
-    const konf = await UI.konfirmasi('Konfirmasi Absen Keluar', pesanKonf, 'Absen Keluar', early?.cepat);
+    const konf = await UI.konfirmasi(`Konfirmasi Absen Keluar ${targetShift.labelSingkat}`, pesanKonf, 'Absen Keluar', early?.cepat);
     if (!konf) return;
 
     try {
@@ -1069,7 +1209,7 @@ const Absensi = (() => {
         lng: userCoords.lng
       });
 
-      UI.toast(`Absen pulang tercatat di ${namaLokasiFormat}. Selamat beristirahat!`, 'ok');
+      UI.toast(`Absen pulang ${targetShift.labelSingkat} tercatat di ${namaLokasiFormat}. Selamat beristirahat!`, 'ok');
       await muatData();
     } catch (err) {
       UI.toast('Gagal absen keluar: ' + err.message, 'err');
@@ -1156,6 +1296,7 @@ const Absensi = (() => {
         <div class="absensi-table-wrap"><table class="tbl w-full">
           <thead><tr>
             <th>Tanggal</th>
+            <th>Shift</th>
             <th>Waktu Masuk</th>
             <th>Waktu Keluar</th>
             <th>Lokasi Masuk</th>
@@ -1165,6 +1306,11 @@ const Absensi = (() => {
             ${riwayatAbsen.map(r => `
               <tr>
                 <td><b>${UI.tglIndo(r.tanggal, true)}</b></td>
+                <td>
+                  <span class="badge ${r.shift === 2 ? 'b-dokter' : 'b-selesai'}" style="font-size: 11px; padding: 2px 7px; font-weight: 700;">
+                    Shift ${r.shift || 1}
+                  </span>
+                </td>
                 <td class="mono">${r.waktu_masuk ? UI.jam(r.waktu_masuk) + ' WIB' : '—'}</td>
                 <td class="mono">${r.waktu_keluar ? UI.jam(r.waktu_keluar) + ' WIB' : '—'}</td>
                 <td>${badgeLokasiHtml(r.lokasi_masuk, r.id)}</td>
@@ -1331,6 +1477,7 @@ const Absensi = (() => {
   async function renderTabMonitoring(container) {
     let teksCari = '';
     let filterPeran = '';
+    let filterShift = '';
     let markerStafMap = {};
 
     container.innerHTML = `
@@ -1353,24 +1500,30 @@ const Absensi = (() => {
           </div>
         </div>
 
-        <!-- Banner Jadwal Operasional & Jam Kerja Aktif -->
-        <div class="absensi-banner-box" style="margin: 20px 24px 0 24px; border-radius: 10px;">
-          <div class="flex items-center gap-12">
-            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(15, 139, 126, 0.12); display: grid; place-items: center; color: var(--brand-800); flex-shrink: 0;">
-              ${UI.ikon('jam', 20)}
-            </div>
-            <div>
-              <span class="text-xs text-muted" style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Ketentuan Jam Kerja Kantor:</span>
-              <div class="text-sm font-semibold" style="color: var(--brand-900); margin-top: 1px;">
-                Jam Masuk: <b style="color: #0F172A;">${jamKerja.jam_masuk || '08:00'} WIB</b> &nbsp;•&nbsp; 
-                Jam Pulang: <b style="color: #0F172A;">${jamKerja.jam_pulang || '16:00'} WIB</b> &nbsp;•&nbsp; 
-                Batas Toleransi: <b style="color: #0F172A;">${jamKerja.toleransi_keterlambatan_menit ?? 15} Menit</b>
+        <!-- Banner Jadwal Operasional & Jam Kerja Aktif 2 Shift -->
+        <div class="absensi-banner-box" style="margin: 20px 24px 0 24px; border-radius: 10px; background: #ffffff; border: 1.5px solid #E2E8F0; padding: 14px 20px;">
+          <div class="flex items-center justify-between flex-wrap gap-12">
+            <div class="flex items-center gap-12">
+              <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(15, 139, 126, 0.12); display: grid; place-items: center; color: var(--brand-800); flex-shrink: 0;">
+                ${UI.ikon('jam', 20)}
+              </div>
+              <div>
+                <span class="text-xs text-muted" style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Ketentuan Jam Operasional 2 Shift:</span>
+                <div class="flex items-center gap-10 mt-2 flex-wrap" style="font-size: 12.5px;">
+                  <span class="badge b-selesai" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">Shift 1 (Pagi)</span>
+                  <span style="color: #0F172A; font-weight: 600;">${jamKerja.shift1_masuk || '07:30'} - ${jamKerja.shift1_pulang || '14:30'} WIB</span>
+                  <span class="text-muted">(Toleransi ${jamKerja.shift1_toleransi ?? 15}m)</span>
+                  <span class="text-muted">•</span>
+                  <span class="badge b-dokter" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">Shift 2 (Siang)</span>
+                  <span style="color: #0F172A; font-weight: 600;">${jamKerja.shift2_masuk || '14:00'} - ${jamKerja.shift2_pulang || '21:00'} WIB</span>
+                  <span class="text-muted">(Toleransi ${jamKerja.shift2_toleransi ?? 15}m)</span>
+                </div>
               </div>
             </div>
+            <button class="btn btn-secondary btn-sm" id="btnUbahJamDariMonitoring" style="font-size: 12px; padding: 6px 14px; font-weight: 600;">
+              ${UI.ikon('setelan', 13)} Atur Jam Kerja
+            </button>
           </div>
-          <button class="btn btn-secondary btn-sm" id="btnUbahJamDariMonitoring" style="font-size: 12px; padding: 6px 14px; font-weight: 600;">
-            ${UI.ikon('setelan', 13)} Atur Jam Kerja
-          </button>
         </div>
 
         <!-- Rekap Angka Statistik Real-Time -->
@@ -1411,11 +1564,16 @@ const Absensi = (() => {
           </div>
         </div>
 
-        <!-- Filter Pencarian & Peran Staf -->
+        <!-- Filter Pencarian, Shift & Peran Staf -->
         <div class="p-16 border-bottom flex items-center justify-between flex-wrap gap-12" style="background: #ffffff; padding: 16px 24px; margin-top: 20px;">
           <div class="flex items-center gap-10 flex-wrap" style="flex: 1;">
             <input type="search" id="cariStafMonitoring" placeholder="Cari nama staf / peran..." 
-                   class="ctl-sm" style="max-width: 280px; height: 36px; border-radius: 8px; padding: 0 12px;">
+                   class="ctl-sm" style="max-width: 240px; height: 36px; border-radius: 8px; padding: 0 12px;">
+            <select id="filterShiftMonitoring" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
+              <option value="">Semua Shift (1 & 2)</option>
+              <option value="1">Shift 1 (Pagi)</option>
+              <option value="2">Shift 2 (Siang)</option>
+            </select>
             <select id="filterPeranMonitoring" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
               <option value="">Semua Peran Staf</option>
               <option value="karyawan">Karyawan</option>
@@ -1451,12 +1609,16 @@ const Absensi = (() => {
         const sedangBekerja = monitoringList.filter(m => m.status === 'HADIR' && m.waktu_masuk && !m.waktu_keluar).length;
         const tepatWaktuCount = monitoringList.filter(m => {
           if (m.status !== 'HADIR' || !m.waktu_masuk) return false;
-          const chk = cekStatusKeterlambatan(m.waktu_masuk, jamKerja.jam_masuk, jamKerja.toleransi_keterlambatan_menit);
+          const targetMasuk = m.shift === 2 ? (jamKerja.shift2_masuk || '14:00') : (jamKerja.shift1_masuk || '07:30');
+          const targetToleransi = m.shift === 2 ? (jamKerja.shift2_toleransi ?? 15) : (jamKerja.shift1_toleransi ?? 15);
+          const chk = cekStatusKeterlambatan(m.waktu_masuk, targetMasuk, targetToleransi);
           return chk && !chk.terlambat;
         }).length;
         const terlambatCount = monitoringList.filter(m => {
           if (m.status !== 'HADIR' || !m.waktu_masuk) return false;
-          const chk = cekStatusKeterlambatan(m.waktu_masuk, jamKerja.jam_masuk, jamKerja.toleransi_keterlambatan_menit);
+          const targetMasuk = m.shift === 2 ? (jamKerja.shift2_masuk || '14:00') : (jamKerja.shift1_masuk || '07:30');
+          const targetToleransi = m.shift === 2 ? (jamKerja.shift2_toleransi ?? 15) : (jamKerja.shift1_toleransi ?? 15);
+          const chk = cekStatusKeterlambatan(m.waktu_masuk, targetMasuk, targetToleransi);
           return chk && chk.terlambat;
         }).length;
         const selesai = monitoringList.filter(m => m.status === 'HADIR' && m.waktu_keluar).length;
@@ -1628,6 +1790,7 @@ const Absensi = (() => {
       const p = (filterPeran || '').trim().toLowerCase();
 
       const filtered = monitoringList.filter(m => {
+        if (filterShift && String(m.shift || 1) !== filterShift) return false;
         if (p && (m.peran || '').toLowerCase() !== p) return false;
         if (q) {
           const matchNama = (m.nama || '').toLowerCase().includes(q);
@@ -1639,7 +1802,7 @@ const Absensi = (() => {
       });
 
       if (labelHitung) {
-        labelHitung.textContent = `Menampilkan ${filtered.length} dari ${monitoringList.length} staf aktif`;
+        labelHitung.textContent = `Menampilkan ${filtered.length} dari ${monitoringList.length} catatan staf aktif`;
       }
 
       if (!filtered.length) {
@@ -1652,6 +1815,7 @@ const Absensi = (() => {
           <thead><tr>
             <th>NAMA PEGAWAI</th>
             <th>PERAN</th>
+            <th>SHIFT</th>
             <th>STATUS</th>
             <th>JAM MASUK</th>
             <th>JAM KELUAR</th>
@@ -1662,12 +1826,15 @@ const Absensi = (() => {
           </tr></thead>
           <tbody>
             ${filtered.map(m => {
-              const lateInfo = m.waktu_masuk ? cekStatusKeterlambatan(m.waktu_masuk, jamKerja.jam_masuk, jamKerja.toleransi_keterlambatan_menit) : null;
+              const targetMasuk = m.shift === 2 ? (jamKerja.shift2_masuk || '14:00') : (jamKerja.shift1_masuk || '07:30');
+              const targetToleransi = m.shift === 2 ? (jamKerja.shift2_toleransi ?? 15) : (jamKerja.shift1_toleransi ?? 15);
+              const lateInfo = m.waktu_masuk ? cekStatusKeterlambatan(m.waktu_masuk, targetMasuk, targetToleransi) : null;
               const badgeMasuk = lateInfo ? (lateInfo.terlambat
                 ? `<span class="badge b-danger" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Terlambat melewati toleransi">+${lateInfo.menit}m</span>`
                 : `<span class="badge b-selesai" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Tepat Waktu">Tepat</span>`) : '';
 
-              const earlyInfo = m.waktu_keluar ? cekPulangCepat(m.waktu_keluar, jamKerja.jam_pulang) : null;
+              const targetPulang = m.shift === 2 ? (jamKerja.shift2_pulang || '21:00') : (jamKerja.shift1_pulang || '14:30');
+              const earlyInfo = m.waktu_keluar ? cekPulangCepat(m.waktu_keluar, targetPulang) : null;
               const badgeKeluar = earlyInfo ? (earlyInfo.cepat
                 ? `<span class="badge b-warn" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Pulang lebih awal">-${earlyInfo.menit}m</span>`
                 : `<span class="badge b-selesai" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Tepat Waktu">Tepat</span>`) : '';
@@ -1704,6 +1871,11 @@ const Absensi = (() => {
                 <tr>
                   <td><b style="color: #0F172A;">${UI.esc(m.nama)}</b></td>
                   <td><span class="badge" style="background:#F1F5F9; color:#475569; text-transform:uppercase; font-size:11px; font-weight:700;">${UI.esc(m.peran)}</span></td>
+                  <td>
+                    <span class="badge ${m.shift === 2 ? 'b-dokter' : 'b-selesai'}" style="font-size:11px; padding:3px 8px; font-weight:700;">
+                      Shift ${m.shift || 1}
+                    </span>
+                  </td>
                   <td>
                     <span class="badge ${m.status === 'HADIR' ? (m.waktu_keluar ? 'b-selesai' : 'b-kajian') : (m.status === 'BELUM' ? 'b-danger' : 'b-menunggu')}" style="font-size:11px; padding: 4px 8px;">
                       ${m.status === 'HADIR' ? (m.waktu_keluar ? 'SELESAI' : 'BEKERJA') : UI.esc(m.status)}
@@ -1753,6 +1925,11 @@ const Absensi = (() => {
 
     container.querySelector('#cariStafMonitoring')?.addEventListener('input', (e) => {
       teksCari = e.target.value;
+      renderTabelMonitoring();
+    });
+
+    container.querySelector('#filterShiftMonitoring')?.addEventListener('change', (e) => {
+      filterShift = e.target.value;
       renderTabelMonitoring();
     });
 
@@ -1922,36 +2099,71 @@ const Absensi = (() => {
      ===================================================================== */
   async function renderTabMasterLokasi(container) {
     container.innerHTML = `
-      <!-- Card 1: Pengaturan Jam Kerja Kantor -->
+      <!-- Card 1: Pengaturan Jam Kerja Kantor & 2 Shift Operasional -->
       <div class="absensi-panel mb-24">
         <div class="absensi-panel-head">
           <div>
             <h2 class="flex items-center gap-10" style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
-              ${UI.ikon('jam', 19)} Pengaturan Jam Kerja Kantor
+              ${UI.ikon('jam', 19)} Pengaturan Jam Kerja Kantor & 2 Shift Operasional
             </h2>
-            <div class="text-muted text-xs mt-4">Atur jam masuk, jam pulang, dan batas toleransi keterlambatan untuk seluruh staf faskes.</div>
+            <div class="text-muted text-xs mt-4">Atur jam datang, jam pulang, dan batas toleransi keterlambatan untuk Shift 1 (Pagi) dan Shift 2 (Siang/Sore).</div>
           </div>
         </div>
         <div style="padding: 22px 24px;">
-          <form id="formJamKerja" class="absensi-form-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 160px; gap: 18px; align-items: end;">
-            <div class="field" style="margin: 0;">
-              <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Jam Masuk Kerja <span class="req">*</span></label>
-              <input type="time" name="jam_masuk" value="${jamKerja.jam_masuk || '08:00'}" required class="w-full" style="height: 42px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
-            </div>
-            <div class="field" style="margin: 0;">
-              <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Jam Pulang Kerja <span class="req">*</span></label>
-              <input type="time" name="jam_pulang" value="${jamKerja.jam_pulang || '16:00'}" required class="w-full" style="height: 42px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
-            </div>
-            <div class="field" style="margin: 0;">
-              <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">Toleransi Keterlambatan <span class="req">*</span></label>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" name="toleransi_keterlambatan_menit" min="0" max="120" value="${jamKerja.toleransi_keterlambatan_menit ?? 15}" required class="w-full" style="height: 42px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
-                <span class="text-xs text-muted" style="white-space: nowrap; font-weight: 600;">Menit</span>
+          <form id="formJamKerja" class="absensi-form-box" style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Shift 1 (Pagi) -->
+            <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 18px 20px;">
+              <div class="flex items-center gap-8 mb-14">
+                <span class="badge b-selesai" style="font-size: 11.5px; padding: 3px 10px; font-weight: 700;">Shift 1 (Pagi)</span>
+                <span style="font-size: 13px; font-weight: 700; color: #0F172A;">Jadwal Pelayanan Pagi Hari</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Jam Datang / Masuk <span class="req">*</span></label>
+                  <input type="time" name="shift1_masuk" value="${jamKerja.shift1_masuk || jamKerja.jam_masuk || '07:30'}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Jam Pulang <span class="req">*</span></label>
+                  <input type="time" name="shift1_pulang" value="${jamKerja.shift1_pulang || jamKerja.jam_pulang || '14:30'}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Toleransi Keterlambatan <span class="req">*</span></label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="number" name="shift1_toleransi" min="0" max="120" value="${jamKerja.shift1_toleransi ?? jamKerja.toleransi_keterlambatan_menit ?? 15}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                    <span class="text-xs text-muted" style="white-space: nowrap; font-weight: 600;">Menit</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <button type="submit" class="btn btn-primary w-full" id="btnSimpanJam" style="height: 42px; font-weight: 700; border-radius: 8px; font-size: 13.5px;">
-                ${UI.ikon('simpan', 15)} Simpan Jam
+
+            <!-- Shift 2 (Siang/Sore) -->
+            <div style="background: #FAF5FF; border: 1.5px solid #E9D5FF; border-radius: 10px; padding: 18px 20px;">
+              <div class="flex items-center gap-8 mb-14">
+                <span class="badge b-dokter" style="font-size: 11.5px; padding: 3px 10px; font-weight: 700;">Shift 2 (Siang/Sore)</span>
+                <span style="font-size: 13px; font-weight: 700; color: #581C87;">Jadwal Pelayanan Siang & Malam Hari</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Jam Datang / Masuk <span class="req">*</span></label>
+                  <input type="time" name="shift2_masuk" value="${jamKerja.shift2_masuk || '14:00'}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Jam Pulang <span class="req">*</span></label>
+                  <input type="time" name="shift2_pulang" value="${jamKerja.shift2_pulang || '21:00'}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px;">Toleransi Keterlambatan <span class="req">*</span></label>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="number" name="shift2_toleransi" min="0" max="120" value="${jamKerja.shift2_toleransi ?? 15}" required class="w-full" style="height: 40px; border-radius: 8px; border: 1px solid #CBD5E1; padding: 0 12px; font-size: 14px;">
+                    <span class="text-xs text-muted" style="white-space: nowrap; font-weight: 600;">Menit</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end">
+              <button type="submit" class="btn btn-primary" id="btnSimpanJam" style="height: 42px; padding: 0 24px; font-weight: 700; border-radius: 8px; font-size: 13.5px;">
+                ${UI.ikon('simpan', 15)} Simpan Pengaturan 2 Shift
               </button>
             </div>
           </form>
@@ -2041,7 +2253,7 @@ const Absensi = (() => {
       </div>
     `;
 
-    // Event listener simpan jam kerja
+    // Event listener simpan jam kerja 2 shift
     container.querySelector('#formJamKerja')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
@@ -2049,13 +2261,19 @@ const Absensi = (() => {
       b.disabled = true;
       try {
         const payload = {
-          jam_masuk: form.jam_masuk.value,
-          jam_pulang: form.jam_pulang.value,
-          toleransi_keterlambatan_menit: parseInt(form.toleransi_keterlambatan_menit.value, 10) || 0
+          shift1_masuk: form.shift1_masuk.value,
+          shift1_pulang: form.shift1_pulang.value,
+          shift1_toleransi: parseInt(form.shift1_toleransi.value, 10) || 0,
+          shift2_masuk: form.shift2_masuk.value,
+          shift2_pulang: form.shift2_pulang.value,
+          shift2_toleransi: parseInt(form.shift2_toleransi.value, 10) || 0,
+          jam_masuk: form.shift1_masuk.value,
+          jam_pulang: form.shift1_pulang.value,
+          toleransi_keterlambatan_menit: parseInt(form.shift1_toleransi.value, 10) || 0
         };
         const saved = await DB.simpanPengaturanJamKerja(payload);
         jamKerja = saved;
-        UI.toast('Pengaturan jam kerja berhasil disimpan!', 'ok');
+        UI.toast('Pengaturan jam kerja 2 shift berhasil disimpan!', 'ok');
       } catch (err) {
         UI.toast('Gagal menyimpan jam kerja: ' + err.message, 'err');
       } finally {

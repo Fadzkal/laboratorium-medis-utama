@@ -2338,46 +2338,110 @@ const DB = (() => {
     if (error) throw error; return true;
   }
 
-  /* --- Pengaturan Jam Kerja Kantor --- */
+  /* --- Pengaturan Jam Kerja Kantor & 2 Shift Operasional --- */
   async function pengaturanJamKerja() {
     try {
       const { data, error } = await sb.from('pengaturan_absensi').select('*').eq('id', 1).maybeSingle();
-      if (!error && data) return data;
+      if (!error && data) {
+        return {
+          id: 1,
+          jam_masuk: data.shift1_masuk || data.jam_masuk || '07:30',
+          jam_pulang: data.shift1_pulang || data.jam_pulang || '14:30',
+          toleransi_keterlambatan_menit: data.shift1_toleransi ?? data.toleransi_keterlambatan_menit ?? 15,
+          shift1_masuk: data.shift1_masuk || data.jam_masuk || '07:30',
+          shift1_pulang: data.shift1_pulang || data.jam_pulang || '14:30',
+          shift1_toleransi: data.shift1_toleransi ?? data.toleransi_keterlambatan_menit ?? 15,
+          shift2_masuk: data.shift2_masuk || '14:00',
+          shift2_pulang: data.shift2_pulang || '21:00',
+          shift2_toleransi: data.shift2_toleransi ?? 15
+        };
+      }
     } catch (e) {
       console.warn('pengaturan_absensi query fallback:', e);
     }
 
     try {
       const lokal = localStorage.getItem('lab_pengaturan_jam_kerja');
-      if (lokal) return JSON.parse(lokal);
+      if (lokal) {
+        const p = JSON.parse(lokal);
+        return {
+          id: 1,
+          jam_masuk: p.shift1_masuk || p.jam_masuk || '07:30',
+          jam_pulang: p.shift1_pulang || p.jam_pulang || '14:30',
+          toleransi_keterlambatan_menit: p.shift1_toleransi ?? p.toleransi_keterlambatan_menit ?? 15,
+          shift1_masuk: p.shift1_masuk || p.jam_masuk || '07:30',
+          shift1_pulang: p.shift1_pulang || p.jam_pulang || '14:30',
+          shift1_toleransi: p.shift1_toleransi ?? p.toleransi_keterlambatan_menit ?? 15,
+          shift2_masuk: p.shift2_masuk || '14:00',
+          shift2_pulang: p.shift2_pulang || '21:00',
+          shift2_toleransi: p.shift2_toleransi ?? 15
+        };
+      }
     } catch (e) {}
 
     return {
       id: 1,
-      jam_masuk: '08:00',
-      jam_pulang: '16:00',
-      toleransi_keterlambatan_menit: 15
+      jam_masuk: '07:30',
+      jam_pulang: '14:30',
+      toleransi_keterlambatan_menit: 15,
+      shift1_masuk: '07:30',
+      shift1_pulang: '14:30',
+      shift1_toleransi: 15,
+      shift2_masuk: '14:00',
+      shift2_pulang: '21:00',
+      shift2_toleransi: 15
     };
   }
 
   async function simpanPengaturanJamKerja(rec) {
+    const shift1_masuk = rec.shift1_masuk || rec.jam_masuk || '07:30';
+    const shift1_pulang = rec.shift1_pulang || rec.jam_pulang || '14:30';
+    const shift1_toleransi = parseInt(rec.shift1_toleransi ?? rec.toleransi_keterlambatan_menit, 10) || 0;
+    const shift2_masuk = rec.shift2_masuk || '14:00';
+    const shift2_pulang = rec.shift2_pulang || '21:00';
+    const shift2_toleransi = parseInt(rec.shift2_toleransi, 10) || 0;
+
     const payload = {
       id: 1,
-      jam_masuk: rec.jam_masuk,
-      jam_pulang: rec.jam_pulang,
-      toleransi_keterlambatan_menit: parseInt(rec.toleransi_keterlambatan_menit, 10) || 0,
+      jam_masuk: shift1_masuk,
+      jam_pulang: shift1_pulang,
+      toleransi_keterlambatan_menit: shift1_toleransi,
+      shift1_masuk,
+      shift1_pulang,
+      shift1_toleransi,
+      shift2_masuk,
+      shift2_pulang,
+      shift2_toleransi,
       updated_at: new Date().toISOString()
     };
+
     try {
       localStorage.setItem('lab_pengaturan_jam_kerja', JSON.stringify(payload));
     } catch (e) {}
 
-    const { data, error } = await sb.from('pengaturan_absensi').upsert(payload).select().single();
-    if (error) {
-      console.warn('Tabel pengaturan_absensi Supabase:', error.message);
-      return payload;
+    // 1. Coba upsert dengan kolom 2 shift lengkap
+    try {
+      const { data, error } = await sb.from('pengaturan_absensi').upsert(payload).select().single();
+      if (!error && data) return Object.assign({}, payload, data);
+    } catch (e) {
+      console.warn('Upsert 2 shift pengaturan_absensi fallback:', e);
     }
-    return data;
+
+    // 2. Fallback upsert kolom standar jika migrasi DB belum dijalankan
+    try {
+      const fallbackPayload = {
+        id: 1,
+        jam_masuk: shift1_masuk,
+        jam_pulang: shift1_pulang,
+        toleransi_keterlambatan_menit: shift1_toleransi,
+        updated_at: new Date().toISOString()
+      };
+      await sb.from('pengaturan_absensi').upsert(fallbackPayload);
+    } catch (e) {
+      console.warn('Tabel pengaturan_absensi Supabase fallback:', e);
+    }
+
+    return payload;
   }
 
   async function absensiPegawai(pegawaiId, dari, sampai) {
@@ -2387,18 +2451,29 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
-  async function absensiHariIni() {
+  async function absensiHariIni(shift = null) {
     const hari = UI.hariIni();
+    if (shift) {
+      try {
+        const { data, error } = await sb.from('pegawai_absensi').select('*')
+          .eq('pegawai_id', _saya?.id).eq('tanggal', hari).eq('shift', parseInt(shift, 10))
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (!error && data) return data;
+      } catch (e) {}
+    }
+
     const { data, error } = await sb.from('pegawai_absensi').select('*')
-      .eq('pegawai_id', _saya?.id).eq('tanggal', hari).maybeSingle();
+      .eq('pegawai_id', _saya?.id).eq('tanggal', hari).order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (error) throw error; return data;
   }
 
   async function absensiMasuk(keterangan = null, lokasi = null, meta = {}) {
     const hari = UI.hariIni();
+    const shiftNomor = meta.shift ? parseInt(meta.shift, 10) : 1;
     const payloadLengkap = {
       pegawai_id: _saya?.id,
       tanggal: hari,
+      shift: shiftNomor,
       waktu_masuk: new Date().toISOString(),
       status: 'HADIR',
       keterangan,
@@ -2413,7 +2488,23 @@ const DB = (() => {
       if (!error && data) return data;
     } catch (e) {}
 
-    // Fallback jika kolom baru belum dimigrasi di Supabase
+    // Fallback jika kolom shift belum dimigrasi di Supabase
+    try {
+      const { data, error } = await sb.from('pegawai_absensi').insert({
+        pegawai_id: _saya?.id,
+        tanggal: hari,
+        waktu_masuk: new Date().toISOString(),
+        status: 'HADIR',
+        keterangan,
+        lokasi_masuk: lokasi,
+        tipe_lokasi_masuk: meta.tipe || null,
+        lat_masuk: meta.lat || null,
+        lng_masuk: meta.lng || null
+      }).select().single();
+      if (!error && data) return data;
+    } catch (e) {}
+
+    // Fallback minimal
     const { data, error } = await sb.from('pegawai_absensi').insert({
       pegawai_id: _saya?.id,
       tanggal: hari,
@@ -2462,38 +2553,72 @@ const DB = (() => {
     const tgl = tanggal || UI.hariIni();
     const [semuaPegawai, semuaAbsensi] = await Promise.all([
       daftarPegawai(),
-      sb.from('pegawai_absensi').select('*').eq('tanggal', tgl)
+      sb.from('pegawai_absensi').select('*').eq('tanggal', tgl).order('shift', { ascending: true })
     ]);
     if (semuaAbsensi.error) throw semuaAbsensi.error;
-    const petaAbsen = new Map((semuaAbsensi.data || []).map(a => [a.pegawai_id, a]));
+
+    // Kelompokkan data absensi per pegawai_id
+    const absensiPerPegawai = new Map();
+    (semuaAbsensi.data || []).forEach(a => {
+      const arr = absensiPerPegawai.get(a.pegawai_id) || [];
+      arr.push(a);
+      absensiPerPegawai.set(a.pegawai_id, arr);
+    });
+
     // Master bebas absensi (pemilik lab/pimpinan faskes).
     // Peran 'dokter' adalah data master dokter rujukan/pengirim lab (bukan staf harian).
     // Yang wajib absensi adalah staf operasional lab (karyawan, analis, perawat, kasir, admin).
-    return (semuaPegawai || []).filter(p => {
-      if (!p.aktif) return false;
-      if (p.peran === 'master') return false;
-      if (p.peran === 'dokter') return false;
-      return true;
-    }).map(p => {
-      const a = petaAbsen.get(p.id);
-      return {
-        pegawai_id: p.id,
-        nama: p.nama,
-        peran: p.peran,
-        tanggal: tgl,
-        absensi_id: a?.id || null,
-        waktu_masuk: a?.waktu_masuk || null,
-        waktu_keluar: a?.waktu_keluar || null,
-        status: a ? a.status : 'BELUM',
-        keterangan: a?.keterangan || null,
-        lokasi_masuk: a?.lokasi_masuk || null,
-        lokasi_keluar: a?.lokasi_keluar || null,
-        lat_masuk: a?.lat_masuk || null,
-        lng_masuk: a?.lng_masuk || null,
-        lat_keluar: a?.lat_keluar || null,
-        lng_keluar: a?.lng_keluar || null
-      };
+    const hasil = [];
+    (semuaPegawai || []).forEach(p => {
+      if (!p.aktif) return;
+      if (p.peran === 'master') return;
+      if (p.peran === 'dokter') return;
+
+      const listAbsen = absensiPerPegawai.get(p.id);
+      if (listAbsen && listAbsen.length > 0) {
+        listAbsen.forEach(a => {
+          hasil.push({
+            pegawai_id: p.id,
+            nama: p.nama,
+            peran: p.peran,
+            tanggal: tgl,
+            shift: a.shift || 1,
+            absensi_id: a.id || null,
+            waktu_masuk: a.waktu_masuk || null,
+            waktu_keluar: a.waktu_keluar || null,
+            status: a.status || 'HADIR',
+            keterangan: a.keterangan || null,
+            lokasi_masuk: a.lokasi_masuk || null,
+            lokasi_keluar: a.lokasi_keluar || null,
+            lat_masuk: a.lat_masuk || null,
+            lng_masuk: a.lng_masuk || null,
+            lat_keluar: a.lat_keluar || null,
+            lng_keluar: a.lng_keluar || null
+          });
+        });
+      } else {
+        hasil.push({
+          pegawai_id: p.id,
+          nama: p.nama,
+          peran: p.peran,
+          tanggal: tgl,
+          shift: 1,
+          absensi_id: null,
+          waktu_masuk: null,
+          waktu_keluar: null,
+          status: 'BELUM',
+          keterangan: null,
+          lokasi_masuk: null,
+          lokasi_keluar: null,
+          lat_masuk: null,
+          lng_masuk: null,
+          lat_keluar: null,
+          lng_keluar: null
+        });
+      }
     });
+
+    return hasil;
   }
 
   /* --- Pengajuan Cuti / Izin / Sakit (Tanpa Foto) --- */
