@@ -954,16 +954,18 @@ const Pendaftaran = (() => {
       if (!pasien) {
         // Buat pasien baru
         const dataPasien = {
-          nama,
-          nrp:           el.querySelector('#fNrp').value.trim()    || null,
-          title:         el.querySelector('#fTitle').value         || null,
+          title:         el.querySelector('#fTitle').value || null,
+          nama:          nama,
+          nrp:           el.querySelector('#fNrp').value.trim() || null,
           bagian:        el.querySelector('#fBagian').value.trim() || null,
-          plant:         el.querySelector('#fPlant').value.trim()  || null,
-          tanggal_lahir: tglLahir,
+          plant:         el.querySelector('#fPlant').value.trim() || null,
+          nik:           el.querySelector('#fNik').value.trim() || null,
+          no_bpjs:       noBpjs,
           jenis_kelamin: jk,
+          tanggal_lahir: tglLahir,
           alamat:        el.querySelector('#fAlamat').value.trim() || null,
-          no_hp:         el.querySelector('#fTelp').value.trim()   || null,
-          nik:           el.querySelector('#fNik').value.trim()    || null,
+          no_telp:       el.querySelector('#fTelp').value.trim() || null,
+          no_hp:         el.querySelector('#fHp').value.trim() || null
         };
         pasien = await DB.simpanPasien(dataPasien, null);
         UI.toast(`Pasien baru terdaftar. No. RM: ${pasien.no_rm}`, 'ok');
