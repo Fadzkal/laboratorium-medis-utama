@@ -1042,6 +1042,16 @@ const Pendaftaran = (() => {
         pasien = await DB.simpanPasien(dataPasien, pasien.id);
       }
 
+      // JIKA HANYA MENDAFTARKAN PASIEN (TANPA PEMERIKSAAN LAB):
+      if (!labDipilih || labDipilih.length === 0) {
+        pasienTerpilih = pasien;
+        el.querySelector('#fRm').value = pasien.no_rm || '';
+        localStorage.removeItem('draft_pendaftaran');
+        UI.toast(`Pasien berhasil didaftarkan (No. RM: ${pasien.no_rm}). Tanpa pemeriksaan lab, tagihan kasir tidak dibuat.`, 'ok');
+        return;
+      }
+
+      // JIKA ADA PEMERIKSAAN LAB:
       // Cari lab poli
       const labPoli = masterPoli.find(p => p.nama.toLowerCase().includes('lab')) || masterPoli[0];
 
@@ -1112,16 +1122,16 @@ const Pendaftaran = (() => {
           qty: 1,
           harga_satuan: b.harga || 0,
           diskon_pct: effectiveDiscPct,
-          ditanggung_penjamin: false, // Biarkan false agar nilai bersih (setelah diskon) tetap tertagih ke pasien
+          ditanggung_penjamin: isBPJS, // Jika BPJS, ditanggung penjamin sehingga pasien bayar Rp 0 dan tagihan langsung LUNAS
           urutan: urutan++
         });
       }
 
-      // 3. Catat Pembayaran jika pasien langsung membayar
+      // 3. Catat Pembayaran jika pasien langsung membayar (hanya untuk non-BPJS)
       const uangPasien = +(el.querySelector('#bUangPasien').value) || 0;
       const netto = +(el.querySelector('#bNetti').value) || 0;
       
-      if (uangPasien > 0) {
+      if (!isBPJS && uangPasien > 0) {
         const metode = (jb === 'TRANSFER') ? 'transfer' : 'tunai';
         const jumlahBayar = Math.min(uangPasien, netto); // Yang terhitung sbg pelunasan tagihan maksimal adalah netto
         await DB.kasirCatatPembayaran({
@@ -1148,7 +1158,8 @@ const Pendaftaran = (() => {
       el.querySelector('#fRm').value = pasien.no_rm || '';
 
       const pesanLab = noLabResmi ? ` (No. Lab: ${noLabResmi})` : '';
-      UI.toast(`Pendaftaran lab${pesanLab} dan Tagihan Kasir berhasil disimpan. Silakan cetak dokumen yang diperlukan.`, 'ok');
+      const pesanKasir = isBPJS ? ' Tagihan BPJS berstatus LUNAS.' : ' Tagihan Kasir berhasil disimpan.';
+      UI.toast(`Pendaftaran lab${pesanLab}.${pesanKasir} Silakan cetak dokumen yang diperlukan.`, 'ok');
       localStorage.removeItem('draft_pendaftaran');
 
     } catch(e) {
