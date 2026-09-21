@@ -69,7 +69,6 @@ const Pendaftaran = (() => {
          el.querySelector('#fJk').value = f.jk || 'L';
          el.querySelector('#fAlamat').value = f.alamat || '';
          el.querySelector('#fTelp').value = f.telp || '';
-         el.querySelector('#fNik').value = f.nik || '';
          el.querySelector('#bJenisBayar').value = f.jenisBayar || 'UMUM';
          el.querySelector('#bUangPasien').value = f.uangPasien || '';
          el.querySelector('#bDiscPct').value = f.discPct || '';
@@ -767,10 +766,8 @@ const Pendaftaran = (() => {
 
     /* ---- Cek Pasien via NRP/NIK ---- */
     el.querySelector('#btnCekNrp').addEventListener('click', async () => {
-      const nrp = el.querySelector('#fNrp').value.trim();
-      const nik = el.querySelector('#fNik').value.trim();
-      const kata = nrp || nik;
-      if (!kata) return UI.toast('Isi NRP atau NIK terlebih dahulu', 'err');
+      const kata = el.querySelector('#fNrp').value.trim();
+      if (!kata) return UI.toast('Isi NRP / BPJS terlebih dahulu', 'err');
       
       const res = await DB.cariPasien(kata, 1);
       if (res && res.length > 0) {
@@ -841,7 +838,7 @@ const Pendaftaran = (() => {
     el.querySelector('#fJk').value       = p.jenis_kelamin || 'L';
     el.querySelector('#fAlamat').value   = p.alamat || '';
     el.querySelector('#fTelp').value     = p.no_hp || p.no_telp || '';
-    el.querySelector('#fNik').value      = p.nik   || '';
+    el.querySelector('#fNrp').value      = p.nrp || p.nik || p.no_bpjs || '';
     el.querySelector('#bJenisBayar').value = p.no_bpjs ? 'BPJS' : 'UMUM';
   }
 
@@ -856,7 +853,6 @@ const Pendaftaran = (() => {
     el.querySelector('#fJk').value       = 'L';
     el.querySelector('#fAlamat').value   = '';
     el.querySelector('#fTelp').value     = '';
-    el.querySelector('#fNik').value      = '';
   }
 
   function simpanDraftPendaftaran(el) {
@@ -874,7 +870,6 @@ const Pendaftaran = (() => {
         jk: el.querySelector('#fJk')?.value,
         alamat: el.querySelector('#fAlamat')?.value,
         telp: el.querySelector('#fTelp')?.value,
-        nik: el.querySelector('#fNik')?.value,
         dokter: el.querySelector('#fDokter')?.value,
         jenisBayar: el.querySelector('#bJenisBayar')?.value,
         uangPasien: el.querySelector('#bUangPasien')?.value,
