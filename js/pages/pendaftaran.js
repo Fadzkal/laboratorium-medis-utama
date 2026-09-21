@@ -269,7 +269,7 @@ const Pendaftaran = (() => {
               <div class="pdft-field">
                 <label>Title</label>
                 <select id="fTitle">
-                  <option value="">Tn.</option>
+                  <option value="Tn.">Tn.</option>
                   <option value="Ny.">Ny.</option>
                   <option value="Sdra.">Sdra.</option>
                   <option value="Sdri.">Sdri.</option>
@@ -876,7 +876,7 @@ const Pendaftaran = (() => {
     if (el.querySelector('#fNik')) el.querySelector('#fNik').value = '';
     el.querySelector('#fNrp').value      = '';
     el.querySelector('#fNama').value     = '';
-    el.querySelector('#fTitle').value    = '';
+    el.querySelector('#fTitle').value    = 'Tn.';
     el.querySelector('#fBagian').value   = '';
     el.querySelector('#fPlant').value    = '';
     el.querySelector('#fTglLahir').value = '';
@@ -999,18 +999,21 @@ const Pendaftaran = (() => {
       let bpjsVal = null, nrpVal = nrpInput || null;
       if (nrpInput.length === 13) { bpjsVal = nrpInput; }
 
+      const telpVal = (el.querySelector('#fTelp')?.value || '').trim() || null;
+
       const dataPasien = {
-        title:         el.querySelector('#fTitle').value || null,
+        title:         el.querySelector('#fTitle')?.value || 'Tn.',
         nama:          nama,
         nrp:           nrpVal,
-        bagian:        el.querySelector('#fBagian').value.trim() || null,
-        plant:         el.querySelector('#fPlant').value.trim() || null,
+        bagian:        el.querySelector('#fBagian')?.value.trim() || null,
+        plant:         el.querySelector('#fPlant')?.value.trim() || null,
         nik:           nikInput,
-        no_bpjs:       bpjsVal || pasien?.no_bpjs || null,
+        no_bpjs:       bpjsVal || (el.querySelector('#bJenisBayar')?.value === 'BPJS' ? nrpVal : null) || pasien?.no_bpjs || null,
         jenis_kelamin: jk,
         tanggal_lahir: tglLahir,
-        alamat:        el.querySelector('#fAlamat').value.trim() || null,
-        no_telp:       el.querySelector('#fTelp').value.trim() || null
+        alamat:        el.querySelector('#fAlamat')?.value.trim() || null,
+        no_hp:         telpVal,
+        no_telp:       telpVal
       };
 
       if (!pasien) {
