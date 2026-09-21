@@ -943,7 +943,6 @@ const Pendaftaran = (() => {
     if (!tglLahir) { UI.toast('Tanggal lahir wajib diisi.', 'err'); return; }
 
     const labDipilih = barisPemeriksaan.filter(b => b.labId);
-    if (!labDipilih.length) { UI.toast('Pilih minimal satu pemeriksaan.', 'err'); return; }
 
     const btn = el.querySelector('#btnDaftarkan');
     btn.disabled = true;
@@ -989,7 +988,9 @@ const Pendaftaran = (() => {
       });
 
       // Buat permintaan lab
-      await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
+      if (labDipilih.length > 0) {
+        await DB.labMinta(kunjungan.id, labDipilih.map(b => b.labId));
+      }
 
       // --- TAMBAHAN KASIR ---
       // 1. Buat Kasir Tagihan
