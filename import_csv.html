@@ -82,15 +82,25 @@
       const lines = text.split('\n');
       
       // Ambil token dari sesi yang sedang login
-      const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-      const sessionData = await sb.auth.getSession();
-      if (!sessionData.data.session) {
+      const session = await DB.sesi();
+      if (!session) {
         log("<span style='color:red'>ERROR: Anda belum login! Buka tab baru, login ke aplikasi utama, lalu refresh halaman ini.</span>");
         return;
       }
-      const token = sessionData.data.session.access_token;
+      const token = session.access_token;
       
       log("Mengambil master ref_lab dari database...");
+      // PENTING: Gunakan 'sb' bawaan dari db.js agar auth menempel
+      // Karena DB membungkusnya, kita bisa akses DB._sb atau panggil manual.
+      // Namun karena db.js membungkus Supabase di closure tanpa expose sb,
+      // kita perlu buat client dengan header auth manual ATAU
+      // Karena kita hanya butuh token untuk fetch, kita bisa pakai REST murni
+      // ATAU gunakan window.supabase global tapi dengan set session
+      
+      const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      });
+      
       const { data: refLab, error: errRef } = await sb.from('ref_lab').select('id, kode');
       if (errRef) { log("Error ref_lab: " + errRef.message); return; }
       
