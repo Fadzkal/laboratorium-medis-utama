@@ -251,9 +251,9 @@ const Pasien = (() => {
             d = d.filter(p => (p.nama || '').toLowerCase().includes(k)
               || (p.no_rm || '').includes(k) || (p.nik || '').includes(k));
           }
-          gambarDaftarKurang(hasil, d);
+          gambarDaftarKurang(hasil, d, muat);
         } else {
-          gambarDaftar(hasil, await DB.cariPasien(kata), kata);
+          gambarDaftar(hasil, await DB.cariPasien(kata), kata, muat);
         }
       } catch (e) { hasil.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`; }
     };
@@ -269,7 +269,7 @@ const Pasien = (() => {
     await muat();
   }
 
-  function gambarDaftar(wadah, data, kata) {
+  function gambarDaftar(wadah, data, kata, onMuat) {
     if (!data.length) {
       wadah.innerHTML = UI.kosong(
         kata ? 'Pasien tidak ditemukan' : 'Belum ada pasien',
@@ -279,9 +279,9 @@ const Pasien = (() => {
     }
     wadah.innerHTML = `<div class="table-wrap"><table class="tbl">
       <thead><tr><th>No. RM</th><th>Nama</th><th>L/P</th><th>Umur</th>
-        <th>Tanggal lahir</th><th>No. BPJS</th><th>Kontak</th></tr></thead>
+        <th>Tanggal lahir</th><th>No. BPJS</th><th>Kontak</th><th style="width:1%"></th></tr></thead>
       <tbody>${data.map(p => `
-        <tr class="clickable" onclick="location.hash='#/pasien/${p.id}'">
+        <tr class="clickable" data-id="${p.id}">
           <td class="mono">${UI.esc(p.no_rm)}</td>
           <td><b>${UI.esc(p.nama)}</b>
             ${p.catatan_penting ? `<div class="text-xs text-danger">
@@ -291,10 +291,40 @@ const Pasien = (() => {
           <td class="muted nowrap">${UI.tglPendek(p.tanggal_lahir)}</td>
           <td class="mono muted">${UI.esc(p.no_bpjs || '—')}</td>
           <td class="muted">${UI.esc(p.no_hp || '—')}</td>
+          <td class="text-right whitespace-nowrap">
+            <button class="btn btn-ghost btn-sm text-danger btn-hapus-pasien" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-rm="${UI.esc(p.no_rm)}" title="Hapus Pasien">
+              ${UI.ikon('hapus',15)}
+            </button>
+          </td>
         </tr>`).join('')}</tbody></table></div>`;
+
+    wadah.querySelectorAll('tbody tr').forEach(tr => {
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-hapus-pasien')) return;
+        const id = tr.dataset.id;
+        if (id) location.hash = '#/pasien/' + id;
+      });
+    });
+
+    wadah.querySelectorAll('.btn-hapus-pasien').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const nama = btn.dataset.nama || 'pasien ini';
+        const noRm = btn.dataset.rm ? ` (No. RM: ${btn.dataset.rm})` : '';
+        if (!await UI.konfirmasi('Hapus Pasien', `Yakin ingin menghapus data pasien "${nama}"${noRm}? Data yang dihapus tidak dapat dikembalikan.`, 'Hapus')) return;
+        try {
+          await DB.hapusPasien(id);
+          UI.toast('Data pasien berhasil dihapus.', 'ok');
+          if (typeof onMuat === 'function') onMuat();
+        } catch (err) {
+          UI.toast('Gagal menghapus pasien: ' + (err.message || err), 'err');
+        }
+      });
+    });
   }
 
-  function gambarDaftarKurang(wadah, data) {
+  function gambarDaftarKurang(wadah, data, onMuat) {
     if (!data.length) {
       wadah.innerHTML = `<div class="empty compact">
         ${UI.ikon('cek', 40)}
@@ -309,16 +339,46 @@ const Pasien = (() => {
       </div>
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>No. RM</th><th>Nama</th><th>Kunjungan</th>
-          <th>Yang belum lengkap</th></tr></thead>
+          <th>Yang belum lengkap</th><th style="width:1%"></th></tr></thead>
         <tbody>${data.map(p => `
-          <tr class="clickable" onclick="location.hash='#/pasien/${p.id}'">
+          <tr class="clickable" data-id="${p.id}">
             <td class="mono">${UI.esc(p.no_rm)}</td>
             <td><b>${UI.esc(p.nama)}</b></td>
             <td class="muted nowrap">${p.jml_kunjungan}x
               ${p.kunjungan_terakhir ? `<div class="text-xs">terakhir ${UI.tglPendek(p.kunjungan_terakhir)}</div>` : ''}</td>
             <td>${p.kekurangan.map(k =>
               `<div class="text-sm text-warn">${UI.ikon('peringatan',12)} ${UI.esc(k)}</div>`).join('')}</td>
+            <td class="text-right whitespace-nowrap">
+              <button class="btn btn-ghost btn-sm text-danger btn-hapus-pasien" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-rm="${UI.esc(p.no_rm)}" title="Hapus Pasien">
+                ${UI.ikon('hapus',15)}
+              </button>
+            </td>
           </tr>`).join('')}</tbody></table></div>`;
+
+    wadah.querySelectorAll('tbody tr').forEach(tr => {
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-hapus-pasien')) return;
+        const id = tr.dataset.id;
+        if (id) location.hash = '#/pasien/' + id;
+      });
+    });
+
+    wadah.querySelectorAll('.btn-hapus-pasien').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const nama = btn.dataset.nama || 'pasien ini';
+        const noRm = btn.dataset.rm ? ` (No. RM: ${btn.dataset.rm})` : '';
+        if (!await UI.konfirmasi('Hapus Pasien', `Yakin ingin menghapus data pasien "${nama}"${noRm}? Data yang dihapus tidak dapat dikembalikan.`, 'Hapus')) return;
+        try {
+          await DB.hapusPasien(id);
+          UI.toast('Data pasien berhasil dihapus.', 'ok');
+          if (typeof onMuat === 'function') onMuat();
+        } catch (err) {
+          UI.toast('Gagal menghapus pasien: ' + (err.message || err), 'err');
+        }
+      });
+    });
   }
 
   async function detail(el, id) {

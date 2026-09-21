@@ -209,6 +209,32 @@ const DB = (() => {
     const { data: hasil, error } = await q;
     if (error) throw error; return hasil;
   }
+  async function hapusPasien(id) {
+    try {
+      const { error: rpcErr } = await sb.rpc('hapus_pasien', { p_pasien_id: id });
+      if (!rpcErr) return true;
+    } catch (e) {
+      // Fallback manual client-side jika RPC belum diterapkan
+    }
+
+    try {
+      const { data: labs } = await sb.from('lab_permintaan').select('id').eq('pasien_id', id);
+      if (labs && labs.length > 0) {
+        const labIds = labs.map(l => l.id);
+        await sb.from('lab_hasil').delete().in('permintaan_id', labIds);
+        await sb.from('lab_permintaan').delete().eq('pasien_id', id);
+      }
+      await sb.from('surat').delete().eq('pasien_id', id);
+      await sb.from('antrean').delete().eq('pasien_id', id);
+      await sb.from('kunjungan').delete().eq('pasien_id', id);
+    } catch (err) {
+      console.warn('Pembersihan relasi pasien:', err);
+    }
+
+    const { error } = await sb.from('pasien').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
   async function alergiPasien(pasienId) {
     const { data, error } = await sb.from('pasien_alergi').select('*')
       .eq('pasien_id', pasienId).order('dicatat_pada', { ascending: false });
@@ -2565,7 +2591,7 @@ const DB = (() => {
     daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
     tambahPengguna, hapusPengguna, resetPasswordPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
-    cariPasien, pasien, simpanPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
+    cariPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
     kajian, simpanKajian,
     pemeriksaan, simpanPemeriksaan, finalisasi, tambahAddendum, daftarAddendum,
