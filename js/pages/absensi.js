@@ -512,7 +512,7 @@ const Absensi = (() => {
           </div>
 
           <div class="p-16 bg-subtle text-xs text-muted flex items-center justify-between flex-wrap gap-8" style="background: #F8FAFC; border-top: 1px solid #E2E8F0;">
-            <span>Lingkaran hijau/biru menandakan batas radius absensi resmi yang telah diatur Master.</span>
+            <span class="flex items-center gap-6" style="color: #475569;">${UI.ikon('lokasi', 13)} Presensi Fleksibel &bull; Otomatis Mendeteksi Faskes Terdekat</span>
             <span>Peta: <b>OpenStreetMap & Leaflet</b></span>
           </div>
         </div>
