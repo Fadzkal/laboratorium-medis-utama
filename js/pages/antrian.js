@@ -307,7 +307,7 @@ const Antrian = (() => {
   function pitaSaringPoli() {
     const j = jenisSayaAtauNull();
     if (!j || (tab !== 'POLI' && tab !== 'SEMUA')) return '';
-    const labelJenis = j === 'GIGI' ? 'Poli Gigi' : 'Poli Umum';
+    const labelJenis = j === 'GIGI' ? 'Poli Gigi' : (j === 'UMUM' ? 'Laboratorium Utama' : 'Poli Anda');
     return saringSendiri
       ? `<div class="banner info mb-12">
            <span class="banner-txt">Menampilkan antrean <b>${labelJenis}</b> saja.</span>
