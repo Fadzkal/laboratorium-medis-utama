@@ -2275,7 +2275,11 @@ const DB = (() => {
         status: a ? a.status : 'BELUM',
         keterangan: a?.keterangan || null,
         lokasi_masuk: a?.lokasi_masuk || null,
-        lokasi_keluar: a?.lokasi_keluar || null
+        lokasi_keluar: a?.lokasi_keluar || null,
+        lat_masuk: a?.lat_masuk || null,
+        lng_masuk: a?.lng_masuk || null,
+        lat_keluar: a?.lat_keluar || null,
+        lng_keluar: a?.lng_keluar || null
       };
     });
   }

@@ -16,6 +16,7 @@ const Absensi = (() => {
   
   let timerJam = null;
   let peta = null;
+  let petaMonitoring = null;
   let markerUser = null;
   let userCoords = null; // { lat, lng, akurasi }
   let statusGps = 'memuat'; // 'memuat', 'ok', 'ditolak', 'galat'
@@ -309,13 +310,13 @@ const Absensi = (() => {
       ${isMaster ? `
         <div class="tab-bar mb-20" style="gap: 4px; border-bottom: 2px solid #E2E8F0; padding-bottom: 0;">
           <button class="tab ${tabUtama === 'monitoring' ? 'on' : ''}" data-tab="monitoring" style="padding: 10px 18px; font-weight: 600;">
-            ${UI.ikon('pengguna', 15)} Monitoring Kehadiran Staf
+            ${UI.ikon('pengguna', 15)} Monitoring Kehadiran & Sebaran Staf
           </button>
           <button class="tab ${tabUtama === 'izin_approval' ? 'on' : ''}" data-tab="izin_approval" id="tabBtnApproval" style="padding: 10px 18px; font-weight: 600;">
             ${UI.ikon('centang', 15)} Persetujuan Cuti & Izin <span id="badgePendingIzin" class="badge-num" style="display:none; margin-left:6px; background:var(--warn-700); color:#fff; border-radius:999px; padding:1px 7px; font-size:11px;">0</span>
           </button>
           <button class="tab ${tabUtama === 'master_lokasi' ? 'on' : ''}" data-tab="master_lokasi" style="padding: 10px 18px; font-weight: 600;">
-            ${UI.ikon('setelan', 15)} Kelola Lokasi & Jam Kerja
+            ${UI.ikon('jam', 15)} Pengaturan Jam Kerja
           </button>
         </div>
       ` : ''}
@@ -445,6 +446,10 @@ const Absensi = (() => {
       try { peta.remove(); } catch (e) {}
       peta = null;
       markerUser = null;
+    }
+    if (petaMonitoring) {
+      try { petaMonitoring.remove(); } catch (e) {}
+      petaMonitoring = null;
     }
 
     if (tabUtama === 'absen') {
@@ -1104,7 +1109,8 @@ const Absensi = (() => {
           <div class="text-xs text-muted mt-4">
             Tanggal: <b>${UI.tglIndo(rec.tanggal)}</b> &nbsp;•&nbsp; 
             Jam Masuk: <b>${rec.waktu_masuk ? UI.jam(rec.waktu_masuk) + ' WIB' : '—'}</b> &nbsp;•&nbsp; 
-            Jam Keluar: <b>${rec.waktu_keluar ? UI.jam(rec.waktu_keluar) + ' WIB' : '—'}</b>
+            Jam Keluar: <b>${rec.waktu_keluar ? UI.jam(rec.waktu_keluar) + ' WIB' : '—'}</b> &nbsp;•&nbsp; 
+            Koordinat GPS: <b class="mono" style="color: #0F8B7E;">${lat.toFixed(6)}, ${lng.toFixed(6)}</b>
           </div>
         </div>
         <div id="mapDetailLog" style="height: 380px; width: 100%; border-radius: 10px; border: 1.5px solid #CBD5E1; overflow: hidden; background: #E2E8F0;">
@@ -1123,7 +1129,11 @@ const Absensi = (() => {
           }).addTo(m);
 
           L.marker([lat, lng]).addTo(m)
-            .bindPopup(`<b>${UI.esc(rec.nama || 'Staf')}</b><br>${UI.esc(teksLokasi)}`)
+            .bindPopup(`
+              <div style="font-size: 13px; font-weight: 700; color: #0F172A;">${UI.esc(rec.nama || rec.pegawai?.nama || 'Staf')}</div>
+              <div style="font-size: 11.5px; color: #334155; margin-top: 2px;">${UI.esc(teksLokasi)}</div>
+              <div style="font-size: 10.5px; color: #64748B; margin-top: 4px;" class="mono">GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+            `)
             .openPopup();
         }, 200);
       },
@@ -1319,15 +1329,16 @@ const Absensi = (() => {
   async function renderTabMonitoring(container) {
     let teksCari = '';
     let filterPeran = '';
+    let markerStafMap = {};
 
     container.innerHTML = `
       <div class="absensi-panel">
         <div class="absensi-panel-head">
           <div>
             <h2 class="flex items-center gap-10" style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
-              ${UI.ikon('pengguna', 19)} Monitoring Kehadiran Staf Faskes
+              ${UI.ikon('pengguna', 19)} Monitoring Kehadiran & Sebaran Staf
             </h2>
-            <div class="text-muted text-xs mt-4">Pantau kehadiran real-time seluruh staf & karyawan aktif faskes.</div>
+            <div class="text-muted text-xs mt-4">Pantau kehadiran real-time dan sebaran lokasi presensi seluruh staf aktif faskes.</div>
           </div>
           <div class="flex items-center gap-10 flex-wrap">
             <div class="flex items-center gap-6">
@@ -1365,8 +1376,41 @@ const Absensi = (() => {
           ${UI.memuat(1)}
         </div>
 
+        <!-- Peta Visual Sebaran Presensi Staf Hari Ini -->
+        <div style="margin: 20px 24px 0 24px;">
+          <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="padding: 14px 18px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div class="flex items-center gap-10">
+                <span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: #E6F4F1; color: #0F8B7E;">
+                  ${UI.ikon('peta', 17)}
+                </span>
+                <div>
+                  <div style="font-size: 14px; font-weight: 700; color: #0F172A;">Peta Sebaran Lokasi Presensi Staf</div>
+                  <div class="text-xs text-muted">Pemantauan visual posisi absensi staf & faskes di wilayah Purbalingga</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-12 text-xs" style="font-weight: 500;">
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span style="width: 10px; height: 10px; border-radius: 50%; background: #0F8B7E; display: inline-block;"></span> Lab Pusat
+                </span>
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span style="width: 10px; height: 10px; border-radius: 50%; background: #2563EB; display: inline-block;"></span> Sedang Bekerja
+                </span>
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span style="width: 10px; height: 10px; border-radius: 50%; background: #16A34A; display: inline-block;"></span> Presensi Selesai
+                </span>
+              </div>
+            </div>
+            <div id="mapMonitoringLive" style="height: 380px; width: 100%; position: relative; background: #E2E8F0;">
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #64748B; font-size: 13px;">
+                Memuat Peta Sebaran Staf...
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Filter Pencarian & Peran Staf -->
-        <div class="p-16 border-bottom flex items-center justify-between flex-wrap gap-12" style="background: #ffffff; padding: 16px 24px;">
+        <div class="p-16 border-bottom flex items-center justify-between flex-wrap gap-12" style="background: #ffffff; padding: 16px 24px; margin-top: 20px;">
           <div class="flex items-center gap-10 flex-wrap" style="flex: 1;">
             <input type="search" id="cariStafMonitoring" placeholder="Cari nama staf / peran..." 
                    class="ctl-sm" style="max-width: 280px; height: 36px; border-radius: 8px; padding: 0 12px;">
@@ -1449,6 +1493,125 @@ const Absensi = (() => {
         `;
 
         renderTabelMonitoring();
+
+        // Inisialisasi peta live monitoring staf
+        const elMapMon = container.querySelector('#mapMonitoringLive');
+        if (elMapMon && typeof L !== 'undefined') {
+          setTimeout(() => {
+            try {
+              if (petaMonitoring) {
+                petaMonitoring.remove();
+                petaMonitoring = null;
+              }
+              elMapMon.innerHTML = '';
+              petaMonitoring = L.map(elMapMon, {
+                center: [-7.387228, 109.363717],
+                zoom: 12
+              });
+
+              L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+              }).addTo(petaMonitoring);
+
+              // Home base: Lab Pusat
+              const iconLab = L.divIcon({
+                className: 'leaflet-marker-lab',
+                html: `
+                  <div style="background: #0F8B7E; color: white; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.35);">
+                    ${UI.ikon('faskes', 18)}
+                  </div>
+                `,
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+                popupAnchor: [0, -17]
+              });
+
+              L.marker([-7.387228, 109.363717], { icon: iconLab })
+                .addTo(petaMonitoring)
+                .bindPopup(`
+                  <div style="font-size: 13px; font-weight: 800; color: #0F8B7E;">Laboratorium Medis Utama (Pusat)</div>
+                  <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Jl. Letnan Sudani No. 12, Purbalingga</div>
+                  <div style="font-size: 10px; color: #94A3B8; margin-top: 4px;" class="mono">GPS: -7.387228, 109.363717</div>
+                `);
+
+              const bounds = [[-7.387228, 109.363717]];
+              markerStafMap = {};
+
+              monitoringList.forEach(m => {
+                if (m.status !== 'HADIR' && !m.lat_masuk) return;
+
+                let lat = Number(m.lat_masuk || m.lat_keluar);
+                let lng = Number(m.lng_masuk || m.lng_keluar);
+                const teksLokasi = m.lokasi_masuk || m.lokasi_keluar || '';
+
+                if (isNaN(lat) || isNaN(lng) || !lat) {
+                  const match = teksLokasi.match(/\[(-?\d+\.\d+),\s*(-?\d+\.\d+)\]/);
+                  if (match) {
+                    lat = parseFloat(match[1]);
+                    lng = parseFloat(match[2]);
+                  }
+                }
+                if ((isNaN(lat) || isNaN(lng) || !lat) && teksLokasi) {
+                  const matchFaskes = masterLokasi.find(l => teksLokasi.toLowerCase().includes(l.nama.toLowerCase()));
+                  if (matchFaskes) {
+                    lat = Number(matchFaskes.latitude);
+                    lng = Number(matchFaskes.longitude);
+                  }
+                }
+
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0) {
+                  bounds.push([lat, lng]);
+                  const isSelesai = !!m.waktu_keluar;
+                  const warnaMarker = isSelesai ? '#16A34A' : '#2563EB';
+
+                  const iconStaf = L.divIcon({
+                    className: 'leaflet-marker-staf',
+                    html: `
+                      <div style="background: ${warnaMarker}; color: white; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 2.5px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                        ${UI.ikon(isSelesai ? 'centang' : 'pengguna', 15)}
+                      </div>
+                    `,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                    popupAnchor: [0, -15]
+                  });
+
+                  const popupHtml = `
+                    <div style="font-size: 13px; font-weight: 700; color: #0F172A;">${UI.esc(m.nama)}</div>
+                    <div style="display: flex; gap: 4px; margin-top: 3px; align-items: center;">
+                      <span class="badge" style="font-size: 10px; background: #F1F5F9; color: #475569; text-transform: uppercase;">${UI.esc(m.peran)}</span>
+                      <span class="badge ${isSelesai ? 'b-selesai' : 'b-kajian'}" style="font-size: 10px;">${isSelesai ? 'SELESAI' : 'BEKERJA'}</span>
+                    </div>
+                    <div style="font-size: 11.5px; color: #334155; margin-top: 6px; font-weight: 600;">
+                      ${UI.esc(teksLokasi || 'Lokasi Tercatat')}
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 3px;">
+                      Masuk: <b>${m.waktu_masuk ? UI.jam(m.waktu_masuk) + ' WIB' : '—'}</b> &nbsp;•&nbsp; 
+                      Pulang: <b>${m.waktu_keluar ? UI.jam(m.waktu_keluar) + ' WIB' : '—'}</b>
+                    </div>
+                    <div style="font-size: 10px; color: #0F8B7E; margin-top: 5px; font-weight: 600;" class="mono">
+                      GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                    </div>
+                  `;
+
+                  const marker = L.marker([lat, lng], { icon: iconStaf }).addTo(petaMonitoring);
+                  marker.bindPopup(popupHtml);
+                  const key = String(m.id || m.pegawai_id);
+                  markerStafMap[key] = { marker, lat, lng };
+                }
+              });
+
+              if (bounds.length > 1) {
+                petaMonitoring.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+              }
+              setTimeout(() => petaMonitoring && petaMonitoring.invalidateSize(), 200);
+            } catch (errPeta) {
+              console.error('Peta monitoring error:', errPeta);
+            }
+          }, 150);
+        }
+
       } catch (err) {
         UI.toast('Gagal memuat monitoring: ' + err.message, 'err');
       }
@@ -1490,8 +1653,10 @@ const Absensi = (() => {
             <th>STATUS</th>
             <th>JAM MASUK</th>
             <th>JAM KELUAR</th>
-            <th>KETERANGAN / CATATAN</th>
-            <th>LOKASI MASUK</th>
+            <th>LOKASI PRESENSI</th>
+            <th>KOORDINAT GPS</th>
+            <th>CATATAN</th>
+            <th>AKSI</th>
           </tr></thead>
           <tbody>
             ${filtered.map(m => {
@@ -1504,6 +1669,34 @@ const Absensi = (() => {
               const badgeKeluar = earlyInfo ? (earlyInfo.cepat
                 ? `<span class="badge b-warn" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Pulang lebih awal">-${earlyInfo.menit}m</span>`
                 : `<span class="badge b-selesai" style="font-size:10px; margin-left:6px; padding: 2px 6px;" title="Tepat Waktu">Tepat</span>`) : '';
+
+              let latVal = Number(m.lat_masuk || m.lat_keluar);
+              let lngVal = Number(m.lng_masuk || m.lng_keluar);
+              if (isNaN(latVal) || isNaN(lngVal) || !latVal) {
+                const match = (m.lokasi_masuk || '').match(/\[(-?\d+\.\d+),\s*(-?\d+\.\d+)\]/);
+                if (match) {
+                  latVal = parseFloat(match[1]);
+                  lngVal = parseFloat(match[2]);
+                }
+              }
+              if ((isNaN(latVal) || isNaN(lngVal) || !latVal) && m.lokasi_masuk) {
+                const matchFaskes = masterLokasi.find(l => m.lokasi_masuk.toLowerCase().includes(l.nama.toLowerCase()));
+                if (matchFaskes) {
+                  latVal = Number(matchFaskes.latitude);
+                  lngVal = Number(matchFaskes.longitude);
+                }
+              }
+
+              const adaKoord = !isNaN(latVal) && !isNaN(lngVal) && latVal !== 0;
+              const koordHtml = adaKoord 
+                ? `<span class="mono" style="font-size:11px; color:#0F8B7E; background:#F0FDF4; border:1px solid #BBF7D0; padding:3px 7px; border-radius:6px; white-space:nowrap;">${latVal.toFixed(6)}, ${lngVal.toFixed(6)}</span>`
+                : `<span class="text-muted text-xs">—</span>`;
+
+              const btnAksi = (m.status === 'HADIR' || adaKoord) 
+                ? `<button class="btn btn-secondary btn-sm" data-buka-peta="${m.id || m.pegawai_id}" style="height:28px; padding:0 10px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;">
+                     ${UI.ikon('peta', 12)} Lihat Peta
+                   </button>`
+                : `<span class="text-muted text-xs">—</span>`;
 
               return `
                 <tr>
@@ -1520,10 +1713,12 @@ const Absensi = (() => {
                   <td class="mono" style="font-size: 13px;">
                     ${m.waktu_keluar ? UI.jam(m.waktu_keluar) + ' WIB ' + badgeKeluar : '—'}
                   </td>
+                  <td>${badgeLokasiHtml(m.lokasi_masuk, null)}</td>
+                  <td>${koordHtml}</td>
                   <td class="text-xs" style="color: #475569;">
                     ${UI.esc(m.keterangan || (m.status === 'HADIR' ? (m.waktu_keluar ? 'Tugas Selesai' : 'Sedang Bertugas') : '—'))}
                   </td>
-                  <td>${badgeLokasiHtml(m.lokasi_masuk, m.id || m.pegawai_id)}</td>
+                  <td>${btnAksi}</td>
                 </tr>
               `;
             }).join('')}
@@ -1535,7 +1730,21 @@ const Absensi = (() => {
         b.addEventListener('click', () => {
           const recId = b.dataset.bukaPeta;
           const m = monitoringList.find(x => String(x.id) === String(recId) || String(x.pegawai_id) === String(recId));
-          if (m) dialogDetailPetaAbsensi(m);
+          if (!m) return;
+
+          const itemMap = markerStafMap[String(recId)];
+          if (petaMonitoring && itemMap && itemMap.marker) {
+            const elMap = container.querySelector('#mapMonitoringLive');
+            if (elMap) {
+              elMap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            petaMonitoring.setView([itemMap.lat, itemMap.lng], 16, { animate: true });
+            setTimeout(() => {
+              itemMap.marker.openPopup();
+            }, 300);
+          } else {
+            dialogDetailPetaAbsensi(m);
+          }
         });
       });
     };
@@ -1747,58 +1956,48 @@ const Absensi = (() => {
         </div>
       </div>
 
-      <!-- Card 2: Kelola Titik Lokasi Absensi Multi-Cabang -->
+      <!-- Card 2: Informasi Sistem Presensi Cerdas (Bebas Radius) -->
       <div class="absensi-panel mb-24">
         <div class="absensi-panel-head">
-          <div>
-            <h2 class="flex items-center gap-10" style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
-              ${UI.ikon('peta', 19)} Kelola Titik Lokasi Absensi Multi-Cabang
-            </h2>
-            <div class="text-muted text-xs mt-4">Master dapat mengatur banyak lokasi kantor/cabang/gudang. Karyawan dapat absen jika berada di salah satu lokasi aktif.</div>
+          <div class="flex items-center gap-10">
+            ${UI.ikon('peta', 19)}
+            <div>
+              <h2 style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
+                Sistem Presensi Fleksibel & Lokasi Cerdas (Smart Location Presence)
+              </h2>
+              <div class="text-muted text-xs mt-4">Pimpinan tidak perlu lagi mengatur titik lokasi atau radius meter secara manual.</div>
+            </div>
           </div>
-          <button class="btn btn-primary btn-sm" id="btnTambahLokasiBaru" style="height: 36px; padding: 0 14px; font-weight: 600;">
-            ${UI.ikon('plus', 15)} Tambah Lokasi Baru
-          </button>
         </div>
+        <div style="padding: 22px 24px;">
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div class="p-16 border rounded" style="background: #F8FAFC; border-color: #E2E8F0; border-radius: 10px;">
+              <div class="flex items-center gap-8 mb-6 font-bold" style="color: #0F172A; font-size: 13.5px;">
+                ${UI.ikon('centang', 16)} Bebas Absen Di Mana Saja
+              </div>
+              <p class="text-xs text-muted mb-0" style="line-height: 1.5;">
+                Karyawan dapat melakukan absensi masuk dan pulang di lokasi penugasan mana pun (di Lab Pusat, Puskesmas jejaring, Rumah Sakit, maupun saat sampling lapangan) tanpa terhalang batasan radius.
+              </p>
+            </div>
 
-        <div style="padding: 20px 24px;">
-          <div class="absensi-table-wrap"><table class="tbl w-full">
-            <thead><tr>
-              <th>NAMA LOKASI</th>
-              <th>ALAMAT / KETERANGAN</th>
-              <th>KOORDINAT (LAT, LNG)</th>
-              <th>RADIUS TOLERANSI</th>
-              <th>STATUS</th>
-              <th>AKSI</th>
-            </tr></thead>
-            <tbody>
-              ${masterLokasi.map(l => `
-                <tr>
-                  <td><b style="color: #0F172A;">${UI.esc(l.nama)}</b></td>
-                  <td class="text-sm" style="color: #475569;">${UI.esc(l.alamat || '—')}</td>
-                  <td class="mono text-xs" style="color: #64748B;">${Number(l.latitude).toFixed(6)}, ${Number(l.longitude).toFixed(6)}</td>
-                  <td><b style="color: #0F172A;">${l.radius_meter} meter</b></td>
-                  <td>
-                    <span class="badge ${l.aktif ? 'b-selesai' : 'b-batal'}" style="font-size: 11px; padding: 4px 8px;">
-                      ${l.aktif ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="flex items-center gap-6">
-                      <button class="btn btn-secondary btn-sm" data-edit-lokasi="${l.id}" style="padding: 5px 10px; font-size: 11.5px;">
-                        ${UI.ikon('pensil', 13)} Ubah
-                      </button>
-                      ${masterLokasi.length > 1 ? `
-                        <button class="btn btn-secondary btn-sm" data-hapus-lokasi="${l.id}" style="color:var(--danger-700); padding: 5px 10px; font-size: 11.5px;">
-                          ${UI.ikon('tong_sampah', 13)}
-                        </button>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table></div>
+            <div class="p-16 border rounded" style="background: #F8FAFC; border-color: #E2E8F0; border-radius: 10px;">
+              <div class="flex items-center gap-8 mb-6 font-bold" style="color: #0F172A; font-size: 13.5px;">
+                ${UI.ikon('lokasi', 16)} Pencatatan Otomatis Nama & Koordinat
+              </div>
+              <p class="text-xs text-muted mb-0" style="line-height: 1.5;">
+                Sistem otomatis mendeteksi nama fasilitas kesehatan (22 Puskesmas se-Purbalingga, Lab Pusat, RSUD) atau nama jalan/desa setempat beserta koordinat GPS akurat (Latitude & Longitude).
+              </p>
+            </div>
+
+            <div class="p-16 border rounded" style="background: #F8FAFC; border-color: #E2E8F0; border-radius: 10px;">
+              <div class="flex items-center gap-8 mb-6 font-bold" style="color: #0F172A; font-size: 13.5px;">
+                ${UI.ikon('peta', 16)} Pemantauan Peta Interaktif Real-Time
+              </div>
+              <p class="text-xs text-muted mb-0" style="line-height: 1.5;">
+                Pimpinan dapat melihat langsung sebaran posisi seluruh staf yang bertugas hari ini pada peta visual di tab <b>Monitoring Kehadiran & Sebaran Staf</b>.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1823,248 +2022,6 @@ const Absensi = (() => {
       } finally {
         b.disabled = false;
       }
-    });
-
-    container.querySelector('#btnTambahLokasiBaru')?.addEventListener('click', () => {
-      dialogEditLokasi();
-    });
-
-    container.querySelectorAll('[data-edit-lokasi]').forEach(b => {
-      b.addEventListener('click', () => {
-        const lok = masterLokasi.find(l => String(l.id) === String(b.dataset.editLokasi));
-        if (lok) dialogEditLokasi(lok);
-      });
-    });
-
-    container.querySelectorAll('[data-hapus-lokasi]').forEach(b => {
-      b.addEventListener('click', async () => {
-        if (!await UI.konfirmasi('Hapus Lokasi', 'Apakah Anda yakin ingin menghapus titik lokasi absensi ini?', 'Hapus', true)) return;
-        try {
-          await DB.hapusMasterLokasi(b.dataset.hapusLokasi);
-          UI.toast('Titik lokasi berhasil dihapus.', 'ok');
-          await muatData();
-        } catch (e) {
-          UI.toast('Gagal menghapus: ' + e.message, 'err');
-        }
-      });
-    });
-  }
-
-  /* Modal Tambah / Edit Lokasi dengan Map Picker */
-  function dialogEditLokasi(item = null) {
-    const isEdit = !!item;
-    let latAwal = item ? parseFloat(item.latitude) : (userCoords?.lat || -7.387228);
-    let lngAwal = item ? parseFloat(item.longitude) : (userCoords?.lng || 109.363717);
-    let radAwal = item ? parseInt(item.radius_meter, 10) : 100;
-    if (isNaN(latAwal)) latAwal = -7.387228;
-    if (isNaN(lngAwal)) lngAwal = 109.363717;
-    if (isNaN(radAwal)) radAwal = 100;
-
-    let pickerMap = null;
-    let pickerMarker = null;
-    let pickerCircle = null;
-
-    UI.modal({
-      judul: isEdit ? 'Ubah Titik Lokasi Absensi' : 'Tambah Titik Lokasi Baru',
-      lebar: true,
-      isi: `
-        <form id="formLokasi" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
-          <div class="grid" style="grid-template-columns: 1.2fr 1fr; gap: 14px;">
-            <div class="field">
-              <label>Nama Lokasi / Cabang <span class="req">*</span></label>
-              <input type="text" name="nama" value="${UI.esc(item?.nama || '')}" placeholder="Contoh: Kantor Cabang Purbalingga Lor" required class="w-full">
-            </div>
-            <div class="field">
-              <label>Radius Toleransi Absensi <span class="req">*</span></label>
-              <div class="flex items-center gap-8" style="margin-top: 4px;">
-                <input type="range" id="sliderRadius" min="20" max="1000" step="10" value="${radAwal}" style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <input type="number" name="radius_meter" id="inputRadius" value="${radAwal}" min="10" max="5000" style="width: 75px; text-align: center; font-weight: 700;" required>
-                  <span class="text-xs text-muted">meter</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Alamat Lengkap Kantor / Fasilitas</label>
-            <input type="text" name="alamat" value="${UI.esc(item?.alamat || '')}" placeholder="Jl. ... No. ..., Kelurahan, Kecamatan" class="w-full">
-          </div>
-
-          <div class="field" style="margin-bottom: 0;">
-            <div class="flex items-center justify-between flex-wrap gap-8 mb-6">
-              <label class="font-semibold text-xs flex items-center gap-6" style="color: var(--ink-700);">
-                ${UI.ikon('peta', 14)} Titik Koordinat di Peta (Klik atau geser pin marker):
-              </label>
-              <button type="button" class="btn btn-secondary btn-sm" id="btnGunakanGpsSaya" style="font-size: 11.5px; padding: 4px 10px;">
-                ${UI.ikon('peta', 13)} Gunakan Lokasi GPS Saya Saat Ini
-              </button>
-            </div>
-
-            <!-- Wadah Peta Leaflet Picker -->
-            <div id="mapPicker" style="height: 320px; width: 100%; min-height: 320px; border-radius: var(--radius); border: 2px solid var(--ink-200); position: relative; z-index: 1; background: #E2E8F0; overflow: hidden;">
-              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--ink-500); font-weight: 500;">
-                Memuat Peta Pemilih Lokasi...
-              </div>
-            </div>
-            <div class="text-xs text-muted mt-4">
-              * Lingkaran hijau menandakan area jangkauan absensi pegawai dari titik pusat ini.
-            </div>
-          </div>
-
-          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div class="field">
-              <label>Latitude <span class="req">*</span></label>
-              <input type="number" step="any" name="latitude" id="inpLat" value="${latAwal}" required class="w-full mono">
-            </div>
-            <div class="field">
-              <label>Longitude <span class="req">*</span></label>
-              <input type="number" step="any" name="longitude" id="inpLng" value="${lngAwal}" required class="w-full mono">
-            </div>
-          </div>
-
-          <div class="field p-10 border rounded" style="background: var(--ink-50); margin: 0;">
-            <label class="flex items-center gap-8" style="cursor: pointer; margin: 0;">
-              <input type="checkbox" name="aktif" ${(!item || item.aktif) ? 'checked' : ''} style="width: 18px; height: 18px;">
-              <div>
-                <b style="font-size: 13px;">Aktifkan Titik Lokasi Ini untuk Absensi Karyawan</b>
-                <div class="text-xs text-muted">Karyawan dapat mencatat kehadiran jika berada di dalam radius lokasi ini.</div>
-              </div>
-            </label>
-          </div>
-        </form>
-      `,
-      siap: (modalBody, tutupModal) => {
-        const elMap = modalBody.querySelector('#mapPicker');
-        const inpLat = modalBody.querySelector('#inpLat');
-        const inpLng = modalBody.querySelector('#inpLng');
-        const sldRad = modalBody.querySelector('#sliderRadius');
-        const inpRad = modalBody.querySelector('#inputRadius');
-
-        // Sinkronisasi slider & input radius
-        sldRad.addEventListener('input', () => {
-          inpRad.value = sldRad.value;
-          updatePickerCircle();
-        });
-        inpRad.addEventListener('input', () => {
-          sldRad.value = inpRad.value;
-          updatePickerCircle();
-        });
-
-        const updatePickerCircle = () => {
-          if (!pickerCircle) return;
-          const rad = Number(inpRad.value) || 100;
-          pickerCircle.setRadius(rad);
-        };
-
-        // Inisialisasi Peta Picker
-        setTimeout(() => {
-          if (typeof L === 'undefined' || !elMap) return;
-          try {
-            elMap.innerHTML = '';
-            pickerMap = L.map(elMap, {
-              center: [latAwal, lngAwal],
-              zoom: 16,
-              zoomControl: true
-            });
-
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              maxZoom: 19,
-              attribution: '&copy; OpenStreetMap'
-            }).addTo(pickerMap);
-
-            pickerMarker = L.marker([latAwal, lngAwal], { draggable: true }).addTo(pickerMap);
-            pickerCircle = L.circle([latAwal, lngAwal], {
-              color: '#0F8B7E',
-              fillColor: '#16A394',
-              fillOpacity: 0.22,
-              radius: radAwal
-            }).addTo(pickerMap);
-
-            const setPosisi = (lat, lng) => {
-              inpLat.value = Number(lat).toFixed(7);
-              inpLng.value = Number(lng).toFixed(7);
-              pickerMarker.setLatLng([lat, lng]);
-              pickerCircle.setLatLng([lat, lng]);
-            };
-
-            pickerMarker.on('dragend', (e) => {
-              const pos = e.target.getLatLng();
-              setPosisi(pos.lat, pos.lng);
-            });
-
-            pickerMap.on('click', (e) => {
-              setPosisi(e.latlng.lat, e.latlng.lng);
-            });
-
-            // Input manual koordinat
-            inpLat.addEventListener('change', () => {
-              const lat = Number(inpLat.value);
-              const lng = Number(inpLng.value);
-              if (!isNaN(lat) && !isNaN(lng)) {
-                setPosisi(lat, lng);
-                pickerMap.panTo([lat, lng]);
-              }
-            });
-            inpLng.addEventListener('change', () => {
-              const lat = Number(inpLat.value);
-              const lng = Number(inpLng.value);
-              if (!isNaN(lat) && !isNaN(lng)) {
-                setPosisi(lat, lng);
-                pickerMap.panTo([lat, lng]);
-              }
-            });
-
-            // Tombol gunakan GPS saya
-            modalBody.querySelector('#btnGunakanGpsSaya')?.addEventListener('click', () => {
-              if (userCoords) {
-                setPosisi(userCoords.lat, userCoords.lng);
-                pickerMap.setView([userCoords.lat, userCoords.lng], 17);
-                UI.toast('Koordinat disetel ke lokasi GPS Anda.', 'ok');
-              } else {
-                UI.toast('GPS belum terdeteksi. Silakan aktifkan GPS perangkat.', 'err');
-              }
-            });
-
-            // Pastikan peta mengkalkulasi ulang ukurannya saat modal tampil
-            pickerMap.invalidateSize();
-            setTimeout(() => pickerMap && pickerMap.invalidateSize(), 150);
-            setTimeout(() => pickerMap && pickerMap.invalidateSize(), 350);
-          } catch (errPeta) {
-            console.error('Picker map error:', errPeta);
-          }
-        }, 120);
-      },
-      tombol: [
-        { teks: 'Batal', nilai: false },
-        {
-          teks: isEdit ? 'Simpan Perubahan' : 'Tambah Lokasi',
-          kelas: 'btn-primary',
-          aksi: async (modalBody) => {
-            const form = modalBody.querySelector('#formLokasi');
-            if (!form.reportValidity()) return false;
-
-            const payload = {
-              nama: form.nama.value.trim(),
-              alamat: form.alamat.value.trim() || null,
-              radius_meter: parseInt(form.radius_meter.value, 10),
-              latitude: parseFloat(form.latitude.value),
-              longitude: parseFloat(form.longitude.value),
-              aktif: form.aktif.checked
-            };
-
-            try {
-              await DB.simpanMasterLokasi(payload, item?.id || null);
-              UI.toast('Titik lokasi berhasil disimpan!', 'ok');
-              await muatData();
-              return true;
-            } catch (err) {
-              UI.toast('Gagal menyimpan lokasi: ' + err.message, 'err');
-              return false;
-            }
-          }
-        }
-      ]
     });
   }
 
