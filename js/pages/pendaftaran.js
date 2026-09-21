@@ -940,28 +940,42 @@ const Pendaftaran = (() => {
     try {
       let pasien = pasienTerpilih;
 
-      if (!pasien) {
-        // Buat pasien baru
-        const nrpInput = el.querySelector('#fNrp').value.trim();
-        let nikVal = null, bpjsVal = null, nrpVal = nrpInput || null;
-        if (nrpInput.length === 16) { nikVal = nrpInput; }
-        else if (nrpInput.length === 13) { bpjsVal = nrpInput; }
+      const nrpInput = el.querySelector('#fNrp').value.trim();
+      let nikVal = null, bpjsVal = null, nrpVal = nrpInput || null;
+      if (nrpInput.length === 16) { nikVal = nrpInput; }
+      else if (nrpInput.length === 13) { bpjsVal = nrpInput; }
 
-        const dataPasien = {
-          title:         el.querySelector('#fTitle').value || null,
-          nama:          nama,
-          nrp:           nrpVal,
-          bagian:        el.querySelector('#fBagian').value.trim() || null,
-          plant:         el.querySelector('#fPlant').value.trim() || null,
-          nik:           nikVal,
-          no_bpjs:       bpjsVal,
-          jenis_kelamin: jk,
-          tanggal_lahir: tglLahir,
-          alamat:        el.querySelector('#fAlamat').value.trim() || null,
-          no_telp:       el.querySelector('#fTelp').value.trim() || null
-        };
+      const dataPasien = {
+        title:         el.querySelector('#fTitle').value || null,
+        nama:          nama,
+        nrp:           nrpVal,
+        bagian:        el.querySelector('#fBagian').value.trim() || null,
+        plant:         el.querySelector('#fPlant').value.trim() || null,
+        nik:           nikVal,
+        no_bpjs:       bpjsVal,
+        jenis_kelamin: jk,
+        tanggal_lahir: tglLahir,
+        alamat:        el.querySelector('#fAlamat').value.trim() || null,
+        no_telp:       el.querySelector('#fTelp').value.trim() || null
+      };
+
+      if (!pasien) {
+        // Cegah pembuatan pasien ganda jika NIK/BPJS/NRP sudah ada
+        if (nrpInput) {
+          const resCek = await DB.cariPasien(nrpInput, 1);
+          if (resCek && resCek.length > 0) {
+            UI.toast(`Gagal: NIK/BPJS sudah terdaftar atas nama ${resCek[0].nama}. Silakan klik tombol Cek.`, 'err');
+            btn.disabled = false;
+            btn.textContent = txt;
+            return;
+          }
+        }
+        // Buat pasien baru
         pasien = await DB.simpanPasien(dataPasien, null);
         UI.toast(`Pasien baru terdaftar. No. RM: ${pasien.no_rm}`, 'ok');
+      } else {
+        // Update data identitas pasien lama dengan isian form terbaru
+        pasien = await DB.simpanPasien(dataPasien, pasien.id);
       }
 
       // Cari lab poli
