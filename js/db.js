@@ -1369,7 +1369,7 @@ const DB = (() => {
   async function labPermintaan(id) {
     const { data, error } = await sb.from('lab_permintaan')
       .select(`*, pasien:pasien_id(id,no_rm,nama,tanggal_lahir,jenis_kelamin,no_bpjs,nik),
-               kunjungan:kunjungan_id(id,no_kunjungan,tanggal,cara_bayar),
+               kunjungan:kunjungan_id(id,no_kunjungan,tanggal,cara_bayar, dokter:dokter_id(nama)),
                peminta:diminta_oleh(nama), penutup:selesai_oleh(nama),
                hasil:lab_hasil(*, ref:lab_id(id,kode,nama,kelompok,satuan,jenis_nilai,pilihan,teks_normal,desimal,kode_loinc,display_loinc,kode_specimen,nama_specimen,barcode,janji_hasil,metode))`)
       .eq('id', id).single();

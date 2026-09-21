@@ -568,7 +568,7 @@ const Lab = (() => {
         <div class="info-grid">
           <div>No Lab</div><div>:</div><div><b>${UI.esc(p.no_lab)}</b></div>
           <div>Nama</div><div>:</div><div>${UI.esc(p.pasien.nama)}</div>
-          <div>Dokter Pengirim</div><div>:</div><div>${UI.esc(p.peminta?.nama || '-')}</div>
+          <div>Dokter Pengirim</div><div>:</div><div>${UI.esc(p.kunjungan?.dokter?.nama || p.peminta?.nama || '-')}</div>
           <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien.alamat || '-')}</div>
         </div>
         <div class="info-grid">
@@ -1411,7 +1411,7 @@ const Lab = (() => {
                 <div style="flex: 1; display: grid; grid-template-columns: 130px 10px auto; gap: 0;">
                   <div>No Lab/No MedRec</div><div>:</div><div>${UI.esc(p.no_lab)}/${UI.esc(p.pasien.no_rm)}</div>
                   <div>Tgl Periksa</div><div>:</div><div>${UI.tglIndo(p.tanggal)}</div>
-                  <div>Pengirim</div><div>:</div><div>${UI.esc(p.peminta?.nama||'-')}</div>
+                  <div>Pengirim</div><div>:</div><div>${UI.esc(p.kunjungan?.dokter?.nama || p.peminta?.nama || '-')}</div>
                   <div>Instansi</div><div>:</div><div>${UI.esc(p.kunjungan?.cara_bayar||'umum')}</div>
                   <div>Encounter SS</div><div>:</div><div>-</div>
                 </div>
@@ -1485,16 +1485,16 @@ const Lab = (() => {
                     <td style="padding:4px; border:1px solid #eee;">${UI.esc(rujStr(ruj))}</td>
                     <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="catatan_aktif" data-rid="${ruj?.id||''}" data-jk="${ruj?.jenis_kelamin||''}" data-labid="${m.id}" value="${UI.esc(ruj?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="keterangan" data-labid="${m.id}" value="${UI.esc(m.keterangan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" data-col="metode" data-labid="${m.id}" value="${UI.esc(m.metode||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${rL?.batas_bawah??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${rL?.batas_atas??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${rP?.batas_bawah??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${rP?.batas_atas??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(rL?.teks||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${UI.esc(rP?.teks||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${m.min_l??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${m.max_l??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="min_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${m.min_p??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="number" step="any" class="ref-val" data-col="max_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${m.max_p??''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_l" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(m.normal_l||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="teks_p" data-rid="${rP?.id||''}" data-labid="${m.id}" value="${UI.esc(m.normal_p||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td style="padding:4px; border:1px solid #eee;"><input type="number" class="ref-val" data-col="urutan" data-labid="${m.id}" value="${m.urutan||''}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
-                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="n_rujukan" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(rL?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
+                    <td style="padding:4px; border:1px solid #eee;"><input type="text" class="ref-val" data-col="n_rujukan" data-rid="${rL?.id||''}" data-labid="${m.id}" value="${UI.esc(m.janji_hasil||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td style="padding:4px; border:1px solid #eee;"><input type="text" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                   </tr>`;
                 }).join('')}
