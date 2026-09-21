@@ -2060,7 +2060,7 @@ const DB = (() => {
 
   /* --- Absensi & Geofencing Multi-Lokasi --- */
   const FASKES_PURBALINGGA_DEFAULT = [
-    { id: 'lab-pusat', nama: 'Laboratorium Medis Utama (Pusat)', alamat: 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga', latitude: -7.3872280, longitude: 109.3637170, radius_meter: 150, tipe: 'LAB', aktif: true },
+    { id: 'lab-pusat', nama: 'Laboratorium Medis Utama (Pusat)', alamat: 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga', latitude: -7.3864160, longitude: 109.3659890, radius_meter: 150, tipe: 'LAB', aktif: true },
     { id: 'pusk-pbg', nama: 'Puskesmas Purbalingga', alamat: 'Jl. Jend. Soedirman No. 165, Purbalingga', latitude: -7.3895000, longitude: 109.3615000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
     { id: 'pusk-bojong', nama: 'Puskesmas Bojong', alamat: 'Jl. Letjen S. Parman No. 2, Bojong, Purbalingga', latitude: -7.4042000, longitude: 109.3668000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
     { id: 'pusk-kalimanah', nama: 'Puskesmas Kalimanah', alamat: 'Jl. Mayjen Sungkono, Selabaya, Kalimanah', latitude: -7.4025000, longitude: 109.3362000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
@@ -2084,8 +2084,8 @@ const DB = (() => {
     { id: 'pusk-kemangkon', nama: 'Puskesmas Kemangkon', alamat: 'Jl. Raya Panican, Kemangkon, Purbalingga', latitude: -7.4582000, longitude: 109.3782000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
     { id: 'pusk-karangjambe', nama: 'Puskesmas Karangjambe', alamat: 'Desa Karangjambe, Kec. Kemangkon, Purbalingga', latitude: -7.4395000, longitude: 109.3512000, radius_meter: 250, tipe: 'PUSKESMAS', aktif: true },
     { id: 'rs-goeteng', nama: 'RSUD dr. R. Goeteng Taroenadibrata', alamat: 'Jl. Tentara Pelajar No.22, Kembaran Kulon, Purbalingga', latitude: -7.3948000, longitude: 109.3565000, radius_meter: 300, tipe: 'RS', aktif: true },
-    { id: 'rs-harapanibu', nama: 'RS Harapan Ibu Purbalingga', alamat: 'Jl. Mayjen Soengkono KM.1, Blater, Kalimanah', latitude: -7.4082000, longitude: 109.3495000, radius_meter: 300, tipe: 'RS', aktif: true },
-    { id: 'rs-pkubobotsari', nama: 'RS PKU Muhammadiyah Bobotsari', alamat: 'Jl. Raya Bobotsari, Bobotsari, Purbalingga', latitude: -7.3025000, longitude: 109.3812000, radius_meter: 300, tipe: 'RS', aktif: true },
+    { id: 'rs-harapan-ibu', nama: 'RS Harapan Ibu Purbalingga', alamat: 'Jl. Mayjen Soengkono KM.1, Blater, Kalimanah', latitude: -7.4082000, longitude: 109.3495000, radius_meter: 300, tipe: 'RS', aktif: true },
+    { id: 'rs-pku-bobotsari', nama: 'RS PKU Muhammadiyah Bobotsari', alamat: 'Jl. Raya Bobotsari, Bobotsari, Purbalingga', latitude: -7.3025000, longitude: 109.3812000, radius_meter: 300, tipe: 'RS', aktif: true },
     { id: 'rs-nirmala', nama: 'RSU Nirmala Purbalingga', alamat: 'Jl. Mayjen Sungkono, Kalimanah, Purbalingga', latitude: -7.4015000, longitude: 109.3452000, radius_meter: 300, tipe: 'RS', aktif: true }
   ];
 
@@ -2095,6 +2095,13 @@ const DB = (() => {
       if (hanyaAktif) q = q.eq('aktif', true);
       const { data, error } = await q;
       if (!error && data && data.length >= 10) {
+        data.forEach(l => {
+          if (l.tipe === 'LAB' || (l.nama || '').toLowerCase().includes('laboratorium medis utama')) {
+            l.latitude = -7.3864160;
+            l.longitude = 109.3659890;
+            l.alamat = 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga';
+          }
+        });
         return data;
       }
       if (!error && data && data.length > 0) {
@@ -2104,6 +2111,13 @@ const DB = (() => {
         FASKES_PURBALINGGA_DEFAULT.forEach(f => {
           if (!namaAda.has(f.nama.toLowerCase())) {
             gabungan.push(f);
+          }
+        });
+        gabungan.forEach(l => {
+          if (l.tipe === 'LAB' || (l.nama || '').toLowerCase().includes('laboratorium medis utama')) {
+            l.latitude = -7.3864160;
+            l.longitude = 109.3659890;
+            l.alamat = 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga';
           }
         });
         return gabungan;

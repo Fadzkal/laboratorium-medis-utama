@@ -26,9 +26,9 @@ add column if not exists lng_keluar numeric(10, 7);
 update public.master_lokasi_absensi
 set tipe = 'LAB',
     nama = 'Laboratorium Medis Utama (Pusat)',
-    alamat = 'Jl. D.I. Panjaitan No.94, Purbalingga Lor, Purbalingga',
-    latitude = -7.3872280,
-    longitude = 109.3637170,
+    alamat = 'Jl. D.I. Panjaitan No. 94, Purbalingga Lor, Purbalingga',
+    latitude = -7.3864160,
+    longitude = 109.3659890,
     radius_meter = 150
 where nama like '%Laboratorium Medis Utama%' or id = (select id from public.master_lokasi_absensi order by created_at asc limit 1);
 

@@ -95,14 +95,15 @@ const Absensi = (() => {
     const isPuskesmas = terdekat.tipe === 'PUSKESMAS' || namaLower.includes('puskesmas');
     const isRS = terdekat.tipe === 'RS' || namaLower.includes('rs');
 
-    // 1. Jika dekat Lab Pusat (radius wajar ~150m)
-    if (isLab && jarakTerkecil <= 150) {
+    // 1. Jika dekat Lab Pusat (radius wajar ~300m atau disesuaikan akurasi GPS)
+    const batasToleransiLab = Math.max(300, (userCoords?.akurasi || 50) + 120);
+    if (isLab && jarakTerkecil <= batasToleransiLab) {
       return {
         tipe: 'LAB',
         nama: 'Laboratorium Medis Utama (Pusat)',
         labelSingkat: 'Lab Pusat',
         keterangan: 'Anda terdeteksi di area Laboratorium Medis Utama (Pusat)',
-        alamat: terdekat.alamat || 'Jl. D.I. Panjaitan No.94, Purbalingga Lor',
+        alamat: terdekat.alamat || 'Jl. D.I. Panjaitan No. 94, Purbalingga Lor',
         jarak: jarakTerkecil,
         diLokasiResmi: true,
         faskesTerdekat: terdekat,
@@ -111,8 +112,9 @@ const Absensi = (() => {
       };
     }
 
-    // 2. Jika dekat Puskesmas atau RS (radius wajar ~250m)
-    if ((isPuskesmas || isRS) && jarakTerkecil <= 250) {
+    // 2. Jika dekat Puskesmas atau RS (radius wajar ~350m atau disesuaikan akurasi GPS)
+    const batasToleransiFaskes = Math.max(350, (userCoords?.akurasi || 50) + 150);
+    if ((isPuskesmas || isRS) && jarakTerkecil <= batasToleransiFaskes) {
       return {
         tipe: terdekat.tipe || (isPuskesmas ? 'PUSKESMAS' : 'RS'),
         nama: terdekat.nama,
@@ -640,8 +642,8 @@ const Absensi = (() => {
     if (!elMap || typeof L === 'undefined') return;
 
     try {
-      const defLat = -7.387228;
-      const defLng = 109.363717;
+      const defLat = -7.386416;
+      const defLng = 109.365989;
 
       elMap.innerHTML = '';
       peta = L.map(elMap, {
@@ -1096,8 +1098,8 @@ const Absensi = (() => {
       }
     }
     if (isNaN(lat) || isNaN(lng) || !lat) {
-      lat = -7.387228;
-      lng = 109.363717;
+      lat = -7.386416;
+      lng = 109.365989;
     }
 
     UI.modal({
@@ -1505,7 +1507,7 @@ const Absensi = (() => {
               }
               elMapMon.innerHTML = '';
               petaMonitoring = L.map(elMapMon, {
-                center: [-7.387228, 109.363717],
+                center: [-7.386416, 109.365989],
                 zoom: 12
               });
 
@@ -1527,15 +1529,15 @@ const Absensi = (() => {
                 popupAnchor: [0, -17]
               });
 
-              L.marker([-7.387228, 109.363717], { icon: iconLab })
+              L.marker([-7.386416, 109.365989], { icon: iconLab })
                 .addTo(petaMonitoring)
                 .bindPopup(`
                   <div style="font-size: 13px; font-weight: 800; color: #0F8B7E;">Laboratorium Medis Utama (Pusat)</div>
-                  <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Jl. Letnan Sudani No. 12, Purbalingga</div>
-                  <div style="font-size: 10px; color: #94A3B8; margin-top: 4px;" class="mono">GPS: -7.387228, 109.363717</div>
+                  <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Jl. D.I. Panjaitan No. 94, Purbalingga Lor, Purbalingga</div>
+                  <div style="font-size: 10px; color: #94A3B8; margin-top: 4px;" class="mono">GPS: -7.386416, 109.365989</div>
                 `);
 
-              const bounds = [[-7.387228, 109.363717]];
+              const bounds = [[-7.386416, 109.365989]];
               markerStafMap = {};
 
               monitoringList.forEach(m => {
