@@ -406,8 +406,6 @@ const Antrian = (() => {
                 Check-in</button>`);
 
     if (a.tahap === 'POLI' && a.kunjungan_id) {
-      if (App.boleh('kajian') && !a.sudah_kajian)
-        t.push(`<a href="#/kajian/${a.kunjungan_id}" class="btn btn-secondary btn-sm">Kajian</a>`);
       if (App.boleh('periksa'))
         t.push(`<a href="#/periksa/${a.kunjungan_id}" class="btn btn-primary btn-sm">Periksa</a>`);
     }

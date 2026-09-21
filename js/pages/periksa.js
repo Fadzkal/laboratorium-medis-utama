@@ -224,10 +224,7 @@ const Periksa = (() => {
       <div class="card">
         <div class="card-head">
           <div class="flex-1"><h2>Tanda vital &amp; kajian awal</h2>
-            <div class="sub">${ka ? 'Diisi ' + UI.jam(ka.dibuat_pada) : 'Belum diisi perawat'}</div></div>
-          ${!ka && App.boleh('kajian')
-            ? `<a href="#/kajian/${kj.id}" class="btn btn-secondary btn-sm">Isi kajian awal</a>`
-            : `<a href="#/kajian/${kj.id}" class="btn btn-ghost btn-sm no-print">Ubah</a>`}
+            <div class="sub">${ka ? 'Diisi ' + UI.jam(ka.dibuat_pada) : 'Tidak ada data kajian'}</div></div>
         </div>
         <div class="card-body">
           ${Komponen.kotakVital(ka)}
