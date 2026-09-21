@@ -241,7 +241,7 @@ const Pendaftaran = (() => {
             </div>
 
             <!-- No RM & NRP -->
-            <div class="frow frow-31">
+            <div class="frow frow-13">
               <div class="pdft-field">
                 <label>No. RM</label>
                 <input type="text" id="fRm" value="(Otomatis)" readonly placeholder="(Otomatis)">
@@ -309,12 +309,10 @@ const Pendaftaran = (() => {
               <input type="text" id="fAlamat" placeholder="">
             </div>
 
-            <!-- Telp & NIK -->
-            <div class="frow frow-2">
-              <div class="pdft-field">
-                <label>Telp / HP</label>
-                <input type="tel" id="fTelp" placeholder="">
-              </div>
+            <!-- Telp -->
+            <div class="pdft-field" style="margin-bottom:6px">
+              <label>Telp / HP</label>
+              <input type="tel" id="fTelp" placeholder="">
             </div>
 
             <!-- Dokter -->
