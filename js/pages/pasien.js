@@ -36,10 +36,10 @@ const Pasien = (() => {
                  placeholder="Sesuai KTP / Kartu Keluarga">
         </div>
         <div class="field">
-          <label for="f-nik">No. Legalitas / NIK <span class="req">* (16 digit)</span></label>
+          <label for="f-nik">No. Legalitas / NIK <span class="opt">(16 digit, bila ada)</span></label>
           <input type="text" id="f-nik" name="nik" value="${UI.esc(p.nik)}" inputmode="numeric"
-                 maxlength="16" required placeholder="3374xxxxxxxxxxxx">
-          <div class="hint">NIK wajib 16 digit untuk mencegah data pasien ganda.</div>
+                 maxlength="16" placeholder="3374xxxxxxxxxxxx (opsional)">
+          <div class="hint">Opsional untuk anak kecil atau lansia. Jika diisi, gunakan tepat 16 digit.</div>
         </div>
       </div>
       <div class="form-grid">
@@ -163,7 +163,7 @@ const Pasien = (() => {
     if (!d.tanggal_lahir) salah.push('Tanggal lahir wajib diisi.');
     else if (new Date(d.tanggal_lahir) > new Date()) salah.push('Tanggal lahir tidak boleh di masa depan.');
     if (!d.jenis_kelamin) salah.push('Jenis kelamin wajib dipilih.');
-    if (!d.nik || !/^\d{16}$/.test(d.nik)) salah.push('NIK wajib diisi tepat 16 digit angka agar data tidak ganda.');
+    if (d.nik && !/^\d{16}$/.test(d.nik)) salah.push('Jika diisi, NIK harus tepat 16 digit angka.');
     if (d.no_bpjs && !/^\d{13}$/.test(d.no_bpjs)) salah.push('No. BPJS harus tepat 13 angka.');
     if (d.no_hp && !/^[0-9+\-\s]{8,18}$/.test(d.no_hp)) salah.push('No. HP tidak valid.');
     return salah;

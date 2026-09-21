@@ -254,8 +254,8 @@ const Pendaftaran = (() => {
               </div>
               <div class="pdft-field" style="display:flex;gap:4px;align-items:flex-end">
                 <div style="flex:1">
-                  <label>NIK * (16 Digit)</label>
-                  <input type="text" id="fNik" maxlength="16" inputmode="numeric" placeholder="16 digit KTP/KK">
+                  <label>NIK (16 Digit)</label>
+                  <input type="text" id="fNik" maxlength="16" inputmode="numeric" placeholder="16 digit KTP/KK (bila ada)">
                 </div>
                 <button id="btnCekNrp" title="Cek Pasien Berdasarkan NIK" style="background:#388E3C;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Cek</button>
                 <button id="btnReset" title="Reset / Pasien Baru" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Baru</button>
@@ -966,14 +966,9 @@ const Pendaftaran = (() => {
     const tglLahir = el.querySelector('#fTglLahir').value;
     const jk       = el.querySelector('#fJk').value;
 
-    // VALIDASI WAJIB NIK (16 DIGIT)
-    if (!nikInput) {
-      UI.toast('NIK wajib diisi (16 digit) agar data pasien aman dan tidak ganda.', 'err');
-      el.querySelector('#fNik')?.focus();
-      return;
-    }
-    if (!/^\d{16}$/.test(nikInput)) {
-      UI.toast('NIK harus terdiri dari tepat 16 digit angka.', 'err');
+    // VALIDASI NIK (Opsional untuk anak kecil/lansia, namun jika diisi harus 16 digit)
+    if (nikInput && !/^\d{16}$/.test(nikInput)) {
+      UI.toast('Jika diisi, NIK harus terdiri dari tepat 16 digit angka.', 'err');
       el.querySelector('#fNik')?.focus();
       return;
     }
@@ -1020,7 +1015,7 @@ const Pendaftaran = (() => {
         nrp:           nrpVal,
         bagian:        el.querySelector('#fBagian')?.value.trim() || null,
         plant:         el.querySelector('#fPlant')?.value.trim() || null,
-        nik:           nikInput,
+        nik:           nikInput || null,
         no_bpjs:       bpjsVal || (el.querySelector('#bJenisBayar')?.value === 'BPJS' ? nrpVal : null) || pasien?.no_bpjs || null,
         jenis_kelamin: jk,
         tanggal_lahir: tglLahir,
@@ -1030,24 +1025,26 @@ const Pendaftaran = (() => {
       };
 
       if (!pasien) {
-        // Cegah pembuatan pasien ganda jika NIK sudah ada
-        const resCek = await DB.cariPasien(nikInput, 1);
-        if (resCek && resCek.length > 0) {
-          pasienTerpilih = resCek[0];
-          isiFormPasien(el, pasienTerpilih);
-          UI.toast(`NIK sudah terdaftar atas nama ${resCek[0].nama} (No. RM: ${resCek[0].no_rm}). Data pasien dimuat, silakan klik SAVE untuk konfirmasi pendaftaran.`, 'warn');
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Save';
+        // Cegah pembuatan pasien ganda jika NIK diisi dan sudah ada
+        if (nikInput) {
+          const resCek = await DB.cariPasien(nikInput, 1);
+          if (resCek && resCek.length > 0) {
+            pasienTerpilih = resCek[0];
+            isiFormPasien(el, pasienTerpilih);
+            UI.toast(`NIK sudah terdaftar atas nama ${resCek[0].nama} (No. RM: ${resCek[0].no_rm}). Data pasien dimuat, silakan klik SAVE untuk konfirmasi pendaftaran.`, 'warn');
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = 'Save';
+            }
+            return;
           }
-          return;
         }
         // Buat pasien baru
         pasien = await DB.simpanPasien(dataPasien, null);
         UI.toast(`Pasien baru terdaftar. No. RM: ${pasien.no_rm}`, 'ok');
       } else {
         // Jika pasien lama, pastikan perubahan NIK tidak bentrok dengan pasien lain
-        if (nikInput !== pasien.nik) {
+        if (nikInput && nikInput !== pasien.nik) {
           const resCek = await DB.cariPasien(nikInput, 1);
           if (resCek && resCek.length > 0 && resCek[0].id !== pasien.id) {
             UI.toast(`Gagal: NIK ${nikInput} sudah digunakan oleh pasien ${resCek[0].nama} (RM: ${resCek[0].no_rm}).`, 'err');
