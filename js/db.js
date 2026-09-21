@@ -198,6 +198,131 @@ const DB = (() => {
     const { data, error } = await q;
     if (error) throw error; return data;
   }
+
+  /* Mengambil daftar pasien lengkap dengan statistik kunjungan & kelengkapan */
+  async function daftarPasienLengkap(filter = {}) {
+    const { kata = '', tipe = 'semua', urut = 'kunjungan_terbanyak', jk = 'semua', umur = 'semua', kelengkapan = 'semua', batas = 300 } = filter;
+
+    let dataPasien = [];
+    let pakaiView = false;
+
+    // 1. Coba ambil dari v_pasien_lengkap jika view SQL sudah dieksekusi di Supabase
+    try {
+      let q = sb.from('v_pasien_lengkap').select('*').limit(batas);
+      if (kata && kata.trim().length >= 2) {
+        const k = kata.trim();
+        q = q.or(`nama.ilike.%${k}%,no_rm.ilike.%${k}%,nik.ilike.%${k}%,no_bpjs.ilike.%${k}%,no_hp.ilike.%${k}%`);
+      }
+      const { data, error } = await q;
+      if (!error && Array.isArray(data) && data.length >= 0) {
+        dataPasien = data.map(r => ({ ...r, kekurangan: r.kekurangan || [] }));
+        pakaiView = true;
+      }
+    } catch (e) {
+      pakaiView = false;
+    }
+
+    // 2. Fallback jika view belum dibuat: ambil langsung dari pasien + relasi kunjungan
+    if (!pakaiView) {
+      let q = sb.from('pasien')
+        .select('id,no_rm,nik,no_bpjs,nama,title,nrp,bagian,plant,tanggal_lahir,jenis_kelamin,alamat,no_hp,no_telp,catatan_penting,created_at,kunjungan(id,tanggal,cara_bayar)')
+        .eq('aktif', true).limit(batas);
+
+      if (kata && kata.trim().length >= 2) {
+        const k = kata.trim();
+        q = q.or(`nama.ilike.%${k}%,no_rm.ilike.%${k}%,nik.ilike.%${k}%,no_bpjs.ilike.%${k}%,no_hp.ilike.%${k}%`);
+      }
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      dataPasien = (data || []).map(p => {
+        const visits = p.kunjungan || [];
+        const jml = visits.length;
+        const lastVisit = jml > 0 ? visits.map(v => v.tanggal).filter(Boolean).sort().pop() : null;
+
+        const kek = [];
+        if (!p.nik || !/^\d{16}$/.test(p.nik)) kek.push('NIK belum diisi atau bukan 16 angka');
+        const adaBpjs = visits.some(v => v.cara_bayar === 'BPJS');
+        if (adaBpjs && (!p.no_bpjs || !/^\d{13}$/.test(p.no_bpjs))) kek.push('Nomor BPJS belum diisi atau bukan 13 angka');
+        if (!p.tanggal_lahir) kek.push('Tanggal lahir belum diisi');
+        if (!p.jenis_kelamin) kek.push('Jenis kelamin belum diisi');
+
+        return {
+          ...p,
+          jml_kunjungan: jml,
+          kunjungan_terakhir: lastVisit,
+          kekurangan: kek
+        };
+      });
+    }
+
+    // 3. Filter Client-side: Tipe Kepesertaan
+    if (tipe === 'bpjs') {
+      dataPasien = dataPasien.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
+    } else if (tipe === 'umum') {
+      dataPasien = dataPasien.filter(p => !p.no_bpjs || p.no_bpjs.trim() === '' || p.no_bpjs === '-');
+    } else if (tipe === 'rekanan') {
+      dataPasien = dataPasien.filter(p => (p.nrp && p.nrp.trim()) || (p.bagian && p.bagian.trim()) || (p.plant && p.plant.trim()));
+    }
+
+    // 4. Filter Jenis Kelamin
+    if (jk === 'L') {
+      dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'L');
+    } else if (jk === 'P') {
+      dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'P');
+    }
+
+    // 5. Filter Kelompok Umur
+    if (umur && umur !== 'semua') {
+      const now = new Date();
+      dataPasien = dataPasien.filter(p => {
+        if (!p.tanggal_lahir) return false;
+        const lahir = new Date(p.tanggal_lahir);
+        let th = now.getFullYear() - lahir.getFullYear();
+        const m = now.getMonth() - lahir.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < lahir.getDate())) th--;
+        if (umur === 'anak') return th < 18;
+        if (umur === 'dewasa') return th >= 18 && th < 60;
+        if (umur === 'lansia') return th >= 60;
+        return true;
+      });
+    }
+
+    // 6. Filter Kelengkapan Data
+    if (kelengkapan === 'lengkap') {
+      dataPasien = dataPasien.filter(p => !p.kekurangan || p.kekurangan.length === 0);
+    } else if (kelengkapan === 'kurang') {
+      dataPasien = dataPasien.filter(p => p.kekurangan && p.kekurangan.length > 0);
+    }
+
+    // 7. Pengurutan / Sort
+    dataPasien.sort((a, b) => {
+      if (urut === 'kunjungan_terbanyak') {
+        const selisih = (b.jml_kunjungan || 0) - (a.jml_kunjungan || 0);
+        if (selisih !== 0) return selisih;
+        return (a.nama || '').localeCompare(b.nama || '');
+      }
+      if (urut === 'kunjungan_terakhir') {
+        const tA = a.kunjungan_terakhir || '1970-01-01';
+        const tB = b.kunjungan_terakhir || '1970-01-01';
+        return tB.localeCompare(tA);
+      }
+      if (urut === 'nama_desc') {
+        return (b.nama || '').localeCompare(a.nama || '');
+      }
+      if (urut === 'rm_desc') {
+        return (b.no_rm || '').localeCompare(a.no_rm || '');
+      }
+      if (urut === 'rm_asc') {
+        return (a.no_rm || '').localeCompare(b.no_rm || '');
+      }
+      // Default: nama_asc
+      return (a.nama || '').localeCompare(b.nama || '');
+    });
+
+    return dataPasien;
+  }
   async function pasien(id) {
     const { data, error } = await sb.from('pasien').select('*').eq('id', id).single();
     if (error) throw error; return data;
@@ -2591,7 +2716,7 @@ const DB = (() => {
     daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
     tambahPengguna, hapusPengguna, resetPasswordPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
-    cariPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
+    cariPasien, daftarPasienLengkap, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
     kajian, simpanKajian,
     pemeriksaan, simpanPemeriksaan, finalisasi, tambahAddendum, daftarAddendum,

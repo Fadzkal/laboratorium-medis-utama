@@ -219,47 +219,148 @@ const Pasien = (() => {
   async function daftar(el) {
     el.innerHTML = `
       <div class="page-header">
-        <div class="page-heading"><h1>Data Pasien</h1>
-          <div class="page-sub">Cari berdasarkan nama, nomor rekam medis, NIK, atau nomor BPJS.</div></div>
+        <div class="page-heading">
+          <h1>Data Pasien</h1>
+          <div class="page-sub">Cari dan kelola data rekam medis pasien, kepesertaan, serta riwayat kunjungan laboratorium.</div>
+        </div>
         ${App.boleh('pasien_simpan')
           ? `<div class="page-actions"><button class="btn btn-primary btn-sm" id="btnBaru">
               ${UI.ikon('plus',16)} Pasien baru</button></div>` : ''}
       </div>
 
-      <div class="filter-bar">
-        <div class="search-box filter-search">
+      <div class="filter-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+        <div class="search-box filter-search" style="flex:1 1 240px; min-width:200px;">
           <span class="ico">${UI.ikon('cari',16)}</span>
-          <input type="search" id="cari" placeholder="Ketik nama, no. RM, NIK, atau no. BPJS…" autofocus>
+          <input type="search" id="cari" placeholder="Cari nama, No. RM, NIK, BPJS, atau HP…" autofocus>
         </div>
-        <label class="check"><input type="checkbox" id="hanyaKurang">
-          <span class="nowrap">Hanya yang datanya belum lengkap</span></label>
+
+        <div class="field" style="margin-bottom:0; min-width:140px;">
+          <label for="fTipe" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kepesertaan</label>
+          <select id="fTipe" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="semua">Semua Pasien</option>
+            <option value="bpjs">BPJS Kesehatan</option>
+            <option value="umum">Umum / Mandiri</option>
+            <option value="rekanan">Instansi / Pabrik</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0; min-width:160px;">
+          <label for="fUrut" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Urutkan</label>
+          <select id="fUrut" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="kunjungan_terbanyak" selected>Kunjungan Terbanyak</option>
+            <option value="nama_asc">Nama Pasien (A - Z)</option>
+            <option value="nama_desc">Nama Pasien (Z - A)</option>
+            <option value="rm_desc">Pasien Baru (RM Baru)</option>
+            <option value="rm_asc">Pasien Lama (RM Lama)</option>
+            <option value="kunjungan_terakhir">Kunjungan Terakhir</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0; min-width:110px;">
+          <label for="fJk" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Gender</label>
+          <select id="fJk" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="semua">Semua (L/P)</option>
+            <option value="L">Laki-laki (L)</option>
+            <option value="P">Perempuan (P)</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0; min-width:130px;">
+          <label for="fUmur" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kategori Umur</label>
+          <select id="fUmur" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="semua">Semua Umur</option>
+            <option value="anak">Anak (< 18 th)</option>
+            <option value="dewasa">Dewasa (18 - 59 th)</option>
+            <option value="lansia">Lansia (≥ 60 th)</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0; min-width:130px;">
+          <label for="fKelengkapan" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kelengkapan</label>
+          <select id="fKelengkapan" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="semua">Semua Status</option>
+            <option value="lengkap">Data Lengkap</option>
+            <option value="kurang">Belum Lengkap</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:1px;">
+          <button type="button" id="btnResetFilter" class="btn btn-ghost btn-sm" title="Kembalikan semua filter ke pengaturan awal" style="border:1px solid var(--ink-200);">
+            ${UI.ikon('batal',13)} Reset
+          </button>
+        </div>
       </div>
+
       <div class="card">
+        <div class="table-toolbar" style="display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--ink-200); background:var(--ink-50);">
+          <span class="tt-title" style="font-size:13px; font-weight:700; color:var(--ink-800);">Daftar Pasien</span>
+          <span class="tt-count" id="statJumlah" style="font-size:12px; color:var(--ink-600);">Memuat…</span>
+          <div style="flex:1;"></div>
+          <span id="statUrut" style="font-size:11.5px; color:var(--brand-700); font-weight:600;"></span>
+        </div>
         <div class="card-body tight" id="hasil">${UI.memuat(3)}</div>
       </div>`;
 
     const hasil = el.querySelector('#hasil');
-    const muat = async () => {
-      const kata = el.querySelector('#cari').value;
-      const kurang = el.querySelector('#hanyaKurang').checked;
-      hasil.innerHTML = UI.memuat(3);
-      try {
-        if (kurang) {
-          let d = await DB.kesiapanPasien({ hanyaKurang: true });
-          if (kata && kata.trim().length >= 2) {
-            const k = kata.trim().toLowerCase();
-            d = d.filter(p => (p.nama || '').toLowerCase().includes(k)
-              || (p.no_rm || '').includes(k) || (p.nik || '').includes(k));
-          }
-          gambarDaftarKurang(hasil, d, muat);
-        } else {
-          gambarDaftar(hasil, await DB.cariPasien(kata), kata, muat);
-        }
-      } catch (e) { hasil.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`; }
+    const statJumlah = el.querySelector('#statJumlah');
+    const statUrut = el.querySelector('#statUrut');
+
+    const labelUrutan = {
+      'kunjungan_terbanyak': 'Kunjungan Terbanyak',
+      'nama_asc': 'Nama A - Z',
+      'nama_desc': 'Nama Z - A',
+      'rm_desc': 'Pasien Baru (RM Baru)',
+      'rm_asc': 'Pasien Lama (RM Lama)',
+      'kunjungan_terakhir': 'Kunjungan Terakhir'
     };
 
-    el.querySelector('#cari').addEventListener('input', UI.tunda(muat, 280));
-    el.querySelector('#hanyaKurang').addEventListener('change', muat);
+    const muat = async () => {
+      const kata = (el.querySelector('#cari')?.value || '').trim();
+      const tipe = el.querySelector('#fTipe')?.value || 'semua';
+      const urut = el.querySelector('#fUrut')?.value || 'kunjungan_terbanyak';
+      const jk = el.querySelector('#fJk')?.value || 'semua';
+      const umur = el.querySelector('#fUmur')?.value || 'semua';
+      const kelengkapan = el.querySelector('#fKelengkapan')?.value || 'semua';
+
+      hasil.innerHTML = UI.memuat(3);
+      if (statUrut) statUrut.textContent = `Urutan: ${labelUrutan[urut] || urut}`;
+
+      try {
+        const data = await DB.daftarPasienLengkap({
+          kata, tipe, urut, jk, umur, kelengkapan, batas: 300
+        });
+
+        const bpjsCount = data.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-').length;
+        const umumCount = data.length - bpjsCount;
+
+        if (statJumlah) {
+          statJumlah.textContent = `Menampilkan ${data.length} pasien (${bpjsCount} BPJS, ${umumCount} Umum)`;
+        }
+
+        gambarDaftar(hasil, data, kata, muat);
+      } catch (e) {
+        hasil.innerHTML = `<div class="banner err">${UI.esc(e.message || e)}</div>`;
+        if (statJumlah) statJumlah.textContent = 'Gagal memuat';
+      }
+    };
+
+    el.querySelector('#cari')?.addEventListener('input', UI.tunda(muat, 280));
+    el.querySelector('#fTipe')?.addEventListener('change', muat);
+    el.querySelector('#fUrut')?.addEventListener('change', muat);
+    el.querySelector('#fJk')?.addEventListener('change', muat);
+    el.querySelector('#fUmur')?.addEventListener('change', muat);
+    el.querySelector('#fKelengkapan')?.addEventListener('change', muat);
+
+    el.querySelector('#btnResetFilter')?.addEventListener('click', () => {
+      if (el.querySelector('#cari')) el.querySelector('#cari').value = '';
+      if (el.querySelector('#fTipe')) el.querySelector('#fTipe').value = 'semua';
+      if (el.querySelector('#fUrut')) el.querySelector('#fUrut').value = 'kunjungan_terbanyak';
+      if (el.querySelector('#fJk')) el.querySelector('#fJk').value = 'semua';
+      if (el.querySelector('#fUmur')) el.querySelector('#fUmur').value = 'semua';
+      if (el.querySelector('#fKelengkapan')) el.querySelector('#fKelengkapan').value = 'semua';
+      muat();
+    });
+
     const btn = el.querySelector('#btnBaru');
     if (btn) btn.addEventListener('click', async () => {
       const p = await modalPasien();
@@ -270,33 +371,72 @@ const Pasien = (() => {
   }
 
   function gambarDaftar(wadah, data, kata, onMuat) {
-    if (!data.length) {
+    if (!data || !data.length) {
       wadah.innerHTML = UI.kosong(
-        kata ? 'Pasien tidak ditemukan' : 'Belum ada pasien',
-        kata ? `Tidak ada pasien yang cocok dengan "${kata}".`
+        kata ? 'Pasien tidak ditemukan' : 'Belum ada data pasien',
+        kata ? `Tidak ada pasien yang cocok dengan kriteria pencarian/filter.`
              : 'Data pasien akan muncul di sini setelah pendaftaran pertama.');
       return;
     }
+
     wadah.innerHTML = `<div class="table-wrap"><table class="tbl">
-      <thead><tr><th>No. RM</th><th>Nama</th><th>L/P</th><th>Umur</th>
-        <th>Tanggal lahir</th><th>No. BPJS</th><th>Kontak</th><th style="width:1%"></th></tr></thead>
-      <tbody>${data.map(p => `
+      <thead>
+        <tr>
+          <th>No. RM</th>
+          <th>Nama Pasien</th>
+          <th>L/P</th>
+          <th>Umur & Tgl Lahir</th>
+          <th>Kunjungan</th>
+          <th>Kepesertaan</th>
+          <th>Kontak / NIK</th>
+          <th style="width:1%"></th>
+        </tr>
+      </thead>
+      <tbody>${data.map(p => {
+        const jmlKunjungan = p.jml_kunjungan || 0;
+        const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
+        const badgeKunjunganClass = jmlKunjungan >= 5 ? 'b-ok' : (jmlKunjungan > 0 ? 'b-bpjs' : 'b-umum');
+        const adaKurang = p.kekurangan && p.kekurangan.length > 0;
+
+        return `
         <tr class="clickable" data-id="${p.id}">
-          <td class="mono">${UI.esc(p.no_rm)}</td>
-          <td><b>${UI.esc(p.nama)}</b>
-            ${p.catatan_penting ? `<div class="text-xs text-danger">
-              ${UI.ikon('peringatan',12)} ${UI.esc(p.catatan_penting)}</div>` : ''}</td>
-          <td>${p.jenis_kelamin}</td>
-          <td class="nowrap">${UI.umurTeks(p.tanggal_lahir)}</td>
-          <td class="muted nowrap">${UI.tglPendek(p.tanggal_lahir)}</td>
-          <td class="mono muted">${UI.esc(p.no_bpjs || '—')}</td>
-          <td class="muted">${UI.esc(p.no_hp || '—')}</td>
+          <td class="mono" style="font-weight:700;">${UI.esc(p.no_rm)}</td>
+          <td>
+            <div><b>${UI.esc(p.nama)}</b> ${p.title ? `<span class="text-xs text-muted">(${UI.esc(p.title)})</span>` : ''}</div>
+            ${p.catatan_penting ? `<div class="text-xs text-danger" style="margin-top:2px;">
+              ${UI.ikon('peringatan',12)} ${UI.esc(p.catatan_penting)}</div>` : ''}
+            ${adaKurang ? `<div class="text-xs text-warn" style="margin-top:2px;" title="${p.kekurangan.join(', ')}">
+              ${UI.ikon('peringatan',11)} ${p.kekurangan.length} data belum lengkap</div>` : ''}
+          </td>
+          <td>${p.jenis_kelamin || '—'}</td>
+          <td class="nowrap">
+            <div>${UI.umurTeks(p.tanggal_lahir)}</div>
+            <div class="text-xs text-muted">${UI.tglPendek(p.tanggal_lahir)}</div>
+          </td>
+          <td class="nowrap">
+            <span class="badge ${badgeKunjunganClass}" style="font-weight:700;">
+              ${jmlKunjungan}x
+            </span>
+            ${p.kunjungan_terakhir ? `<div class="text-xs text-muted" style="margin-top:2px;">terakhir ${UI.tglPendek(p.kunjungan_terakhir)}</div>` : ''}
+          </td>
+          <td>
+            ${isBpjs
+              ? `<span class="badge b-bpjs" style="font-size:10.5px; padding:2px 6px; margin-right:4px;">BPJS</span><span class="mono text-xs">${UI.esc(p.no_bpjs)}</span>`
+              : `<span class="badge b-umum" style="font-size:10.5px; padding:2px 6px;">Umum</span>`
+            }
+            ${(p.bagian || p.plant) ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc([p.bagian, p.plant].filter(Boolean).join(' - '))}</div>` : ''}
+          </td>
+          <td class="muted">
+            <div>${UI.esc(p.no_hp || p.no_telp || '—')}</div>
+            ${p.nik ? `<div class="mono text-xs text-muted">NIK: ${UI.esc(p.nik)}</div>` : ''}
+          </td>
           <td class="text-right whitespace-nowrap">
             <button class="btn btn-ghost btn-sm text-danger btn-hapus-pasien" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-rm="${UI.esc(p.no_rm)}" title="Hapus Pasien">
               ${UI.ikon('hapus',15)}
             </button>
           </td>
-        </tr>`).join('')}</tbody></table></div>`;
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
 
     wadah.querySelectorAll('tbody tr').forEach(tr => {
       tr.addEventListener('click', (e) => {
