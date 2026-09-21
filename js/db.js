@@ -231,7 +231,17 @@ const DB = (() => {
   /* --------------------------- Kunjungan -------------------------------- */
   async function antrianHariIni() {
     const { data, error } = await sb.from('v_antrian_hari_ini').select('*');
-    if (error) throw error; return data;
+    if (error) throw error; 
+    
+    if (!data || data.length === 0) return [];
+    
+    // Hanya tampilkan kunjungan yang memiliki permintaan lab
+    const { data: labs } = await sb.from('lab_permintaan')
+      .select('kunjungan_id')
+      .in('kunjungan_id', data.map(d => d.id));
+      
+    const adaLabIds = new Set(labs?.map(l => l.kunjungan_id) || []);
+    return data.filter(d => adaLabIds.has(d.id));
   }
   async function daftarKunjungan(filter = {}) {
     let q = sb.from('v_riwayat_kunjungan').select('*').limit(filter.batas || 100);
