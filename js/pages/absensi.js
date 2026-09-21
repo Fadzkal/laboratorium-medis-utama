@@ -318,7 +318,7 @@ const Absensi = (() => {
             ${UI.ikon('centang', 15)} Persetujuan Cuti & Izin <span id="badgePendingIzin" class="badge-num" style="display:none; margin-left:6px; background:var(--warn-700); color:#fff; border-radius:999px; padding:1px 7px; font-size:11px;">0</span>
           </button>
           <button class="tab ${tabUtama === 'master_lokasi' ? 'on' : ''}" data-tab="master_lokasi" style="padding: 10px 18px; font-weight: 600;">
-            ${UI.ikon('jam', 15)} Pengaturan Jam Kerja
+            ${UI.ikon('setelan', 15)} Pengaturan Jam Kerja & Lokasi Faskes
           </button>
         </div>
       ` : ''}
@@ -1967,7 +1967,7 @@ const Absensi = (() => {
               <h2 style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
                 Sistem Presensi Fleksibel & Lokasi Cerdas (Smart Location Presence)
               </h2>
-              <div class="text-muted text-xs mt-4">Pimpinan tidak perlu lagi mengatur titik lokasi atau radius meter secara manual.</div>
+              <div class="text-muted text-xs mt-4">Karyawan bebas melakukan absensi di mana pun tanpa batasan radius; sistem otomatis mendeteksi faskes terdekat.</div>
             </div>
           </div>
         </div>
@@ -2002,6 +2002,43 @@ const Absensi = (() => {
           </div>
         </div>
       </div>
+
+      <!-- Card 3: Kelola Database Titik Lokasi Faskes (Hak Akses Penuh Master) -->
+      <div class="absensi-panel mb-24">
+        <div class="absensi-panel-head">
+          <div>
+            <h2 class="flex items-center gap-10" style="margin: 0; font-size: 17px; font-weight: 700; color: #0F172A;">
+              ${UI.ikon('faskes', 19)} Database Titik Lokasi Faskes (Puskesmas, RS, & Lab)
+            </h2>
+            <div class="text-muted text-xs mt-4">Pimpinan dapat menambah, mengedit koordinat, atau menyesuaikan nama faskes agar akurasi pembacaan lokasi presensi staf selalu tepat.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnTambahFaskesMaster" style="font-size: 12.5px; padding: 8px 16px; font-weight: 600;">
+            ${UI.ikon('plus', 14)} Tambah Titik Faskes
+          </button>
+        </div>
+
+        <!-- Filter & Pencarian Lokasi Faskes -->
+        <div class="p-16 border-bottom flex items-center justify-between flex-wrap gap-12" style="background: #ffffff; padding: 14px 24px;">
+          <div class="flex items-center gap-10 flex-wrap" style="flex: 1;">
+            <input type="search" id="cariFaskesMaster" placeholder="Cari nama faskes / alamat..." 
+                   class="ctl-sm" style="max-width: 280px; height: 36px; border-radius: 8px; padding: 0 12px;">
+            <select id="filterTipeFaskesMaster" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
+              <option value="">Semua Tipe Faskes</option>
+              <option value="LAB">Laboratorium / Klinik Pusat</option>
+              <option value="PUSKESMAS">Puskesmas</option>
+              <option value="RS">Rumah Sakit (RS)</option>
+              <option value="KLINIK">Klinik / Faskes Mitra</option>
+            </select>
+          </div>
+          <div class="text-xs text-muted" id="labelHitungFaskesMaster" style="font-weight: 600;">
+            Memuat daftar faskes...
+          </div>
+        </div>
+
+        <div style="padding: 20px 24px;">
+          <div id="tabelFaskesMasterWrap">${UI.memuat(3)}</div>
+        </div>
+      </div>
     `;
 
     // Event listener simpan jam kerja
@@ -2025,6 +2062,340 @@ const Absensi = (() => {
         b.disabled = false;
       }
     });
+
+    // Manajemen Database Faskes oleh Master
+    let teksCariFaskes = '';
+    let filterTipeFaskes = '';
+
+    const renderTabelFaskesMaster = () => {
+      const wrap = container.querySelector('#tabelFaskesMasterWrap');
+      const labelHitung = container.querySelector('#labelHitungFaskesMaster');
+      if (!wrap) return;
+
+      const q = (teksCariFaskes || '').trim().toLowerCase();
+      const t = (filterTipeFaskes || '').trim().toUpperCase();
+
+      const filtered = masterLokasi.filter(l => {
+        if (t && (l.tipe || 'PUSKESMAS').toUpperCase() !== t) return false;
+        if (q) {
+          const matchNama = (l.nama || '').toLowerCase().includes(q);
+          const matchAlamat = (l.alamat || '').toLowerCase().includes(q);
+          if (!matchNama && !matchAlamat) return false;
+        }
+        return true;
+      });
+
+      if (labelHitung) {
+        labelHitung.textContent = `Menampilkan ${filtered.length} dari ${masterLokasi.length} faskes terdaftar`;
+      }
+
+      if (!filtered.length) {
+        wrap.innerHTML = `<div class="empty text-center p-24 text-muted" style="border: 1px dashed #CBD5E1; border-radius: 12px; background: #F8FAFC;">Tidak ada lokasi faskes yang cocok dengan pencarian.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="absensi-table-wrap"><table class="tbl w-full">
+          <thead><tr>
+            <th>NAMA FASILITAS KESEHATAN</th>
+            <th>TIPE</th>
+            <th>ALAMAT LENGKAP</th>
+            <th>KOORDINAT GPS</th>
+            <th>STATUS</th>
+            <th style="text-align: right;">AKSI</th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map(l => {
+              const latNum = Number(l.latitude);
+              const lngNum = Number(l.longitude);
+              let tipeClass = 'b-kajian';
+              if (l.tipe === 'LAB') tipeClass = 'b-selesai';
+              else if (l.tipe === 'RS') tipeClass = 'b-dokter';
+              else if (l.tipe === 'KLINIK') tipeClass = 'b-umum';
+
+              return `
+                <tr>
+                  <td>
+                    <b style="color: #0F172A; font-size: 13.5px;">${UI.esc(l.nama)}</b>
+                  </td>
+                  <td>
+                    <span class="badge ${tipeClass}" style="font-size: 10.5px; text-transform: uppercase; font-weight: 700;">
+                      ${UI.esc(l.tipe || 'PUSKESMAS')}
+                    </span>
+                  </td>
+                  <td class="text-xs text-muted" style="max-width: 260px;">
+                    ${UI.esc(l.alamat || '—')}
+                  </td>
+                  <td class="mono" style="font-size: 12px;">
+                    <span style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 2px 8px; border-radius: 6px; color: #0F8B7E; font-weight: 600;">
+                      ${latNum ? latNum.toFixed(6) : '0.000000'}, ${lngNum ? lngNum.toFixed(6) : '0.000000'}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge ${l.aktif !== false ? 'b-selesai' : 'b-batal'}" style="font-size: 10.5px;">
+                      ${l.aktif !== false ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 6px;">
+                      <button class="btn btn-secondary btn-sm" data-edit-faskes="${UI.esc(l.id || l.nama)}" style="height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                        ${UI.ikon('pensil', 12)} Edit
+                      </button>
+                      <button class="btn btn-secondary btn-sm" data-hapus-faskes="${UI.esc(l.id || l.nama)}" style="height: 28px; padding: 0 8px; font-size: 11px; color: var(--danger-700);">
+                        ${UI.ikon('hapus', 12)}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table></div>
+      `;
+
+      wrap.querySelectorAll('[data-edit-faskes]').forEach(b => {
+        b.addEventListener('click', () => {
+          const fid = b.dataset.editFaskes;
+          const item = masterLokasi.find(x => String(x.id || x.nama) === String(fid));
+          if (item) dialogEditLokasiFaskes(item);
+        });
+      });
+
+      wrap.querySelectorAll('[data-hapus-faskes]').forEach(b => {
+        b.addEventListener('click', () => {
+          const fid = b.dataset.hapusFaskes;
+          const item = masterLokasi.find(x => String(x.id || x.nama) === String(fid));
+          if (item) dialogHapusFaskes(item);
+        });
+      });
+    };
+
+    function dialogEditLokasiFaskes(item = null) {
+      const isEdit = !!item;
+      const latAwal = item ? Number(item.latitude) : (userCoords ? userCoords.lat : -7.386416);
+      const lngAwal = item ? Number(item.longitude) : (userCoords ? userCoords.lng : 109.365989);
+      let pickerMap = null;
+      let pickerMarker = null;
+
+      UI.modal({
+        judul: isEdit ? `Ubah Data Lokasi: ${item.nama}` : 'Tambah Lokasi Faskes / Puskesmas Baru',
+        lebar: true,
+        isi: `
+          <form id="formFaskesMaster" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+            <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 14px;">
+              <div class="field">
+                <label>Nama Fasilitas Kesehatan <span class="req">*</span></label>
+                <input type="text" name="nama" value="${UI.esc(item?.nama || '')}" placeholder="Contoh: Puskesmas Bobotsari, Lab Pusat, RSUD..." required class="w-full">
+              </div>
+              <div class="field">
+                <label>Tipe Faskes <span class="req">*</span></label>
+                <select name="tipe" class="w-full" required>
+                  <option value="PUSKESMAS" ${item?.tipe === 'PUSKESMAS' ? 'selected' : ''}>Puskesmas</option>
+                  <option value="LAB" ${item?.tipe === 'LAB' ? 'selected' : ''}>Laboratorium / Klinik Pusat</option>
+                  <option value="RS" ${item?.tipe === 'RS' ? 'selected' : ''}>Rumah Sakit (RS)</option>
+                  <option value="KLINIK" ${item?.tipe === 'KLINIK' ? 'selected' : ''}>Klinik / Faskes Mitra</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Alamat Lengkap Faskes</label>
+              <input type="text" name="alamat" value="${UI.esc(item?.alamat || '')}" placeholder="Jl. ... No. ..., Desa/Kelurahan, Kecamatan" class="w-full">
+            </div>
+
+            <div class="field" style="margin-bottom: 0;">
+              <div class="flex items-center justify-between flex-wrap gap-8 mb-6">
+                <label class="font-semibold text-xs flex items-center gap-6" style="color: #334155;">
+                  ${UI.ikon('peta', 14)} Titik Koordinat di Peta (Klik atau geser pin marker):
+                </label>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnGunakanGpsSaya" style="font-size: 11.5px; padding: 4px 10px;">
+                  ${UI.ikon('peta', 13)} Gunakan Lokasi GPS Saya Saat Ini
+                </button>
+              </div>
+
+              <!-- Wadah Peta Leaflet Picker -->
+              <div id="mapPickerFaskes" style="height: 280px; width: 100%; border-radius: 10px; border: 1.5px solid #CBD5E1; position: relative; background: #E2E8F0; overflow: hidden;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #64748B;">
+                  Memuat Peta Pemilih Lokasi...
+                </div>
+              </div>
+              <div class="text-xs text-muted mt-4">
+                * Bebas radius: sistem secara otomatis mengenali nama faskes ini saat staf presensi di sekitar lokasi ini.
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="field">
+                <label>Latitude <span class="req">*</span></label>
+                <input type="number" step="any" name="latitude" id="inpLatFaskes" value="${latAwal}" required class="w-full mono">
+              </div>
+              <div class="field">
+                <label>Longitude <span class="req">*</span></label>
+                <input type="number" step="any" name="longitude" id="inpLngFaskes" value="${lngAwal}" required class="w-full mono">
+              </div>
+            </div>
+
+            <div class="field p-12 border rounded" style="background: #F8FAFC; border-color: #E2E8F0; border-radius: 8px; margin: 0;">
+              <label class="flex items-center gap-8" style="cursor: pointer; margin: 0;">
+                <input type="checkbox" name="aktif" ${(!item || item.aktif !== false) ? 'checked' : ''} style="width: 18px; height: 18px;">
+                <div>
+                  <b style="font-size: 13px;">Aktifkan Lokasi Faskes Ini</b>
+                  <div class="text-xs text-muted">Sistem akan otomatis mencocokkan kehadiran staf jika berada di sekitar faskes ini.</div>
+                </div>
+              </label>
+            </div>
+          </form>
+        `,
+        siap: (modalBody) => {
+          const elMap = modalBody.querySelector('#mapPickerFaskes');
+          const inpLat = modalBody.querySelector('#inpLatFaskes');
+          const inpLng = modalBody.querySelector('#inpLngFaskes');
+
+          setTimeout(() => {
+            if (typeof L === 'undefined' || !elMap) return;
+            try {
+              elMap.innerHTML = '';
+              pickerMap = L.map(elMap, {
+                center: [latAwal, lngAwal],
+                zoom: 15
+              });
+
+              L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+              }).addTo(pickerMap);
+
+              pickerMarker = L.marker([latAwal, lngAwal], { draggable: true }).addTo(pickerMap);
+
+              const setPosisi = (lat, lng) => {
+                inpLat.value = Number(lat).toFixed(7);
+                inpLng.value = Number(lng).toFixed(7);
+                pickerMarker.setLatLng([lat, lng]);
+              };
+
+              pickerMarker.on('dragend', (e) => {
+                const pos = e.target.getLatLng();
+                setPosisi(pos.lat, pos.lng);
+              });
+
+              pickerMap.on('click', (e) => {
+                setPosisi(e.latlng.lat, e.latlng.lng);
+              });
+
+              inpLat.addEventListener('change', () => {
+                const lat = Number(inpLat.value);
+                const lng = Number(inpLng.value);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                  setPosisi(lat, lng);
+                  pickerMap.panTo([lat, lng]);
+                }
+              });
+              inpLng.addEventListener('change', () => {
+                const lat = Number(inpLat.value);
+                const lng = Number(inpLng.value);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                  setPosisi(lat, lng);
+                  pickerMap.panTo([lat, lng]);
+                }
+              });
+
+              modalBody.querySelector('#btnGunakanGpsSaya')?.addEventListener('click', () => {
+                if (userCoords) {
+                  setPosisi(userCoords.lat, userCoords.lng);
+                  pickerMap.setView([userCoords.lat, userCoords.lng], 16);
+                  UI.toast('Koordinat disetel ke lokasi GPS Anda saat ini.', 'ok');
+                } else {
+                  UI.toast('GPS belum terdeteksi. Silakan tunggu atau perbarui GPS.', 'err');
+                }
+              });
+
+              pickerMap.invalidateSize();
+              setTimeout(() => pickerMap && pickerMap.invalidateSize(), 200);
+            } catch (errPeta) {
+              console.error('Picker map error:', errPeta);
+            }
+          }, 120);
+        },
+        tombol: [
+          { teks: 'Batal', nilai: false },
+          {
+            teks: isEdit ? 'Simpan Perubahan' : 'Tambah Faskes',
+            kelas: 'btn-primary',
+            aksi: async (modalBody) => {
+              const form = modalBody.querySelector('#formFaskesMaster');
+              if (!form.reportValidity()) return false;
+
+              const payload = {
+                nama: form.nama.value.trim(),
+                tipe: form.tipe.value,
+                alamat: form.alamat.value.trim() || null,
+                latitude: parseFloat(form.latitude.value),
+                longitude: parseFloat(form.longitude.value),
+                radius_meter: 250,
+                aktif: form.aktif.checked
+              };
+
+              try {
+                await DB.simpanMasterLokasi(payload, item?.id || null);
+                UI.toast('Data faskes berhasil disimpan!', 'ok');
+                masterLokasi = await DB.daftarMasterLokasi(false);
+                renderTabelFaskesMaster();
+                return true;
+              } catch (err) {
+                UI.toast('Gagal menyimpan faskes: ' + err.message, 'err');
+                return false;
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    function dialogHapusFaskes(item) {
+      UI.modal({
+        judul: 'Hapus Lokasi Faskes',
+        isi: `Apakah Anda yakin ingin menghapus <b>${UI.esc(item.nama)}</b> dari database referensi faskes?`,
+        tombol: [
+          { teks: 'Batal', nilai: false },
+          {
+            teks: 'Ya, Hapus',
+            kelas: 'btn-danger',
+            aksi: async () => {
+              try {
+                if (item.id && typeof item.id === 'string' && item.id.length > 10) {
+                  await DB.hapusMasterLokasi(item.id);
+                } else {
+                  masterLokasi = masterLokasi.filter(l => l.nama !== item.nama);
+                }
+                UI.toast('Lokasi faskes telah dihapus.', 'ok');
+                masterLokasi = await DB.daftarMasterLokasi(false);
+                renderTabelFaskesMaster();
+                return true;
+              } catch (err) {
+                UI.toast('Gagal menghapus faskes: ' + err.message, 'err');
+                return false;
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    container.querySelector('#cariFaskesMaster')?.addEventListener('input', (e) => {
+      teksCariFaskes = e.target.value;
+      renderTabelFaskesMaster();
+    });
+
+    container.querySelector('#filterTipeFaskesMaster')?.addEventListener('change', (e) => {
+      filterTipeFaskes = e.target.value;
+      renderTabelFaskesMaster();
+    });
+
+    container.querySelector('#btnTambahFaskesMaster')?.addEventListener('click', () => {
+      dialogEditLokasiFaskes(null);
+    });
+
+    renderTabelFaskesMaster();
   }
 
   // Public methods
