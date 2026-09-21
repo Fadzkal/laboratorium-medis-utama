@@ -125,7 +125,7 @@
       log("Memindai dokter baru dari CSV...");
       const csvDokters = new Set();
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(';').map(c => c.replace(/^["'\t]+|["'\t]+$/g, '').trim());
+        const cols = lines[i].split(';').map(c => c.trim().replace(/^["'\t]+|["'\t]+$/g, '').trim());
         if (cols.length >= 20 && cols[10]) {
           csvDokters.add(cols[10]);
         }
@@ -153,7 +153,7 @@
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        const cols = line.split(';').map(c => c.replace(/^["'\t]+|["'\t]+$/g, '').trim());
+        const cols = line.split(';').map(c => c.trim().replace(/^["'\t]+|["'\t]+$/g, '').trim());
         if (cols.length < 20) continue;
 
         const no_lab = cols[0];
