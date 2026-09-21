@@ -40,6 +40,11 @@ const PraDaftarCore = (() => {
     nama: ['nama', 'nama pasien', 'nama_pasien', 'nama lengkap'],
     nik: ['nik', 'no nik', 'no_nik'],
     no_bpjs: ['no_bpjs', 'no bpjs', 'bpjs', 'nomor bpjs', 'no. bpjs'],
+    title: ['title', 'sapaan', 'gelar'],
+    nrp: ['nrp', 'no nrp', 'nomor nrp', 'id pekerja', 'nip'],
+    bagian: ['bagian', 'departemen', 'dept', 'divisi'],
+    plant: ['plant', 'lokasi', 'site'],
+    no_telp: ['no_telp', 'telp', 'no telp', 'telepon', 'no telepon'],
     tanggal_lahir: ['tanggal_lahir', 'tanggal lahir', 'tgl_lahir', 'tgl lahir'],
     jenis_kelamin: ['jenis_kelamin', 'jenis kelamin', 'jk', 'gender'],
     alamat: ['alamat']
@@ -155,6 +160,11 @@ const PraDaftarCore = (() => {
       }
 
       const noBpjs = String(o.no_bpjs || '').trim() || null;
+      const title = String(o.title || '').trim() || null;
+      const nrp = String(o.nrp || '').trim() || null;
+      const bagian = String(o.bagian || '').trim() || null;
+      const plant = String(o.plant || '').trim() || null;
+      const noTelp = String(o.no_telp || '').trim() || null;
       const alamat = String(o.alamat || '').trim() || null;
 
       // Duplikat DI DALAM berkas yang sama: NIK sama, atau nama+tanggal
@@ -172,6 +182,7 @@ const PraDaftarCore = (() => {
       return {
         baris: n + 2,   // +1 header, +1 supaya sesuai nomor baris di Excel
         nama, nik, no_bpjs: noBpjs, alamat,
+        title, nrp, bagian, plant, no_telp: noTelp,
         tanggal_lahir: tanggalLahir, jenis_kelamin: jenisKelamin,
         wajib, peringatan,
         siap: wajib.length === 0

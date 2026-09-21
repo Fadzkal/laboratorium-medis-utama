@@ -356,7 +356,8 @@ const Migrasi = (() => {
         const rows = potong.map(b => ({
           nama: b.nama, nik: b.nik, no_bpjs: b.no_bpjs,
           tanggal_lahir: b.tanggal_lahir, jenis_kelamin: b.jenis_kelamin,
-          alamat: b.alamat
+          alamat: b.alamat,
+          title: b.title, nrp: b.nrp, bagian: b.bagian, plant: b.plant, no_telp: b.no_telp
         }));
         try {
           const hasil = await DB.pasienBuatMassal(rows);
