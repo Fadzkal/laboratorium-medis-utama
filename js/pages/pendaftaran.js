@@ -316,10 +316,6 @@ const Pendaftaran = (() => {
                 <label>Telp / HP</label>
                 <input type="tel" id="fTelp" placeholder="">
               </div>
-              <div class="pdft-field">
-                <label>No NIK</label>
-                <input type="text" id="fNik" placeholder="" maxlength="16" inputmode="numeric">
-              </div>
             </div>
 
             <!-- Dokter -->
@@ -953,19 +949,23 @@ const Pendaftaran = (() => {
 
       if (!pasien) {
         // Buat pasien baru
+        const nrpInput = el.querySelector('#fNrp').value.trim();
+        let nikVal = null, bpjsVal = null, nrpVal = nrpInput || null;
+        if (nrpInput.length === 16) { nikVal = nrpInput; }
+        else if (nrpInput.length === 13) { bpjsVal = nrpInput; }
+
         const dataPasien = {
           title:         el.querySelector('#fTitle').value || null,
           nama:          nama,
-          nrp:           el.querySelector('#fNrp').value.trim() || null,
+          nrp:           nrpVal,
           bagian:        el.querySelector('#fBagian').value.trim() || null,
           plant:         el.querySelector('#fPlant').value.trim() || null,
-          nik:           el.querySelector('#fNik').value.trim() || null,
-          no_bpjs:       noBpjs,
+          nik:           nikVal,
+          no_bpjs:       bpjsVal,
           jenis_kelamin: jk,
           tanggal_lahir: tglLahir,
           alamat:        el.querySelector('#fAlamat').value.trim() || null,
-          no_telp:       el.querySelector('#fTelp').value.trim() || null,
-          no_hp:         el.querySelector('#fHp').value.trim() || null
+          no_telp:       el.querySelector('#fTelp').value.trim() || null
         };
         pasien = await DB.simpanPasien(dataPasien, null);
         UI.toast(`Pasien baru terdaftar. No. RM: ${pasien.no_rm}`, 'ok');
