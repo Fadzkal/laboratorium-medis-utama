@@ -112,10 +112,10 @@
   /* Panggilan diantrikan, tidak ditumpuk. Dua nomor yang dipanggil dalam
      detik yang sama akan terdengar bergantian, bukan bersamaan — suara
      yang saling menimpa membuat keduanya tidak bisa dimengerti. */
-  function umumkan(nomor, tujuan, ulang) {
+  function umumkan(nomor, tujuan, ulang, nama = '') {
     if (!suaraAktif) return;
     bel();
-    const teks = A.teksPanggilan(nomor, tujuan, ulang);
+    const teks = A.teksPanggilan(nomor, tujuan, ulang, nama);
     // Beri jarak dari bel supaya kalimatnya tidak tertutup nada.
     setTimeout(() => { antrianUcap.push(teks); ucapBerikutnya(); }, 700);
   }
@@ -181,6 +181,11 @@
 
     if (kini) {
       $('nomorBesar').textContent  = kini.nomor;
+      const namaEl = $('namaBesar');
+      if (namaEl) {
+        namaEl.textContent = kini.nama_pasien || '';
+        namaEl.hidden = !kini.nama_pasien;
+      }
       $('tujuanBesar').textContent = kini.tujuan || kini.poli || '';
       $('waktuBesar').textContent  = kini.waktu ? `dipanggil pukul ${kini.waktu}` : '';
       const u = $('ulangBesar');
@@ -188,6 +193,11 @@
       u.textContent = kini.ulang > 1 ? `Panggilan ke-${kini.ulang}` : '';
     } else {
       $('nomorBesar').textContent  = '—';
+      const namaEl = $('namaBesar');
+      if (namaEl) {
+        namaEl.textContent = '';
+        namaEl.hidden = true;
+      }
       $('tujuanBesar').textContent = 'Menunggu panggilan';
       $('waktuBesar').textContent  = '';
       $('ulangBesar').hidden = true;
@@ -197,9 +207,10 @@
        dan ingin tahu apakah nomornya sudah lewat. */
     const lain = panggilan.slice(1, 6);
     $('riwayat').hidden = !lain.length;
-    $('riwayatIsi').innerHTML = lain.map(p =>
-      `<li><b>${esc(p.nomor)}</b> · ${esc(p.tujuan || p.poli || '')} ${esc(p.waktu || '')}</li>`
-    ).join('');
+    $('riwayatIsi').innerHTML = lain.map(p => {
+      const nama = p.nama_pasien ? ` · <b>${esc(p.nama_pasien)}</b>` : '';
+      return `<li><b>${esc(p.nomor)}</b>${nama} · ${esc(p.tujuan || p.poli || '')} ${esc(p.waktu || '')}</li>`;
+    }).join('');
 
     const poli = Array.isArray(d.poli) ? d.poli : [];
     $('poliGrid').innerHTML = poli.map(p => {
@@ -208,6 +219,7 @@
         <h2>${esc(p.nama)}</h2>
         <div class="kecil">Nomor dipanggil</div>
         <div class="besar ${p.dipanggil ? '' : 'kosong'}">${esc(p.dipanggil || '—')}</div>
+        ${p.dipanggil_nama ? `<div class="nama-loket" title="${esc(p.dipanggil_nama)}">${esc(p.dipanggil_nama)}</div>` : ''}
         <div class="sisa">${p.sisa || 0} menunggu · ${p.selesai || 0} selesai</div>
         ${berikut.length
           ? `<div class="berikut">${berikut.map(n => `<span>${esc(n)}</span>`).join('')}</div>`
@@ -228,7 +240,7 @@
       const baru = panggilan
         .filter(p => Number(p.id) > idTerakhirDibunyikan)
         .sort((a, b) => Number(a.id) - Number(b.id));
-      baru.forEach(p => umumkan(p.nomor, p.tujuan || p.poli, p.ulang || 1));
+      baru.forEach(p => umumkan(p.nomor, p.tujuan || p.poli, p.ulang || 1, p.nama_pasien || ''));
       idTerakhirDibunyikan = idTerbaru;
 
       const s = $('sorotan');

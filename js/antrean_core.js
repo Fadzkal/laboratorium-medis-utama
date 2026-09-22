@@ -47,13 +47,14 @@ const AntreanCore = (() => {
     return `${p.prefix}, ${p.urut}`;
   }
 
-  function teksPanggilan(nomor, tujuan, ulang = 1) {
+  function teksPanggilan(nomor, tujuan, ulang = 1, nama = '') {
     const eja = ejaNomor(nomor);
+    const atasNama = nama && String(nama).trim() ? `, atas nama ${String(nama).trim()}` : '';
     const ke = tujuan ? `, silakan menuju ${tujuan}` : '';
     // Panggilan ulang diberi awalan supaya pasien yang tadi tidak dengar
     // tahu bahwa ini kesempatan kedua, bukan nomor yang berbeda.
     const awal = ulang > 1 ? 'Panggilan ulang. ' : '';
-    return `${awal}Nomor antrean ${eja}${ke}.`;
+    return `${awal}Nomor antrean ${eja}${atasNama}${ke}.`;
   }
 
   /* ---------------- Pemeriksaan identitas -----------------------------

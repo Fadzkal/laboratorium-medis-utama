@@ -1,4 +1,4 @@
-﻿/* Uji fungsi murni antrean_core.js — dijalankan dengan `node`, tanpa
+/* Uji fungsi murni antrean_core.js — dijalankan dengan `node`, tanpa
    peramban dan tanpa database.
 
    ---------------------------------------------------------------------
@@ -71,6 +71,10 @@ cek('panggilan ulang diberi awalan',
     A.teksPanggilan('A-014', 'Loket 1', 2));
 cek('panggilan pertama tidak diberi awalan',
     !A.teksPanggilan('A-014', 'Loket 1', 1).includes('Panggilan ulang'));
+cek('panggilan dengan nama pasien menyebut nama',
+    A.teksPanggilan('A-014', 'Laboratorium Utama', 1, 'Budi Santoso') ===
+    'Nomor antrean A, 14, atas nama Budi Santoso, silakan menuju Laboratorium Utama.',
+    A.teksPanggilan('A-014', 'Laboratorium Utama', 1, 'Budi Santoso'));
 
 /* ===================================================================
    3. Pemeriksaan identitas — nilai yang sama dengan uji 4 di uji_antrean.sql

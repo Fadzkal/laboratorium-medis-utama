@@ -984,7 +984,9 @@ const DB = (() => {
       teks_berjalan: ANTREAN_SET.konfigurasi.teks_berjalan,
       panggilan: PANGGILAN.slice(0, 8).map(p => {
         const a = ANTREAN.find(x => x.id === p.antrean_id);
-        return { id: p.id, nomor: a?.nomor, tujuan: p.tujuan,
+        const pas = a ? PASIEN.find(x => x.id === a.pasien_id) : null;
+        const namaPasien = pas ? pas.nama : (a?.nama_snapshot || '');
+        return { id: p.id, nomor: a?.nomor, nama_pasien: namaPasien, tujuan: p.tujuan,
                  poli: POLI.find(x => x.id === a?.poli_id)?.nama,
                  waktu: jam(p.waktu), ulang: p.urutan };
       }),
@@ -992,9 +994,13 @@ const DB = (() => {
         const isi = ANTREAN.filter(a => a.poli_id === p.id && a.tanggal === hariIni);
         const terakhir = PANGGILAN.find(pg =>
           ANTREAN.find(a => a.id === pg.antrean_id)?.poli_id === p.id);
+        const antTerakhir = terakhir ? ANTREAN.find(a => a.id === terakhir.antrean_id) : null;
+        const pasTerakhir = antTerakhir ? PASIEN.find(x => x.id === antTerakhir.pasien_id) : null;
+        const namaDipanggil = pasTerakhir ? pasTerakhir.nama : (antTerakhir?.nama_snapshot || '');
         return {
           nama: p.nama, prefix: PREFIX[p.id] || 'A',
-          dipanggil: terakhir ? ANTREAN.find(a => a.id === terakhir.antrean_id)?.nomor : '',
+          dipanggil: antTerakhir?.nomor || '',
+          dipanggil_nama: namaDipanggil,
           berikut: isi.filter(a => ['MENUNGGU','BELUM_HADIR'].includes(a.status))
                       .sort((a, b) => a.no_urut - b.no_urut).slice(0, 4).map(a => a.nomor),
           sisa: isi.filter(a => ['MENUNGGU','BELUM_HADIR','DIPANGGIL'].includes(a.status)).length,
