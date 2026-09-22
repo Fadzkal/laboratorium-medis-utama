@@ -245,9 +245,15 @@ const Lab = (() => {
             <div class="sub" id="ringkasLembar">${ringkas.terisi} dari ${ringkas.total} terisi</div></div>
           <div class="btn-group no-print" style="align-items: center;">
             <select id="selFormatCetakInt" style="font-size: 12px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; margin-right: 4px;">
-              <option value="M3">Format 3(M3)</option>
-              <option value="Standar">Format Standar</option>
-              <option value="Asli">Format Asli</option>
+              <option value="Format 3(M3)" selected>Format 3(M3)</option>
+              <option value="Format 2025">Format 2025</option>
+              <option value="Format 5(F4)">Format 5(F4)</option>
+              <option value="Format 5(F4)_2">Format 5(F4)</option>
+              <option value="Format 4(M4)">Format 4(M4)</option>
+              <option value="Format 2(M2)">Format 2(M2)</option>
+              <option value="BPJS">BPJS</option>
+              <option value="BPJS.2">BPJS.2</option>
+              <option value="Inggris PDF">Inggris PDF</option>
             </select>
             <button class="btn btn-secondary btn-sm" id="btnCetak">${UI.ikon('cetak',15)} Cetak</button>
             ${p.status === 'SELESAI' && adminSaja()
@@ -284,7 +290,7 @@ const Lab = (() => {
 
     el.querySelector('#btnCetak').addEventListener('click', () => {
       const selFormat = el.querySelector('#selFormatCetakInt');
-      cetakLembar(p, rujukanPakai, selFormat ? selFormat.value : 'Standar');
+      cetakLembar(p, rujukanPakai, selFormat ? selFormat.value : 'Format 3(M3)');
     });
 
     const bSelesai = el.querySelector('#btnSelesai');
@@ -479,10 +485,15 @@ const Lab = (() => {
   }
 
   /* ------------------------------------------------------------------ */
-  async function cetakLembar(p, rujukanPakai, format = 'Standar') {
+  async function cetakLembar(p, rujukanPakai, format = 'Format 3(M3)') {
     const f = await DB.faskes().catch(() => null);
     const grup = LabCore.kelompokkan(
       p.hasil.map(h => Object.assign({}, h, { kelompok: h.ref && h.ref.kelompok })), master);
+
+    // Normalisasi nama format untuk kompatibilitas ke belakang
+    if (!format || format === 'M3' || format === 'Standar' || format === 'Asli') {
+      format = 'Format 3(M3)';
+    }
 
     const nilaiTeks = (h) => {
       const m = h.ref || {};
@@ -492,184 +503,549 @@ const Lab = (() => {
       return h.nilai_teks || '—';
     };
 
-    const w = window.open('', '_blank', 'width=820,height=1000');
+    const isAbnormalItem = (h) => {
+      const r = rujukanPakai[h.id];
+      if (h.tanda && ['T', 'R', 'H', 'L', 'KRITIS_TINGGI', 'KRITIS_RENDAH', '*'].includes(h.tanda)) return true;
+      if (typeof isAbnormal === 'function') return isAbnormal(h, r);
+      return false;
+    };
+
+    const w = window.open('', '_blank', 'width=880,height=1000');
     if (!w) { UI.toast('Pop-up diblokir peramban. Izinkan untuk mencetak.', 'err'); return; }
     
-    const dicetakOleh = App.siapa()?.nama || '';
+    const dicetakOleh = App.siapa()?.nama || 'Petugas Laboratorium';
     const now = new Date();
-    
-    // Barcode URL
+    const basePath = window.location.origin + window.location.pathname.replace('app.html', '');
+    const bpjsLogoUrl = basePath + 'bpjs.png';
+    const logoUrl = basePath + 'logo.png';
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(p.no_lab)}&code=Code128&translate-esc=on&dpi=96`;
-    // QR Code URL for Verifikator
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('Verifikator: dr. Minto Rahaju Sp. PK')}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=85x85&data=${encodeURIComponent('Verifikator: dr. Minto Rahaju Sp. PK - No Lab: ' + (p.no_lab || ''))}`;
+    const jamSampel = p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19);
 
-    w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8">
-      <title>Hasil Laboratorium ${UI.esc(p.no_lab)}</title>
+    const isEng = format === 'Inggris PDF';
+    const isBpjs1 = format === 'BPJS';
+    const isBpjs2 = format === 'BPJS.2';
+    const is2025 = format === 'Format 2025';
+    const isF4_1 = format === 'Format 5(F4)';
+    const isF4_2 = format === 'Format 5(F4)_2';
+    const isM4 = format === 'Format 4(M4)';
+    const isM2 = format === 'Format 2(M2)';
+
+    // Penentuan ukuran halaman CSS @page
+    let pageSizeCss = 'size: A4 portrait; margin: 10mm 15mm;';
+    if (isF4_1 || isF4_2) {
+      pageSizeCss = 'size: 215mm 330mm portrait; margin: 12mm 18mm;';
+    } else if (isM2) {
+      pageSizeCss = 'size: A5 landscape; margin: 8mm 12mm;';
+    }
+
+    // Terjemahan nama grup dan item untuk format Inggris
+    const translateEn = (nama) => {
+      const dict = {
+        'HEMATOLOGI': 'HEMATOLOGY',
+        'KIMIA KLINIK': 'CLINICAL CHEMISTRY',
+        'URINALISA': 'URINALYSIS',
+        'IMUNOLOGI & SEROLOGI': 'IMMUNOLOGY & SEROLOGY',
+        'MIKROBIOLOGI': 'MICROBIOLOGY',
+        'Hemoglobin': 'Hemoglobin (Hb)',
+        'Leukosit': 'White Blood Cells (WBC / Leukocytes)',
+        'Trombosit': 'Platelets (Thrombocytes)',
+        'Hematokrit': 'Hematocrit (Ht)',
+        'Eritrosit': 'Red Blood Cells (RBC / Erythrocytes)',
+        'Glukosa Puasa': 'Fasting Blood Glucose',
+        'Glukosa 2 Jam PP': '2-Hour Postprandial Glucose',
+        'Glukosa Sewaktu': 'Random Blood Glucose',
+        'HbA1c': 'Hemoglobin A1c (HbA1c)',
+        'Kolesterol Total': 'Total Cholesterol',
+        'Trigliserida': 'Triglycerides',
+        'HDL Kolesterol': 'HDL Cholesterol',
+        'LDL Kolesterol': 'LDL Cholesterol',
+        'Asam Urat': 'Uric Acid',
+        'Ureum': 'Blood Urea Nitrogen (BUN)',
+        'Kreatinin': 'Serum Creatinine',
+        'SGOT': 'SGOT / AST',
+        'SGPT': 'SGPT / ALT'
+      };
+      return dict[nama] || nama;
+    };
+
+    w.document.write(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
+      <title>${isEng ? 'Laboratory Examination Result' : 'Hasil Laboratorium'} ${UI.esc(p.no_lab)} - ${UI.esc(format)}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 30px 40px; color: #000; line-height: 1.4; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .header-bpjs { flex: 1; text-align: left; }
-        .header-bpjs img { height: 45px; width: auto; }
-        .header-logo { flex: 1; text-align: center; }
-        .header-logo img { width: 50px; height: auto; }
-        .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
-        .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -4px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0; padding: ${isM2 ? '15px' : '24px 30px'}; color: #000; line-height: 1.35; background: #fff; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
         
-        .header-text { flex: 1; text-align: left; font-size: 11px; padding-left: 20px; }
-        .header-text b { font-size: 12px; }
+        /* HEADER STYLES */
+        .kop-wrapper { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #000; margin-bottom: 14px; }
+        .kop-bpjs { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .kop-bpjs img { height: 42px; width: auto; object-fit: contain; }
+        .kop-center { flex: 1.5; text-align: center; }
+        .kop-center img { height: 46px; width: auto; margin-bottom: 2px; }
+        .kop-center .brand-title { color: #15803d; font-weight: 800; font-size: 20px; letter-spacing: 1.5px; margin: 0; line-height: 1.1; }
+        .kop-center .brand-sub { color: #6b21a8; font-size: 9.5px; font-style: italic; font-weight: 600; }
+        .kop-right { flex: 1.2; text-align: right; font-size: 10px; color: #333; line-height: 1.3; }
+        .kop-right b { font-size: 11px; color: #000; }
         
-        .barcode { margin-bottom: 5px; }
-        .barcode img { height: 35px; width: auto; display: block; }
+        /* 2025 MODERN HEADER */
+        .kop-2025 { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); color: #fff; border-radius: 6px; margin-bottom: 16px; }
+        .kop-2025 .logo-txt { display: flex; align-items: center; gap: 12px; }
+        .kop-2025 .logo-txt img { height: 48px; background: #fff; padding: 3px; border-radius: 4px; }
+        .kop-2025 h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.5px; color: #fff; }
+        .kop-2025 p { margin: 2px 0 0; font-size: 10px; opacity: 0.9; }
+        .kop-2025 .badge-tag { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 700; text-align: right; }
+
+        /* PATIENT METADATA */
+        .patient-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; font-size: 11px; }
+        .patient-card-3 { display: grid; grid-template-columns: 1.1fr 1.2fr 1fr; gap: 12px; margin-bottom: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; font-size: 11px; }
+        .meta-row { display: grid; grid-template-columns: 110px 10px 1fr; margin-bottom: 3px; align-items: baseline; }
+        .meta-row .label { color: #475569; font-weight: 500; }
+        .meta-row .colon { color: #475569; }
+        .meta-row .value { color: #0f172a; font-weight: 600; word-break: break-word; }
+
+        /* BARCODE & STATUS BAR */
+        .bar-strip { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 4px 0; border-bottom: 1px dashed #cbd5e1; }
+        .bar-strip .barcode-img { height: 32px; width: auto; }
         
-        .pj { font-weight: 700; font-size: 11px; margin-bottom: 15px; }
-        
-        .patient-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .info-grid { display: grid; grid-template-columns: 110px 10px 1fr; gap: 2px 0; }
-        
-        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 30px; }
-        th { text-align: left; padding: 8px 4px; text-transform: uppercase; border-bottom: 1px solid #000; font-weight: 600; }
-        td { padding: 4px; vertical-align: top; }
-        .grp td { font-weight: 700; text-transform: uppercase; padding-top: 10px; }
-        
-        .signatures { display: flex; justify-content: space-between; margin-top: 40px; text-align: left; font-size: 11px; }
-        .sig-box { display: flex; flex-direction: column; align-items: flex-start; }
-        .qr-box { margin: 5px 0; }
-        .qr-box img { width: 60px; height: 60px; }
-        
-        .footer { margin-top: 50px; font-size: 9px; display: flex; justify-content: space-between; align-items: flex-end; }
-        .footer b { display: block; font-size: 10px; margin-top: 3px; }
-        @page { margin: 0; size: A4 portrait; }
-      </style></head><body>
-      
-      <div class="header">
-        <div class="header-bpjs">
-          <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}bpjs.png" alt="BPJS Kesehatan" onerror="this.style.display='none'">
-        </div>
-        <div class="header-logo">
-          <img src="${window.location.origin}${window.location.pathname.replace('app.html','')}logo.png" onerror="this.style.display='none'">
-          <div class="brand">UTAMA</div>
-          <div class="motto">Kepuasan Anda Prioritas Kami</div>
-        </div>
-        <div class="header-text">
-          <b>Laboratorium Medis UTAMA</b><br>
-          Jl. DI Panjaitan No. 94, Purbalingga<br>
-          Telp. 0281-6580099 / 08121482308<br>
-          Email : laboratoriumutama@yahoo.com
-        </div>
-      </div>
-      
-      <div class="barcode">
-        <img src="${barcodeUrl}" alt="Barcode">
-      </div>
-      
-      <div class="pj">Penanggung Jawab : dr. Minto Rahaju Sp. PK</div>
-      
-      <div class="patient-info">
-        <div class="info-grid">
-          <div>No Lab</div><div>:</div><div><b>${UI.esc(p.no_lab)}</b></div>
-          <div>Nama</div><div>:</div><div>${UI.esc(p.pasien.nama)}</div>
-          <div>Dokter Pengirim</div><div>:</div><div>${UI.esc(p.kunjungan?.dokter?.nama || p.peminta?.nama || '-')}</div>
-          <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien.alamat || '-')}</div>
-        </div>
-        <div class="info-grid">
-          <div>Umur</div><div>:</div><div>${UI.umurTeks(p.pasien.tanggal_lahir)}</div>
-          <div>Jenis Kelamin</div><div>:</div><div>${p.pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan'}</div>
-          <div>Tgl. Periksa</div><div>:</div><div>${UI.tglIndo(p.tanggal)}</div>
-          <div>Instansi</div><div>:</div><div>${p.pasien.jenis_asuransi === 'UMUM' ? 'umum' : UI.esc(p.pasien.jenis_asuransi || 'umum')}</div>
-        </div>
-      </div>
-      
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40%">PEMERIKSAAN</th>
-            <th style="width: 15%">HASIL</th>
-            <th style="width: 30%">NILAI RUJUKAN</th>
-            <th style="width: 15%">SATUAN</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${grup.map(g => `<tr class="grp"><td colspan="4">${UI.esc(g.kelompok)}</td></tr>
-            ${g.isi.map(h => {
-              const rujukanString = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '';
-              const rujukanHtml = UI.esc(rujukanString).replace(/\\n/g, '<br>');
-              return `<tr>
-                <td>${UI.esc(h.nama)}</td>
-                <td>${UI.esc(nilaiTeks(h))}</td>
-                <td>${rujukanHtml}</td>
-                <td>${UI.esc(h.satuan || '')}</td>
-              </tr>`;
-            }).join('')}`).join('')}
-        </tbody>
-      </table>
-      
-      ${format === 'Asli' ? `
-      <div class="signatures">
-        <div class="sig-box">
-          <div>Verifikator</div>
-          <div style="height: 60px;"></div>
-          <div>${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
-          <div>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</div>
-        </div>
-        <div class="sig-box" style="align-items: flex-start;">
-          <div>Penanggung Jawab</div>
-          <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
-          <div>dr. Minto Rahaju Sp. PK</div>
-        </div>
-      </div>
-      
-      <div class="footer">
+        /* TABLE STYLES */
+        table.tbl-hasil { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
+        table.tbl-hasil thead th { background: #f1f5f9; color: #0f172a; text-transform: uppercase; font-weight: 700; font-size: 10px; padding: 7px 6px; border-top: 1px solid #000; border-bottom: 1px solid #000; text-align: left; }
+        table.tbl-hasil thead th.r { text-align: right; }
+        table.tbl-hasil thead th.c { text-align: center; }
+        table.tbl-hasil tbody tr.grp-row td { background: #fafafa; font-weight: 800; font-size: 11px; text-transform: uppercase; padding: 8px 6px 4px; color: #0f766e; border-bottom: 1px solid #e2e8f0; }
+        table.tbl-hasil tbody td { padding: 5px 6px; vertical-align: top; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+        table.tbl-hasil tbody tr:last-child td { border-bottom: 1px solid #000; }
+        table.tbl-hasil tbody td.val-col { font-weight: 700; }
+        table.tbl-hasil tbody td.abnormal { color: #dc2626; font-weight: 800; }
+        .flag-pill { display: inline-block; background: #fee2e2; color: #b91c1c; font-weight: 700; font-size: 9.5px; padding: 1px 5px; border-radius: 3px; }
+
+        /* SIGNATURE & FOOTER */
+        .sig-container { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 24px; font-size: 11px; }
+        .sig-box { display: flex; flex-direction: column; min-width: 180px; }
+        .sig-box .role { font-weight: 700; margin-bottom: 4px; }
+        .sig-box .qr { margin: 6px 0; }
+        .sig-box .qr img { width: 68px; height: 68px; }
+        .sig-box .name { font-weight: 700; font-size: 11.5px; margin-top: 4px; }
+        .sig-box .time { font-size: 9.5px; color: #64748b; }
+
+        .footer-note { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9.5px; color: #64748b; display: flex; justify-content: space-between; align-items: flex-end; }
+        .footer-note .disclaimer { max-width: 65%; line-height: 1.3; font-style: italic; }
+
+        /* ACTION BAR (NO PRINT) */
+        .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: #fff; padding: 8px 16px; margin: -24px -30px 16px; border-bottom: 2px solid #0f766e; }
+        .btn-print { background: #0f766e; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 12px; }
+        .btn-print:hover { background: #0d9488; }
+
+        @media print {
+          .no-print-bar { display: none !important; }
+          body { padding: 0 !important; }
+        }
+        @page { ${pageSizeCss} }
+      </style>
+    </head>
+    <body>
+      <div class="no-print-bar">
         <div>
-          Hal. 1 dari 1 Halaman<br>
-          Jam Sampel ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
+          <b>Pratinjau Cetak Laboratorium</b> — Format: <span style="color:#38bdf8;">${UI.esc(format)}</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-print" onclick="window.print()">🖨️ Cetak Dokumen</button>
+          <button class="btn-print" style="background:#475569;" onclick="window.close()">Tutup</button>
+        </div>
+      </div>
+    `);
+
+    // 1. RENDER KOP HEADER
+    if (is2025) {
+      w.document.write(`
+        <div class="kop-2025">
+          <div class="logo-txt">
+            <img src="${logoUrl}" onerror="this.style.display='none'">
+            <div>
+              <h1>LABORATORIUM MEDIS UTAMA</h1>
+              <p>Layanan Diagnostik &amp; Patologi Terpadu · Akreditasi Kemenkes RI</p>
+              <p style="font-size:9.5px; opacity:0.85;">Jl. DI Panjaitan No. 94, Purbalingga · Telp: 0281-6580099 / 08121482308</p>
+            </div>
+          </div>
+          <div class="badge-tag">
+            <div>LAPORAN RESMI 2025</div>
+            <div style="font-size:9px; font-weight:400; opacity:0.9;">No: ${UI.esc(p.no_lab)}</div>
+          </div>
+        </div>
+      `);
+    } else if (isBpjs1 || isBpjs2) {
+      w.document.write(`
+        <div class="kop-wrapper" style="border-bottom-color:#059669;">
+          <div class="kop-bpjs">
+            <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
+            <div>
+              <div style="font-weight:800; font-size:14px; color:#065f46;">BPJS KESEHATAN</div>
+              <div style="font-size:10px; color:#047857;">${isBpjs2 ? 'PROGRAM KRONIS &amp; PROLANIS' : 'LEMBAR HASIL LABORATORIUM'}</div>
+            </div>
+          </div>
+          <div class="kop-center">
+            <img src="${logoUrl}" onerror="this.style.display='none'">
+            <div class="brand-title">UTAMA</div>
+            <div class="brand-sub">Mitra Faskes BPJS Kesehatan</div>
+          </div>
+          <div class="kop-right">
+            <b>Laboratorium Medis UTAMA</b><br>
+            Jl. DI Panjaitan No. 94, Purbalingga<br>
+            Telp. 0281-6580099
+          </div>
+        </div>
+      `);
+    } else if (isEng) {
+      w.document.write(`
+        <div class="kop-wrapper" style="border-bottom-color:#0f766e;">
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <img src="${logoUrl}" style="height:50px;" onerror="this.style.display='none'">
+            <div>
+              <div style="font-weight:800; font-size:16px; color:#0f766e; letter-spacing:1px;">UTAMA MEDICAL LABORATORY</div>
+              <div style="font-size:10px; color:#475569; font-weight:600;">CLINICAL DIAGNOSTIC &amp; PATHOLOGY SERVICES</div>
+            </div>
+          </div>
+          <div class="kop-right">
+            <b>UTAMA Medical Laboratory Centre</b><br>
+            Jl. DI Panjaitan No. 94, Purbalingga, Central Java, Indonesia<br>
+            Phone: +62 281 6580099 · Email: laboratoriumutama@yahoo.com
+          </div>
+        </div>
+        <div style="text-align:center; margin:-6px 0 14px; font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">
+          OFFICIAL LABORATORY EXAMINATION REPORT
+        </div>
+      `);
+    } else {
+      // Default & Standard: Format 3(M3), Format 5(F4), Format 4(M4), Format 2(M2)
+      w.document.write(`
+        <div class="kop-wrapper">
+          <div class="kop-bpjs">
+            <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
+          </div>
+          <div class="kop-center">
+            <img src="${logoUrl}" onerror="this.style.display='none'">
+            <div class="brand-title">UTAMA</div>
+            <div class="brand-sub">Kepuasan Anda Prioritas Kami</div>
+          </div>
+          <div class="kop-right">
+            <b>Laboratorium Medis UTAMA</b><br>
+            Jl. DI Panjaitan No. 94, Purbalingga<br>
+            Telp. 0281-6580099 / 08121482308<br>
+            Email : laboratoriumutama@yahoo.com
+          </div>
+        </div>
+      `);
+    }
+
+    // 2. BARCODE & PENANGGUNG JAWAB STRIP
+    if (!is2025 && !isM2) {
+      w.document.write(`
+        <div class="bar-strip">
+          <div>
+            <img src="${barcodeUrl}" alt="Barcode" class="barcode-img">
+          </div>
+          <div style="font-weight:700; font-size:10.5px;">
+            ${isEng ? 'Physician in Charge: dr. Minto Rahaju, Sp.PK' : 'Penanggung Jawab : dr. Minto Rahaju Sp. PK'}
+          </div>
+        </div>
+      `);
+    }
+
+    // 3. IDENTITAS PASIEN
+    const jkText = p.pasien.jenis_kelamin === 'L' ? (isEng ? 'Male' : 'Laki-Laki') : (isEng ? 'Female' : 'Perempuan');
+    const umurTeks = UI.umurTeks(p.pasien.tanggal_lahir);
+    const dokterPengirim = p.kunjungan?.dokter?.nama || p.peminta?.nama || '-';
+    const noBpjs = p.pasien.no_bpjs || '-';
+    const instansi = p.pasien.jenis_asuransi === 'UMUM' ? 'Umum' : (p.pasien.jenis_asuransi || p.kunjungan?.cara_bayar || 'Umum');
+
+    if (is2025) {
+      w.document.write(`
+        <div class="patient-card-3">
+          <div>
+            <div class="meta-row"><span class="label">No. Lab</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
+            <div class="meta-row"><span class="label">No. Rekam Medis</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.no_rm)}</span></div>
+            <div class="meta-row"><span class="label">NIK</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.nik || '—')}</span></div>
+          </div>
+          <div>
+            <div class="meta-row"><span class="label">Nama Pasien</span><span class="colon">:</span><span class="value" style="font-size:12px; color:#0f766e;">${UI.esc(p.pasien.nama)}</span></div>
+            <div class="meta-row"><span class="label">Umur / JK</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)} / ${jkText}</span></div>
+            <div class="meta-row"><span class="label">Alamat</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.alamat || '—')}</span></div>
+          </div>
+          <div>
+            <div class="meta-row"><span class="label">Tgl. Periksa</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
+            <div class="meta-row"><span class="label">Pengirim</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
+            <div class="meta-row"><span class="label">Penjamin</span><span class="colon">:</span><span class="value">${UI.esc(instansi)}</span></div>
+          </div>
+        </div>
+      `);
+    } else if (isBpjs1 || isBpjs2) {
+      w.document.write(`
+        <div class="patient-card" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 14px;">
+          <div>
+            <div class="meta-row"><span class="label">No. Kartu BPJS</span><span class="colon">:</span><span class="value mono" style="font-size:12px; color:#065f46;">${UI.esc(noBpjs)}</span></div>
+            <div class="meta-row"><span class="label">No. Lab</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
+            <div class="meta-row"><span class="label">Nama Pasien</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.nama)}</span></div>
+            <div class="meta-row"><span class="label">No. RM / NIK</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.no_rm)} / ${UI.esc(p.pasien.nik || '—')}</span></div>
+          </div>
+          <div>
+            <div class="meta-row"><span class="label">Tgl. Pemeriksaan</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
+            <div class="meta-row"><span class="label">Umur / JK</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)} / ${jkText}</span></div>
+            <div class="meta-row"><span class="label">Dokter Perujuk</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
+            <div class="meta-row"><span class="label">Diagnosa (ICD-10)</span><span class="colon">:</span><span class="value">${UI.esc(p.kunjungan?.diagnosa || '—')}</span></div>
+            ${isBpjs2 ? `<div class="meta-row"><span class="label" style="color:#059669; font-weight:700;">Status Prolanis</span><span class="colon">:</span><span class="value" style="color:#059669;">Pemantauan Siklus 6 Bulan</span></div>` : ''}
+          </div>
+        </div>
+      `);
+    } else if (isEng) {
+      w.document.write(`
+        <div class="patient-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px;">
+          <div>
+            <div class="meta-row"><span class="label">Lab ID No.</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
+            <div class="meta-row"><span class="label">Patient Name</span><span class="colon">:</span><span class="value" style="font-size:12px;">${UI.esc(p.pasien.nama)}</span></div>
+            <div class="meta-row"><span class="label">MRN / ID</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.no_rm)} / ${UI.esc(p.pasien.nik || '—')}</span></div>
+            <div class="meta-row"><span class="label">Address</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.alamat || '—')}</span></div>
+          </div>
+          <div>
+            <div class="meta-row"><span class="label">Date of Test</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
+            <div class="meta-row"><span class="label">Age / Gender</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)} / ${jkText}</span></div>
+            <div class="meta-row"><span class="label">Referring Doctor</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
+            <div class="meta-row"><span class="label">Payment Type</span><span class="colon">:</span><span class="value">${UI.esc(instansi)}</span></div>
+          </div>
+        </div>
+      `);
+    } else {
+      w.document.write(`
+        <div class="patient-card">
+          <div>
+            <div class="meta-row"><span class="label">No Lab</span><span class="colon">:</span><span class="value mono"><b>${UI.esc(p.no_lab)}</b></span></div>
+            <div class="meta-row"><span class="label">Nama</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.nama)}</span></div>
+            <div class="meta-row"><span class="label">Dokter Pengirim</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
+            <div class="meta-row"><span class="label">Alamat</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.alamat || '-')}</span></div>
+          </div>
+          <div>
+            <div class="meta-row"><span class="label">Umur</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)}</span></div>
+            <div class="meta-row"><span class="label">Jenis Kelamin</span><span class="colon">:</span><span class="value">${jkText}</span></div>
+            <div class="meta-row"><span class="label">Tgl. Periksa</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
+            <div class="meta-row"><span class="label">Instansi</span><span class="colon">:</span><span class="value">${UI.esc(instansi)}</span></div>
+          </div>
+        </div>
+      `);
+    }
+
+    // 4. TABEL HASIL SESUAI FORMAT
+    if (isEng) {
+      w.document.write(`
+        <table class="tbl-hasil">
+          <thead>
+            <tr>
+              <th style="width:36%">TEST PARAMETER</th>
+              <th style="width:16%" class="r">RESULT</th>
+              <th style="width:10%" class="c">FLAG</th>
+              <th style="width:12%">UNIT</th>
+              <th style="width:26%">REFERENCE RANGE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              <tr class="grp-row"><td colspan="5">${UI.esc(translateEn(g.kelompok || 'EXAMINATION'))}</td></tr>
+              ${g.isi.map(h => {
+                const abnormal = isAbnormalItem(h);
+                const rujukanStr = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '—';
+                return `<tr>
+                  <td><b>${UI.esc(translateEn(h.nama))}</b></td>
+                  <td class="r val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
+                  <td class="c">${abnormal ? '<span class="flag-pill">HIGH/LOW</span>' : 'Normal'}</td>
+                  <td>${UI.esc(h.satuan || '')}</td>
+                  <td>${UI.esc(rujukanStr).replace(/\\n/g, '<br>')}</td>
+                </tr>`;
+              }).join('')}
+            `).join('')}
+          </tbody>
+        </table>
+      `);
+    } else if (isF4_2) {
+      // Format 5(F4) Varian 2: Menampilkan Nilai Normal L dan P Terpisah
+      w.document.write(`
+        <table class="tbl-hasil">
+          <thead>
+            <tr>
+              <th style="width:8%">KODE</th>
+              <th style="width:30%">PEMERIKSAAN</th>
+              <th style="width:14%" class="r">HASIL</th>
+              <th style="width:6%" class="c">*</th>
+              <th style="width:10%">SATUAN</th>
+              <th style="width:16%">NORMAL (L)</th>
+              <th style="width:16%">NORMAL (P)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              <tr class="grp-row"><td colspan="7">${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
+              ${g.isi.map(h => {
+                const abnormal = isAbnormalItem(h);
+                const m = h.ref || {};
+                const rL = m.normal_l || (m.rujukan?.find(r => r.jenis_kelamin === 'L')?.teks) || '—';
+                const rP = m.normal_p || (m.rujukan?.find(r => r.jenis_kelamin === 'P')?.teks) || '—';
+                return `<tr>
+                  <td class="mono text-muted">${UI.esc(m.kode || '')}</td>
+                  <td><b>${UI.esc(h.nama)}</b></td>
+                  <td class="r val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
+                  <td class="c abnormal">${abnormal ? '↑' : ''}</td>
+                  <td>${UI.esc(h.satuan || '')}</td>
+                  <td class="mono">${UI.esc(rL)}</td>
+                  <td class="mono">${UI.esc(rP)}</td>
+                </tr>`;
+              }).join('')}
+            `).join('')}
+          </tbody>
+        </table>
+      `);
+    } else if (isF4_1 || isM4) {
+      // Format 5(F4) & Format 4(M4): Kolom Lengkap dengan Metode
+      w.document.write(`
+        <table class="tbl-hasil">
+          <thead>
+            <tr>
+              <th style="width:8%">KODE</th>
+              <th style="width:34%">PEMERIKSAAN</th>
+              <th style="width:14%" class="r">HASIL</th>
+              <th style="width:6%" class="c">FLAG</th>
+              <th style="width:10%">SATUAN</th>
+              <th style="width:18%">NILAI RUJUKAN</th>
+              <th style="width:10%">METODE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              <tr class="grp-row"><td colspan="7">${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
+              ${g.isi.map(h => {
+                const abnormal = isAbnormalItem(h);
+                const m = h.ref || {};
+                const rujukanStr = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '—';
+                return `<tr>
+                  <td class="mono text-muted">${UI.esc(m.kode || '')}</td>
+                  <td><b>${UI.esc(h.nama)}</b></td>
+                  <td class="r val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
+                  <td class="c abnormal">${abnormal ? '<span class="flag-pill">*</span>' : ''}</td>
+                  <td>${UI.esc(h.satuan || '')}</td>
+                  <td>${UI.esc(rujukanStr).replace(/\\n/g, '<br>')}</td>
+                  <td class="text-muted">${UI.esc(m.metode || '—')}</td>
+                </tr>`;
+              }).join('')}
+            `).join('')}
+          </tbody>
+        </table>
+      `);
+    } else if (is2025) {
+      // Format 2025: Desain Modern dengan Status Label
+      w.document.write(`
+        <table class="tbl-hasil">
+          <thead>
+            <tr style="background:#0f766e; color:#fff;">
+              <th style="width:36%; color:#fff; border-color:#0f766e;">PEMERIKSAAN</th>
+              <th style="width:16%; color:#fff; border-color:#0f766e;" class="r">HASIL</th>
+              <th style="width:12%; color:#fff; border-color:#0f766e;" class="c">STATUS</th>
+              <th style="width:24%; color:#fff; border-color:#0f766e;">NILAI RUJUKAN</th>
+              <th style="width:12%; color:#fff; border-color:#0f766e;">SATUAN</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              <tr class="grp-row" style="background:#f0fdfa; color:#0f766e;"><td colspan="5">📁 ${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
+              ${g.isi.map(h => {
+                const abnormal = isAbnormalItem(h);
+                const rujukanStr = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '—';
+                return `<tr>
+                  <td><b>${UI.esc(h.nama)}</b></td>
+                  <td class="r val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
+                  <td class="c">${abnormal ? '<span class="flag-pill">ABNORMAL</span>' : '<span style="color:#16a34a; font-weight:600;">Normal</span>'}</td>
+                  <td>${UI.esc(rujukanStr).replace(/\\n/g, '<br>')}</td>
+                  <td>${UI.esc(h.satuan || '')}</td>
+                </tr>`;
+              }).join('')}
+            `).join('')}
+          </tbody>
+        </table>
+      `);
+    } else {
+      // Default: Format 3(M3), Format 2(M2), BPJS, BPJS.2
+      w.document.write(`
+        <table class="tbl-hasil">
+          <thead>
+            <tr>
+              <th style="width:40%">PEMERIKSAAN</th>
+              <th style="width:15%">HASIL</th>
+              <th style="width:30%">NILAI RUJUKAN</th>
+              <th style="width:15%">SATUAN</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `<tr class="grp-row"><td colspan="4">${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
+              ${g.isi.map(h => {
+                const rujukanString = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '';
+                const rujukanHtml = UI.esc(rujukanString).replace(/\\n/g, '<br>');
+                const abnormal = isAbnormalItem(h);
+                return `<tr>
+                  <td>${UI.esc(h.nama)}</td>
+                  <td class="val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
+                  <td>${rujukanHtml}</td>
+                  <td>${UI.esc(h.satuan || '')}</td>
+                </tr>`;
+              }).join('')}`).join('')}
+          </tbody>
+        </table>
+      `);
+    }
+
+    // Catatan Kaki jika ada catatan klinis
+    if (p.catatan_klinis) {
+      w.document.write(`
+        <div style="margin-bottom:14px; padding:6px 10px; background:#f8fafc; border-left:3px solid #0f766e; font-size:10.5px;">
+          <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
+        </div>
+      `);
+    }
+
+    // Keterangan Asterisk
+    w.document.write(`
+      <div style="margin-top: 10px; font-size: 10px; font-weight: 600; color: #475569;">
+        ${isEng ? 'Note: (*) Result outside clinical reference range' : 'Keterangan : (*) Diluar nilai normal'}
+      </div>
+    `);
+
+    // 5. TANDA TANGAN & PENGESAHAN
+    w.document.write(`
+      <div class="sig-container">
+        <div class="sig-box">
+          <div class="role">${isEng ? 'Verified by (Analyst),' : 'Verifikator,'}</div>
+          <div style="height: 52px;"></div>
+          <div class="name">${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
+          <div class="time">${isEng ? 'Timestamp: ' : 'Waktu: '}${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : jamSampel}</div>
+        </div>
+        <div class="sig-box" style="align-items: flex-end; text-align: right;">
+          <div class="role" style="text-align: right;">${isEng ? 'Clinical Pathologist in Charge,' : 'Penanggung Jawab,'}</div>
+          <div class="qr"><img src="${qrUrl}" alt="QR Validation"></div>
+          <div class="name">dr. Minto Rahaju, Sp. PK</div>
+          <div class="time">${isEng ? 'SIP: 446/123/SIP-Sp/Dinkes' : 'SIP: 446/123/SIP-Sp/Dinkes'}</div>
+        </div>
+      </div>
+      
+      <div class="footer-note">
+        <div class="disclaimer">
+          ${isEng
+            ? 'This document is electronically generated and validated by the Laboratory Information System. No physical signature is required.'
+            : 'Hasil tidak memerlukan tanda tangan basah karena dicetak dan divalidasi secara elektronik oleh Sistem Informasi Laboratorium (LIS).'}
         </div>
         <div style="text-align: right;">
-          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}<br>
-          <b>Hasil tidak memerlukan tanda tangan karena dicetak secara elektronik. Hasil sudah di verifikasi dan divalidasi</b>
+          ${isEng ? 'Printed by' : 'Dicetak oleh'}: ${UI.esc(dicetakOleh)} · ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}
         </div>
       </div>
-      ` : format === 'Standar' ? `
-      <div style="margin-top: 30px; font-size: 11px; font-weight: bold;">
-        Keterangan : (*) Diluar nilai normal
-      </div>
-      <div class="signatures">
-        <div class="sig-box">
-          <div><b>Verifikator,</b></div>
-          <div style="height: 60px;"></div>
-          <div><b>${UI.esc(p.penutup?.nama || dicetakOleh)}</b></div>
-          <div><b>${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : now.toISOString().replace('T', ' ').substring(0, 26)}</b></div>
-        </div>
-        <div class="sig-box" style="align-items: flex-start;">
-          <div><b>Penanggung Jawab,</b></div>
-          <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
-          <div><b>dr. Minto Rahaju, Sp. PK,</b></div>
-        </div>
-      </div>
-      
-      <div class="footer">
-        <div>
-          Jam Sampel : ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}<br>
-          Hal. 1 dari 1 Halaman<br>
-          Printed By : ${UI.esc(dicetakOleh)} / ${UI.tglIndo(now)} ${UI.jam(now.toISOString())}
-        </div>
-      </div>
-      ` : `
-      <div style="display: flex; justify-content: space-between; margin-top: 50px;">
-        <div style="font-size: 12px; display: flex; flex-direction: column; justify-content: flex-end;">
-          Jam Sampel : ${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : now.toISOString().replace('T', ' ').substring(0, 19)}
-        </div>
-        <div style="text-align: center; margin-right: 50px; font-size: 12px;">
-          Pemeriksa,
-          <br><br><br><br><br>
-          <b>dr. Minto Rahayu, Sp.PK</b>
-        </div>
-      </div>
-      `}
-      
-      </body></html>`);
+    `);
+
+    w.document.write(`</body></html>`);
     w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 1500);
+    setTimeout(() => { w.focus(); w.print(); }, 1200);
   }
 
   /* ------------------------------------------------------------------ */
@@ -1420,9 +1796,15 @@ const Lab = (() => {
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
                 ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
                 <select id="selFormatCetakExt" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
-                  <option value="M3">Format 3(M3)</option>
-                  <option value="Standar">Format Standar</option>
-                  <option value="Asli">Format Asli</option>
+                  <option value="Format 3(M3)" selected>Format 3(M3)</option>
+                  <option value="Format 2025">Format 2025</option>
+                  <option value="Format 5(F4)">Format 5(F4)</option>
+                  <option value="Format 5(F4)_2">Format 5(F4)</option>
+                  <option value="Format 4(M4)">Format 4(M4)</option>
+                  <option value="Format 2(M2)">Format 2(M2)</option>
+                  <option value="BPJS">BPJS</option>
+                  <option value="BPJS.2">BPJS.2</option>
+                  <option value="Inggris PDF">Inggris PDF</option>
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>Cetak</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
@@ -1618,7 +2000,7 @@ const Lab = (() => {
         // Cetak
         const btnC = kanan.querySelector('#btnHasilCetak');
         const selF = kanan.querySelector('#selFormatCetakExt');
-        if (btnC) btnC.onclick = () => cetakLembar(p, rujukanPakai, selF ? selF.value : 'Standar');
+        if (btnC) btnC.onclick = () => cetakLembar(p, rujukanPakai, selF ? selF.value : 'Format 3(M3)');
 
         // Simpan Catatan
         const btnSC = kanan.querySelector('#btnSimpanCatatan');
