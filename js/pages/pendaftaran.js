@@ -233,7 +233,10 @@ const Pendaftaran = (() => {
         <div class="pdft-right">
           <div class="pdft-rhead">
             <div class="bruto-netto">Bruto : <span id="lblBruto">0</span> &nbsp;|&nbsp; Netto : <span id="lblNetto">0</span></div>
-            <div style="font-size:12px;opacity:.95;font-weight:700;letter-spacing:.04em">PEMERIKSAAN LAB</div>
+            <div style="font-size:12px;opacity:.95;font-weight:700;letter-spacing:.04em;display:flex;align-items:center">
+              PEMERIKSAAN LAB
+              <span id="lblNoLab" style="display:none;background:#2e7d32;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-left:8px"></span>
+            </div>
           </div>
 
           <div class="pdft-form">
@@ -887,6 +890,11 @@ const Pendaftaran = (() => {
     el.querySelector('#fJanjiTgl').value = UI.hariIni();
     const dj = new Date(Date.now() + 2 * 3600 * 1000);
     el.querySelector('#fJanjiJam').value = ('0' + dj.getHours()).slice(-2) + ':' + ('0' + dj.getMinutes()).slice(-2);
+    const lblNoLab = el.querySelector('#lblNoLab');
+    if (lblNoLab) {
+      lblNoLab.textContent = '';
+      lblNoLab.style.display = 'none';
+    }
   }
 
   function simpanDraftPendaftaran(el) {
@@ -1095,13 +1103,27 @@ const Pendaftaran = (() => {
       let noLabResmi = null;
       if (reqId) {
         try {
-          const { data: lpData } = await DB.sb.from('lab_permintaan').select('no_lab').eq('id', reqId).single();
-          if (lpData && lpData.no_lab) {
-            noLabResmi = lpData.no_lab;
+          if (typeof DB.labPermintaan === 'function') {
+            const lpData = await DB.labPermintaan(reqId);
+            if (lpData && lpData.no_lab) {
+              noLabResmi = lpData.no_lab;
+            }
+          }
+          if (!noLabResmi && DB.sb) {
+            const { data: lpData } = await DB.sb.from('lab_permintaan').select('no_lab').eq('id', reqId).single();
+            if (lpData && lpData.no_lab) {
+              noLabResmi = lpData.no_lab;
+            }
           }
         } catch (errLp) {
           console.warn('Gagal mengambil no_lab resmi:', errLp);
         }
+      }
+
+      if (!noLabResmi) {
+        noLabResmi = LabCetak.formatNoLab(null, kunjungan.tanggal);
+      } else {
+        noLabResmi = LabCetak.formatNoLab(noLabResmi, kunjungan.tanggal);
       }
 
       // --- TAMBAHAN KASIR ---
@@ -1173,6 +1195,12 @@ const Pendaftaran = (() => {
       pasienTerpilih = pasien;
       el.querySelector('#fRm').value = pasien.no_rm || '';
 
+      const lblNoLab = el.querySelector('#lblNoLab');
+      if (lblNoLab && noLabResmi) {
+        lblNoLab.textContent = 'No. Lab: ' + noLabResmi;
+        lblNoLab.style.display = 'inline-block';
+      }
+
       const pesanLab = noLabResmi ? ` (No. Lab: ${noLabResmi})` : '';
       const pesanKasir = isBPJS ? ' Tagihan BPJS berstatus LUNAS.' : ' Tagihan Kasir berhasil disimpan.';
       UI.toast(`Pendaftaran lab${pesanLab}.${pesanKasir} Silakan cetak dokumen yang diperlukan.`, 'ok');
@@ -1192,33 +1220,108 @@ const Pendaftaran = (() => {
      FUNGSI CETAK
   ================================================================ */
   function cetakNoLab(el) {
-    const p = terakhirTerdaftar?.pasien || pasienTerpilih;
-    if (!p) { UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err'); return; }
-    
+    let p = terakhirTerdaftar?.pasien || pasienTerpilih;
+    const namaPx = (el.querySelector('#fNama')?.value || '').trim();
+
+    if (!p) {
+      if (namaPx) {
+        p = {
+          no_rm: el.querySelector('#fRm')?.value || '',
+          nik: (el.querySelector('#fNik')?.value || '').trim(),
+          nama: namaPx,
+          title: el.querySelector('#fTitle')?.value || '',
+          tanggal_lahir: el.querySelector('#fTglLahir')?.value || '',
+          jenis_kelamin: el.querySelector('#fJk')?.value || 'L',
+          alamat: (el.querySelector('#fAlamat')?.value || '').trim(),
+          no_telp: (el.querySelector('#fTelp')?.value || '').trim()
+        };
+      } else {
+        UI.toast('Isi nama pasien atau pilih pasien terlebih dahulu.', 'err');
+        return;
+      }
+    }
+
+    const pFinal = {
+      ...p,
+      nama: namaPx || p.nama,
+      title: el.querySelector('#fTitle')?.value || p.title || '',
+      nik: (el.querySelector('#fNik')?.value || '').trim() || p.nik,
+      tanggal_lahir: el.querySelector('#fTglLahir')?.value || p.tanggal_lahir,
+      jenis_kelamin: el.querySelector('#fJk')?.value || p.jenis_kelamin || 'L',
+      alamat: (el.querySelector('#fAlamat')?.value || '').trim() || p.alamat || '-',
+      no_rm: el.querySelector('#fRm')?.value || p.no_rm || '-'
+    };
+
     const labDipilih = (terakhirTerdaftar?.labDipilih && terakhirTerdaftar.labDipilih.length)
       ? terakhirTerdaftar.labDipilih
-      : barisPemeriksaan.filter(b => b.labId);
-    if (!labDipilih.length) { UI.toast('Tidak ada pemeriksaan yang dipilih.', 'err'); return; }
+      : barisPemeriksaan.filter(b => b.labId || (b.nama && b.nama.trim()));
+
+    if (!labDipilih.length) {
+      UI.toast('Pilih minimal satu pemeriksaan di tabel sebelah kiri.', 'err');
+      return;
+    }
 
     const bruto = +el.querySelector('#bBruto').value || terakhirTerdaftar?.bruto || 0;
     const netto = +el.querySelector('#bNetti').value || terakhirTerdaftar?.netto || 0;
     const bayar = +el.querySelector('#bUangPasien').value || terakhirTerdaftar?.bayar || 0;
     const kurang = +el.querySelector('#bKurang').value || terakhirTerdaftar?.kurang || 0;
     const jenisBayar = el.querySelector('#bJenisBayar').value || terakhirTerdaftar?.jenisBayar || 'UMUM';
-    const noLabKustom = terakhirTerdaftar?.noLab || null;
 
-    LabCetak.cetakNoLab(p, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
-      UI.toast('Gagal mencetak No Lab: ' + e.message, 'err');
+    let noLabKustom = terakhirTerdaftar?.noLab || null;
+    if (!noLabKustom) {
+      noLabKustom = LabCetak.formatNoLab(null, new Date());
+      if (terakhirTerdaftar) terakhirTerdaftar.noLab = noLabKustom;
+    }
+
+    const lblNoLab = el.querySelector('#lblNoLab');
+    if (lblNoLab && noLabKustom) {
+      lblNoLab.textContent = 'No. Lab: ' + noLabKustom;
+      lblNoLab.style.display = 'inline-block';
+    }
+
+    LabCetak.cetakNoLab(pFinal, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
+      console.error(e);
+      UI.toast('Gagal mencetak No Lab: ' + (e.message || e), 'err');
     });
   }
 
   function cetakNota(el, jenis) {
-    const p = terakhirTerdaftar?.pasien || pasienTerpilih;
-    if (!p) { UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err'); return; }
+    let p = terakhirTerdaftar?.pasien || pasienTerpilih;
+    const namaPx = (el.querySelector('#fNama')?.value || '').trim();
+
+    if (!p) {
+      if (namaPx) {
+        p = {
+          no_rm: el.querySelector('#fRm')?.value || '',
+          nik: (el.querySelector('#fNik')?.value || '').trim(),
+          nama: namaPx,
+          title: el.querySelector('#fTitle')?.value || '',
+          tanggal_lahir: el.querySelector('#fTglLahir')?.value || '',
+          jenis_kelamin: el.querySelector('#fJk')?.value || 'L',
+          alamat: (el.querySelector('#fAlamat')?.value || '').trim(),
+          no_telp: (el.querySelector('#fTelp')?.value || '').trim()
+        };
+      } else {
+        UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err');
+        return;
+      }
+    }
+
+    const pFinal = {
+      ...p,
+      nama: namaPx || p.nama,
+      title: el.querySelector('#fTitle')?.value || p.title || '',
+      nik: (el.querySelector('#fNik')?.value || '').trim() || p.nik,
+      tanggal_lahir: el.querySelector('#fTglLahir')?.value || p.tanggal_lahir,
+      jenis_kelamin: el.querySelector('#fJk')?.value || p.jenis_kelamin || 'L',
+      alamat: (el.querySelector('#fAlamat')?.value || '').trim() || p.alamat || '-',
+      no_rm: el.querySelector('#fRm')?.value || p.no_rm || '-'
+    };
 
     const labDipilih = (terakhirTerdaftar?.labDipilih && terakhirTerdaftar.labDipilih.length)
       ? terakhirTerdaftar.labDipilih
-      : barisPemeriksaan.filter(b => b.labId);
+      : barisPemeriksaan.filter(b => b.labId || (b.nama && b.nama.trim()));
+
     if (!labDipilih.length) { UI.toast('Tidak ada pemeriksaan yang dipilih.', 'err'); return; }
 
     const bruto = +el.querySelector('#bBruto').value || terakhirTerdaftar?.bruto || 0;
@@ -1226,14 +1329,19 @@ const Pendaftaran = (() => {
     const bayar = +el.querySelector('#bUangPasien').value || terakhirTerdaftar?.bayar || 0;
     const kurang = +el.querySelector('#bKurang').value || terakhirTerdaftar?.kurang || 0;
     const jenisBayar = el.querySelector('#bJenisBayar').value || terakhirTerdaftar?.jenisBayar || 'UMUM';
-    const noLabKustom = terakhirTerdaftar?.noLab || null;
+
+    let noLabKustom = terakhirTerdaftar?.noLab || null;
+    if (!noLabKustom) {
+      noLabKustom = LabCetak.formatNoLab(null, new Date());
+      if (terakhirTerdaftar) terakhirTerdaftar.noLab = noLabKustom;
+    }
 
     if (jenis === 'M1' || jenis === 'N2') {
-      LabCetak.cetakNotaM1(p, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
+      LabCetak.cetakNotaM1(pFinal, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom).catch(e => {
         UI.toast(`Gagal mencetak Nota ${jenis}: ` + e.message, 'err');
       });
     } else {
-      UI.toast(`Mencetak Nota ${jenis} untuk: ` + p.nama, 'ok');
+      UI.toast(`Mencetak Nota ${jenis} untuk: ` + pFinal.nama, 'ok');
     }
   }
 

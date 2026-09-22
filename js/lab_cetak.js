@@ -2,6 +2,7 @@ const LabCetak = (() => {
   'use strict';
 
   let pdfSiap = null;
+  let cachedLogoB64 = null;
 
   function muatPdfMake() {
     if (typeof pdfMake !== 'undefined') return Promise.resolve();
@@ -23,14 +24,27 @@ const LabCetak = (() => {
     return pdfSiap;
   }
 
-  // Helper konversi gambar ke Base64
+  // Helper konversi gambar ke Base64 dengan validasi tipe konten yang aman
   async function ambilGambarBase64(url) {
+    if (cachedLogoB64) return cachedLogoB64;
     try {
       const response = await fetch(url);
+      if (!response.ok) {
+        console.warn('Fetch logo tidak berhasil, status:', response.status);
+        return null;
+      }
       const blob = await response.blob();
+      if (!blob.type || !blob.type.includes('image')) {
+        console.warn('File yang di-fetch bukan gambar valid, tipe:', blob.type);
+        return null;
+      }
       return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
+        reader.onloadend = () => {
+          cachedLogoB64 = reader.result;
+          resolve(cachedLogoB64);
+        };
+        reader.onerror = () => resolve(null);
         reader.readAsDataURL(blob);
       });
     } catch (e) {
@@ -39,7 +53,46 @@ const LabCetak = (() => {
     }
   }
 
-  // Helper konversi tanggal Indo
+  // Format No Lab standar UTAMA: YYMM + 4 digit nomor urut (contoh: 26090386)
+  function formatNoLab(rawNoLab, tanggal) {
+    if (rawNoLab) {
+      const str = String(rawNoLab).trim();
+      if (/^\d{8}$/.test(str)) return str;
+      const m = str.match(/LAB-(\d{2,4})-(\d+)/i);
+      if (m) {
+        const yy = m[1].slice(-2);
+        const d = tanggal ? new Date(tanggal) : new Date();
+        const mm = String(isNaN(d) ? new Date().getMonth() + 1 : d.getMonth() + 1).padStart(2, '0');
+        const seq = m[2].padStart(4, '0');
+        return `${yy}${mm}${seq}`;
+      }
+      return str;
+    }
+    const d = tanggal ? new Date(tanggal) : new Date();
+    const validD = isNaN(d) ? new Date() : d;
+    const yy = String(validD.getFullYear()).slice(-2);
+    const mm = String(validD.getMonth() + 1).padStart(2, '0');
+    const seq = String(Math.floor(1000 + Math.random() * 9000));
+    return `${yy}${mm}${seq}`;
+  }
+
+  // Helper format umur lengkap: "33 Thn 8 Bln 8 Hari"
+  function formatUmurLengkap(tglLahir) {
+    if (!tglLahir) return '-';
+    if (typeof UI !== 'undefined' && typeof UI.umur === 'function') {
+      const u = UI.umur(tglLahir);
+      if (u) {
+        const parts = [];
+        if (u.tahun > 0) parts.push(`${u.tahun} Thn`);
+        if (u.bulan > 0) parts.push(`${u.bulan} Bln`);
+        if (u.hari >= 0) parts.push(`${u.hari} Hari`);
+        return parts.join(' ') || '0 Hari';
+      }
+    }
+    return (typeof UI !== 'undefined' && UI.umurTeks) ? UI.umurTeks(tglLahir) : '-';
+  }
+
+  // Helper konversi tanggal Indo: "19 September 2026"
   function tglIndo(tglStr) {
     if (!tglStr) return '-';
     const d = new Date(tglStr);
@@ -48,21 +101,135 @@ const LabCetak = (() => {
     return `${d.getDate()} ${bln[d.getMonth()]} ${d.getFullYear()}`;
   }
 
+  // Buka jendela/tab PDF tanpa blank screen
+  async function bukaPdf(docDef, judul = 'Dokumen') {
+    // Segera buka jendela kosong agar tidak dicekal popup blocker browser
+    let win = null;
+    try {
+      win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${judul}</title>
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  height: 100vh;
+                  margin: 0;
+                  background: #f8fafc;
+                  color: #334155;
+                }
+                .spinner {
+                  width: 36px;
+                  height: 36px;
+                  border: 3px solid #e2e8f0;
+                  border-top-color: #0284c7;
+                  border-radius: 50%;
+                  animation: spin 0.8s linear infinite;
+                  margin-bottom: 16px;
+                }
+                @keyframes spin { to { transform: rotate(360deg); } }
+              </style>
+            </head>
+            <body>
+              <div class="spinner"></div>
+              <div style="font-weight:600;font-size:15px">Menyiapkan ${judul}...</div>
+              <div style="font-size:12px;color:#64748b;margin-top:4px">Mohon tunggu sebentar</div>
+            </body>
+          </html>
+        `);
+      }
+    } catch (_) {}
+
+    try {
+      const pdf = pdfMake.createPdf(docDef);
+      pdf.getBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (win && !win.closed) {
+          win.location.href = url;
+        } else {
+          const w = window.open(url, '_blank');
+          if (!w) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              if (a.parentNode) a.parentNode.removeChild(a);
+            }, 1000);
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Gagal membuat PDF:', err);
+      if (win && !win.closed) {
+        win.document.body.innerHTML = `
+          <div style="color:#dc2626;padding:24px;text-align:center;font-family:sans-serif;">
+            <h3>Gagal Membuat Dokumen</h3>
+            <p>${err.message || err}</p>
+          </div>
+        `;
+      }
+      throw err;
+    }
+  }
+
   // Data pasien yang seragam
   function formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom = null) {
+    const noLab = formatNoLab(noLabKustom || pasien.no_lab || pasien.no_lembar, pasien.tanggal || new Date());
+    const tglObj = pasien.tanggal ? new Date(pasien.tanggal) : new Date();
+    const tglStr = isNaN(tglObj) ? new Date().toISOString().split('T')[0] : tglObj.toISOString().split('T')[0];
+
+    // Format waktu sampel: YYYY-MM-DD HH:mm:ss
+    const jamInput = document.getElementById('fJanjiJam')?.value;
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const waktuSampel = `${tglStr} ${jamInput ? jamInput + ':00' : `${hh}:${mm}:${ss}`}`;
+
+    const dokter = document.getElementById('fDokterNama')?.value || pasien.dokter_nama || '-';
+
+    // Daftar pemeriksaan: nama dipisah koma
+    let pxList = [];
+    if (Array.isArray(labDipilih)) {
+      pxList = labDipilih.map(p => p.nama || p.ref_nama || '').filter(Boolean);
+    }
+    const pemeriksaanTeks = pxList.length ? (pxList.join(', ') + ',') : '-';
+
+    const title = pasien.title || document.getElementById('fTitle')?.value || '';
+    const nama = pasien.nama || '-';
+    const jk = (pasien.jenis_kelamin === 'L' || pasien.jenis_kelamin === 'Laki-laki') ? 'Laki-Laki' : 'Perempuan';
+    const umurLengkap = formatUmurLengkap(pasien.tanggal_lahir);
+
     return {
-      no_lab: noLabKustom || pasien.no_lembar || ('LB' + Date.now().toString().slice(-6)),
-      no_reg: pasien.no_rm || ('RG' + Date.now().toString().slice(-6)),
-      nama: pasien.nama || '-',
-      umur: UI.umurTeks(pasien.tanggal_lahir),
-      jk: pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan',
-      alamat: pasien.alamat || '-',
-      tanggal: new Date().toISOString().split('T')[0],
-      waktu: new Date().toISOString().split('T')[1].slice(0, 8),
-      dokter: document.getElementById('fDokterNama')?.value || '-',
-      nik: pasien.nik || '-',
-      pemeriksaan: labDipilih,
-      bruto, netto, bayar, kurang, jenisBayar,
+      no_lab: noLab,
+      no_reg: pasien.no_rm || ('RM-' + Date.now().toString().slice(-6)),
+      nik: pasien.nik || document.getElementById('fNik')?.value || '-',
+      title: title,
+      nama: nama,
+      umur: umurLengkap,
+      jk: jk,
+      alamat: pasien.alamat || document.getElementById('fAlamat')?.value || '-',
+      tanggal: tglStr,
+      tanggal_teks: tglIndo(tglStr),
+      sampel_waktu: waktuSampel,
+      dokter: dokter,
+      diagnosa: pasien.diagnosa || '',
+      pemeriksaan: labDipilih || [],
+      pemeriksaan_teks: pemeriksaanTeks,
+      bruto: Number(bruto) || 0,
+      netto: Number(netto) || 0,
+      bayar: Number(bayar) || 0,
+      kurang: Number(kurang) || 0,
+      jenisBayar: jenisBayar || 'UMUM',
       status: kurang > 0 ? 'BELUM LUNAS' : 'LUNAS'
     };
   }
@@ -103,7 +270,7 @@ const LabCetak = (() => {
             { width: 'auto', text: ': ' + data.alamat },
             { width: '*', text: '' },
             { width: 80, text: 'Tanggal' },
-            { width: 'auto', text: ': ' + tglIndo(data.tanggal) }
+            { width: 'auto', text: ': ' + data.tanggal_teks }
           ], margin: [0, 0, 0, 4]
         },
         {
@@ -127,9 +294,9 @@ const LabCetak = (() => {
               ...data.pemeriksaan.map((px, i) => [
                 { text: i + 1, border: [false, false, false, false] },
                 { text: px.nama, border: [false, false, false, false] },
-                { text: px.harga.toLocaleString('id-ID'), alignment: 'right', border: [false, false, false, false] },
-                { text: px.disc, alignment: 'right', border: [false, false, false, false] },
-                { text: px.net.toLocaleString('id-ID'), alignment: 'right', border: [false, false, false, false] }
+                { text: (px.harga || 0).toLocaleString('id-ID'), alignment: 'right', border: [false, false, false, false] },
+                { text: (px.disc || 0), alignment: 'right', border: [false, false, false, false] },
+                { text: (px.net || 0).toLocaleString('id-ID'), alignment: 'right', border: [false, false, false, false] }
               ]),
               [
                 { text: 'TOTAL', colSpan: 2, bold: true, border: [false, true, false, true], margin: [0, 2, 0, 2] },
@@ -176,20 +343,41 @@ const LabCetak = (() => {
         { text: 'Terima Kasih Sudah melakukan Pemeriksaan di Lab. Klinik "UTAMA"', alignment: 'center', bold: true, fontSize: 10 }
       ]
     };
-    pdfMake.createPdf(docDef).open();
+    await bukaPdf(docDef, 'Nota Pembayaran - ' + data.no_lab);
   }
 
   async function cetakNoLab(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom = null) {
     await muatPdfMake();
-    
-    // Gunakan logo.png
-    let kopImage = { text: '[LOGO]', fontSize: 16, bold: true };
-    const logoUrl = window.location.origin + window.location.pathname.replace(/app\.html.*/, '') + 'logo.png';
-    const logoB64 = await ambilGambarBase64(logoUrl);
-    if (logoB64) {
-      kopImage = { image: logoB64, width: 80 };
-    } else if (typeof KopKlinik !== 'undefined') {
-      kopImage = { image: KopKlinik.gambar(), width: 80 };
+
+    // Dapatkan URL logo.png dengan aman dan absolut
+    let kopImage = null;
+    try {
+      const logoUrl = new URL('logo.png', window.location.href.split('#')[0]).href;
+      const logoB64 = await ambilGambarBase64(logoUrl);
+      if (logoB64) {
+        kopImage = { image: logoB64, width: 75 };
+      }
+    } catch (e) {
+      console.warn('Gagal memuat logo untuk blanko No Lab', e);
+    }
+
+    if (!kopImage) {
+      if (typeof KopKlinik !== 'undefined' && KopKlinik.gambar) {
+        try {
+          kopImage = { image: KopKlinik.gambar(), width: 75 };
+        } catch (_) {}
+      }
+    }
+
+    if (!kopImage) {
+      kopImage = {
+        text: 'UTAMA\nLAB',
+        fontSize: 13,
+        bold: true,
+        color: '#2e7d32',
+        alignment: 'center',
+        margin: [0, 8, 0, 0]
+      };
     }
 
     const data = formatData(pasien, labDipilih, bruto, netto, bayar, kurang, jenisBayar, noLabKustom);
@@ -197,85 +385,148 @@ const LabCetak = (() => {
     const docDef = {
       pageSize: 'A5',
       pageOrientation: 'portrait',
-      pageMargins: [30, 30, 30, 30],
-      defaultStyle: { fontSize: 10 },
+      pageMargins: [35, 30, 35, 30],
+      defaultStyle: {
+        fontSize: 10,
+        lineHeight: 1.2
+      },
       content: [
+        // HEADER: LOGO, ALAMAT & NO LAB INFO
         {
           columns: [
-            { width: 80, ...kopImage },
             {
-              width: '*',
-              stack: [
-                { text: 'Laboratorium Medis UTAMA', bold: true, fontSize: 11 },
-                'Jl. DI Panjaitan No. 94 Purbalingga',
-                'Telp. 0281-6580099 / 08121482308',
-                'Email : laboratoriumutama@yahoo.com'
-              ],
-              margin: [0, 5, 0, 0],
-              fontSize: 9
+              width: 75,
+              ...kopImage
             },
             {
-              width: 130,
+              width: '*',
+              margin: [12, 2, 0, 0],
               stack: [
-                { text: 'No Lab : ' + data.no_lab, margin: [0, 0, 0, 4], bold: true },
-                { text: 'Tanggal : ' + tglIndo(data.tanggal), margin: [0, 0, 0, 4] },
-                { text: 'Sampel : ' + data.tanggal + ' ' + data.waktu }
-              ],
-              fontSize: 9
+                { text: 'Laboratorium Medis UTAMA', bold: true, fontSize: 11, margin: [0, 0, 0, 3] },
+                { text: 'Jl. DI Panjaitan No. 94 Purbalingga', fontSize: 9, margin: [0, 0, 0, 2] },
+                { text: 'Telp. 0281-6580099 / 08121482308', fontSize: 9, margin: [0, 0, 0, 2] },
+                { text: 'Email : laboratoriumutama@yahoo.com', fontSize: 9 }
+              ]
+            },
+            {
+              width: 175,
+              margin: [0, 2, 0, 0],
+              stack: [
+                {
+                  columns: [
+                    { width: 48, text: 'No Lab', fontSize: 9 },
+                    { width: 8, text: ':', fontSize: 9 },
+                    { width: '*', text: data.no_lab, bold: true, fontSize: 9 }
+                  ],
+                  margin: [0, 0, 0, 3]
+                },
+                {
+                  columns: [
+                    { width: 48, text: 'Tanggal', fontSize: 9 },
+                    { width: 8, text: ':', fontSize: 9 },
+                    { width: '*', text: data.tanggal_teks, fontSize: 9 }
+                  ],
+                  margin: [0, 0, 0, 3]
+                },
+                {
+                  columns: [
+                    { width: 48, text: 'Sampel', fontSize: 9 },
+                    { width: 8, text: ':', fontSize: 9 },
+                    { width: '*', text: data.sampel_waktu, fontSize: 9 }
+                  ]
+                }
+              ]
             }
           ],
-          margin: [0, 0, 0, 20]
+          margin: [0, 0, 0, 25]
+        },
+
+        // DATA IDENTITAS PASIEN
+        {
+          columns: [
+            { width: 85, text: 'NIK', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: data.nik, fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
         {
           columns: [
-            { width: 80, text: 'NIK' },
-            { width: 'auto', text: ': ' + data.nik }
-          ], margin: [0, 0, 0, 6]
+            { width: 85, text: 'Nama/Umur', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: `${data.title ? data.title + ' ' : ''}${data.nama} / ${data.umur} (${data.jk})`, fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
         {
           columns: [
-            { width: 80, text: 'Nama/Umur' },
-            { width: 'auto', text: ': ' + data.nama + ' / ' + data.umur + ' (' + data.jk + ')' }
-          ], margin: [0, 0, 0, 6]
+            { width: 85, text: 'Alamat', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: data.alamat, fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
         {
           columns: [
-            { width: 80, text: 'Alamat' },
-            { width: 'auto', text: ': ' + data.alamat }
-          ], margin: [0, 0, 0, 6]
+            { width: 85, text: 'Pengirim', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: data.dokter, fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
         {
           columns: [
-            { width: 80, text: 'Pengirim' },
-            { width: 'auto', text: ': ' + data.dokter }
-          ], margin: [0, 0, 0, 6]
+            { width: 85, text: 'Diagnosa', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: data.diagnosa || '', fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
         {
           columns: [
-            { width: 80, text: 'Diagnosa' },
-            { width: 'auto', text: ':' }
-          ], margin: [0, 0, 0, 6]
+            { width: 85, text: 'Pemeriksaan', fontSize: 10 },
+            { width: 12, text: ':', fontSize: 10 },
+            { width: '*', text: data.pemeriksaan_teks, fontSize: 10 }
+          ],
+          margin: [0, 0, 0, 6]
         },
+
+        // BAGIAN BAWAH: CATATAN & TOTAL BIAYA BOX
         {
+          margin: [0, 45, 0, 0],
           columns: [
-            { width: 80, text: 'Pemeriksaan' },
-            { width: 'auto', text: ': ' + data.pemeriksaan.map(p => p.nama).join(', ') }
-          ], margin: [0, 0, 0, 20]
-        },
-        { text: 'Catatan :', margin: [0, 0, 0, 10] },
-        {
-          table: {
-            widths: ['60%'],
-            body: [
-              [
-                { text: 'Rp. ' + data.netto.toLocaleString('id-ID'), fontSize: 13, margin: [10, 10, 10, 30] }
-              ]
-            ]
-          }
+            {
+              width: '*',
+              text: 'Catatan :',
+              fontSize: 10
+            },
+            {
+              width: 175,
+              table: {
+                widths: [175],
+                body: [
+                  [
+                    {
+                      text: 'Rp. ' + Number(data.netto).toLocaleString('id-ID'),
+                      fontSize: 12,
+                      margin: [10, 8, 10, 45]
+                    }
+                  ]
+                ]
+              },
+              layout: {
+                hLineWidth: function() { return 1; },
+                vLineWidth: function() { return 1; },
+                hLineColor: function() { return '#222'; },
+                vLineColor: function() { return '#222'; }
+              }
+            }
+          ]
         }
       ]
     };
-    pdfMake.createPdf(docDef).open();
+
+    await bukaPdf(docDef, 'Blanko No Lab - ' + data.no_lab);
   }
 
   async function cetakIC(pasien, jenis = 'UMUM') {
@@ -295,8 +546,8 @@ const LabCetak = (() => {
     const namaPasien = pasien.nama || '-';
     const noRm = pasien.no_rm || '-';
     const nik = pasien.nik || '-';
-    const jk = pasien.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
-    const umur = UI.umurTeks(pasien.tanggal_lahir) || '-';
+    const jk = (pasien.jenis_kelamin === 'L' || pasien.jenis_kelamin === 'Laki-laki') ? 'Laki-Laki' : 'Perempuan';
+    const umur = formatUmurLengkap(pasien.tanggal_lahir);
     const alamat = pasien.alamat || '-';
     const telp = pasien.no_telp || pasien.no_hp || '-';
 
@@ -385,8 +636,8 @@ const LabCetak = (() => {
       ]
     };
 
-    pdfMake.createPdf(docDef).open();
+    await bukaPdf(docDef, 'Informed Consent - ' + namaPasien);
   }
 
-  return { cetakNotaM1, cetakNoLab, cetakIC };
+  return { cetakNotaM1, cetakNoLab, cetakIC, formatNoLab, formatUmurLengkap };
 })();

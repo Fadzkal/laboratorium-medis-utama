@@ -2305,11 +2305,11 @@ const DB = (() => {
   ];
 
   let LAB_PERMINTAAN = [
-    { id: 'lp-1', no_lab: 'LAB-2026-0001', pasien_id: 'pas-5', kunjungan_id: 'kunj-2',
+    { id: 'lp-1', no_lab: '26090001', pasien_id: 'pas-5', kunjungan_id: 'kunj-2',
       tanggal: hariIni, asal: 'INTERNAL', status: 'DIMINTA',
       catatan_klinis: 'Kontrol rutin hipertensi, cek gula dan kolesterol',
       diminta_oleh: 'peg-1', diminta_pada: jamHariIni(8, 30) },
-    { id: 'lp-2', no_lab: 'LAB-2026-0002', pasien_id: 'pas-1', kunjungan_id: 'kunj-1',
+    { id: 'lp-2', no_lab: '26090002', pasien_id: 'pas-1', kunjungan_id: 'kunj-1',
       tanggal: hariIni, asal: 'INTERNAL', status: 'SELESAI',
       catatan_klinis: 'Curiga infeksi', diminta_oleh: 'peg-1',
       diminta_pada: jamHariIni(8, 20), selesai_oleh: 'peg-3', waktu_selesai: jamHariIni(9, 15) }
@@ -2413,7 +2413,11 @@ const DB = (() => {
   async function labMinta(kunjunganId, labIds, catatan, asal, namaLabLuar) {
     const k = KUNJUNGAN.find(x => x.id === kunjunganId);
     const id = uid();
-    LAB_PERMINTAAN.push({ id, no_lab: 'LAB-2026-' + String(++urutLab).padStart(4, '0'),
+    const dNow = new Date();
+    const yy = String(dNow.getFullYear()).slice(-2);
+    const mm = String(dNow.getMonth() + 1).padStart(2, '0');
+    const noLab = `${yy}${mm}${String(++urutLab).padStart(4, '0')}`;
+    LAB_PERMINTAAN.push({ id, no_lab: noLab,
       pasien_id: k.pasien_id, kunjungan_id: kunjunganId, tanggal: k.tanggal,
       asal: asal || 'INTERNAL', nama_lab_luar: namaLabLuar || null,
       status: 'DIMINTA', catatan_klinis: catatan || null,
@@ -2428,7 +2432,11 @@ const DB = (() => {
   }
   async function labMintaLuar(r) {
     const id = uid();
-    LAB_PERMINTAAN.push({ id, no_lab: 'LAB-2026-' + String(++urutLab).padStart(4, '0'),
+    const dNow = new Date();
+    const yy = String(dNow.getFullYear()).slice(-2);
+    const mm = String(dNow.getMonth() + 1).padStart(2, '0');
+    const noLab = `${yy}${mm}${String(++urutLab).padStart(4, '0')}`;
+    LAB_PERMINTAAN.push({ id, no_lab: noLab,
       pasien_id: r.pasien_id, kunjungan_id: r.kunjungan_id || null,
       tanggal: r.tanggal || UI.hariIni(), asal: 'EKSTERNAL',
       nama_lab_luar: r.nama_lab, no_lembar_luar: r.no_lembar || null,
