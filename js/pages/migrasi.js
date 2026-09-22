@@ -53,6 +53,14 @@ const Migrasi = (() => {
           <div class="page-sub">Memindahkan pemantauan obat kronis, lab rutin,
             dan jadwal kontrol dari portal sipantau ke rekam medis.</div>
         </div>
+        <div class="page-actions flex gap-8">
+          <button class="btn btn-outline" id="btnEksporKesesuaianHeader">
+            ${UI.ikon('unduh', 14)} Ekspor Spreadsheet (Excel)
+          </button>
+          <button class="btn btn-primary" id="btnCetakPdfHeader">
+            ${UI.ikon('cetak', 14)} Cetak / Simpan PDF
+          </button>
+        </div>
       </div>
 
       <div id="ringkasMigrasi" class="mb-16"></div>
@@ -63,6 +71,9 @@ const Migrasi = (() => {
           .join('')}
       </div>
       <div id="isiTab">${UI.memuat(3)}</div>`;
+
+    el.querySelector('#btnEksporKesesuaianHeader').addEventListener('click', () => eksporKesesuaian(el));
+    el.querySelector('#btnCetakPdfHeader').addEventListener('click', () => cetakPdfKesesuaian(el));
 
     el.querySelector('#tabs').addEventListener('click', (e) => {
       const b = e.target.closest('[data-t]'); if (!b) return;
@@ -145,6 +156,491 @@ const Migrasi = (() => {
     a.href = url; a.download = namaBerkas;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  /* ==================================================================== */
+  /*  EKSPOR KESESUAIAN PROLANIS / PCARE (Sesuai Templat Google Sheets)  */
+  /* ==================================================================== */
+
+  const BULAN_ID = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  function formatTglSpreadsheet(tgl) {
+    if (!tgl) return '';
+    const s = String(tgl).trim();
+    if (!s) return '';
+    const d = new Date(s.includes('T') ? s : s + 'T00:00:00');
+    if (isNaN(d.getTime())) return s;
+    return `${d.getDate()} ${BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function formatNoBpjs(bpjs) {
+    if (!bpjs) return '';
+    const s = String(bpjs).replace(/\D/g, '');
+    if (!s) return '';
+    return s.padStart(13, '0');
+  }
+
+  function formatDesimal(val) {
+    if (val == null || val === '') return '';
+    const s = String(val).trim();
+    return s.replace('.', ',');
+  }
+
+  function ekstrakLab(barisLab, rmeLab) {
+    const res = {
+      tgl: '',
+      fktp: '',
+      tensi: '',
+      tb: '', bb: '', lp: '', rr: '', hr: '', suhu: '',
+      cho: '', tg: '', hdl: '', ldl: '', ur: '', cre: '', mau: '',
+      hba1c: '', gdp: '', gdpp: '', gds: '',
+      diagnosa: ''
+    };
+
+    if (barisLab && barisLab.length) {
+      for (const b of barisLab) {
+        const isi = b.isi || {};
+        if (b.tanggal || isi.tanggal_lab) res.tgl = b.tanggal || isi.tanggal_lab;
+        if (isi.fktp || isi.lab_pemeriksa) res.fktp = isi.fktp || isi.lab_pemeriksa;
+        if (isi.tensi) res.tensi = isi.tensi;
+        if (isi.tb) res.tb = isi.tb;
+        if (isi.bb) res.bb = isi.bb;
+        if (isi.lp) res.lp = isi.lp;
+        if (isi.rr) res.rr = isi.rr;
+        if (isi.hr) res.hr = isi.hr;
+        if (isi.suhu) res.suhu = formatDesimal(isi.suhu);
+        if (isi.cho) res.cho = formatDesimal(isi.cho);
+        if (isi.tg) res.tg = formatDesimal(isi.tg);
+        if (isi.hdl) res.hdl = formatDesimal(isi.hdl);
+        if (isi.ldl) res.ldl = formatDesimal(isi.ldl);
+        if (isi.ur || isi.ureum) res.ur = formatDesimal(isi.ur || isi.ureum);
+        if (isi.cre || isi.kreatinin) res.cre = formatDesimal(isi.cre || isi.kreatinin);
+        if (isi.mau) res.mau = formatDesimal(isi.mau);
+        if (isi.hba1c) res.hba1c = formatDesimal(isi.hba1c);
+        if (isi.gdp) res.gdp = formatDesimal(isi.gdp);
+        if (isi.gdpp || isi.gd2pp) res.gdpp = formatDesimal(isi.gdpp || isi.gd2pp);
+        if (isi.gds) res.gds = formatDesimal(isi.gds);
+        if (isi.diagnosa || isi.diagnosis) res.diagnosa = isi.diagnosa || isi.diagnosis;
+      }
+    }
+
+    if (rmeLab && rmeLab.length) {
+      for (const l of rmeLab) {
+        if (l.tanggal) res.tgl = l.tanggal;
+        const kj = l.kunjungan || {};
+        if (kj.keluhan_singkat && kj.keluhan_singkat.startsWith('Dokter Pengirim: ')) {
+          res.fktp = kj.keluhan_singkat.replace('Dokter Pengirim: ', '').trim();
+        } else if (kj.dokter_nama) {
+          res.fktp = kj.dokter_nama;
+        }
+        const ka = kj.kajian_awal || {};
+        if (ka.sistolik && ka.diastolik) res.tensi = `${ka.sistolik}/${ka.diastolik}`;
+        if (ka.tinggi_badan) res.tb = ka.tinggi_badan;
+        if (ka.berat_badan) res.bb = ka.berat_badan;
+        if (ka.lingkar_perut) res.lp = ka.lingkar_perut;
+        if (ka.nafas) res.rr = ka.nafas;
+        if (ka.nadi) res.hr = ka.nadi;
+        if (ka.suhu) res.suhu = formatDesimal(ka.suhu);
+
+        if (l.hasil && l.hasil.length) {
+          for (const h of l.hasil) {
+            const kode = ((h.ref_lab && h.ref_lab.kode) || h.kode || '').toUpperCase();
+            const nm = (h.nama || '').toLowerCase();
+            const val = h.nilai_angka != null ? formatDesimal(h.nilai_angka) : (h.nilai_teks || '').trim();
+            if (!val) continue;
+
+            if (kode === 'CHOL' || kode === 'CHO' || nm.includes('kolesterol') || nm.includes('cholesterol')) res.cho = val;
+            else if (kode === 'TG' || nm.includes('trigliserida') || nm.includes('triglycerid')) res.tg = val;
+            else if (kode === 'HDL' || nm.includes('hdl')) res.hdl = val;
+            else if (kode === 'LDL' || nm.includes('ldl')) res.ldl = val;
+            else if (kode === 'UREUM' || kode === 'UR' || nm.includes('ureum') || nm.includes('urea')) res.ur = val;
+            else if (kode === 'KREAT' || kode === 'CRE' || nm.includes('kreatinin') || nm.includes('creatinin')) res.cre = val;
+            else if (kode === 'MAU' || nm.includes('mikroalbumin') || nm.includes('microalbumin')) res.mau = val;
+            else if (kode === 'HBA1C' || nm.includes('hba1c')) res.hba1c = val;
+            else if (kode === 'GDP' || nm.includes('gula darah puasa') || nm.includes('glukosa puasa')) res.gdp = val;
+            else if (kode === 'GD2PP' || kode === 'GDPP' || nm.includes('2 jam pp') || nm.includes('gd2pp')) res.gdpp = val;
+            else if (kode === 'GDS' || nm.includes('sewaktu') || nm.includes('gds')) res.gds = val;
+          }
+        }
+      }
+    }
+
+    return res;
+  }
+
+  function tentukanKeluhanDiagnosa(diagnosaTeks, lab) {
+    const t = (diagnosaTeks || lab.diagnosa || '').toLowerCase();
+    const hasHba1c = !!lab.hba1c;
+    const hasGula = !!(lab.gdp || lab.gdpp || lab.gds);
+    const hasKimiaOnly = !!(lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau) && !hasHba1c && !hasGula;
+
+    if ((t.includes('hipertensi') || t.includes('hpt') || hasKimiaOnly) && !t.includes('dm') && !t.includes('diabetes') && !hasHba1c && !hasGula) {
+      return {
+        keluhan: 'HIPERTENSI',
+        anamnesa: 'HIPERTENSI',
+        diagnosa: 'i10'
+      };
+    }
+    return {
+      keluhan: 'DIABETES MELITUS',
+      anamnesa: 'DIABETES MELITUS',
+      diagnosa: 'e11.9'
+    };
+  }
+
+  function hitungPelayananNonKapitasi(lab) {
+    const hasKimia = !!(lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau);
+    const hasHba1c = !!lab.hba1c;
+    const hasGula = !!(lab.gdp || lab.gdpp || lab.gds);
+
+    const list = [];
+    if (hasKimia) list.push('Pelayanan Kimia Darah');
+    if (hasHba1c) list.push('Pelayanan HbA1c');
+    if (hasGula) list.push('Pelayanan Gula Darah');
+
+    if (!list.length) list.push('Pelayanan Gula Darah');
+    return list.join(',');
+  }
+
+  const TEMPLAT_HEADER_1 = 'DATA INPUTAN PELAYANAN PROLANIS,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_HEADER_2 = '(TGL 1 SEPTEMBER 2026 - 30 SEPTEMBER 2026),,,,,,skrining dm,,,,,,,,GLUKOSA BELUM FIX,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_HEADER_3 = ',,,,,,DIABETES MELITUS,,,,,,,"( KUTAWIS, KEJOBONG, PMI, BUKATEJA PENYESUAIAN )",,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_HEADER_4 = 'KET :,,,,,,HIPERTENSI,,,( TANDA UNTUK YANG KLAIM GDS),,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_HEADER_5 = 'TGL ENTRI : TANGGAL INPUT DI PCARE,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_HEADER_6 = ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  const TEMPLAT_KOLOM_1 = 'NO,TGL PLY,TGL ENTRI,NO BPJS,NAMA PESERTA,ALAMAT,FKTP,TENSI,TB,BB,LP,RR,HR,PELAYANAN KIMIA DARAH,,,,,,,HBA1C,PELAYANAN GULA DARAH,,,Harga Pemeriksaan,,PENDAFTARAN,PERAWATAN,KELUHAN,JAM KUNJUNGAN ,ANAMNESA,RIWAYAT ALERGI,,,TERAPI OBAT,TERAPI NON OBAT,BMHP,DIAGNOSA,SUHU,TENAGA MEDIS,PELAYANAN NON KAPITASI,STATUS PULANG';
+  const TEMPLAT_KOLOM_2 = ',,,,,,,,,,,,,CHO,TG,HDL,LDL,UR,CRE,MAU,,GDP,GDPP,GDS,,,,,,,,MAKANAN,UDARA,OBAT,,,,,,,,';
+
+  async function kumpulkanDataKesesuaian() {
+    UI.toast('Menyiapkan data kesesuaian...', 'info');
+    let data = await DB.kronisImporEksporKesesuaian('COCOK');
+
+    if (!data || !data.length) {
+      const semua = await DB.kronisImporEksporKesesuaian(null);
+      if (!semua || !semua.length) {
+        UI.modal({
+          judul: 'Data Belum Ada',
+          isi: '<p class="text-muted">Belum ada data titipan portal di database. Silakan unggah berkas ekspor portal terlebih dahulu pada tab <b>1. Unggah Berkas</b>.</p>',
+          tombol: [{ teks: 'Tutup', kelas: 'btn-primary' }]
+        });
+        return null;
+      }
+
+      const mau = await UI.konfirmasi(
+        'Belum ada pasien berstatus Cocok',
+        'Saat ini belum ada data titipan yang berstatus COCOK (Sudah tertempel). ' +
+        'Apakah Anda ingin memproses seluruh data titipan yang tersedia (' + semua.length + ' orang)?',
+        'Ya, Proses Semua Data Titipan',
+        false
+      );
+      if (!mau) return null;
+      data = semua;
+    }
+
+    const barisColList = [];
+    let noUrut = 1;
+
+    for (const item of data) {
+      const pas = item.pasien || {};
+      const namaPeserta = pas.nama || item.nama_pasien || '';
+      const noBpjs = formatNoBpjs(pas.no_bpjs || item.no_bpjs || '');
+      const alamat = pas.alamat || '-';
+
+      const barisLab = (item.baris || []).filter(b => b.sumber === 'LAB_RUTIN');
+      const labRme = item.lab_rme || [];
+
+      const jumlahPemeriksaan = Math.max(1, barisLab.length, labRme.length);
+
+      for (let i = 0; i < jumlahPemeriksaan; i++) {
+        const subBarisLab = barisLab[i] ? [barisLab[i]] : (barisLab.length ? barisLab : []);
+        const subLabRme = labRme[i] ? [labRme[i]] : (labRme.length ? labRme : []);
+        const lab = ekstrakLab(subBarisLab, subLabRme);
+
+        const tglRaw = lab.tgl || item.dicocokkan_pada || new Date().toISOString().slice(0, 10);
+        const tglFormatted = formatTglSpreadsheet(tglRaw);
+        const fktp = lab.fktp || pas.plant || 'Klinik Griya Medica';
+        const diagInfo = tentukanKeluhanDiagnosa(item.diagnosis_teks, lab);
+        const nonKapitasi = hitungPelayananNonKapitasi(lab);
+
+        const barisCol = [
+          String(noUrut++),                           // 0: NO
+          tglFormatted,                               // 1: TGL PLY
+          tglFormatted,                               // 2: TGL ENTRI
+          noBpjs,                                     // 3: NO BPJS
+          namaPeserta,                                // 4: NAMA PESERTA
+          alamat,                                     // 5: ALAMAT
+          fktp,                                       // 6: FKTP
+          lab.tensi || '120/80',                      // 7: TENSI
+          lab.tb || '',                               // 8: TB
+          lab.bb || '',                               // 9: BB
+          lab.lp || '',                               // 10: LP
+          lab.rr || '20',                             // 11: RR
+          lab.hr || '80',                             // 12: HR
+          lab.cho || '',                              // 13: CHO
+          lab.tg || '',                               // 14: TG
+          lab.hdl || '',                              // 15: HDL
+          lab.ldl || '',                              // 16: LDL
+          lab.ur || '',                               // 17: UR
+          lab.cre || '',                              // 18: CRE
+          lab.mau || '',                              // 19: MAU
+          lab.hba1c || '',                            // 20: HBA1C
+          lab.gdp || '',                              // 21: GDP
+          lab.gdpp || '',                             // 22: GDPP
+          lab.gds || '',                              // 23: GDS
+          '',                                         // 24: Harga Pemeriksaan
+          'FALSE',                                    // 25: Unlabeled flag
+          'Baru',                                     // 26: PENDAFTARAN
+          'Promotif Preventif',                       // 27: PERAWATAN
+          diagInfo.keluhan,                           // 28: KELUHAN
+          '07:00',                                    // 29: JAM KUNJUNGAN
+          diagInfo.anamnesa,                          // 30: ANAMNESA
+          'TIDAK',                                    // 31: MAKANAN
+          'TIDAK',                                    // 32: UDARA
+          'TIDAK',                                    // 33: OBAT
+          'TIDAK',                                    // 34: TERAPI OBAT
+          'TIDAK',                                    // 35: TERAPI NON OBAT
+          'TIDAK',                                    // 36: BMHP
+          diagInfo.diagnosa,                          // 37: DIAGNOSA
+          lab.suhu || '36,0',                         // 38: SUHU
+          'DEDE KURNIASIH',                           // 39: TENAGA MEDIS
+          nonKapitasi,                                // 40: PELAYANAN NON KAPITASI
+          'BEROBAT JALAN'                             // 41: STATUS PULANG
+        ];
+
+        barisColList.push(barisCol);
+      }
+    }
+
+    return barisColList;
+  }
+
+  async function eksporKesesuaian(w) {
+    try {
+      const dataRows = await kumpulkanDataKesesuaian();
+      if (!dataRows || !dataRows.length) return;
+
+      const barisTeks = [
+        TEMPLAT_HEADER_1,
+        TEMPLAT_HEADER_2,
+        TEMPLAT_HEADER_3,
+        TEMPLAT_HEADER_4,
+        TEMPLAT_HEADER_5,
+        TEMPLAT_HEADER_6,
+        TEMPLAT_KOLOM_1,
+        TEMPLAT_KOLOM_2
+      ];
+
+      for (const row of dataRows) {
+        barisTeks.push(row.map(csvSel).join(','));
+      }
+
+      const hasilCsv = barisTeks.join('\r\n');
+      const namaBerkas = `data_kesesuaian_prolanis_${new Date().toISOString().slice(0, 10)}.csv`;
+      unduhTeks(namaBerkas, hasilCsv);
+      UI.toast(`Berhasil mengekspor ${dataRows.length} baris data kesesuaian Prolanis.`, 'ok', 5000);
+    } catch (e) {
+      UI.toast('Gagal mengekspor data: ' + (e.message || e), 'err', 6000);
+    }
+  }
+
+  async function cetakPdfKesesuaian(w) {
+    try {
+      const dataRows = await kumpulkanDataKesesuaian();
+      if (!dataRows || !dataRows.length) return;
+
+      const wnd = window.open('', '_blank');
+      if (!wnd) {
+        UI.toast('Pop-up terblokir oleh browser. Izinkan pop-up untuk mencetak PDF.', 'warn', 5000);
+        return;
+      }
+
+      const tglSekarang = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Inputan Pelayanan Prolanis</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 6mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 8px;
+      color: #111;
+      margin: 0;
+      padding: 10px;
+    }
+    .header-box {
+      text-align: center;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 8px;
+    }
+    .header-box h1 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .header-box p {
+      margin: 2px 0;
+      font-size: 9px;
+      color: #555;
+    }
+    .toolbar {
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #cbd5e1;
+    }
+    .toolbar button {
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .toolbar button:hover { background: #115e59; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+    th, td {
+      border: 1px solid #94a3b8;
+      padding: 3px 4px;
+      font-size: 7.5px;
+      line-height: 1.2;
+    }
+    th {
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: bold;
+      text-align: center;
+    }
+    th.group-header {
+      background: #e2e8f0;
+      font-size: 8px;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .mono { font-family: monospace; }
+    .nowrap { white-space: nowrap; }
+    tr:nth-child(even) td { background: #fdfdfd; }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <span><b>Pratinjau Cetak / PDF</b> (${dataRows.length} baris data)</span>
+    <div>
+      <button onclick="window.print()">Simpan sebagai PDF / Cetak</button>
+      <button onclick="window.close()" style="background:#64748b; margin-left:6px;">Tutup</button>
+    </div>
+  </div>
+
+  <div class="header-box">
+    <h1>DATA INPUTAN PELAYANAN PROLANIS</h1>
+    <p>Laboratorium Medis Utama · Tanggal Cetak: ${tglSekarang}</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2">NO</th>
+        <th rowspan="2">TGL PLY</th>
+        <th rowspan="2">NO BPJS</th>
+        <th rowspan="2">NAMA PESERTA</th>
+        <th rowspan="2">ALAMAT</th>
+        <th rowspan="2">FKTP</th>
+        <th rowspan="2">TENSI</th>
+        <th rowspan="2">TB</th>
+        <th rowspan="2">BB</th>
+        <th rowspan="2">LP</th>
+        <th rowspan="2">RR</th>
+        <th rowspan="2">HR</th>
+        <th colspan="7" class="group-header">PELAYANAN KIMIA DARAH</th>
+        <th rowspan="2">HBA1C</th>
+        <th colspan="3" class="group-header">PELAYANAN GULA DARAH</th>
+        <th rowspan="2">KELUHAN</th>
+        <th rowspan="2">DIAGNOSA</th>
+        <th rowspan="2">SUHU</th>
+        <th rowspan="2">PELAYANAN NON KAPITASI</th>
+        <th rowspan="2">STATUS</th>
+      </tr>
+      <tr>
+        <th>CHO</th>
+        <th>TG</th>
+        <th>HDL</th>
+        <th>LDL</th>
+        <th>UR</th>
+        <th>CRE</th>
+        <th>MAU</th>
+        <th>GDP</th>
+        <th>GDPP</th>
+        <th>GDS</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dataRows.map(b => `
+        <tr>
+          <td class="text-center">${b[0]}</td>
+          <td class="nowrap">${b[1]}</td>
+          <td class="mono nowrap">${b[3]}</td>
+          <td><b>${b[4]}</b></td>
+          <td>${b[5]}</td>
+          <td>${b[6]}</td>
+          <td class="text-center nowrap">${b[7]}</td>
+          <td class="text-center">${b[8]}</td>
+          <td class="text-center">${b[9]}</td>
+          <td class="text-center">${b[10]}</td>
+          <td class="text-center">${b[11]}</td>
+          <td class="text-center">${b[12]}</td>
+          <td class="text-center">${b[13]}</td>
+          <td class="text-center">${b[14]}</td>
+          <td class="text-center">${b[15]}</td>
+          <td class="text-center">${b[16]}</td>
+          <td class="text-center">${b[17]}</td>
+          <td class="text-center">${b[18]}</td>
+          <td class="text-center">${b[19]}</td>
+          <td class="text-center"><b>${b[20]}</b></td>
+          <td class="text-center">${b[21]}</td>
+          <td class="text-center">${b[22]}</td>
+          <td class="text-center">${b[23]}</td>
+          <td>${b[28]}</td>
+          <td class="text-center mono">${b[37]}</td>
+          <td class="text-center">${b[38]}</td>
+          <td class="nowrap">${b[40]}</td>
+          <td class="text-center nowrap">${b[41]}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+      wnd.document.open();
+      wnd.document.write(html);
+      wnd.document.close();
+    } catch (e) {
+      UI.toast('Gagal mencetak PDF: ' + (e.message || e), 'err', 6000);
+    }
   }
 
   const KEPALA_TEMPLAT = ['nama', 'nik', 'no_bpjs', 'tanggal_lahir', 'jenis_kelamin', 'alamat'];
@@ -584,9 +1080,13 @@ const Migrasi = (() => {
               <label>Cari nama</label>
               <input type="search" id="fCari" placeholder="Nama pasien di portal…">
             </div>
-            <div class="field field-align-end">
+            <div class="field field-align-end flex gap-8 flex-wrap">
               <button class="btn btn-secondary" id="btnOtomatis">
                 Tempel otomatis yang BPJS-nya cocok</button>
+              <button class="btn btn-outline" id="btnEksporKesesuaian">
+                ${UI.ikon('unduh', 14)} Ekspor Excel (CSV)</button>
+              <button class="btn btn-primary" id="btnCetakPdf">
+                ${UI.ikon('cetak', 14)} Cetak / Simpan PDF</button>
             </div>
           </div>
         </div>
@@ -607,6 +1107,8 @@ const Migrasi = (() => {
       cari = e.target.value.trim(); await muatDaftar(w);
     }, 320));
     w.querySelector('#btnOtomatis').addEventListener('click', () => jalankanOtomatis(w));
+    w.querySelector('#btnEksporKesesuaian').addEventListener('click', () => eksporKesesuaian(w));
+    w.querySelector('#btnCetakPdf').addEventListener('click', () => cetakPdfKesesuaian(w));
 
     await muatDaftar(w);
   }

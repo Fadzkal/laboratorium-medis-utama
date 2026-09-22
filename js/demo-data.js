@@ -2959,6 +2959,16 @@ const DB = (() => {
     return { dihapus: sebelum - IMPOR.length };
   }
 
+  async function kronisImporEksporKesesuaian(status = 'COCOK') {
+    await tunggu(80);
+    const d = IMPOR.filter(r => !status || r.status === status).map(lengkapiImpor);
+    return d.map(r => ({
+      ...r,
+      baris: salin(IMPOR_BARIS[r.id] || []),
+      lab_rme: []
+    }));
+  }
+
   /* ================= KRONIS: pemantauan (Tahap 2) ======================= */
 
   const hariKe = (tglA, tglB) => Math.round((new Date(tglB) - new Date(tglA)) / 86400000);
@@ -3432,7 +3442,7 @@ const DB = (() => {
            refKronisDiagnosa, refKronisKuotaObat,
            kronisImporRingkas, kronisImporDaftar, kronisImporBaris, kronisImporUsulan,
            kronisImporTampung, kronisImporCocokkan, kronisImporBatalCocok,
-           kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan,
+           kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan, kronisImporEksporKesesuaian,
            kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
            kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,
            kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,

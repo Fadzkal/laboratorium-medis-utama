@@ -2180,6 +2180,73 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  /* Mengambil semua data pencocokan portal (status COCOK) beserta riwayat baris
+     dan hasil lab RME untuk diekspor ke templat spreadsheet Prolanis / PCare. */
+  async function kronisImporEksporKesesuaian(status = 'COCOK') {
+    // 1. Coba panggil RPC jika sudah didefinisikan di database
+    try {
+      const { data: rpcData, error: rpcErr } = await sb.rpc('kronis_ekspor_kesesuaian', { p_status: status });
+      if (!rpcErr && rpcData && Array.isArray(rpcData)) return rpcData;
+    } catch (_) {}
+
+    // 2. Fallback query client-side langsung dari tabel Supabase
+    let q = sb.from('kronis_impor_pasien')
+      .select('id,kunci,nama_pasien,no_bpjs,no_telp,diagnosis_teks,status,pasien_id,dicocokkan_pada,' +
+              'pasien:pasien_id(id,no_rm,nama,nik,no_bpjs,alamat,tanggal_lahir,jenis_kelamin,no_telp,no_hp)')
+      .order('id');
+    if (status) q = q.eq('status', status);
+    const { data: listPasien, error: errPasien } = await q;
+    if (errPasien) throw errPasien;
+    if (!listPasien || !listPasien.length) return [];
+
+    const imporIds = listPasien.map(p => p.id);
+    const pasienIds = listPasien.map(p => p.pasien_id).filter(Boolean);
+
+    // Ambil baris titipan portal
+    const barisMap = new Map();
+    if (imporIds.length) {
+      try {
+        const { data: barisList } = await sb.from('kronis_impor_baris')
+          .select('id,impor_id,sumber,tanggal,isi')
+          .in('impor_id', imporIds)
+          .order('tanggal', { ascending: true, nullsFirst: false });
+        if (barisList) {
+          for (const b of barisList) {
+            if (!barisMap.has(b.impor_id)) barisMap.set(b.impor_id, []);
+            barisMap.get(b.impor_id).push(b);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Ambil hasil lab RME dan kajian awal jika pasien sudah tertempel
+    const rmeLabMap = new Map();
+    if (pasienIds.length) {
+      try {
+        const { data: labList } = await sb.from('lab_permintaan')
+          .select('id,pasien_id,no_lab,tanggal,status,' +
+                  'kunjungan:kunjungan_id(id,keluhan_singkat,dokter:dokter_id(nama),' +
+                  'kajian_awal(sistolik,diastolik,nadi,nafas,suhu,berat_badan,tinggi_badan,lingkar_perut)),' +
+                  'hasil:lab_hasil(id,lab_id,nama,satuan,nilai_angka,nilai_teks,ref_lab:lab_id(kode,nama))')
+          .in('pasien_id', pasienIds)
+          .eq('status', 'SELESAI')
+          .order('tanggal', { ascending: true });
+        if (labList) {
+          for (const l of labList) {
+            if (!rmeLabMap.has(l.pasien_id)) rmeLabMap.set(l.pasien_id, []);
+            rmeLabMap.get(l.pasien_id).push(l);
+          }
+        }
+      } catch (_) {}
+    }
+
+    return listPasien.map(p => ({
+      ...p,
+      baris: barisMap.get(p.id) || [],
+      lab_rme: p.pasien_id ? (rmeLabMap.get(p.pasien_id) || []) : []
+    }));
+  }
+
   /* --------------------- Pra-daftar pasien (migrasi dari nol) -----------
      Dipakai HANYA saat RME dipasang dari nol dan portal punya banyak orang
      yang perlu didaftarkan sekaligus sebelum Migrasi Portal (di atas) bisa
@@ -3119,7 +3186,7 @@ const DB = (() => {
     refKronisDiagnosa, refKronisKuotaObat,
     kronisImporRingkas, kronisImporDaftar, kronisImporBaris, kronisImporUsulan,
     kronisImporTampung, kronisImporCocokkan, kronisImporBatalCocok,
-    kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan,
+    kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan, kronisImporEksporKesesuaian,
     pasienCariMirip, pasienBuatMassal,
     kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
     kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,
