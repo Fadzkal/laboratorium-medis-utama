@@ -2549,6 +2549,39 @@ const DB = (() => {
         .gte('tanggal', dari).lte('tanggal', sampai));
   }
 
+  /* Aktivitas & produktivitas karyawan laboratorium secara lengkap:
+     Pendaftaran, Verifikasi Lab, Pembuatan Surat, dan Kasir beserta timestamp jam lengkap. */
+  async function laporanKaryawanAktivitas({ dari, sampai }) {
+    const [pegawai, kunjungan, lab, surat, kasir] = await Promise.all([
+      sb.from('pegawai').select('id, nama, peran, aktif').eq('peran', 'karyawan').order('nama').then(r => r.data || []),
+      ambilSemua(() =>
+        sb.from('kunjungan')
+          .select('id, no_kunjungan, tanggal, waktu_daftar, created_at, created_by, status, cara_bayar, pasien:pasien_id(id, no_rm, nama)')
+          .gte('tanggal', dari).lte('tanggal', sampai)),
+      ambilSemua(() =>
+        sb.from('lab_permintaan')
+          .select('id, no_lab, tanggal, waktu_selesai, selesai_oleh, status, catatan_klinis, pasien:pasien_id(id, no_rm, nama)')
+          .gte('tanggal', dari).lte('tanggal', sampai)
+          .not('selesai_oleh', 'is', null)),
+      ambilSemua(() =>
+        sb.from('surat')
+          .select('id, nomor_surat, tanggal_surat, dibuat_oleh, dibuat_pada, perihal, jenis_kode, status, pasien:pasien_id(id, no_rm, nama)')
+          .gte('tanggal_surat', dari).lte('tanggal_surat', sampai)),
+      ambilSemua(() =>
+        sb.from('kasir_pembayaran')
+          .select('id, jumlah, metode, tanggal, created_at, dibuat_oleh, tagihan:tagihan_id(nomor, pasien:pasien_id(id, no_rm, nama))')
+          .gte('tanggal', dari).lte('tanggal', sampai))
+    ]);
+
+    return {
+      pegawai: pegawai || [],
+      kunjungan: kunjungan || [],
+      lab: lab || [],
+      surat: surat || [],
+      kasir: kasir || []
+    };
+  }
+
   /* Register Poli Umum/Gigi berbagi sumber yang sama dengan Riwayat
      Kunjungan (v_riwayat_kunjungan) — bedanya cuma filter jenis_poli
      dan kolom identitas pasien yang ikut ditampilkan di sini. */
@@ -3297,6 +3330,7 @@ const DB = (() => {
     laporanKunjunganRentang, laporanKunjunganRingkas, laporanPermintaanLabRingkas,
     laporanRujukan, distribusiKategoriLab,
     laporanKeuanganTagihan, laporanKeuanganPembayaran,
+    laporanKaryawanAktivitas,
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni,

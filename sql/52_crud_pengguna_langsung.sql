@@ -189,3 +189,64 @@ end;
 $$;
 
 grant execute on function public.reset_password_pengguna(uuid, text) to authenticated;
+
+-- =====================================================================
+-- 4. Inisialisasi Akun Karyawan & Petugas Laboratorium Medis Utama
+--
+-- Jalankan bagian ini di Supabase SQL Editor untuk otomatis membuat akun
+-- seluruh karyawan & staf laboratorium (analis, pendaftaran, kasir, surat, dll).
+-- Kata sandi default diset: 'lab123456' (bisa diubah sewaktu-waktu di menu Pengaturan -> Pengguna).
+-- Anda juga dapat mengubah nama & email di bawah sesuai nama asli karyawan klinik Anda.
+-- =====================================================================
+DO $$
+DECLARE
+  r RECORD;
+  v_uid uuid;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('Siti Nurhaliza, A.Md.AK',  'analis1@labmedis.id',     'lab123456', 'karyawan'::public.peran_pegawai, null, '199501012020122001'),
+    ('Budi Santoso, A.Md.AK',    'analis2@labmedis.id',     'lab123456', 'karyawan'::public.peran_pegawai, null, '199602022021011002'),
+    ('Rina Agustina',            'pendaftaran@labmedis.id', 'lab123456', 'karyawan'::public.peran_pegawai, null, null),
+    ('Dewi Sartika',             'kasir@labmedis.id',       'lab123456', 'karyawan'::public.peran_pegawai, null, null),
+    ('Tri Wahyuni',              'surat@labmedis.id',       'lab123456', 'karyawan'::public.peran_pegawai, null, null),
+    ('Ahmad Fauzi, A.Md.Kep',    'sampling@labmedis.id',    'lab123456', 'karyawan'::public.peran_pegawai, null, '446/012/SIP-P/2023'),
+    ('Joko Prasetyo',            'staf.lab@labmedis.id',    'lab123456', 'karyawan'::public.peran_pegawai, null, null)
+  ) AS t(nama, email, pass, peran, jenis_dokter, no_sip)
+  LOOP
+    -- Jika email belum ada di auth.users, buatkan akun baru
+    IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = lower(trim(r.email))) THEN
+      v_uid := gen_random_uuid();
+      INSERT INTO auth.users (
+        id, instance_id, role, aud, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at
+      ) VALUES (
+        v_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        lower(trim(r.email)), extensions.crypt(r.pass, extensions.gen_salt('bf')), now(),
+        jsonb_build_object('nama', trim(r.nama), 'peran', r.peran), now(), now()
+      );
+
+      BEGIN
+        INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+        VALUES (v_uid::text, v_uid, jsonb_build_object('sub', v_uid::text, 'email', lower(trim(r.email))), 'email', v_uid::text, now(), now(), now());
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END;
+
+      INSERT INTO public.pegawai (id, nama, peran, jenis_dokter, no_sip, aktif)
+      VALUES (v_uid, trim(r.nama), r.peran, r.jenis_dokter, trim(r.no_sip), true)
+      ON CONFLICT (id) DO UPDATE SET
+        nama = trim(r.nama),
+        peran = r.peran,
+        jenis_dokter = r.jenis_dokter,
+        no_sip = trim(r.no_sip),
+        aktif = true;
+    ELSE
+      -- Jika akun email sudah ada, sinkronkan nama, peran, dan aktifkan
+      UPDATE public.pegawai
+         SET nama = trim(r.nama),
+             peran = r.peran,
+             no_sip = coalesce(trim(r.no_sip), no_sip),
+             aktif = true
+       WHERE id = (SELECT id FROM auth.users WHERE email = lower(trim(r.email)));
+    END IF;
+  END LOOP;
+END $$;
+

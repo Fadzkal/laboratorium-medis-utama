@@ -75,6 +75,7 @@ const Laporan = (() => {
         ['rujukan', 'Rujukan'],
         ['register', 'Registrasi Lab'],
         ['keuangan', 'Keuangan'],
+        ['karyawan', 'Karyawan'],
       ] : [])
     ];
 
@@ -82,7 +83,7 @@ const Laporan = (() => {
       <div class="page-header mb-16">
         <div class="page-heading">
           <h1>Laporan</h1>
-          <div class="page-sub">Rekap kunjungan, pemeriksaan laboratorium, rujukan, dan keuangan.</div>
+          <div class="page-sub">Rekap kunjungan, pemeriksaan laboratorium, rujukan, keuangan, dan kinerja staf.</div>
         </div>
       </div>
       <div class="tabs" id="tabs">
@@ -111,6 +112,7 @@ const Laporan = (() => {
       if (tabAktif === 'rujukan')   return await tabRujukan(w);
       if (tabAktif === 'register')  return await tabRegister(w);
       if (tabAktif === 'keuangan')  return await tabKeuangan(w);
+      if (tabAktif === 'karyawan')  return await tabKaryawan(w);
     } catch (e) {
       w.innerHTML = `<div class="banner err"><div>${UI.esc(e.message || e)}</div></div>`;
     }
@@ -1570,6 +1572,565 @@ const Laporan = (() => {
           </div>
         </div>
       </div>`;
+  }
+
+  /* ==================================================================== */
+  /*  TAB 6 — KARYAWAN (Statistik & Jejak Aktivitas Pegawai Lengkap)      */
+  /* ==================================================================== */
+
+  const KOLOM_KARYAWAN_REKAP = [
+    { label: 'Nama Karyawan', nilai: r => r.nama },
+    { label: 'Peran', nilai: r => r.peran },
+    { label: 'Status Akun', nilai: r => r.aktif ? 'Aktif' : 'Nonaktif' },
+    { label: 'Pendaftaran Pasien', nilai: r => r.daftar },
+    { label: 'Verifikasi Lab', nilai: r => r.verif },
+    { label: 'Pembuatan Surat', nilai: r => r.surat },
+    { label: 'Transaksi Kasir', nilai: r => r.kasir },
+    { label: 'Total Nominal Kasir', nilai: r => r.kasirNominal },
+    { label: 'Total Aktivitas', nilai: r => r.total },
+    { label: 'Kontribusi (%)', nilai: r => r.persen + '%' },
+    { label: 'Aktivitas Terakhir', nilai: r => r.logTerakhir ? formatWaktuLengkap(r.logTerakhir) : '-' }
+  ];
+
+  const KOLOM_KARYAWAN_LOG = [
+    { label: 'Waktu & Jam', nilai: r => formatWaktuLengkap(r.waktu) },
+    { label: 'Tanggal', nilai: r => UI.tglPendek(r.waktu) },
+    { label: 'Jam', nilai: r => UI.jam(r.waktu) },
+    { label: 'Nama Petugas', nilai: r => r.pegawai_nama },
+    { label: 'Peran', nilai: r => r.pegawai_peran },
+    { label: 'Jenis Aktivitas', nilai: r => r.jenis_label },
+    { label: 'No. Referensi', nilai: r => r.no_ref },
+    { label: 'No. RM', nilai: r => r.pasien_rm },
+    { label: 'Nama Pasien', nilai: r => r.pasien_nama },
+    { label: 'Keterangan Rinci', nilai: r => r.detail }
+  ];
+
+  function formatWaktuLengkap(isoStr) {
+    if (!isoStr) return '-';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '-';
+    const tgl = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    const jam = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    return `${tgl} ${jam}`;
+  }
+
+  async function tabKaryawan(w) {
+    const akhir = UI.hariIni();
+    const awal = UI.bulanIni() + '-01';
+
+    w.innerHTML = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="flex items-center gap-12 flex-wrap">
+            <div class="flex items-center gap-8 periode-group">
+              <label class="mb-0 font-bold text-xs">Periode:</label>
+              <input type="date" id="karDari" value="${awal}" class="control-auto">
+              <span class="text-muted">s.d.</span>
+              <input type="date" id="karSampai" value="${akhir}" class="control-auto">
+            </div>
+            <div class="flex items-center gap-8">
+              <label class="mb-0 font-bold text-xs" for="karFilterPegawai">Karyawan:</label>
+              <select id="karFilterPegawai" class="control-auto" style="min-width:170px;">
+                <option value="">Semua Karyawan</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-8">
+              <label class="mb-0 font-bold text-xs" for="karFilterJenis">Aktivitas:</label>
+              <select id="karFilterJenis" class="control-auto">
+                <option value="">Semua Aktivitas</option>
+                <option value="PENDAFTARAN">Pendaftaran Pasien</option>
+                <option value="VERIFIKASI_LAB">Verifikasi Hasil Lab</option>
+                <option value="BUAT_SURAT">Pembuatan Surat</option>
+                <option value="KASIR_BAYAR">Penerimaan Kasir</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" id="karTampil">
+              ${UI.ikon('ulang', 14)} Tampilkan
+            </button>
+            <div class="flex-1"></div>
+            <div class="flex items-center gap-8 flex-wrap">
+              <button class="btn btn-secondary btn-sm" id="karUnduhRekap">
+                ${UI.ikon('unduh', 14)} Unduh Rekap
+              </button>
+              <button class="btn btn-secondary btn-sm" id="karUnduhLog">
+                ${UI.ikon('unduh', 14)} Unduh Log Rinci
+              </button>
+              <button class="btn btn-secondary btn-sm" id="karCetak">
+                ${UI.ikon('cetak', 14)} Cetak
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="karIsi">${UI.memuat(4)}</div>
+    `;
+
+    let dataRaw = null;
+    let listRekap = [];
+    let listLog = [];
+    let logHalaman = 1;
+    const logPerHalaman = 40;
+
+    const muat = async () => {
+      const dari = w.querySelector('#karDari').value;
+      const sampai = w.querySelector('#karSampai').value;
+      const isi = w.querySelector('#karIsi');
+      isi.innerHTML = UI.memuat(4);
+
+      try {
+        dataRaw = await DB.laporanKaryawanAktivitas({ dari, sampai });
+        
+        // Filter tegas hanya role karyawan (mengecualikan dokter, master, sistem)
+        const stafKaryawan = (dataRaw.pegawai || []).filter(p => p.peran === 'karyawan');
+        
+        // Isi dropdown filter karyawan
+        const selPegawai = w.querySelector('#karFilterPegawai');
+        const valSebelumnya = selPegawai.value;
+        selPegawai.innerHTML = `
+          <option value="">Semua Karyawan (${stafKaryawan.length})</option>
+          ${stafKaryawan.map(p => `<option value="${p.id}" ${p.id === valSebelumnya ? 'selected' : ''}>${UI.esc(p.nama)}</option>`).join('')}
+        `;
+
+        prosesDanGambar(isi);
+      } catch (err) {
+        console.error(err);
+        isi.innerHTML = `<div class="banner err"><div>Gagal memuat statistik karyawan: ${UI.esc(err.message || err)}</div></div>`;
+      }
+    };
+
+    function prosesDanGambar(container) {
+      const { pegawai = [], kunjungan = [], lab = [], surat = [], kasir = [] } = dataRaw || {};
+
+      // Hanya daftarkan karyawan dengan role 'karyawan'
+      const stafKaryawan = pegawai.filter(p => p.peran === 'karyawan');
+      const mapPeg = new Map();
+      stafKaryawan.forEach(p => {
+        mapPeg.set(p.id, {
+          id: p.id,
+          nama: p.nama,
+          peran: p.peran,
+          aktif: p.aktif,
+          daftar: 0,
+          verif: 0,
+          surat: 0,
+          kasir: 0,
+          kasirNominal: 0,
+          total: 0,
+          logTerakhir: null
+        });
+      });
+
+      const logSemua = [];
+
+      // 1. Pendaftaran Pasien (hanya hitung jika dikerjakan oleh karyawan)
+      kunjungan.forEach(k => {
+        const pId = k.created_by;
+        const p = mapPeg.get(pId);
+        if (!p) return; // Lewati jika bukan role karyawan
+        p.daftar++;
+        p.total++;
+        const ts = new Date(k.waktu_daftar || k.created_at || (k.tanggal + 'T08:00:00'));
+        if (!p.logTerakhir || ts > p.logTerakhir) p.logTerakhir = ts;
+
+        logSemua.push({
+          id: 'kunj-' + k.id,
+          waktu: ts,
+          pegawai_id: pId,
+          pegawai_nama: p.nama,
+          pegawai_peran: p.peran,
+          jenis: 'PENDAFTARAN',
+          jenis_label: 'Pendaftaran Pasien',
+          badge_kelas: 'b-info',
+          no_ref: k.no_kunjungan || '-',
+          pasien_nama: k.pasien?.nama || 'Pasien Umum',
+          pasien_rm: k.pasien?.no_rm || '-',
+          detail: `Pendaftaran kunjungan (${k.cara_bayar || 'UMUM'}) - Status: ${k.status || 'SELESAI'}`
+        });
+      });
+
+      // 2. Verifikasi Lab (hanya hitung jika divalidasi oleh karyawan)
+      lab.forEach(l => {
+        const pId = l.selesai_oleh;
+        const p = mapPeg.get(pId);
+        if (!p) return; // Lewati jika bukan role karyawan
+        p.verif++;
+        p.total++;
+        const ts = new Date(l.waktu_selesai || (l.tanggal + 'T09:00:00'));
+        if (!p.logTerakhir || ts > p.logTerakhir) p.logTerakhir = ts;
+
+        logSemua.push({
+          id: 'lab-' + l.id,
+          waktu: ts,
+          pegawai_id: pId,
+          pegawai_nama: p.nama,
+          pegawai_peran: p.peran,
+          jenis: 'VERIFIKASI_LAB',
+          jenis_label: 'Verifikasi Hasil Lab',
+          badge_kelas: 'b-ok',
+          no_ref: l.no_lab || '-',
+          pasien_nama: l.pasien?.nama || '-',
+          pasien_rm: l.pasien?.no_rm || '-',
+          detail: `Validasi & verifikasi akhir hasil laboratorium${l.catatan_klinis ? ' (' + l.catatan_klinis + ')' : ''}`
+        });
+      });
+
+      // 3. Surat Keterangan (hanya hitung jika dibuat oleh karyawan)
+      surat.forEach(s => {
+        const pId = s.dibuat_oleh;
+        const p = mapPeg.get(pId);
+        if (!p) return; // Lewati jika bukan role karyawan
+        p.surat++;
+        p.total++;
+        const ts = new Date(s.dibuat_pada || (s.tanggal_surat + 'T10:00:00'));
+        if (!p.logTerakhir || ts > p.logTerakhir) p.logTerakhir = ts;
+
+        logSemua.push({
+          id: 'srt-' + s.id,
+          waktu: ts,
+          pegawai_id: pId,
+          pegawai_nama: p.nama,
+          pegawai_peran: p.peran,
+          jenis: 'BUAT_SURAT',
+          jenis_label: 'Pembuatan Surat',
+          badge_kelas: 'b-warn',
+          no_ref: s.nomor_surat || '-',
+          pasien_nama: s.pasien?.nama || '-',
+          pasien_rm: s.pasien?.no_rm || '-',
+          detail: `${s.perihal || 'Surat Keterangan Laboratorium'} [${(s.jenis_kode || '').toUpperCase()}]`
+        });
+      });
+
+      // 4. Kasir / Pembayaran (hanya hitung jika diproses oleh karyawan)
+      kasir.forEach(b => {
+        const pId = b.dibuat_oleh;
+        const p = mapPeg.get(pId);
+        if (!p) return; // Lewati jika bukan role karyawan
+        p.kasir++;
+        p.total++;
+        p.kasirNominal += (Number(b.jumlah) || 0);
+        const ts = new Date(b.created_at || (b.tanggal + 'T11:00:00'));
+        if (!p.logTerakhir || ts > p.logTerakhir) p.logTerakhir = ts;
+
+        logSemua.push({
+          id: 'ksr-' + b.id,
+          waktu: ts,
+          pegawai_id: pId,
+          pegawai_nama: p.nama,
+          pegawai_peran: p.peran,
+          jenis: 'KASIR_BAYAR',
+          jenis_label: 'Penerimaan Kasir',
+          badge_kelas: 'b-dokter',
+          no_ref: b.tagihan?.nomor || 'TRX-KASIR',
+          pasien_nama: b.tagihan?.pasien?.nama || '-',
+          pasien_rm: b.tagihan?.pasien?.no_rm || '-',
+          detail: `Penerimaan kas ${UI.rupiah(b.jumlah)} via ${(b.metode || 'tunai').toUpperCase()}`
+        });
+      });
+
+      logSemua.sort((a, b) => b.waktu.getTime() - a.waktu.getTime());
+
+      const totalSeluruh = logSemua.length;
+      listRekap = Array.from(mapPeg.values())
+        .map(p => ({
+          ...p,
+          persen: totalSeluruh > 0 ? ((p.total / totalSeluruh) * 100).toFixed(1) : 0
+        }))
+        .sort((a, b) => b.total - a.total);
+
+      listLog = logSemua;
+
+      const totalDaftar = listRekap.reduce((a, b) => a + b.daftar, 0);
+      const totalVerif = listRekap.reduce((a, b) => a + b.verif, 0);
+      const totalSurat = listRekap.reduce((a, b) => a + b.surat, 0);
+      const totalKasir = listRekap.reduce((a, b) => a + b.kasir, 0);
+      const totalUangKasir = listRekap.reduce((a, b) => a + b.kasirNominal, 0);
+
+      container.innerHTML = `
+        <!-- KPI Cards -->
+        <div class="grid grid-4 mb-16">
+          <div class="stat accent">
+            <div class="lbl">Total Aktivitas Karyawan</div>
+            <div class="val tabular">${totalSeluruh}</div>
+            <div class="hint">Total aksi staf operasional pada periode ini</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Pendaftaran Pasien</div>
+            <div class="val tabular">${totalDaftar}</div>
+            <div class="hint">Kunjungan didaftarkan karyawan</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Verifikasi Hasil Lab</div>
+            <div class="val tabular">${totalVerif}</div>
+            <div class="hint">Lembar lab divalidasi oleh karyawan</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Surat &amp; Kasir</div>
+            <div class="val tabular">${totalSurat} <span style="font-size:16px; font-weight:normal; color:var(--text-muted);">/ ${totalKasir} trx</span></div>
+            <div class="hint">${totalSurat} surat · ${UI.rupiah(totalUangKasir)} kas</div>
+          </div>
+        </div>
+
+        <!-- Section 1: Tabel Rekapitulasi Performa Per Karyawan -->
+        <div class="card mb-16">
+          <div class="card-head" style="flex-wrap:wrap; gap:8px;">
+            <div>
+              <h2>Statistik Produktivitas Karyawan</h2>
+              <div class="sub">Total kontribusi pendaftaran, verifikasi hasil lab, pembuatan surat, dan kasir</div>
+            </div>
+            <span class="text-sm text-muted" style="align-self:center;">${listRekap.length} karyawan operasional tercatat</span>
+          </div>
+          <div class="card-body tight">
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th style="width:40px; text-align:center;">#</th>
+                    <th>Nama Karyawan</th>
+                    <th>Peran</th>
+                    <th style="text-align:right;">Pendaftaran</th>
+                    <th style="text-align:right;">Verifikasi Lab</th>
+                    <th style="text-align:right;">Buat Surat</th>
+                    <th style="text-align:right;">Kasir</th>
+                    <th style="text-align:right;">Total Aktivitas</th>
+                    <th style="width:140px;">Kontribusi</th>
+                    <th>Aktivitas Terakhir</th>
+                    <th style="text-align:center;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${listRekap.length ? listRekap.map((r, idx) => `
+                    <tr>
+                      <td style="text-align:center; font-weight:700; color:var(--text-muted);">${idx + 1}</td>
+                      <td>
+                        <b>${UI.esc(r.nama)}</b>
+                        ${!r.aktif && r.id !== UNKNOWN_ID ? '<span class="badge b-batal text-xs ml-4">Nonaktif</span>' : ''}
+                      </td>
+                      <td><span class="badge b-umum text-xs">${UI.esc(r.peran)}</span></td>
+                      <td class="tabular" style="text-align:right; font-weight:${r.daftar ? '600' : 'normal'};">${r.daftar}</td>
+                      <td class="tabular" style="text-align:right; font-weight:${r.verif ? '600' : 'normal'}; color:${r.verif ? 'var(--brand-700)' : 'inherit'};">${r.verif}</td>
+                      <td class="tabular" style="text-align:right; font-weight:${r.surat ? '600' : 'normal'};">${r.surat}</td>
+                      <td class="tabular" style="text-align:right;">
+                        <div><b>${r.kasir}</b></div>
+                        ${r.kasirNominal ? `<div class="text-xs text-muted mono">${UI.rupiah(r.kasirNominal)}</div>` : ''}
+                      </td>
+                      <td class="tabular" style="text-align:right; font-weight:700; font-size:14px; color:var(--brand-800);">
+                        ${r.total}
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-6">
+                          <div class="bar-track" style="flex:1; height:6px;">
+                            <div class="bar-fill" style="width:${Math.min(100, Math.max(2, r.persen))}%;"></div>
+                          </div>
+                          <span class="mono text-xs tabular font-bold" style="min-width:38px; text-align:right;">${r.persen}%</span>
+                        </div>
+                      </td>
+                      <td class="mono text-xs">
+                        ${r.logTerakhir ? formatWaktuLengkap(r.logTerakhir) : '<span class="text-muted">—</span>'}
+                      </td>
+                      <td style="text-align:center;">
+                        <button class="btn btn-secondary btn-sm" data-filter-staf="${r.id}" title="Filter dan lihat seluruh log rincian aktivitas staf ini">
+                          Lihat Log
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('') : `
+                    <tr><td colspan="11" class="text-center text-muted p-16">Tidak ada catatan aktivitas staf pada periode ini.</td></tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Log Rinci Jejak Aktivitas Karyawan (Audit Trail Lengkap dengan Jam & Detik) -->
+        <div class="card mb-16" id="wrapTabelLog">
+          <div class="card-head" style="flex-wrap:wrap; gap:10px;">
+            <div>
+              <h2>Jejak Aktivitas Karyawan (Audit Trail Real-Time)</h2>
+              <div class="sub">Catatan log lengkap seluruh aksi karyawan beserta tanggal, jam (menit &amp; detik), nomor referensi, dan rincian transaksi</div>
+            </div>
+            <div class="flex items-center gap-8">
+              <input type="search" id="karCariLog" placeholder="Cari nama pasien, no. RM, ref..." class="control-auto" style="width:230px;">
+            </div>
+          </div>
+          <div class="card-body tight">
+            <div id="wadahLogTabel"></div>
+          </div>
+        </div>
+      `;
+
+      // Event listener tombol [Lihat Log] di tabel rekap
+      container.querySelectorAll('[data-filter-staf]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const stId = btn.dataset.filterStaf;
+          w.querySelector('#karFilterPegawai').value = stId;
+          logHalaman = 1;
+          renderTabelLog();
+          w.querySelector('#wrapTabelLog').scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+
+      // Filter input search
+      const inpCari = container.querySelector('#karCariLog');
+      if (inpCari) {
+        inpCari.addEventListener('input', () => {
+          logHalaman = 1;
+          renderTabelLog();
+        });
+      }
+
+      renderTabelLog();
+    }
+
+    function renderTabelLog() {
+      const wadah = w.querySelector('#wadahLogTabel');
+      if (!wadah) return;
+
+      const fPegawai = w.querySelector('#karFilterPegawai')?.value || '';
+      const fJenis = w.querySelector('#karFilterJenis')?.value || '';
+      const fCari = (w.querySelector('#karCariLog')?.value || '').toLowerCase().trim();
+
+      const terfilter = listLog.filter(item => {
+        if (fPegawai && item.pegawai_id !== fPegawai) return false;
+        if (fJenis && item.jenis !== fJenis) return false;
+        if (fCari) {
+          const cocokNama = item.pasien_nama && item.pasien_nama.toLowerCase().includes(fCari);
+          const cocokRm = item.pasien_rm && item.pasien_rm.toLowerCase().includes(fCari);
+          const cocokRef = item.no_ref && item.no_ref.toLowerCase().includes(fCari);
+          const cocokPet = item.pegawai_nama && item.pegawai_nama.toLowerCase().includes(fCari);
+          const cocokDet = item.detail && item.detail.toLowerCase().includes(fCari);
+          if (!cocokNama && !cocokRm && !cocokRef && !cocokPet && !cocokDet) return false;
+        }
+        return true;
+      });
+
+      const totalBaris = terfilter.length;
+      const totalHalaman = Math.max(1, Math.ceil(totalBaris / logPerHalaman));
+      if (logHalaman > totalHalaman) logHalaman = totalHalaman;
+      if (logHalaman < 1) logHalaman = 1;
+
+      const awalIdx = (logHalaman - 1) * logPerHalaman;
+      const halamanData = terfilter.slice(awalIdx, awalIdx + logPerHalaman);
+
+      wadah.innerHTML = `
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th style="width:160px;">Waktu &amp; Jam</th>
+                <th>Petugas / Karyawan</th>
+                <th>Jenis Aktivitas</th>
+                <th>No. Referensi</th>
+                <th>Pasien</th>
+                <th>Keterangan / Rincian Transaksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${halamanData.length ? halamanData.map(r => {
+                const d = r.waktu;
+                const tgl = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                const jamDetik = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+                return `
+                  <tr>
+                    <td class="mono" style="white-space:nowrap;">
+                      <div style="font-weight:700; color:var(--text);">${tgl}</div>
+                      <div style="font-size:11.5px; color:var(--brand-700); font-weight:600;">${jamDetik} WIB</div>
+                    </td>
+                    <td>
+                      <div><b>${UI.esc(r.pegawai_nama)}</b></div>
+                      <span class="badge b-umum text-xs">${UI.esc(r.pegawai_peran)}</span>
+                    </td>
+                    <td>
+                      <span class="badge ${r.badge_kelas}">
+                        <span class="dot"></span> ${UI.esc(r.jenis_label)}
+                      </span>
+                    </td>
+                    <td class="mono font-bold">${UI.esc(r.no_ref)}</td>
+                    <td>
+                      <div style="font-weight:600;">${UI.esc(r.pasien_nama)}</div>
+                      <div class="mono text-xs text-muted">RM: ${UI.esc(r.pasien_rm)}</div>
+                    </td>
+                    <td style="font-size:13px; color:var(--text-muted);">${UI.esc(r.detail)}</td>
+                  </tr>
+                `;
+              }).join('') : `
+                <tr><td colspan="6" class="text-center text-muted p-16">Tidak ada aktivitas yang cocok dengan filter.</td></tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Paginasi & Keterangan Baris -->
+        <div class="flex items-center justify-between p-12 border-t flex-wrap gap-8" style="background:#fafbfc;">
+          <div class="text-xs text-muted">
+            Menampilkan <b>${totalBaris ? awalIdx + 1 : 0}</b> - <b>${Math.min(totalBaris, awalIdx + logPerHalaman)}</b> dari <b>${totalBaris}</b> aktivitas
+            ${fPegawai || fJenis || fCari ? '(terfilter)' : ''}
+          </div>
+          <div class="flex items-center gap-6">
+            <button class="btn btn-secondary btn-sm" id="btnLogPrev" ${logHalaman <= 1 ? 'disabled' : ''}>
+              &larr; Sebelumnya
+            </button>
+            <span class="text-xs text-muted" style="padding:0 4px;">
+              Halaman <b>${logHalaman}</b> / ${totalHalaman}
+            </span>
+            <button class="btn btn-secondary btn-sm" id="btnLogNext" ${logHalaman >= totalHalaman ? 'disabled' : ''}>
+              Selanjutnya &rarr;
+            </button>
+          </div>
+        </div>
+      `;
+
+      wadah.querySelector('#btnLogPrev')?.addEventListener('click', () => {
+        if (logHalaman > 1) {
+          logHalaman--;
+          renderTabelLog();
+        }
+      });
+
+      wadah.querySelector('#btnLogNext')?.addEventListener('click', () => {
+        if (logHalaman < totalHalaman) {
+          logHalaman++;
+          renderTabelLog();
+        }
+      });
+    }
+
+    // Event listeners header controls
+    w.querySelector('#karTampil').addEventListener('click', muat);
+    w.querySelector('#karFilterPegawai').addEventListener('change', () => {
+      logHalaman = 1;
+      renderTabelLog();
+    });
+    w.querySelector('#karFilterJenis').addEventListener('change', () => {
+      logHalaman = 1;
+      renderTabelLog();
+    });
+
+    // Unduh Rekap
+    w.querySelector('#karUnduhRekap').addEventListener('click', () => {
+      const dari = w.querySelector('#karDari').value, sampai = w.querySelector('#karSampai').value;
+      unduhCsv(listRekap, KOLOM_KARYAWAN_REKAP, `rekap_kinerja_karyawan_${dari}_sd_${sampai}.csv`);
+    });
+
+    // Unduh Log Rinci
+    w.querySelector('#karUnduhLog').addEventListener('click', () => {
+      const dari = w.querySelector('#karDari').value, sampai = w.querySelector('#karSampai').value;
+      const fPegawai = w.querySelector('#karFilterPegawai')?.value || '';
+      const fJenis = w.querySelector('#karFilterJenis')?.value || '';
+      const terfilter = listLog.filter(item => {
+        if (fPegawai && item.pegawai_id !== fPegawai) return false;
+        if (fJenis && item.jenis !== fJenis) return false;
+        return true;
+      });
+      unduhCsv(terfilter, KOLOM_KARYAWAN_LOG, `log_aktivitas_karyawan_${dari}_sd_${sampai}.csv`);
+    });
+
+    // Cetak Rekap
+    w.querySelector('#karCetak').addEventListener('click', () => {
+      window.print();
+    });
+
+    await muat();
   }
 
   return { render };

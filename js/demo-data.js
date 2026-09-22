@@ -3421,6 +3421,34 @@ const DB = (() => {
     await tunggu(60);
     return PEMBAYARAN_LAP.filter(p => p.tanggal >= dari && p.tanggal <= sampai);
   }
+  async function laporanKaryawanAktivitas({ dari, sampai }) {
+    await tunggu(60);
+    const peg = (typeof PEGAWAI !== 'undefined' ? PEGAWAI : []).filter(p => p.aktif);
+    const kun = KUNJUNGAN_LAP.filter(k => k.tanggal >= dari && k.tanggal <= sampai).map((k, i) => ({
+      id: k.id, no_kunjungan: k.no_kunjungan, tanggal: k.tanggal, waktu_daftar: `${k.tanggal}T08:${String(10 + (i % 45)).padStart(2, '0')}:00`,
+      created_by: peg[i % peg.length]?.id, status: k.status, cara_bayar: k.cara_bayar,
+      pasien: { id: k.id, no_rm: k.no_rm, nama: k.nama_pasien }
+    }));
+    const lab = kun.filter((_, i) => i % 2 === 0).map((k, i) => ({
+      id: 'lab-' + i, no_lab: 'LAB-2026-' + String(100 + i).padStart(4, '0'), tanggal: k.tanggal,
+      waktu_selesai: `${k.tanggal}T09:${String(15 + (i % 40)).padStart(2, '0')}:00`,
+      selesai_oleh: peg[(i + 1) % peg.length]?.id, status: 'SELESAI',
+      pasien: k.pasien
+    }));
+    const surat = kun.filter((_, i) => i % 5 === 0).map((k, i) => ({
+      id: 'srt-' + i, nomor_surat: '440/' + String(200 + i) + '/SKBN/2026', tanggal_surat: k.tanggal,
+      dibuat_oleh: peg[(i + 2) % peg.length]?.id, dibuat_pada: `${k.tanggal}T10:${String(10 + (i % 45)).padStart(2, '0')}:00`,
+      perihal: 'Surat Keterangan Bebas Narkoba (SKBN)', jenis_kode: 'skbn', status: 'AKTIF',
+      pasien: k.pasien
+    }));
+    const kasir = kun.map((k, i) => ({
+      id: 'byr-' + i, jumlah: 150000, metode: 'tunai', tanggal: k.tanggal,
+      created_at: `${k.tanggal}T10:${String(30 + (i % 25)).padStart(2, '0')}:00`,
+      dibuat_oleh: peg[(i + 3) % peg.length]?.id,
+      tagihan: { nomor: 'INV-2026-' + String(300 + i), pasien: k.pasien }
+    }));
+    return { pegawai: peg, kunjungan: kun, lab, surat, kasir };
+  }
   async function laporanRegisterPoli({ dari, sampai, jenisPoli }) {
     await tunggu(60);
     let d = KUNJUNGAN_LAP.filter(k => k.tanggal >= dari && k.tanggal <= sampai);
@@ -3506,7 +3534,7 @@ const DB = (() => {
            kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,
            laporanKunjunganRentang, laporanKunjunganRingkas, laporanPermintaanLabRingkas,
            laporanRujukan, laporanKeuanganTagihan,
-           laporanKeuanganPembayaran, laporanRegisterPoli, laporanTindakanUntukKunjungan,
+           laporanKeuanganPembayaran, laporanKaryawanAktivitas, laporanRegisterPoli, laporanTindakanUntukKunjungan,
            laporanDiagnosaPuskesmas,
            gantiPeranDemo, peranDemoSekarang, PERAN_DEMO };
 })();

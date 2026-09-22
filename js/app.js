@@ -24,7 +24,6 @@ const App = (() => {
     { rute: '#/laporan',     label: 'Laporan',       ikon: 'laporan',   kode: 'menu_laporan' },
     { grup: 'Sistem' },
     { rute: '#/master',      label: 'Master Data',   ikon: 'pil',       kode: ['master_data', 'master_data_obat'] },
-    { rute: '#/tarif',       label: 'Tarif & Invoice', ikon: 'laporan', kode: 'menu_tarif' },
     { rute: '#/jadwal',      label: 'Antrean & Layar', ikon: 'jam',     kode: 'antrean_pengaturan' },
     { rute: '#/migrasi',     label: 'Migrasi Portal', ikon: 'unduh',    kode: 'menu_migrasi' },
     { rute: '#/pengaturan',  label: 'Pengaturan',    ikon: 'setelan',   kode: 'menu_pengaturan' },
