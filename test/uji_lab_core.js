@@ -230,4 +230,36 @@ cek('jenis tak dikenal dikembalikan apa adanya, bukan undefined',
 cek('label jenis lampiran tersedia',
     L.labelLampiran('FILM_RONTGEN') === 'Film rontgen');
 
+/* ------------------------------------------------- Pemeriksaan Fisik */
+cek('daftar REF_FISIK terdefinisi dan berisi item lengkap',
+    Array.isArray(L.REF_FISIK) && L.REF_FISIK.length >= 20);
+cek('REF_FISIK memiliki header BMI dan Tanda Vital',
+    L.REF_FISIK.some(r => r.id === 100 && r.isHeader) && L.REF_FISIK.some(r => r.id === 200 && r.isHeader));
+cek('hasilFisikTeks mengonversi nilai 0 menjadi Normal',
+    L.hasilFisikTeks('0') === 'Normal' && L.hasilFisikTeks(0) === 'Normal');
+cek('hasilFisikTeks membiarkan nilai non-nol apa adanya',
+    L.hasilFisikTeks('120/80') === '120/80' && L.hasilFisikTeks('Sehat') === 'Sehat');
+cek('hasilFisikTeks menangani nilai kosong/null/undefined menjadi strip',
+    L.hasilFisikTeks(null) === '—' && L.hasilFisikTeks('') === '—' && L.hasilFisikTeks(undefined) === '—');
+
+/* ------------------------------------------------- Anamnesa */
+cek('daftar REF_ANAMNESA terdefinisi dan berisi 27 butir item',
+    Array.isArray(L.REF_ANAMNESA) && L.REF_ANAMNESA.length === 27);
+cek('REF_ANAMNESA memiliki header RPD (100), RPK (200), dan Kebiasaan (300)',
+    L.REF_ANAMNESA.some(r => r.urutan === 100 && r.isHeader) &&
+    L.REF_ANAMNESA.some(r => r.urutan === 200 && r.isHeader) &&
+    L.REF_ANAMNESA.some(r => r.urutan === 300 && r.isHeader));
+cek('REF_ANAMNESA memuat item keluhan saat ini dan kebiasaan lengkap',
+    L.REF_ANAMNESA.some(r => r.urutan === 1 && r.nama === 'Keluhan Saat ini') &&
+    L.REF_ANAMNESA.some(r => r.urutan === 301 && r.nama === 'Olahraga') &&
+    L.REF_ANAMNESA.some(r => r.urutan === 304 && r.nama === 'Minum Kopi'));
+cek('hasilAnamnesaTeks mengonversi 0 menjadi Tidak',
+    L.hasilAnamnesaTeks('0') === 'Tidak' && L.hasilAnamnesaTeks(0) === 'Tidak');
+cek('hasilAnamnesaTeks mengonversi 1 menjadi Ya',
+    L.hasilAnamnesaTeks('1') === 'Ya' && L.hasilAnamnesaTeks(1) === 'Ya');
+cek('hasilAnamnesaTeks membiarkan teks keterangan atau nilai lain apa adanya',
+    L.hasilAnamnesaTeks('Sepeda 2x') === 'Sepeda 2x' && L.hasilAnamnesaTeks('Tidak') === 'Tidak');
+cek('hasilAnamnesaTeks menangani nilai kosong/null/undefined',
+    L.hasilAnamnesaTeks(null) === '' && L.hasilAnamnesaTeks('') === '' && L.hasilAnamnesaTeks(undefined) === '');
+
 console.log('\n' + lulus + ' pemeriksaan lab_core LULUS');

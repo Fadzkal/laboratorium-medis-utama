@@ -1293,6 +1293,20 @@ const DB = (() => {
     const peta = {};
     (typeof REF_LAB !== 'undefined' ? REF_LAB : []).forEach(r => { peta[r.id] = r.kelompok; });
     hasil.forEach(h => { h.kelompok = peta[h.lab_id] || 'Lainnya'; });
+
+    // Deteksi Pemeriksaan Fisik dari LAB_FISIK jika ada
+    let jmlFisik = 0;
+    pIds.forEach(pId => {
+      const items = LAB_FISIK[pId];
+      if (Array.isArray(items) && items.some(f => f.hasil && f.hasil !== '' && f.hasil !== '-')) {
+        jmlFisik++;
+      }
+    });
+    if (jmlFisik > 0) {
+      hasil.push({ lab_id: null, nama: 'Pemeriksaan Fisik', kelompok: 'Pemeriksaan Fisik', jml: jmlFisik });
+      hasil.sort((a, b) => b.jml - a.jml);
+    }
+
     if (kelompok && kelompok !== 'SEMUA') hasil = hasil.filter(h => h.kelompok === kelompok);
     return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
   }
@@ -1301,6 +1315,7 @@ const DB = (() => {
     await tunggu(20);
     const set = new Set();
     (typeof REF_LAB !== 'undefined' ? REF_LAB : []).forEach(r => { if (r.kelompok) set.add(r.kelompok); });
+    set.add('Pemeriksaan Fisik');
     return Array.from(set).sort();
   }
 
@@ -2546,6 +2561,50 @@ const DB = (() => {
       lp.asal === 'INTERNAL' && ['DIMINTA', 'DIKERJAKAN'].includes(lp.status)).length;
   }
 
+  /* Pemeriksaan Fisik Demo */
+  const LAB_FISIK = {};
+  async function labFisikAmbil(permintaanId) {
+    await tunggu(20);
+    return salin(LAB_FISIK[permintaanId] || []);
+  }
+  async function labFisikSimpan(permintaanId, items) {
+    await tunggu(30);
+    LAB_FISIK[permintaanId] = salin(items || []);
+  }
+
+  /* Anamnesa Demo */
+  const LAB_ANAMNESA = {};
+  async function labAnamnesaAmbil(permintaanId) {
+    await tunggu(20);
+    if (!LAB_ANAMNESA[permintaanId]) {
+      // Inisialisasi bawaan (default 0 dan sub-item kebiasaan jika permintaan lab pertama)
+      const REF = (typeof LabCore !== 'undefined' && LabCore.REF_ANAMNESA) ? LabCore.REF_ANAMNESA : [];
+      if (REF.length) {
+        LAB_ANAMNESA[permintaanId] = REF.map(r => {
+          let h = '0';
+          let k = '';
+          if (r.urutan === 1) { k = ''; }
+          else if (r.urutan === 301) { h = '1'; k = 'Sepeda, lari 2 x seminggu'; }
+          else if (r.urutan === 302) { h = '1'; k = '12 batang / hari'; }
+          else if (r.urutan === 303) { h = '0'; k = ''; }
+          else if (r.urutan === 304) { h = '1'; k = '2 gelas / hari'; }
+          return {
+            permintaan_id: permintaanId,
+            urutan: r.urutan,
+            nama_item: r.nama,
+            hasil: h,
+            keterangan: k
+          };
+        });
+      }
+    }
+    return salin(LAB_ANAMNESA[permintaanId] || []);
+  }
+  async function labAnamnesaSimpan(permintaanId, items) {
+    await tunggu(30);
+    LAB_ANAMNESA[permintaanId] = salin(items || []);
+  }
+
   const lengkapiPenunjang = (b) => {
     const p = PASIEN.find(x => x.id === b.pasien_id) || {};
     const k = KUNJUNGAN.find(x => x.id === b.kunjungan_id);
@@ -3402,11 +3461,17 @@ const DB = (() => {
     let pList = (typeof LAB_PERMINTAAN !== 'undefined' ? LAB_PERMINTAAN : []);
     if (dari) pList = pList.filter(lp => lp.tanggal >= dari);
     if (sampai) pList = pList.filter(lp => lp.tanggal <= sampai);
-    return pList.map(lp => ({
-      id: lp.id, tanggal: lp.tanggal, status: lp.status,
-      cara_bayar: 'UMUM', nama_dokter: 'APS (Atas Permintaan Sendiri)',
-      jml_pemeriksaan: 1
-    }));
+    return pList.map(lp => {
+      const items = LAB_FISIK[lp.id];
+      const hasFisik = Array.isArray(items) && items.some(f => f.hasil && f.hasil !== '' && f.hasil !== '-');
+      return {
+        id: lp.id, tanggal: lp.tanggal, status: lp.status,
+        cara_bayar: 'UMUM', nama_dokter: 'APS (Atas Permintaan Sendiri)',
+        jml_pemeriksaan: 1 + (hasFisik ? 1 : 0),
+        ada_fisik: hasFisik,
+        jml_fisik: hasFisik ? items.filter(f => f.hasil && f.hasil !== '' && f.hasil !== '-').length : 0
+      };
+    });
   }
   async function laporanRujukan({ dari, sampai }) {
     await tunggu(60);
@@ -3459,7 +3524,8 @@ const DB = (() => {
         id: k.id, tanggal: k.tanggal, no_kunjungan: k.no_kunjungan, no_rm: k.no_rm,
         nama_pasien: k.nama_pasien, jenis_kelamin: k.jenis_kelamin, tanggal_lahir: k.tanggal_lahir,
         cara_bayar: k.cara_bayar, nama_poli: k.nama_poli, nama_dokter: k.nama_dokter,
-        daftar_diagnosa: dg ? `${dg.kode_icd10} - ${dg.nama}` : null, status: k.status
+        daftar_diagnosa: dg ? `${dg.kode_icd10} - ${dg.nama}` : null, status: k.status,
+        ada_fisik: false
       };
     });
   }
@@ -3510,7 +3576,8 @@ const DB = (() => {
            refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan,
            labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
            simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
-           labTren, labBelumSelesai,
+           labTren, labBelumSelesai, labFisikAmbil, labFisikSimpan,
+           labAnamnesaAmbil, labAnamnesaSimpan,
            penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,
            lampiranPasien, lampiranKunjungan, simpanLampiran, hapusLampiran,
            suratPengaturan, simpanSuratPengaturan, refJenisSurat,

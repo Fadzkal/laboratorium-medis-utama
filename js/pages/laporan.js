@@ -173,7 +173,7 @@ const Laporan = (() => {
           <div class="flex justify-between items-center gap-8 mb-4">
             <div class="min-w-0">
               <b>${i + 1}. ${UI.esc(t.nama)}</b>
-              ${t.kelompok ? `<span class="badge b-info text-xs ml-4" style="font-size:11px;padding:2px 6px;">${UI.esc(t.kelompok)}</span>` : ''}
+              ${t.kelompok ? `<span class="badge ${t.kelompok === 'Pemeriksaan Fisik' ? 'b-ok' : 'b-info'} text-xs ml-4" style="font-size:11px;padding:2px 6px;">${UI.esc(t.kelompok)}</span>` : ''}
             </div>
             <div class="flex items-center gap-8 flex-shrink-0">
               <span class="text-xs text-muted tabular">${total ? Math.round(t.jml / total * 100) : 0}%</span>
@@ -307,13 +307,14 @@ const Laporan = (() => {
       const isi = w.querySelector('#isiLaporan');
       isi.innerHTML = UI.memuat(4);
       try {
-        const [kunjungan, labAntrean, labTop, kelompokList] = await Promise.all([
+        const [kunjungan, labAntrean, labTop, kelompokList, kategoriData] = await Promise.all([
           DB.laporanKunjunganRingkas({ dari, sampai }),
           DB.laporanPermintaanLabRingkas({ dari, sampai }),
           DB.pemeriksaanLabTeratas({ dari, sampai, status: 'SELESAI', batas: 15 }),
-          DB.daftarKelompokLab()
+          DB.daftarKelompokLab(),
+          DB.distribusiKategoriLab({ dari, sampai })
         ]);
-        gambarRingkasan(isi, kunjungan, labAntrean, labTop, kelompokList, dari, sampai);
+        gambarRingkasan(isi, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData);
       } catch (e) {
         isi.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
       }
@@ -348,12 +349,13 @@ const Laporan = (() => {
     await muat();
   }
 
-  function gambarRingkasan(w, kunjungan, labAntrean, labTop, kelompokList, dari, sampai) {
+  function gambarRingkasan(w, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData) {
     const totalKunjungan = kunjungan.length;
     const totalPermintaan = labAntrean.length;
     const selesaiLab = labAntrean.filter(l => l.status === 'SELESAI').length;
     const prosesLab = labAntrean.filter(l => l.status === 'DIMINTA' || l.status === 'DIKERJAKAN').length;
     const totalItemPeriksa = labAntrean.reduce((s, l) => s + (Number(l.jml_pemeriksaan) || 0), 0);
+    const totalFisik = labAntrean.filter(l => l.ada_fisik).length || (labTop.find(t => t.nama === 'Pemeriksaan Fisik')?.jml || 0);
     const bpjs = kunjungan.filter(k => k.cara_bayar === 'BPJS').length || labAntrean.filter(l => l.cara_bayar === 'BPJS').length;
     const totalPasien = totalKunjungan || totalPermintaan;
     const pctSelesai = totalPermintaan ? Math.round(selesaiLab / totalPermintaan * 100) : 0;
@@ -367,10 +369,14 @@ const Laporan = (() => {
 
     // Rekap kelompok lab riil dari pemeriksaan
     const perKelompok = {};
-    (labTop || []).forEach(t => {
-      const k = t.kelompok || 'Lainnya';
-      perKelompok[k] = (perKelompok[k] || 0) + t.jml;
-    });
+    if (kategoriData && kategoriData.length) {
+      kategoriData.forEach(k => { perKelompok[k.kelompok] = k.jml; });
+    } else {
+      (labTop || []).forEach(t => {
+        const k = t.kelompok || 'Lainnya';
+        perKelompok[k] = (perKelompok[k] || 0) + t.jml;
+      });
+    }
 
     w.innerHTML = `
       <div class="grid grid-4 mb-16">
@@ -387,7 +393,7 @@ const Laporan = (() => {
         <div class="stat">
           <div class="lbl">Total parameter/tes lab</div>
           <div class="val tabular">${totalItemPeriksa}</div>
-          <div class="hint">${totalPermintaan ? (totalItemPeriksa / totalPermintaan).toFixed(1) : 0} tes / permintaan</div>
+          <div class="hint">${totalPermintaan ? (totalItemPeriksa / totalPermintaan).toFixed(1) : 0} tes / permintaan${totalFisik ? ` · ${totalFisik} fisik` : ''}</div>
         </div>
         <div class="stat">
           <div class="lbl">Peserta BPJS</div>
@@ -469,6 +475,10 @@ const Laporan = (() => {
                 <div class="flex justify-between items-center row-line">
                   <span>Menunggu Pemeriksaan (Antrean)</span>
                   <span class="badge b-warn tabular font-bold">${labAntrean.filter(l => l.status === 'DIMINTA').length}</span>
+                </div>
+                <div class="flex justify-between items-center row-line">
+                  <span>Pemeriksaan Fisik (MCU)</span>
+                  <span class="badge b-info tabular font-bold">${totalFisik} pasien</span>
                 </div>
                 ${labAntrean.some(l => l.status === 'BATAL') ? `
                   <div class="flex justify-between items-center row-line">
@@ -1195,6 +1205,7 @@ const Laporan = (() => {
     ['no_hp', 'No HP / Kontak'],
     ['cara_bayar', 'Cara Bayar'],
     ['nama_dokter', 'Dokter / Pengirim', r => (r.nama_dokter || 'APS (Atas Permintaan Sendiri)')],
+    ['ada_fisik', 'Pemeriksaan Fisik', r => (r.ada_fisik ? 'Ada' : '—')],
     ['status', 'Status']
   ];
 
@@ -1221,6 +1232,11 @@ const Laporan = (() => {
             <option value="">Semua Status</option>
             <option value="SELESAI">Selesai</option>
             <option value="ANTRI">Antre / Dalam Proses</option>
+          </select>
+          <select id="rgFisik" class="control-auto" title="Filter Pemeriksaan Fisik">
+            <option value="">Semua Pelayanan</option>
+            <option value="FISIK">Ada Pemeriksaan Fisik</option>
+            <option value="NON_FISIK">Tanpa Pemeriksaan Fisik</option>
           </select>
           <button class="btn btn-primary btn-sm" id="rgTampil">Tampilkan</button>
           <div class="search-box min-w-200">
@@ -1249,10 +1265,13 @@ const Laporan = (() => {
       const q = w.querySelector('#rgCari').value.trim().toLowerCase();
       const cb = w.querySelector('#rgCaraBayar').value;
       const st = w.querySelector('#rgStatus').value;
+      const fsk = w.querySelector('#rgFisik').value;
 
       let tampil = rows;
       if (cb) tampil = tampil.filter(r => (r.cara_bayar || '').toUpperCase() === cb.toUpperCase());
       if (st) tampil = tampil.filter(r => (r.status || '').toUpperCase() === st.toUpperCase());
+      if (fsk === 'FISIK') tampil = tampil.filter(r => !!r.ada_fisik);
+      if (fsk === 'NON_FISIK') tampil = tampil.filter(r => !r.ada_fisik);
       if (q) {
         tampil = tampil.filter(r =>
           (r.nama_pasien || '').toLowerCase().includes(q) ||
@@ -1267,14 +1286,18 @@ const Laporan = (() => {
     w.querySelector('#rgTampil').addEventListener('click', muat);
     w.querySelector('#rgCaraBayar').addEventListener('change', saring);
     w.querySelector('#rgStatus').addEventListener('change', saring);
+    w.querySelector('#rgFisik').addEventListener('change', saring);
     w.querySelector('#rgCari').addEventListener('input', UI.tunda(saring, 250));
     w.querySelector('#rgUnduh').addEventListener('click', () => {
       const q = w.querySelector('#rgCari').value.trim().toLowerCase();
       const cb = w.querySelector('#rgCaraBayar').value;
       const st = w.querySelector('#rgStatus').value;
+      const fsk = w.querySelector('#rgFisik').value;
       let unduhRows = rows;
       if (cb) unduhRows = unduhRows.filter(r => (r.cara_bayar || '').toUpperCase() === cb.toUpperCase());
       if (st) unduhRows = unduhRows.filter(r => (r.status || '').toUpperCase() === st.toUpperCase());
+      if (fsk === 'FISIK') unduhRows = unduhRows.filter(r => !!r.ada_fisik);
+      if (fsk === 'NON_FISIK') unduhRows = unduhRows.filter(r => !r.ada_fisik);
       if (q) {
         unduhRows = unduhRows.filter(r =>
           (r.nama_pasien || '').toLowerCase().includes(q) ||
@@ -1324,7 +1347,10 @@ const Laporan = (() => {
             <td><b class="mono text-xs">${UI.esc(r.no_kunjungan)}</b></td>
             <td>
               <b>${UI.esc(r.nama_pasien)}</b>
-              <div class="text-muted mono text-xs">${UI.esc(r.no_rm)}</div>
+              <div class="flex items-center gap-4">
+                <span class="text-muted mono text-xs">${UI.esc(r.no_rm)}</span>
+                ${r.ada_fisik ? '<span class="badge b-ok text-xs" style="font-size:10px;padding:1px 5px;" title="Terdapat Pemeriksaan Fisik">Fisik</span>' : ''}
+              </div>
             </td>
             <td>${UI.esc(r.jenis_kelamin || '—')}</td>
             <td>${r.tanggal_lahir ? UI.umurTeks(r.tanggal_lahir) : '—'}</td>

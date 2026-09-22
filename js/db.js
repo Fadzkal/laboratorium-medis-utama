@@ -1012,7 +1012,7 @@ const DB = (() => {
 
     // 2. Fallback agregasi client-side jika RPC belum diterapkan
     let q = sb.from('lab_permintaan')
-      .select('id, status, tanggal, lab_hasil(lab_id, nama)')
+      .select('id, status, tanggal, lab_hasil(lab_id, nama), lab_fisik(item_id, hasil)')
       .limit(5000);
     if (dari) q = q.gte('tanggal', dari);
     if (sampai) q = q.lte('tanggal', sampai);
@@ -1031,13 +1031,23 @@ const DB = (() => {
         if (!hitung[k]) hitung[k] = { lab_id: k, nama: h.nama, jml: 0 };
         hitung[k].jml++;
       });
+      // Deteksi pemeriksaan fisik per lembar/pasien
+      const hasFisik = Array.isArray(p.lab_fisik) && p.lab_fisik.some(f => f.hasil && f.hasil !== '' && f.hasil !== '-');
+      if (hasFisik) {
+        const kFisik = 'fisik';
+        if (!hitung[kFisik]) hitung[kFisik] = { lab_id: null, nama: 'Pemeriksaan Fisik', kelompok: 'Pemeriksaan Fisik', jml: 0 };
+        hitung[kFisik].jml++;
+      }
     });
     let hasil = Object.values(hitung).sort((a, b) => b.jml - a.jml);
     try {
       const ref = await refLab(true);
       const peta = {};
       ref.forEach(r => { peta[r.id] = r.kelompok; });
-      hasil.forEach(h => { h.kelompok = peta[h.lab_id] || 'Lainnya'; });
+      hasil.forEach(h => {
+        if (h.nama === 'Pemeriksaan Fisik') h.kelompok = 'Pemeriksaan Fisik';
+        else h.kelompok = peta[h.lab_id] || 'Lainnya';
+      });
       if (kelompok && kelompok !== 'SEMUA') hasil = hasil.filter(h => h.kelompok === kelompok);
     } catch (e) { /* abaikan jika refLab gagal */ }
     return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
@@ -1076,8 +1086,9 @@ const DB = (() => {
       const ref = await refLab(true);
       const set = new Set();
       ref.forEach(r => { if (r.kelompok) set.add(r.kelompok); });
+      set.add('Pemeriksaan Fisik');
       return Array.from(set).sort();
-    } catch (e) { return []; }
+    } catch (e) { return ['Pemeriksaan Fisik']; }
   }
 
 
@@ -1919,6 +1930,40 @@ const DB = (() => {
     return data ? data.lab_belum_selesai : 0;
   }
 
+  /* Pemeriksaan fisik (medical check-up) */
+  async function labFisikAmbil(permintaanId) {
+    const { data, error } = await sb.from('lab_fisik')
+      .select('*').eq('permintaan_id', permintaanId)
+      .order('item_id');
+    if (error) throw error; return data || [];
+  }
+  async function labFisikSimpan(permintaanId, items) {
+    const { error } = await sb.rpc('lab_fisik_simpan', {
+      p_permintaan_id: permintaanId,
+      p_items: items
+    });
+    if (error) throw error;
+  }
+
+  /* Anamnesa (medical check-up) */
+  async function labAnamnesaAmbil(permintaanId) {
+    const { data, error } = await sb.from('lab_anamnesa')
+      .select('*').eq('permintaan_id', permintaanId)
+      .order('urutan');
+    if (error) throw error; return data || [];
+  }
+  async function labAnamnesaSimpan(permintaanId, items) {
+    const { error } = await sb.rpc('lab_anamnesa_simpan', {
+      p_permintaan_id: permintaanId,
+      p_items: items
+    });
+    if (error) throw error;
+  }
+  async function labSimpanCatatan(permintaanId, catatan) {
+    const { error } = await sb.from('permintaan_lab').update({ catatan_klinis: catatan }).eq('id', permintaanId);
+    if (error) throw error;
+  }
+
   /* Bacaan penunjang */
   async function penunjangSimpan(p) {
     const { data, error } = await sb.rpc('penunjang_simpan', {
@@ -2741,24 +2786,29 @@ const DB = (() => {
   async function laporanPermintaanLabRingkas({ dari, sampai }) {
     try {
       const { data, error } = await sb.from('v_lab_permintaan_lean')
-        .select('id, tanggal, status, cara_bayar, nama_dokter, jml_pemeriksaan')
+        .select('id, tanggal, status, cara_bayar, nama_dokter, jml_pemeriksaan, ada_fisik, jml_fisik')
         .gte('tanggal', dari).lte('tanggal', sampai);
       if (!error && Array.isArray(data) && data.length > 0) return data;
     } catch (e) {}
 
     try {
       const { data, error } = await sb.from('lab_permintaan')
-        .select('id, tanggal, status, kunjungan:kunjungan_id(cara_bayar, dokter:dokter_id(nama))')
+        .select('id, tanggal, status, kunjungan:kunjungan_id(cara_bayar, dokter:dokter_id(nama)), lab_fisik(item_id, hasil)')
         .gte('tanggal', dari).lte('tanggal', sampai);
       if (!error && Array.isArray(data)) {
-        return data.map(lp => ({
-          id: lp.id,
-          tanggal: lp.tanggal,
-          status: lp.status,
-          cara_bayar: lp.kunjungan?.cara_bayar || 'UMUM',
-          nama_dokter: lp.kunjungan?.dokter?.nama || 'APS (Atas Permintaan Sendiri)',
-          jml_pemeriksaan: 1
-        }));
+        return data.map(lp => {
+          const hasFisik = Array.isArray(lp.lab_fisik) && lp.lab_fisik.some(f => f.hasil && f.hasil !== '' && f.hasil !== '-');
+          return {
+            id: lp.id,
+            tanggal: lp.tanggal,
+            status: lp.status,
+            cara_bayar: lp.kunjungan?.cara_bayar || 'UMUM',
+            nama_dokter: lp.kunjungan?.dokter?.nama || 'APS (Atas Permintaan Sendiri)',
+            jml_pemeriksaan: 1 + (hasFisik ? 1 : 0),
+            ada_fisik: hasFisik,
+            jml_fisik: hasFisik ? lp.lab_fisik.filter(f => f.hasil && f.hasil !== '' && f.hasil !== '-').length : 0
+          };
+        });
       }
     } catch (e2) {}
 
@@ -2821,12 +2871,36 @@ const DB = (() => {
      Kunjungan (v_riwayat_kunjungan) — bedanya cuma filter jenis_poli
      dan kolom identitas pasien yang ikut ditampilkan di sini. */
   async function laporanRegisterPoli({ dari, sampai, jenisPoli }) {
-    return await ambilSemua(() => {
+    const rows = await ambilSemua(() => {
       let q = sb.from('v_riwayat_kunjungan').select('*')
         .gte('tanggal', dari).lte('tanggal', sampai);
       if (jenisPoli) q = q.eq('jenis_poli', jenisPoli);
       return q;
     });
+
+    // Deteksi ada_fisik jika kolom belum ada di view
+    try {
+      if (rows && rows.length && rows[0].ada_fisik === undefined) {
+        const kunjunganIds = rows.map(r => r.id);
+        const { data: fisikRows } = await sb.from('lab_permintaan')
+          .select('kunjungan_id, lab_fisik!inner(id, hasil)')
+          .in('kunjungan_id', kunjunganIds)
+          .neq('status', 'BATAL');
+        if (fisikRows && fisikRows.length) {
+          const adaFisikSet = new Set();
+          fisikRows.forEach(f => {
+            if (Array.isArray(f.lab_fisik) && f.lab_fisik.some(x => x.hasil && x.hasil !== '' && x.hasil !== '-')) {
+              adaFisikSet.add(f.kunjungan_id);
+            }
+          });
+          rows.forEach(r => {
+            r.ada_fisik = adaFisikSet.has(r.id);
+          });
+        }
+      }
+    } catch (eFisik) {}
+
+    return rows;
   }
 
   /* Tindakan (ICD-9-CM) untuk sekumpulan kunjungan sekaligus — dipakai
@@ -3539,6 +3613,7 @@ const DB = (() => {
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
     simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
     labTren, riwayatLabPasien, labBelumSelesai,
+    labFisikAmbil, labFisikSimpan, labAnamnesaAmbil, labAnamnesaSimpan, labSimpanCatatan,
     penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,
     lampiranPasien, lampiranKunjungan, simpanLampiran, hapusLampiran,
     suratPengaturan, simpanSuratPengaturan, refJenisSurat,

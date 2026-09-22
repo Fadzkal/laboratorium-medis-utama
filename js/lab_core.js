@@ -327,12 +327,107 @@ const LabCore = (() => {
     return null;
   }
 
+  /* ------------------------------------------------------------------
+     Pemeriksaan Fisik — daftar item tetap (medical check-up)
+     isHeader  = baris judul grup, tidak ada input
+     unit      = satuan (opsional)
+     ------------------------------------------------------------------ */
+  const REF_FISIK = [
+    { id: 100, nama: 'BODY MASS INDEX',    isHeader: true },
+    { id: 101, nama: 'Tinggi Badan',       unit: 'cm' },
+    { id: 102, nama: 'Berat Badan',        unit: 'kg' },
+    { id: 103, nama: 'Lingkar Perut',      unit: 'cm' },
+    { id: 104, nama: 'BMI',                unit: '' },
+    { id: 200, nama: 'TANDA VITAL',        isHeader: true },
+    { id: 201, nama: 'Tensi',              unit: '/mmHg' },
+    { id: 202, nama: 'Nadi',               unit: 'x/Menit' },
+    { id: 203, nama: 'Nafas',              unit: 'x/Menit' },
+    { id: 204, nama: 'Suhu',               unit: 'C' },
+    { id: 300, nama: 'KEPALA & WAJAH',     isHeader: false, unit: '' },
+    { id: 400, nama: 'MATA',               isHeader: true },
+    { id: 403, nama: 'Buta Warna',         unit: '' },
+    { id: 500, nama: 'TELINGA',            isHeader: false, unit: '' },
+    { id: 600, nama: 'HIDUNG',             isHeader: false, unit: '' },
+    { id: 700, nama: 'TENGGOROKAN',        isHeader: false, unit: '' },
+    { id: 800, nama: 'GIGI DAN MULUT',     isHeader: false, unit: '' },
+    { id: 900, nama: 'LEHER',              isHeader: false, unit: '' },
+    { id: 1000, nama: 'THORAX/DADA',       isHeader: false, unit: '' },
+    { id: 1100, nama: 'PARU',              isHeader: false, unit: '' },
+    { id: 1200, nama: 'JANTUNG',           isHeader: false, unit: '' },
+    { id: 1300, nama: 'ABDOMEN',           isHeader: false, unit: '' },
+    { id: 1400, nama: 'KULIT DAN KUKU',    isHeader: false, unit: '' },
+    { id: 1500, nama: 'GENITOURINARIA',    isHeader: false, unit: '' },
+    { id: 1600, nama: 'EKSTRIMITAS ATAS',  isHeader: false, unit: '' },
+    { id: 1700, nama: 'EKSTRIMITAS BAWAH', isHeader: false, unit: '' },
+    { id: 1800, nama: 'LAIN-LAIN',         isHeader: false, unit: '' },
+    { id: 1900, nama: 'KESIMPULAN',         isHeader: false, unit: '' },
+    { id: 2000, nama: 'SARAN',              isHeader: false, unit: '' }
+  ];
+
+  /** Konversi nilai hasil fisik untuk tampilan cetak: '0' → 'Normal' */
+  function hasilFisikTeks(val) {
+    if (val === null || val === undefined || val === '') return '—';
+    if (val === '0' || val === 0) return 'Normal';
+    return String(val);
+  }
+
+  /* ------------------------------------------------------------------
+     Anamnesa — daftar item riwayat dan kebiasaan pasien (medical check-up)
+     Urutan:
+       1       : Keluhan Saat ini
+       100     : Riwayat Penyakit Dahulu (Header)
+       101-109 : Sub-item RPD
+       200     : Riwayat Penyakit Keluarga (Header)
+       201-210 : Sub-item RPK
+       300     : Kebiasaan (Header)
+       301-304 : Sub-item Kebiasaan
+     ------------------------------------------------------------------ */
+  const REF_ANAMNESA = [
+    { urutan: 1,   nama: 'Keluhan Saat ini',                         isHeader: false, isKeluhan: true },
+    { urutan: 100, nama: 'Riwayat Penyakit Dahulu',                  isHeader: true },
+    { urutan: 101, nama: 'Rawat Inap/Operasi',                       isHeader: false },
+    { urutan: 102, nama: 'Pengobatan TBC/Hepatitis/dll',             isHeader: false },
+    { urutan: 103, nama: 'Patah Tulang (Terpasang PEN)',             isHeader: false },
+    { urutan: 104, nama: 'Penyakit Haemorroid',                      isHeader: false },
+    { urutan: 105, nama: 'Penyakit Hipertensi',                      isHeader: false },
+    { urutan: 106, nama: 'Penyakit Diabetes Mellitus',               isHeader: false },
+    { urutan: 107, nama: 'Penyakit Ginjal/Saluran Kemih Lain',       isHeader: false },
+    { urutan: 108, nama: 'Penyakit Stroke',                          isHeader: false },
+    { urutan: 109, nama: 'Penyakit Kejang',                          isHeader: false },
+    { urutan: 200, nama: 'Riwayat Penyakit Keluarga',                isHeader: true },
+    { urutan: 201, nama: 'Penyakit Asma',                            isHeader: false },
+    { urutan: 202, nama: 'Penyakit Jantung/Darah Tinggi/Rendah *',   isHeader: false },
+    { urutan: 203, nama: 'Penyakit Stroke',                          isHeader: false },
+    { urutan: 204, nama: 'Penyakit GIT/Hepatobilliary/Sal. Cerna *', isHeader: false },
+    { urutan: 205, nama: 'Penyakit Kencing Manis',                   isHeader: false },
+    { urutan: 206, nama: 'Penyakit Ginjal',                          isHeader: false },
+    { urutan: 207, nama: 'Penyakit Kanker/Tumor',                    isHeader: false },
+    { urutan: 208, nama: 'Penyakit Alergi',                          isHeader: false },
+    { urutan: 209, nama: 'Penyakit Gangguan Jiwa',                   isHeader: false },
+    { urutan: 210, nama: 'Penyakit Lainnya',                         isHeader: false },
+    { urutan: 300, nama: 'Kebiasaan',                                isHeader: true },
+    { urutan: 301, nama: 'Olahraga',                                 isHeader: false },
+    { urutan: 302, nama: 'Merokok',                                  isHeader: false },
+    { urutan: 303, nama: 'Minum Alkohol',                            isHeader: false },
+    { urutan: 304, nama: 'Minum Kopi',                               isHeader: false }
+  ];
+
+  /** Konversi nilai hasil anamnesa untuk tampilan cetak: '0' | 0 → 'Tidak', '1' | 1 → 'Ya' */
+  function hasilAnamnesaTeks(val) {
+    if (val === null || val === undefined || String(val).trim() === '') return '';
+    const s = String(val).trim();
+    if (s === '0') return 'Tidak';
+    if (s === '1') return 'Ya';
+    return s;
+  }
+
   const API = {
-    TANDA, JENIS_PENUNJANG, JENIS_LAMPIRAN,
+    TANDA, JENIS_PENUNJANG, JENIS_LAMPIRAN, REF_FISIK, REF_ANAMNESA,
     labelJenis, jenisPakaiGigi, labelLampiran,
     umurBulan, pilihRujukan, tandaAngka, tandaTeks, tandai,
     fmSql, teksRujukan, bacaNilai, formatNilai,
-    ringkasLembar, urutMenonjol, kelompokkan, susunTren, validasi
+    ringkasLembar, urutMenonjol, kelompokkan, susunTren, validasi,
+    hasilFisikTeks, hasilAnamnesaTeks
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
