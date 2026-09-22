@@ -199,9 +199,211 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  /* ------------------------------------------------------------------
+   *  PEMANTAUAN KRONIS BPJS 6 BULAN & EVALUASI HBA1C PASIEN
+   * ------------------------------------------------------------------ */
+  async function dataKronisBpjsPasien() {
+    let dataList = [];
+    let pakaiView = false;
+
+    // 1. Coba ambil dari v_pasien_kronis_bpjs jika view SQL sudah ada di Supabase
+    try {
+      const { data, error } = await sb.from('v_pasien_kronis_bpjs').select('*');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        dataList = data;
+        pakaiView = true;
+      }
+    } catch (e) {
+      pakaiView = false;
+    }
+
+    // 2. Fallback: Hitung mandiri dari tabel pasien, kunjungan, kronis_terapi, diagnosa, lab_hasil
+    if (!pakaiView) {
+      const now = new Date();
+      const [pasienRes, kunjBpjsRes, kronisRes, diagnosaRes, labHasilRes] = await Promise.all([
+        sb.from('pasien').select('id, no_rm, nama, no_bpjs, no_hp, tanggal_lahir, jenis_kelamin, catatan_penting').eq('aktif', true),
+        sb.from('kunjungan').select('pasien_id, tanggal').eq('cara_bayar', 'BPJS').order('tanggal', { ascending: false }),
+        sb.from('kronis_terapi').select('pasien_id, aktif, kronis_terapi_diagnosa(kode)').eq('aktif', true).catch(() => ({ data: [] })),
+        sb.from('diagnosa').select('kunjungan:kunjungan_id(pasien_id), kode_icd10').catch(() => ({ data: [] })),
+        sb.from('lab_hasil').select('nilai_angka, nilai_teks, nama, permintaan:permintaan_id(pasien_id, tanggal, status)').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
+      ]);
+
+      const semuaPasien = pasienRes.data || [];
+      const kunjBpjs = kunjBpjsRes.data || [];
+      const kronisTerapi = kronisRes.data || [];
+      const diagnosaList = diagnosaRes.data || [];
+      const labHasilList = labHasilRes.data || [];
+
+      // Map kunjungan BPJS terakhir per pasien
+      const mapKlaim = new Map();
+      kunjBpjs.forEach(k => {
+        if (k.pasien_id && !mapKlaim.has(k.pasien_id) && k.tanggal) {
+          mapKlaim.set(k.pasien_id, k.tanggal);
+        }
+      });
+
+      // Map diagnosa kronis per pasien
+      const mapHT = new Set();
+      const mapDM = new Set();
+
+      kronisTerapi.forEach(kt => {
+        if (!kt.pasien_id) return;
+        const diagCodes = (kt.kronis_terapi_diagnosa || []).map(d => d.kode);
+        if (diagCodes.includes('HPT')) mapHT.add(kt.pasien_id);
+        if (diagCodes.includes('DM')) mapDM.add(kt.pasien_id);
+      });
+
+      diagnosaList.forEach(d => {
+        const pId = d.kunjungan?.pasien_id;
+        if (!pId) return;
+        const icd = (d.kode_icd10 || '').toUpperCase();
+        if (/^(I10|I11|I12|I13|I15)/.test(icd)) mapHT.add(pId);
+        if (/^(E10|E11|E13|E14)/.test(icd)) mapDM.add(pId);
+      });
+
+      // Map HbA1c terbaru per pasien
+      const mapHba1c = new Map();
+      labHasilList.forEach(lh => {
+        const nm = (lh.nama || '').toLowerCase();
+        if (!nm.includes('hba1c') && !nm.includes('hemoglobin a1c')) return;
+        const req = lh.permintaan;
+        if (!req || !req.pasien_id || req.status !== 'SELESAI') return;
+        const pId = req.pasien_id;
+        if (!mapHba1c.has(pId)) {
+          let val = lh.nilai_angka;
+          if (val === null || val === undefined) {
+            const parsed = parseFloat(String(lh.nilai_teks || '').replace(',', '.'));
+            if (!isNaN(parsed) && isFinite(parsed)) val = parsed;
+          }
+          mapHba1c.set(pId, { nilai: val, tanggal: req.tanggal });
+          mapDM.add(pId); // Tes HbA1c otomatis penanda pasien DM
+        }
+      });
+
+      dataList = semuaPasien.map(p => {
+        const cp = (p.catatan_penting || '').toLowerCase();
+        const isHT = mapHT.has(p.id) || /(hipertensi|\bhpt\b|\bht\b|tensi tinggi)/.test(cp);
+        const isDM = mapDM.has(p.id) || /(diabetes|\bdm\b|gula darah|kencing manis)/.test(cp);
+
+        let jenis_kronis = 'Non-Kronis';
+        if (isHT && isDM) jenis_kronis = 'HT & DM';
+        else if (isHT) jenis_kronis = 'Hipertensi';
+        else if (isDM) jenis_kronis = 'Diabetes Melitus';
+
+        const tglKlaim = mapKlaim.get(p.id) || null;
+        let hariSejakKlaim = null;
+        let statusKlaim = 'NON_BPJS';
+        const hasBpjs = p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-';
+
+        if (hasBpjs) {
+          if (!tglKlaim) {
+            statusKlaim = 'BELUM_KLAIM';
+          } else {
+            const dKlaim = new Date(tglKlaim);
+            hariSejakKlaim = Math.max(0, Math.floor((now.getTime() - dKlaim.getTime()) / (1000 * 60 * 60 * 24)));
+            statusKlaim = hariSejakKlaim <= 180 ? 'SUDAH_KLAIM_6BLN' : 'JATUH_TEMPO_6BLN';
+          }
+        }
+
+        const hba1cData = mapHba1c.get(p.id) || null;
+        const nilaiHba1c = hba1cData ? hba1cData.nilai : null;
+        const tglHba1c = hba1cData ? hba1cData.tanggal : null;
+        let statusHba1c = 'BELUM_PERIKSA';
+        let siklusHba1c = 'Segera Periksa (3/6 Bln)';
+
+        if (nilaiHba1c !== null && !isNaN(nilaiHba1c)) {
+          if (nilaiHba1c < 7.0) {
+            statusHba1c = 'TERKONTROL';
+            siklusHba1c = '6 Bulan';
+          } else {
+            statusHba1c = 'BELUM_TERKONTROL';
+            siklusHba1c = '3 Bulan';
+          }
+        }
+
+        return {
+          pasien_id: p.id,
+          no_rm: p.no_rm,
+          nama: p.nama,
+          no_bpjs: p.no_bpjs,
+          no_hp: p.no_hp,
+          tanggal_lahir: p.tanggal_lahir,
+          jenis_kelamin: p.jenis_kelamin,
+          is_ht: isHT,
+          is_dm: isDM,
+          jenis_kronis,
+          tgl_klaim_bpjs: tglKlaim,
+          hari_sejak_klaim: hariSejakKlaim,
+          status_klaim_bpjs: statusKlaim,
+          tgl_hba1c: tglHba1c,
+          nilai_hba1c: nilaiHba1c,
+          status_hba1c: statusHba1c,
+          siklus_rekomendasi_hba1c: siklusHba1c
+        };
+      });
+    }
+
+    return hitungRingkasanKronis(dataList);
+  }
+
+  function hitungRingkasanKronis(dataList) {
+    const mapPasien = new Map();
+    dataList.forEach(r => mapPasien.set(r.pasien_id, r));
+
+    // Pasien kronis (HT atau DM)
+    const pasienKronis = dataList.filter(r => r.is_ht || r.is_dm);
+    const totalHT = dataList.filter(r => r.is_ht).length;
+    const totalDM = dataList.filter(r => r.is_dm).length;
+
+    // Status BPJS Pasien Kronis
+    const kronisBpjs = pasienKronis.filter(r => r.status_klaim_bpjs !== 'NON_BPJS');
+    const bpjsSudahKlaim = kronisBpjs.filter(r => r.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN').length;
+    const bpjsJatuhTempo = kronisBpjs.filter(r => r.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || r.status_klaim_bpjs === 'BELUM_KLAIM').length;
+    const totalBpjsKronis = kronisBpjs.length;
+
+    const persenBpjsSudahKlaim = totalBpjsKronis ? Math.round((bpjsSudahKlaim / totalBpjsKronis) * 100) : 0;
+    const persenBpjsJatuhTempo = totalBpjsKronis ? Math.round((bpjsJatuhTempo / totalBpjsKronis) * 100) : 0;
+
+    // Status HbA1c Pasien Diabetes
+    const pasienDM = dataList.filter(r => r.is_dm);
+    const dmHba1cTerkontrol = pasienDM.filter(r => r.status_hba1c === 'TERKONTROL').length;
+    const dmHba1cTinggi = pasienDM.filter(r => r.status_hba1c === 'BELUM_TERKONTROL').length;
+    const dmHba1cBelum = pasienDM.filter(r => r.status_hba1c === 'BELUM_PERIKSA').length;
+    const totalDmTerperiksa = dmHba1cTerkontrol + dmHba1cTinggi;
+
+    const persenHba1cTerkontrol = totalDmTerperiksa ? Math.round((dmHba1cTerkontrol / totalDmTerperiksa) * 100) : 0;
+    const persenHba1cTinggi = totalDmTerperiksa ? Math.round((dmHba1cTinggi / totalDmTerperiksa) * 100) : 0;
+
+    const arrNilai = pasienDM.map(r => Number(r.nilai_hba1c)).filter(v => !isNaN(v) && v > 0);
+    const rataRataHba1c = arrNilai.length ? (arrNilai.reduce((a, b) => a + b, 0) / arrNilai.length).toFixed(1) : null;
+
+    return {
+      ringkasan: {
+        totalKronis: pasienKronis.length,
+        totalHT,
+        totalDM,
+        totalBpjsKronis,
+        bpjsSudahKlaim,
+        bpjsJatuhTempo,
+        persenBpjsSudahKlaim,
+        persenBpjsJatuhTempo,
+        totalDm: pasienDM.length,
+        totalDmTerperiksa,
+        dmHba1cTerkontrol,
+        dmHba1cTinggi,
+        dmHba1cBelum,
+        persenHba1cTerkontrol,
+        persenHba1cTinggi,
+        rataRataHba1c
+      },
+      mapPasien,
+      daftar: dataList
+    };
+  }
+
   /* Mengambil daftar pasien lengkap dengan statistik kunjungan & kelengkapan */
   async function daftarPasienLengkap(filter = {}) {
-    const { kata = '', tipe = 'semua', urut = 'kunjungan_terbanyak', jk = 'semua', umur = 'semua', kelengkapan = 'semua', batas = 300 } = filter;
+    const { kata = '', tipe = 'semua', urut = 'kunjungan_terbanyak', jk = 'semua', umur = 'semua', kelengkapan = 'semua', kronis = 'semua', batas = 300 } = filter;
 
     let dataPasien = [];
     let pakaiView = false;
@@ -257,7 +459,22 @@ const DB = (() => {
       });
     }
 
-    // 3. Filter Client-side: Tipe Kepesertaan
+    // 3. Gabungkan dengan data status kronis, klaim BPJS 6 bulan, dan evaluasi HbA1c
+    const infoKronis = await dataKronisBpjsPasien().catch(() => ({ mapPasien: new Map(), ringkasan: {} }));
+    dataPasien.forEach(p => {
+      p.kronis = infoKronis.mapPasien.get(p.id) || {
+        is_ht: false,
+        is_dm: false,
+        jenis_kronis: 'Non-Kronis',
+        status_klaim_bpjs: p.no_bpjs ? 'BELUM_KLAIM' : 'NON_BPJS',
+        status_hba1c: 'BELUM_PERIKSA',
+        nilai_hba1c: null,
+        tgl_hba1c: null,
+        siklus_rekomendasi_hba1c: 'Segera Periksa (3/6 Bln)'
+      };
+    });
+
+    // 4. Filter Client-side: Tipe Kepesertaan
     if (tipe === 'bpjs') {
       dataPasien = dataPasien.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
     } else if (tipe === 'umum') {
@@ -266,14 +483,31 @@ const DB = (() => {
       dataPasien = dataPasien.filter(p => (p.nrp && p.nrp.trim()) || (p.bagian && p.bagian.trim()) || (p.plant && p.plant.trim()));
     }
 
-    // 4. Filter Jenis Kelamin
+    // 5. Filter Khusus Kronis & Klaim BPJS 6 Bulan / HbA1c
+    if (kronis && kronis !== 'semua') {
+      if (kronis === 'bpjs_sudah_klaim') {
+        dataPasien = dataPasien.filter(p => p.kronis?.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN');
+      } else if (kronis === 'bpjs_belum_klaim') {
+        dataPasien = dataPasien.filter(p => (p.kronis?.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || p.kronis?.status_klaim_bpjs === 'BELUM_KLAIM') && (p.kronis?.is_ht || p.kronis?.is_dm));
+      } else if (kronis === 'dm_hba1c_terkontrol') {
+        dataPasien = dataPasien.filter(p => p.kronis?.status_hba1c === 'TERKONTROL');
+      } else if (kronis === 'dm_hba1c_tinggi') {
+        dataPasien = dataPasien.filter(p => p.kronis?.status_hba1c === 'BELUM_TERKONTROL');
+      } else if (kronis === 'dm_hba1c_belum') {
+        dataPasien = dataPasien.filter(p => p.kronis?.is_dm && p.kronis?.status_hba1c === 'BELUM_PERIKSA');
+      } else if (kronis === 'semua_kronis') {
+        dataPasien = dataPasien.filter(p => p.kronis?.is_ht || p.kronis?.is_dm);
+      }
+    }
+
+    // 6. Filter Jenis Kelamin
     if (jk === 'L') {
       dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'L');
     } else if (jk === 'P') {
       dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'P');
     }
 
-    // 5. Filter Kelompok Umur
+    // 7. Filter Kelompok Umur
     if (umur && umur !== 'semua') {
       const now = new Date();
       dataPasien = dataPasien.filter(p => {
@@ -289,14 +523,14 @@ const DB = (() => {
       });
     }
 
-    // 6. Filter Kelengkapan Data
+    // 8. Filter Kelengkapan Data
     if (kelengkapan === 'lengkap') {
       dataPasien = dataPasien.filter(p => !p.kekurangan || p.kekurangan.length === 0);
     } else if (kelengkapan === 'kurang') {
       dataPasien = dataPasien.filter(p => p.kekurangan && p.kekurangan.length > 0);
     }
 
-    // 7. Pengurutan / Sort
+    // 9. Pengurutan / Sort
     dataPasien.sort((a, b) => {
       if (urut === 'kunjungan_terbanyak') {
         const selisih = (b.jml_kunjungan || 0) - (a.jml_kunjungan || 0);
@@ -321,6 +555,7 @@ const DB = (() => {
       return (a.nama || '').localeCompare(b.nama || '');
     });
 
+    dataPasien.ringkasanKronis = infoKronis.ringkasan || {};
     return dataPasien;
   }
   async function pasien(id) {
@@ -3271,7 +3506,7 @@ const DB = (() => {
     daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
     tambahPengguna, hapusPengguna, resetPasswordPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
-    cariPasien, daftarPasienLengkap, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
+    cariPasien, daftarPasienLengkap, dataKronisBpjsPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
     kajian, simpanKajian,
     pemeriksaan, simpanPemeriksaan, finalisasi, tambahAddendum, daftarAddendum,

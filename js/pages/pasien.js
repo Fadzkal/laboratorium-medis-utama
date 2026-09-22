@@ -228,23 +228,39 @@ const Pasien = (() => {
               ${UI.ikon('plus',16)} Pasien baru</button></div>` : ''}
       </div>
 
+      <!-- Widget KPI Pemantauan BPJS 6 Bulan & Kontrol HbA1c -->
+      <div id="wadahKpiKronis" class="mb-16"></div>
+
       <div class="filter-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
         <div class="search-box filter-search" style="flex:1 1 240px; min-width:200px;">
           <span class="ico">${UI.ikon('cari',16)}</span>
           <input type="search" id="cari" placeholder="Cari nama, No. RM, NIK, BPJS, atau HP…" autofocus>
         </div>
 
-        <div class="field" style="margin-bottom:0; min-width:140px;">
+        <div class="field" style="margin-bottom:0; min-width:180px;">
+          <label for="fKronis" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Status BPJS 6 Bln &amp; HbA1c</label>
+          <select id="fKronis" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
+            <option value="semua">Semua Pasien</option>
+            <option value="bpjs_sudah_klaim">✅ BPJS: Sudah Klaim (&le; 6 Bln)</option>
+            <option value="bpjs_belum_klaim">⚠️ BPJS: Belum Klaim / Jatuh Tempo</option>
+            <option value="dm_hba1c_terkontrol">🟢 DM: HbA1c &lt; 7% (Terkontrol 6 Bln)</option>
+            <option value="dm_hba1c_tinggi">🔴 DM: HbA1c &ge; 7% (Evaluasi Ulang 3 Bln)</option>
+            <option value="dm_hba1c_belum">⚪ DM: Belum Periksa HbA1c</option>
+            <option value="semua_kronis">🩺 Semua Pasien Kronis (HT/DM)</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0; min-width:130px;">
           <label for="fTipe" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kepesertaan</label>
           <select id="fTipe" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
-            <option value="semua">Semua Pasien</option>
+            <option value="semua">Semua Tipe</option>
             <option value="bpjs">BPJS Kesehatan</option>
             <option value="umum">Umum / Mandiri</option>
             <option value="rekanan">Instansi / Pabrik</option>
           </select>
         </div>
 
-        <div class="field" style="margin-bottom:0; min-width:160px;">
+        <div class="field" style="margin-bottom:0; min-width:150px;">
           <label for="fUrut" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Urutkan</label>
           <select id="fUrut" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
             <option value="kunjungan_terbanyak" selected>Kunjungan Terbanyak</option>
@@ -265,17 +281,17 @@ const Pasien = (() => {
           </select>
         </div>
 
-        <div class="field" style="margin-bottom:0; min-width:130px;">
-          <label for="fUmur" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kategori Umur</label>
+        <div class="field" style="margin-bottom:0; min-width:120px;">
+          <label for="fUmur" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Umur</label>
           <select id="fUmur" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
             <option value="semua">Semua Umur</option>
-            <option value="anak">Anak (< 18 th)</option>
+            <option value="anak">Anak (&lt; 18 th)</option>
             <option value="dewasa">Dewasa (18 - 59 th)</option>
-            <option value="lansia">Lansia (≥ 60 th)</option>
+            <option value="lansia">Lansia (&ge; 60 th)</option>
           </select>
         </div>
 
-        <div class="field" style="margin-bottom:0; min-width:130px;">
+        <div class="field" style="margin-bottom:0; min-width:120px;">
           <label for="fKelengkapan" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Kelengkapan</label>
           <select id="fKelengkapan" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
             <option value="semua">Semua Status</option>
@@ -314,9 +330,100 @@ const Pasien = (() => {
       'kunjungan_terakhir': 'Kunjungan Terakhir'
     };
 
+    function renderKpiKronis(ringkasan = {}) {
+      const wadah = el.querySelector('#wadahKpiKronis');
+      if (!wadah) return;
+
+      const totalBpjs = ringkasan.totalBpjsKronis || 0;
+      const sudahKlaim = ringkasan.bpjsSudahKlaim || 0;
+      const jatuhTempo = ringkasan.bpjsJatuhTempo || 0;
+      const persenSudah = ringkasan.persenBpjsSudahKlaim || 0;
+      const persenJatuh = ringkasan.persenBpjsJatuhTempo || 0;
+
+      const totalDm = ringkasan.totalDm || 0;
+      const terperiksaDm = ringkasan.totalDmTerperiksa || 0;
+      const dmTerkontrol = ringkasan.dmHba1cTerkontrol || 0;
+      const dmTinggi = ringkasan.dmHba1cTinggi || 0;
+      const dmBelum = ringkasan.dmHba1cBelum || 0;
+      const persenTerkontrol = ringkasan.persenHba1cTerkontrol || 0;
+      const persenTinggi = ringkasan.persenHba1cTinggi || 0;
+      const rataRata = ringkasan.rataRataHba1c ? `Rata-rata: ${ringkasan.rataRataHba1c}%` : 'Belum ada data nilai';
+
+      wadah.innerHTML = `
+        <div class="grid grid-2 gap-16">
+          <!-- Card 1: Status Klaim BPJS 6 Bulan (HT & DM) -->
+          <div class="card" style="border-left: 4px solid #16a34a; background:#f8fdf9;">
+            <div class="card-head py-8 px-16 flex items-center justify-between flex-wrap gap-8" style="border-bottom:1px solid #dcfce7;">
+              <div>
+                <h3 style="margin:0; font-size:14px; font-weight:700; color:#166534;">
+                  ${UI.ikon('cek', 14)} Pemantauan Siklus Klaim BPJS 6 Bulan (Prolanis)
+                </h3>
+                <div class="text-xs text-muted">Pasien Hipertensi &amp; Diabetes peserta BPJS</div>
+              </div>
+              <span class="badge b-ok font-bold" style="font-size:11px;">${totalBpjs} Pasien BPJS Kronis</span>
+            </div>
+            <div class="card-body p-12">
+              <div class="grid grid-2 gap-10">
+                <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:6px; padding:10px;">
+                  <div class="text-xs text-muted font-bold">Sudah Klaim (&le; 6 Bulan)</div>
+                  <div class="flex items-baseline gap-6 mt-4">
+                    <span style="font-size:24px; font-weight:800; color:#15803d;">${persenSudah}%</span>
+                    <span class="text-xs text-muted">(${sudahKlaim} pasien)</span>
+                  </div>
+                  <div class="text-xs mt-4" style="color:#16a34a; font-weight:600;">Status Aktif · Layak Pelayanan</div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #fecaca; border-radius:6px; padding:10px;">
+                  <div class="text-xs text-muted font-bold">Belum Klaim / Jatuh Tempo</div>
+                  <div class="flex items-baseline gap-6 mt-4">
+                    <span style="font-size:24px; font-weight:800; color:#dc2626;">${persenJatuh}%</span>
+                    <span class="text-xs text-muted">(${jatuhTempo} pasien)</span>
+                  </div>
+                  <div class="text-xs mt-4" style="color:#dc2626; font-weight:600;">Terlewat &gt; 180 Hari · Perlu Jadwal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Evaluasi Kontrol HbA1c (Diabetes) -->
+          <div class="card" style="border-left: 4px solid #2563eb; background:#f6faff;">
+            <div class="card-head py-8 px-16 flex items-center justify-between flex-wrap gap-8" style="border-bottom:1px solid #dbeafe;">
+              <div>
+                <h3 style="margin:0; font-size:14px; font-weight:700; color:#1e40af;">
+                  ${UI.ikon('stetoskop', 14)} Evaluasi Kontrol HbA1c Pasien Diabetes
+                </h3>
+                <div class="text-xs text-muted">Target Kontrol Glikemik: &lt; 7.0% · ${rataRata}</div>
+              </div>
+              <span class="badge b-info font-bold" style="font-size:11px;">${terperiksaDm} / ${totalDm} Terperiksa</span>
+            </div>
+            <div class="card-body p-12">
+              <div class="grid grid-2 gap-10">
+                <div style="background:#ffffff; border:1px solid #bfdbfe; border-radius:6px; padding:10px;">
+                  <div class="text-xs text-muted font-bold">Terkontrol (&lt; 7.0%)</div>
+                  <div class="flex items-baseline gap-6 mt-4">
+                    <span style="font-size:24px; font-weight:800; color:#1d4ed8;">${persenTerkontrol}%</span>
+                    <span class="text-xs text-muted">(${dmTerkontrol} pasien)</span>
+                  </div>
+                  <div class="text-xs mt-4" style="color:#2563eb; font-weight:600;">Jadwal Rutin Berikutnya: 6 Bulan</div>
+                </div>
+                <div style="background:#ffffff; border:1px solid #fed7aa; border-radius:6px; padding:10px;">
+                  <div class="text-xs text-muted font-bold">Belum Terkontrol (&ge; 7.0%)</div>
+                  <div class="flex items-baseline gap-6 mt-4">
+                    <span style="font-size:24px; font-weight:800; color:#c2410c;">${persenTinggi}%</span>
+                    <span class="text-xs text-muted">(${dmTinggi} pasien)</span>
+                  </div>
+                  <div class="text-xs mt-4" style="color:#ea580c; font-weight:600;">Perhatian: Evaluasi Ulang 3 Bulan</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     const muat = async () => {
       const kata = (el.querySelector('#cari')?.value || '').trim();
       const tipe = el.querySelector('#fTipe')?.value || 'semua';
+      const kronis = el.querySelector('#fKronis')?.value || 'semua';
       const urut = el.querySelector('#fUrut')?.value || 'kunjungan_terbanyak';
       const jk = el.querySelector('#fJk')?.value || 'semua';
       const umur = el.querySelector('#fUmur')?.value || 'semua';
@@ -327,7 +434,7 @@ const Pasien = (() => {
 
       try {
         const data = await DB.daftarPasienLengkap({
-          kata, tipe, urut, jk, umur, kelengkapan, batas: 300
+          kata, tipe, kronis, urut, jk, umur, kelengkapan, batas: 300
         });
 
         const bpjsCount = data.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-').length;
@@ -337,6 +444,7 @@ const Pasien = (() => {
           statJumlah.textContent = `Menampilkan ${data.length} pasien (${bpjsCount} BPJS, ${umumCount} Umum)`;
         }
 
+        renderKpiKronis(data.ringkasanKronis || {});
         gambarDaftar(hasil, data, kata, muat);
       } catch (e) {
         hasil.innerHTML = `<div class="banner err">${UI.esc(e.message || e)}</div>`;
@@ -345,6 +453,7 @@ const Pasien = (() => {
     };
 
     el.querySelector('#cari')?.addEventListener('input', UI.tunda(muat, 280));
+    el.querySelector('#fKronis')?.addEventListener('change', muat);
     el.querySelector('#fTipe')?.addEventListener('change', muat);
     el.querySelector('#fUrut')?.addEventListener('change', muat);
     el.querySelector('#fJk')?.addEventListener('change', muat);
@@ -353,6 +462,7 @@ const Pasien = (() => {
 
     el.querySelector('#btnResetFilter')?.addEventListener('click', () => {
       if (el.querySelector('#cari')) el.querySelector('#cari').value = '';
+      if (el.querySelector('#fKronis')) el.querySelector('#fKronis').value = 'semua';
       if (el.querySelector('#fTipe')) el.querySelector('#fTipe').value = 'semua';
       if (el.querySelector('#fUrut')) el.querySelector('#fUrut').value = 'kunjungan_terbanyak';
       if (el.querySelector('#fJk')) el.querySelector('#fJk').value = 'semua';
@@ -383,11 +493,11 @@ const Pasien = (() => {
       <thead>
         <tr>
           <th>No. RM</th>
-          <th>Nama Pasien</th>
+          <th>Nama Pasien &amp; Status Kronis</th>
           <th>L/P</th>
-          <th>Umur & Tgl Lahir</th>
+          <th>Umur &amp; Tgl Lahir</th>
           <th>Kunjungan</th>
-          <th>Kepesertaan</th>
+          <th>Kepesertaan &amp; Siklus BPJS</th>
           <th>Kontak / NIK</th>
           <th style="width:1%"></th>
         </tr>
@@ -397,6 +507,31 @@ const Pasien = (() => {
         const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
         const badgeKunjunganClass = jmlKunjungan >= 5 ? 'b-ok' : (jmlKunjungan > 0 ? 'b-bpjs' : 'b-umum');
         const adaKurang = p.kekurangan && p.kekurangan.length > 0;
+        const kr = p.kronis || {};
+
+        let kronisBadges = '';
+        if (kr.is_ht || kr.is_dm) {
+          const badgeJenis = `<span class="badge ${kr.is_ht && kr.is_dm ? 'b-dokter' : 'b-info'} text-xs" style="margin-right:4px;">${UI.esc(kr.jenis_kronis)}</span>`;
+          let badgeKlaim = '';
+          if (isBpjs) {
+            if (kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN') {
+              badgeKlaim = `<span class="badge b-ok text-xs" title="Terakhir klaim BPJS: ${UI.tglPendek(kr.tgl_klaim_bpjs)} (${kr.hari_sejak_klaim} hari lalu)"><span class="dot"></span> Klaim 6 Bln OK</span> `;
+            } else {
+              badgeKlaim = `<span class="badge b-warn text-xs" title="${kr.tgl_klaim_bpjs ? 'Klaim terakhir ' + kr.hari_sejak_klaim + ' hari lalu (Jatuh tempo)' : 'Belum pernah klaim BPJS'}"><span class="dot"></span> Jatuh Tempo 6 Bln</span> `;
+            }
+          }
+          let badgeHba1c = '';
+          if (kr.is_dm) {
+            if (kr.status_hba1c === 'TERKONTROL') {
+              badgeHba1c = `<span class="badge b-ok text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Kontrol rutin: 6 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&lt; 7%)</span> `;
+            } else if (kr.status_hba1c === 'BELUM_TERKONTROL') {
+              badgeHba1c = `<span class="badge b-danger text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Perhatian: Evaluasi Ulang 3 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&ge; 7%)</span> `;
+            } else {
+              badgeHba1c = `<span class="badge b-batal text-xs" title="Belum pernah periksa HbA1c · Jadwal rutin: 3/6 Bulan">HbA1c: Belum Tes</span> `;
+            }
+          }
+          kronisBadges = `<div class="flex items-center gap-4 flex-wrap mt-4">${badgeJenis}${badgeKlaim}${badgeHba1c}</div>`;
+        }
 
         return `
         <tr class="clickable" data-id="${p.id}">
@@ -407,6 +542,7 @@ const Pasien = (() => {
               ${UI.ikon('peringatan',12)} ${UI.esc(p.catatan_penting)}</div>` : ''}
             ${adaKurang ? `<div class="text-xs text-warn" style="margin-top:2px;" title="${p.kekurangan.join(', ')}">
               ${UI.ikon('peringatan',11)} ${p.kekurangan.length} data belum lengkap</div>` : ''}
+            ${kronisBadges}
           </td>
           <td>${p.jenis_kelamin || '—'}</td>
           <td class="nowrap">
@@ -425,6 +561,8 @@ const Pasien = (() => {
               : `<span class="badge b-umum" style="font-size:10.5px; padding:2px 6px;">Umum</span>`
             }
             ${(p.bagian || p.plant) ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc([p.bagian, p.plant].filter(Boolean).join(' - '))}</div>` : ''}
+            ${isBpjs && kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN' ? `<div class="text-xs text-ok font-bold" style="margin-top:2px;">Klaim Aktif (&le; 6 Bln)</div>` : ''}
+            ${isBpjs && (kr.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || kr.status_klaim_bpjs === 'BELUM_KLAIM') ? `<div class="text-xs text-danger font-bold" style="margin-top:2px;">Jatuh Tempo 6 Bln</div>` : ''}
           </td>
           <td class="muted">
             <div>${UI.esc(p.no_hp || p.no_telp || '—')}</div>
@@ -522,12 +660,14 @@ const Pasien = (() => {
   }
 
   async function detail(el, id) {
-    const [p, alergi, riwayat, kesiapan, riwayatLab] = await Promise.all([
+    const [p, alergi, riwayat, kesiapan, riwayatLab, infoKronisSemua] = await Promise.all([
       DB.pasien(id), DB.alergiPasien(id), DB.daftarKunjungan({ pasien_id: id, batas: 50 }),
       DB.kesiapanPasien({ hanyaKurang: false, pasienId: id }).catch(() => []),
-      DB.riwayatLabPasien(id)
+      DB.riwayatLabPasien(id),
+      DB.dataKronisBpjsPasien().catch(() => null)
     ]);
     const kurang = kesiapan[0]?.kekurangan || [];
+    const kronisPasien = infoKronisSemua?.mapPasien?.get(id) || null;
     DB.catatAkses(id, 'Membuka halaman data pasien');
 
     // Transformasi data untuk tabel matriks: Baris = Nama Tes, Kolom = Tanggal
@@ -605,6 +745,98 @@ const Pasien = (() => {
       `;
     }
 
+    // Kartu Pemantauan Kronis BPJS 6 Bulan & HbA1c
+    let kartuKronisHtml = '';
+    if (kronisPasien && (kronisPasien.is_ht || kronisPasien.is_dm || (p.no_bpjs && kronisPasien.status_klaim_bpjs !== 'NON_BPJS'))) {
+      const isAktifKlaim = kronisPasien.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN';
+      const sisaHari = kronisPasien.hari_sejak_klaim !== null ? (180 - kronisPasien.hari_sejak_klaim) : null;
+
+      kartuKronisHtml = `
+        <div class="card mb-16" style="border-left: 4px solid var(--brand-700);">
+          <div class="card-head" style="flex-wrap:wrap; gap:8px;">
+            <div>
+              <h2>Pemantauan Pasien Kronis &amp; Evaluasi BPJS 6 Bulan (Prolanis)</h2>
+              <div class="sub">Pengecekan otomatis kelayakan klaim berkala (siklus 6 bulan) dan kontrol glikemik HbA1c (target &lt; 7.0%)</div>
+            </div>
+            <span class="badge ${kronisPasien.is_ht && kronisPasien.is_dm ? 'b-dokter' : 'b-info'} font-bold">
+              ${UI.esc(kronisPasien.jenis_kronis)}
+            </span>
+          </div>
+          <div class="card-body">
+            <div class="grid grid-2 gap-16">
+              <!-- Sisi Kiri: Siklus Klaim BPJS 6 Bulan -->
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+                <div class="flex items-center justify-between mb-8">
+                  <span class="text-xs font-bold uppercase text-muted">Siklus Klaim BPJS 6 Bulan</span>
+                  <span class="badge ${isAktifKlaim ? 'b-ok' : 'b-danger'} font-bold">
+                    ${isAktifKlaim ? 'Klaim Aktif (Layak Layanan)' : 'Jatuh Tempo / Belum Klaim'}
+                  </span>
+                </div>
+                <div class="text-sm">
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">No. Kartu BPJS:</span>
+                    <b class="mono">${UI.esc(p.no_bpjs || '—')}</b>
+                  </div>
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">Klaim Terakhir:</span>
+                    <b>${kronisPasien.tgl_klaim_bpjs ? UI.tglIndo(kronisPasien.tgl_klaim_bpjs) : '<span class="text-muted">Belum pernah klaim</span>'}</b>
+                  </div>
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">Masa Sejak Klaim:</span>
+                    <b>${kronisPasien.hari_sejak_klaim !== null ? kronisPasien.hari_sejak_klaim + ' hari yang lalu' : '—'}</b>
+                  </div>
+                  <div class="flex justify-between py-4">
+                    <span class="text-muted">Status Kelayakan:</span>
+                    <span class="${isAktifKlaim ? 'text-ok font-bold' : 'text-danger font-bold'}">
+                      ${isAktifKlaim 
+                        ? `Masih dalam periode 6 bulan (${sisaHari} hari sisa masa berlaku)` 
+                        : (kronisPasien.hari_sejak_klaim !== null 
+                            ? `Jatuh tempo (terlewat ${kronisPasien.hari_sejak_klaim - 180} hari dari siklus 6 bulan)` 
+                            : 'Belum ada catatan klaim BPJS')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sisi Kanan: Evaluasi HbA1c -->
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+                <div class="flex items-center justify-between mb-8">
+                  <span class="text-xs font-bold uppercase text-muted">Evaluasi HbA1c Pasien Diabetes</span>
+                  ${kronisPasien.status_hba1c === 'TERKONTROL' 
+                    ? '<span class="badge b-ok font-bold"><span class="dot"></span> Terkontrol (&lt; 7.0%)</span>' 
+                    : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' 
+                        ? '<span class="badge b-danger font-bold"><span class="dot"></span> Perlu Evaluasi (&ge; 7.0%)</span>' 
+                        : '<span class="badge b-batal">Belum Ada Hasil Tes</span>')}
+                </div>
+                <div class="text-sm">
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">Nilai HbA1c Terakhir:</span>
+                    <b style="font-size:16px; color:${kronisPasien.status_hba1c === 'TERKONTROL' ? '#15803d' : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? '#b91c1c' : 'inherit')};">
+                      ${kronisPasien.nilai_hba1c !== null ? kronisPasien.nilai_hba1c + ' %' : '—'}
+                    </b>
+                  </div>
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">Tanggal Tes Terakhir:</span>
+                    <b>${kronisPasien.tgl_hba1c ? UI.tglIndo(kronisPasien.tgl_hba1c) : '—'}</b>
+                  </div>
+                  <div class="flex justify-between py-4 border-b">
+                    <span class="text-muted">Target Kontrol Klinis:</span>
+                    <b>&lt; 7.0 %</b>
+                  </div>
+                  <div class="flex justify-between py-4">
+                    <span class="text-muted">Rekomendasi Kontrol:</span>
+                    <b class="${kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? 'text-warn' : 'text-ok'}">
+                      ${kronisPasien.siklus_rekomendasi_hba1c}
+                    </b>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     el.innerHTML = `
       <a href="#/pasien" class="btn btn-ghost btn-sm mb-12">${UI.ikon('kembali',15)} Semua pasien</a>
 
@@ -640,6 +872,7 @@ const Pasien = (() => {
           ? `<button class="btn btn-secondary btn-sm" id="btnAlergi">Tambah alergi</button>` : ''}
       </div>
 
+      ${kartuKronisHtml}
       ${tabelStatistik}
       ${chartGridHtml}
 
