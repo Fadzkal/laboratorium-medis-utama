@@ -27,7 +27,7 @@ const Lab = (() => {
   // medis terkunci, bukan pekerjaan sehari-hari peran mana pun.
   const adminSaja  = () => App.siapa() && App.siapa().peran === 'master';
 
-  const TAB = { hasil: 'Hasil Pemeriksaan', antrean: 'Antrean lab', penunjang: 'Bacaan penunjang', arsip: 'Arsip berkas' };
+  const TAB = { hasil: 'Hasil Pemeriksaan', antrean: 'Antrean lab' };
 
   /* ================================================================== */
   /*  Kerangka                                                          */
@@ -35,6 +35,7 @@ const Lab = (() => {
   async function render(el, param) {
     if (param && param[0] === 'hasil' && param[1]) return await layarHasil(el, param[1]);
     if (param && param[0] && TAB[param[0]]) tabAktif = param[0];
+    if (!TAB[tabAktif]) tabAktif = 'antrean';
 
     if (!master.length) master = await DB.refLab(true);
     if (!paket.length)  paket  = await DB.refLabPaket();
