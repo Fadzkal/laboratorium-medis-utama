@@ -28,7 +28,33 @@ const UI = (() => {
   }
 
   /* ---------- Modal ---------------------------------------------------- */
-  function modal({ judul, isi, lebar = false, tombol = [], siap = null }) {
+  function modal(opsi, isiPos, tombolPos) {
+    let judul, isi, lebar, tombol, siap;
+    if (typeof opsi === 'string') {
+      judul = opsi;
+      isi = isiPos || '';
+      if (Array.isArray(tombolPos)) {
+        tombol = tombolPos.map(b => ({
+          teks: b.teks || b.label || '',
+          kelas: b.kelas || b.class || 'btn-secondary',
+          aksi: b.aksi || b.fn || null,
+          nilai: b.nilai !== undefined ? b.nilai : (b.label === 'Batal' ? null : true)
+        }));
+      } else if (tombolPos && typeof tombolPos === 'object') {
+        lebar = !!tombolPos.lebar || !!tombolPos.width;
+        tombol = (tombolPos.tombol || []).map(b => ({
+          teks: b.teks || b.label || '',
+          kelas: b.kelas || b.class || 'btn-secondary',
+          aksi: b.aksi || b.fn || null,
+          nilai: b.nilai
+        }));
+        siap = tombolPos.siap || null;
+      } else {
+        tombol = [];
+      }
+    } else {
+      ({ judul, isi, lebar = false, tombol = [], siap = null } = opsi || {});
+    }
     return new Promise((resolve) => {
       const bg = document.createElement('div');
       bg.className = 'modal-bg open';
@@ -92,6 +118,11 @@ const UI = (() => {
       const fokus = badan.querySelector('input, select, textarea');
       if (fokus) setTimeout(() => fokus.focus(), 60);
     });
+  }
+
+  function tutupModal() {
+    const bg = document.querySelector('.modal-bg.open');
+    if (bg) bg.remove();
   }
 
   async function konfirmasi(judul, pesan, tombolYa = 'Ya, lanjutkan', bahaya = false) {
@@ -312,7 +343,7 @@ const UI = (() => {
     return n < a.min || n > a.max;
   }
 
-  return { esc, toast, modal, konfirmasi, tglIndo, tglPendek, jam, hariIni,
+  return { esc, toast, modal, tutupModal, konfirmasi, tglIndo, tglPendek, jam, hariIni,
            bulanIni, geserBulan, labelBulan,
            umur, umurTeks, rupiah, uang: rupiah, formatRibuan, terbilang, inisial, badgeStatus, badgeBayar, ikon,
            kosong, memuat, nilaiForm, isiForm, tunda, vitalTidakNormal, HARI, BULAN };

@@ -60,14 +60,60 @@ begin
     now()
   );
 
+  -- Daftarkan juga identitas email di auth.identities agar login GoTrue berjalan mulus
+  begin
+    insert into auth.identities (
+      id,
+      user_id,
+      identity_data,
+      provider,
+      provider_id,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    ) values (
+      v_uid::text,
+      v_uid,
+      jsonb_build_object('sub', v_uid::text, 'email', v_email),
+      'email',
+      v_uid::text,
+      now(),
+      now(),
+      now()
+    );
+  exception when others then
+    begin
+      insert into auth.identities (
+        id,
+        user_id,
+        identity_data,
+        provider,
+        last_sign_in_at,
+        created_at,
+        updated_at
+      ) values (
+        v_uid,
+        v_uid,
+        jsonb_build_object('sub', v_uid::text, 'email', v_email),
+        'email',
+        now(),
+        now(),
+        now()
+      );
+    exception when others then
+      null;
+    end;
+  end;
+
   -- Pastikan data di tabel pegawai terisi lengkap
-  update public.pegawai set
+  insert into public.pegawai (id, nama, peran, jenis_dokter, no_sip, aktif)
+  values (v_uid, trim(p_nama), p_peran, p_jenis_dokter, trim(p_no_sip), true)
+  on conflict (id) do update set
     nama = trim(p_nama),
     peran = p_peran,
     jenis_dokter = p_jenis_dokter,
     no_sip = trim(p_no_sip),
-    aktif = true
-  where id = v_uid;
+    aktif = true;
 
   return v_uid;
 end;
@@ -78,7 +124,7 @@ grant execute on function public.tambah_pengguna_langsung(text, text, text, publ
 -- 2. Hapus Pengguna Langsung dari Web
 create or replace function public.hapus_pengguna_langsung(p_id uuid)
 returns boolean
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   -- Keamanan: Hanya master yang diizinkan menghapus pengguna
@@ -91,9 +137,24 @@ begin
     raise exception 'Tidak dapat menghapus akun Anda sendiri yang sedang digunakan.';
   end if;
 
-  -- Hapus dari auth.users (otomatis cascade ke pegawai)
-  delete from auth.users where id = p_id;
-  delete from public.pegawai where id = p_id;
+  -- Coba hapus akun. Jika akun belum terikat transaksi/rekam medis, hapus permanen.
+  -- Jika sudah ada riwayat transaksi/rekam medis, lindungi integritas data dengan
+  -- menonaktifkan akun & mencabut akses login secara permanen.
+  begin
+    begin
+      delete from auth.identities where user_id = p_id;
+    exception when others then
+      null;
+    end;
+    delete from auth.users where id = p_id;
+    delete from public.pegawai where id = p_id;
+  exception when foreign_key_violation then
+    update public.pegawai set aktif = false where id = p_id;
+    update auth.users set
+      encrypted_password = extensions.crypt(gen_random_uuid()::text, extensions.gen_salt('bf')),
+      updated_at = now()
+    where id = p_id;
+  end;
 
   return true;
 end;

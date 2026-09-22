@@ -362,24 +362,32 @@ const Pengaturan = (() => {
             <input type="password" id="inputSandiBaru" placeholder="Minimal 6 karakter" class="ctl-sm" style="width:100%; padding:8px;" required minlength="6">
           </div>
         `;
-        UI.modal('Reset Kata Sandi', formHtml, [
-          { label: 'Batal' },
-          { label: 'Simpan Kata Sandi', class: 'btn-primary', fn: async (m) => {
-            const pass = m.querySelector('#inputSandiBaru').value;
-            if (!pass || pass.length < 6) {
-              UI.toast('Kata sandi minimal 6 karakter.', 'err');
-              return false;
+        UI.modal({
+          judul: 'Reset Kata Sandi',
+          isi: formHtml,
+          tombol: [
+            { teks: 'Batal' },
+            {
+              teks: 'Simpan Kata Sandi',
+              kelas: 'btn-primary',
+              aksi: async (m) => {
+                const pass = m.querySelector('#inputSandiBaru').value;
+                if (!pass || pass.length < 6) {
+                  UI.toast('Kata sandi minimal 6 karakter.', 'err');
+                  return false;
+                }
+                try {
+                  await DB.resetPasswordPengguna(id, pass);
+                  UI.toast('Kata sandi berhasil diubah.', 'ok');
+                  return true;
+                } catch (err) {
+                  UI.toast(err.message || 'Gagal mengubah kata sandi', 'err');
+                  return false;
+                }
+              }
             }
-            try {
-              await DB.resetPasswordPengguna(id, pass);
-              UI.toast('Kata sandi berhasil diubah.', 'ok');
-              return true;
-            } catch (err) {
-              UI.toast(err.message || 'Gagal mengubah kata sandi', 'err');
-              return false;
-            }
-          }}
-        ]);
+          ]
+        });
       }));
 
       tbody.querySelectorAll('[data-hapus]').forEach(btn => btn.addEventListener('click', async () => {
@@ -389,7 +397,7 @@ const Pengaturan = (() => {
           try {
             await DB.hapusPengguna(id);
             UI.toast('Akun berhasil dihapus.', 'ok');
-            d = d.filter(x => x.id !== id);
+            d = await DB.daftarPegawai();
             renderBaris(filterList());
           } catch (err) {
             UI.toast(err.message || 'Gagal menghapus pengguna.', 'err');
@@ -449,47 +457,54 @@ const Pengaturan = (() => {
         </form>
       `;
 
-      UI.modal('Tambah Pengguna Baru', modalHtml, [
-        { label: 'Batal' },
-        { label: 'Simpan Akun', class: 'btn-primary', fn: async (m) => {
-          const nama = m.querySelector('#tbNama').value.trim();
-          const email = m.querySelector('#tbEmail').value.trim();
-          const password = m.querySelector('#tbPassword').value;
-          const peran = m.querySelector('#tbPeran').value;
-          const jenis_dokter = m.querySelector('#tbJenisDokter').value || null;
-          const no_sip = m.querySelector('#tbSip').value.trim() || null;
-
-          if (!nama || !email || !password) {
-            UI.toast('Nama, email, dan kata sandi wajib diisi.', 'err');
-            return false;
+      UI.modal({
+        judul: 'Tambah Pengguna Baru',
+        isi: modalHtml,
+        siap: (badan) => {
+          const selPeran = badan.querySelector('#tbPeran');
+          const wrapJenis = badan.querySelector('#wrapTbJenisDokter');
+          if (selPeran && wrapJenis) {
+            selPeran.addEventListener('change', () => {
+              wrapJenis.style.display = selPeran.value === 'dokter' ? 'block' : 'none';
+            });
           }
-          if (password.length < 6) {
-            UI.toast('Kata sandi minimal 6 karakter.', 'err');
-            return false;
-          }
+        },
+        tombol: [
+          { teks: 'Batal' },
+          {
+            teks: 'Simpan Akun',
+            kelas: 'btn-primary',
+            aksi: async (m) => {
+              const nama = m.querySelector('#tbNama').value.trim();
+              const email = m.querySelector('#tbEmail').value.trim();
+              const password = m.querySelector('#tbPassword').value;
+              const peran = m.querySelector('#tbPeran').value;
+              const jenis_dokter = m.querySelector('#tbJenisDokter')?.value || null;
+              const no_sip = m.querySelector('#tbSip')?.value.trim() || null;
 
-          try {
-            await DB.tambahPengguna({ nama, email, password, peran, jenis_dokter, no_sip });
-            UI.toast('Pengguna baru berhasil ditambahkan.', 'ok');
-            d = await DB.daftarPegawai();
-            renderBaris(filterList());
-            return true;
-          } catch (err) {
-            UI.toast(err.message || 'Gagal menambahkan pengguna.', 'err');
-            return false;
-          }
-        }}
-      ]);
+              if (!nama || !email || !password) {
+                UI.toast('Nama, email, dan kata sandi wajib diisi.', 'err');
+                return false;
+              }
+              if (password.length < 6) {
+                UI.toast('Kata sandi minimal 6 karakter.', 'err');
+                return false;
+              }
 
-      setTimeout(() => {
-        const selPeran = document.getElementById('tbPeran');
-        const wrapJenis = document.getElementById('wrapTbJenisDokter');
-        if (selPeran && wrapJenis) {
-          selPeran.addEventListener('change', () => {
-            wrapJenis.style.display = selPeran.value === 'dokter' ? 'block' : 'none';
-          });
-        }
-      }, 50);
+              try {
+                await DB.tambahPengguna({ nama, email, password, peran, jenis_dokter, no_sip });
+                UI.toast('Pengguna baru berhasil ditambahkan.', 'ok');
+                d = await DB.daftarPegawai();
+                renderBaris(filterList());
+                return true;
+              } catch (err) {
+                UI.toast(err.message || 'Gagal menambahkan pengguna.', 'err');
+                return false;
+              }
+            }
+          }
+        ]
+      });
     });
 
     renderBaris(d);
