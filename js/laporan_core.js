@@ -221,6 +221,40 @@ const LaporanCore = (() => {
   }
 
   /* ------------------------------------------------------------------
+     4b. ASAL RUJUKAN LAB — Mengelompokkan asal rujukan pasien laboratorium:
+     - 'DOKTER_LUAR' : Dokter pengirim / rujukan luar (dr., Sp., Bd., dsb.)
+     - 'FASKES'      : Faskes / instansi rekanan (RS, Puskesmas, Klinik, Balai, Apotek, dsb.)
+     - 'APS'         : Atas Permintaan Sendiri (pasien mandiri)
+     ------------------------------------------------------------------ */
+
+  function kategorikanAsalRujukan(namaDokter) {
+    if (!namaDokter) return 'APS';
+    const s = String(namaDokter).trim();
+    if (!s || /^(aps|atas permintaan sendiri)$/i.test(s) || s.toUpperCase().includes('APS') || s.toLowerCase().includes('permintaan sendiri')) {
+      return 'APS';
+    }
+    if (/\b(rs|rsud|puskesmas|klinik|balai|apotek|laboratorium|lab|dinas|bank|pt|cv|instansi|kantor|bpjs|corp)\b/i.test(s)) {
+      return 'FASKES';
+    }
+    return 'DOKTER_LUAR';
+  }
+
+  function rekapAsalRujukanPerBulan(rows, monthKeys) {
+    const peta = new Map(monthKeys.map(k => [k, { dokterLuar: 0, faskes: 0, aps: 0, total: 0 }]));
+    (rows || []).forEach(r => {
+      const k = kunciBulan(r && r.tanggal);
+      if (!k || !peta.has(k)) return;
+      const acc = peta.get(k);
+      const kat = kategorikanAsalRujukan(r.nama_dokter);
+      if (kat === 'DOKTER_LUAR') acc.dokterLuar++;
+      else if (kat === 'FASKES') acc.faskes++;
+      else acc.aps++;
+      acc.total++;
+    });
+    return monthKeys.map(k => ({ bulan: k, ...peta.get(k) }));
+  }
+
+  /* ------------------------------------------------------------------
      5. KEUANGAN — dua definisi "pendapatan" yang TIDAK BOLEH dijumlahkan
      begitu saja (lihat catatan di sql/19_laporan.sql): nilai_layanan
      (termasuk yang ditanggung BPJS) vs uang_masuk (kas sungguhan).
@@ -333,6 +367,7 @@ const LaporanCore = (() => {
     rekapJamKunjungan,
     rekapDokter,
     LABEL_JENIS_RUJUKAN, labelJenisRujukan, tujuanRujukan, rekapRujukanPerBulan,
+    kategorikanAsalRujukan, rekapAsalRujukanPerBulan,
     rekapNilaiLayananPerBulan, rekapUangMasukPerBulan,
     KATEGORI_USIA, kategoriUsia, rekapPuskesmas
   };

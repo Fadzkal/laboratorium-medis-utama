@@ -756,6 +756,26 @@ const DB = (() => {
      jumlahnya, dan disortir descending. Filter opsional: status permintaan
      dan kelompok lab (Hematologi, Kimia Klinik, dll.). */
   async function pemeriksaanLabTeratas({ dari, sampai, status, kelompok, batas = 15 } = {}) {
+    // 1. Coba fungsi agregasi database langsung (sangat cepat, mengembalikan data teragregasi < 50ms)
+    try {
+      const { data, error } = await sb.rpc('rpc_top_pemeriksaan_lab', {
+        p_dari: dari || '1970-01-01',
+        p_sampai: sampai || '2099-12-31',
+        p_status: status || 'SELESAI',
+        p_kelompok: kelompok || null,
+        p_batas: batas || 15
+      });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(d => ({
+          lab_id: d.lab_id,
+          nama: d.nama,
+          kelompok: d.kelompok || 'Lainnya',
+          jml: Number(d.jml) || 0
+        }));
+      }
+    } catch (eRpc) {}
+
+    // 2. Fallback agregasi client-side jika RPC belum diterapkan
     let q = sb.from('lab_permintaan')
       .select('id, status, tanggal, lab_hasil(lab_id, nama)')
       .limit(5000);
@@ -786,6 +806,34 @@ const DB = (() => {
       if (kelompok && kelompok !== 'SEMUA') hasil = hasil.filter(h => h.kelompok === kelompok);
     } catch (e) { /* abaikan jika refLab gagal */ }
     return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
+  }
+
+  /* Agregasi porsi kelompok / kategori pemeriksaan lab untuk Donut Chart */
+  async function distribusiKategoriLab({ dari, sampai } = {}) {
+    try {
+      const { data, error } = await sb.rpc('rpc_distribusi_kategori_lab', {
+        p_dari: dari || '1970-01-01',
+        p_sampai: sampai || '2099-12-31'
+      });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(d => ({ kelompok: d.kelompok, jml: Number(d.jml) || 0 }));
+      }
+    } catch (e) {}
+
+    // Fallback: hitung dari pemeriksaanLabTeratas tanpa batas
+    try {
+      const periksa = await pemeriksaanLabTeratas({ dari, sampai, batas: 0 });
+      const peta = {};
+      periksa.forEach(p => {
+        const k = p.kelompok || 'Lainnya';
+        peta[k] = (peta[k] || 0) + (p.jml || 0);
+      });
+      return Object.entries(peta)
+        .map(([kelompok, jml]) => ({ kelompok, jml }))
+        .sort((a, b) => b.jml - a.jml);
+    } catch (err) {
+      return [];
+    }
   }
 
   async function daftarKelompokLab() {
@@ -2229,12 +2277,88 @@ const DB = (() => {
      angkanya tetap tampil, hanya saja salah. */
 
   /* Baris mentah untuk Overview, tren, heatmap jam, dan rekap per dokter
-     — seluruhnya dihitung di js/laporan_core.js dari kolom-kolom ini. */
+     — seluruhnya dihitung di js/laporan_core.js dari kolom-kolom ini.
+     Dioptimalkan: gunakan v_laporan_kunjungan_lean atau kueri langsung ke tabel kunjungan,
+     bebas dari correlated subquery diagnosa v_riwayat_kunjungan agar tidak timeout. */
   async function laporanKunjunganRentang({ dari, sampai }) {
+    // 1. Coba view ramping v_laporan_kunjungan_lean (bebas subquery diagnosa)
+    try {
+      const { data, error } = await sb.from('v_laporan_kunjungan_lean')
+        .select('tanggal,jenis_poli,cara_bayar,jenis_kunjungan,jam_daftar,nama_dokter,dokter_id')
+        .gte('tanggal', dari).lte('tanggal', sampai)
+        .order('tanggal', { ascending: false });
+      if (!error && Array.isArray(data) && data.length > 0) return data;
+    } catch (e) {}
+
+    // 2. Fallback kueri langsung ke tabel kunjungan + relasi dokter & poli
+    try {
+      const { data, error } = await sb.from('kunjungan')
+        .select('id, tanggal, cara_bayar, jenis_kunjungan, waktu_daftar, dokter_id, dokter:dokter_id(nama), poli:poli_id(jenis)')
+        .gte('tanggal', dari).lte('tanggal', sampai)
+        .order('tanggal', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        return data.map(k => {
+          let jam = 8;
+          if (k.waktu_daftar) {
+            try { jam = new Date(k.waktu_daftar).getHours(); } catch(err) {}
+          }
+          return {
+            tanggal: k.tanggal,
+            cara_bayar: k.cara_bayar,
+            jenis_kunjungan: k.jenis_kunjungan,
+            jenis_poli: k.poli?.jenis || 'LAB',
+            dokter_id: k.dokter_id,
+            nama_dokter: k.dokter?.nama || 'APS (Atas Permintaan Sendiri)',
+            jam_daftar: jam
+          };
+        });
+      }
+    } catch (e2) {}
+
+    // 3. Fallback akhir ke view lama jika diperlukan
     return await ambilSemua(() =>
       sb.from('v_riwayat_kunjungan')
         .select('tanggal,jenis_poli,cara_bayar,jenis_kunjungan,jam_daftar,nama_dokter,dokter_id')
         .gte('tanggal', dari).lte('tanggal', sampai));
+  }
+
+  /* Ringkasan kunjungan untuk Tab Ringkasan (hanya id, tanggal, cara_bayar).
+     Mencegah pengambilan seluruh kolom dan subquery diagnosa yang menyebabkan timeout. */
+  async function laporanKunjunganRingkas({ dari, sampai }) {
+    const { data, error } = await sb.from('kunjungan')
+      .select('id, tanggal, cara_bayar')
+      .gte('tanggal', dari).lte('tanggal', sampai);
+    if (error) throw error;
+    return data || [];
+  }
+
+  /* Ringkasan permintaan lab untuk Tab Ringkasan (status, cara_bayar, jml_pemeriksaan).
+     Mencegah perulangan 4 subquery lab_hasil per baris di v_lab_antrean. */
+  async function laporanPermintaanLabRingkas({ dari, sampai }) {
+    try {
+      const { data, error } = await sb.from('v_lab_permintaan_lean')
+        .select('id, tanggal, status, cara_bayar, nama_dokter, jml_pemeriksaan')
+        .gte('tanggal', dari).lte('tanggal', sampai);
+      if (!error && Array.isArray(data) && data.length > 0) return data;
+    } catch (e) {}
+
+    try {
+      const { data, error } = await sb.from('lab_permintaan')
+        .select('id, tanggal, status, kunjungan:kunjungan_id(cara_bayar, dokter:dokter_id(nama))')
+        .gte('tanggal', dari).lte('tanggal', sampai);
+      if (!error && Array.isArray(data)) {
+        return data.map(lp => ({
+          id: lp.id,
+          tanggal: lp.tanggal,
+          status: lp.status,
+          cara_bayar: lp.kunjungan?.cara_bayar || 'UMUM',
+          nama_dokter: lp.kunjungan?.dokter?.nama || 'APS (Atas Permintaan Sendiri)',
+          jml_pemeriksaan: 1
+        }));
+      }
+    } catch (e2) {}
+
+    return await labAntrean(dari, sampai);
   }
 
   async function laporanRujukan({ dari, sampai }) {
@@ -3000,7 +3124,8 @@ const DB = (() => {
     kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
     kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,
     kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,
-    laporanKunjunganRentang, laporanRujukan,
+    laporanKunjunganRentang, laporanKunjunganRingkas, laporanPermintaanLabRingkas,
+    laporanRujukan, distribusiKategoriLab,
     laporanKeuanganTagihan, laporanKeuanganPembayaran,
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,

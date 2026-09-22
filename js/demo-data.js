@@ -1298,6 +1298,16 @@ const DB = (() => {
     return Array.from(set).sort();
   }
 
+  async function distribusiKategoriLab({ dari, sampai } = {}) {
+    const list = await pemeriksaanLabTeratas({ dari, sampai, batas: 0 });
+    const peta = {};
+    list.forEach(p => {
+      const k = p.kelompok || 'Lainnya';
+      peta[k] = (peta[k] || 0) + (p.jml || 0);
+    });
+    return Object.entries(peta).map(([kelompok, jml]) => ({ kelompok, jml })).sort((a, b) => b.jml - a.jml);
+  }
+
 
   /* ---------------- Rujukan berkode ---------------- */
   async function refKesadaran() { await tunggu(30); return salin(REF_KESADARAN); }
@@ -3308,6 +3318,23 @@ const DB = (() => {
       nama_dokter: k.nama_dokter, dokter_id: k.dokter_id
     }));
   }
+  async function laporanKunjunganRingkas({ dari, sampai }) {
+    await tunggu(30);
+    return KUNJUNGAN_LAP.filter(k => k.tanggal >= dari && k.tanggal <= sampai).map(k => ({
+      id: k.id, tanggal: k.tanggal, cara_bayar: k.cara_bayar
+    }));
+  }
+  async function laporanPermintaanLabRingkas({ dari, sampai }) {
+    await tunggu(30);
+    let pList = (typeof LAB_PERMINTAAN !== 'undefined' ? LAB_PERMINTAAN : []);
+    if (dari) pList = pList.filter(lp => lp.tanggal >= dari);
+    if (sampai) pList = pList.filter(lp => lp.tanggal <= sampai);
+    return pList.map(lp => ({
+      id: lp.id, tanggal: lp.tanggal, status: lp.status,
+      cara_bayar: 'UMUM', nama_dokter: 'APS (Atas Permintaan Sendiri)',
+      jml_pemeriksaan: 1
+    }));
+  }
   async function laporanRujukan({ dari, sampai }) {
     await tunggu(60);
     return RUJUKAN_LAP.filter(r => r.tanggal >= dari && r.tanggal <= sampai)
@@ -3359,7 +3386,7 @@ const DB = (() => {
            odontogram, odontogramPadaKunjungan, simpanOdontogram, riwayatOdontogram,
            pemeriksaanGigi, simpanPemeriksaanGigi,
            cariIcd9, tindakan, simpanTindakan, tindakanTeratas,
-           pemeriksaanLabTeratas, daftarKelompokLab,
+           pemeriksaanLabTeratas, daftarKelompokLab, distribusiKategoriLab,
            refKesadaran, refStatusPulang,
            refPrognosa, refTacc, refSubspesialis, refSarana, refAlergi, refPpk,
            refSistemFisik, refVital: refVitalSemua,
@@ -3403,10 +3430,9 @@ const DB = (() => {
            kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
            kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,
            kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,
-           laporanKunjunganRentang, laporanRujukan, laporanKeuanganTagihan,
+           laporanKunjunganRentang, laporanKunjunganRingkas, laporanPermintaanLabRingkas,
+           laporanRujukan, laporanKeuanganTagihan,
            laporanKeuanganPembayaran, laporanRegisterPoli, laporanTindakanUntukKunjungan,
            laporanDiagnosaPuskesmas,
            gantiPeranDemo, peranDemoSekarang, PERAN_DEMO };
 })();
-
-

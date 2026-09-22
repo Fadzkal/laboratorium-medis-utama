@@ -159,6 +159,32 @@ cek('tujuanRujukan IGD: pakai kolom teks lama',
     r[1].jumlah === 2 && r[0].jumlah === 1);
 }
 
+{
+  cek('kategorikanAsalRujukan: null/kosong/APS -> APS',
+    L.kategorikanAsalRujukan(null) === 'APS' &&
+    L.kategorikanAsalRujukan('') === 'APS' &&
+    L.kategorikanAsalRujukan('APS (Atas Permintaan Sendiri)') === 'APS');
+  cek('kategorikanAsalRujukan: RS/Puskesmas/Klinik/Apotek -> FASKES',
+    L.kategorikanAsalRujukan('RSUD Goeteng Taroenadibrata') === 'FASKES' &&
+    L.kategorikanAsalRujukan('Puskesmas Purbalingga') === 'FASKES' &&
+    L.kategorikanAsalRujukan('Klinik Pratama Sehat') === 'FASKES');
+  cek('kategorikanAsalRujukan: Dokter praktik luar -> DOKTER_LUAR',
+    L.kategorikanAsalRujukan('dr. Bambang Sidik') === 'DOKTER_LUAR' &&
+    L.kategorikanAsalRujukan('dr. Ajib Abdul Aziz') === 'DOKTER_LUAR');
+
+  const rows = [
+    { tanggal: '2026-09-01', nama_dokter: 'dr. Bambang Sidik' },
+    { tanggal: '2026-09-05', nama_dokter: 'Puskesmas Purbalingga' },
+    { tanggal: '2026-09-10', nama_dokter: 'APS (Atas Permintaan Sendiri)' },
+    { tanggal: '2026-08-15', nama_dokter: 'dr. Desy Hartini' }
+  ];
+  const rAsal = L.rekapAsalRujukanPerBulan(rows, L.daftarBulanMundur(2, '2026-09'));
+  cek('rekapAsalRujukanPerBulan: September terpecah per asal (dokterLuar: 1, faskes: 1, aps: 1)',
+    rAsal[1].dokterLuar === 1 && rAsal[1].faskes === 1 && rAsal[1].aps === 1 && rAsal[1].total === 3);
+  cek('rekapAsalRujukanPerBulan: Agustus terpecah per asal (dokterLuar: 1, total: 1)',
+    rAsal[0].dokterLuar === 1 && rAsal[0].total === 1);
+}
+
 /* ======================================================================
    6. Keuangan
    ====================================================================== */

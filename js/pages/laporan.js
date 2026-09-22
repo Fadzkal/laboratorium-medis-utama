@@ -306,8 +306,8 @@ const Laporan = (() => {
       isi.innerHTML = UI.memuat(4);
       try {
         const [kunjungan, labAntrean, labTop, kelompokList] = await Promise.all([
-          DB.daftarKunjungan({ dari, sampai, batas: 2000 }),
-          DB.labAntrean(dari, sampai),
+          DB.laporanKunjunganRingkas({ dari, sampai }),
+          DB.laporanPermintaanLabRingkas({ dari, sampai }),
           DB.pemeriksaanLabTeratas({ dari, sampai, status: 'SELESAI', batas: 15 }),
           DB.daftarKelompokLab()
         ]);
@@ -591,10 +591,15 @@ const Laporan = (() => {
     }
 
     try {
-      const diagnosaTop = await DB.diagnosaTeratas(data.monthKeys[0] + '-01', UI.hariIni(), 10);
+      const labTop10 = await DB.pemeriksaanLabTeratas({
+        dari: data.monthKeys[0] + '-01',
+        sampai: UI.hariIni(),
+        status: 'SELESAI',
+        batas: 10
+      });
       w.querySelector('#ovDiagnosa').innerHTML = `<div class="card"><div class="card-head">
-        <div class="flex-1"><h2>Sepuluh Besar Penyakit</h2><div class="sub">Enam bulan terakhir.</div></div></div>
-        <div class="card-body">${daftarPeringkat(diagnosaTop)}</div></div>`;
+        <div class="flex-1"><h2>Top 10 Pemeriksaan Lab Terbanyak</h2><div class="sub">Enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])} – ${UI.tglIndo(UI.hariIni())}).</div></div></div>
+        <div class="card-body">${daftarPeringkatLab(labTop10)}</div></div>`;
     } catch (e) { /* bagian lain tetap ditampilkan walau ini gagal */ }
 
     w.querySelector('#ovSegarkan').addEventListener('click', async () => {
@@ -930,7 +935,7 @@ const Laporan = (() => {
     const mk = data.monthKeys;
     const labels = mk.map(LaporanCore.labelBulanPendek);
     const kv = LaporanCore.rekapPerBulan(data.kunjungan, mk);
-    const rj = LaporanCore.rekapRujukanPerBulan(data.rujukan, mk);
+    const rjAsal = LaporanCore.rekapAsalRujukanPerBulan(data.kunjungan, mk);
     const um = LaporanCore.rekapUangMasukPerBulan(data.pembayaran, mk, true);
 
     w.innerHTML =
@@ -938,7 +943,8 @@ const Laporan = (() => {
       grafikBox('pendapatanBulan', 'Uang Masuk per Bulan (Total)') +
       grafikBox('bpjsBulan', 'BPJS vs Non-BPJS per Bulan') +
       grafikBox('baruLamaBulan', 'Pasien Baru vs Lama per Bulan') +
-      grafikBox('rujukanBulan', 'Rujukan per Bulan');
+      grafikBox('rujukanBulan', 'Tren Asal Rujukan per Bulan') +
+      grafikBox('kategoriLabBulan', 'Distribusi Kategori Pemeriksaan (6 Bulan)');
 
     if (!(await siapkanChart())) {
       w.innerHTML = '<div class="banner warn"><div>Grafik tidak dapat dimuat tanpa koneksi internet.</div></div>';
@@ -1000,9 +1006,76 @@ const Laporan = (() => {
 
     buatGrafik('rujukanBulan', w.querySelector('#grafik-rujukanBulan'), {
       type: 'bar',
-      data: { labels, datasets: [{ label: 'Rujukan', data: rj.map(x => x.jumlah), backgroundColor: '#1D4ED8' }] },
-      options: { ...OPSI_BAR, plugins: { legend: { display: false } } }
+      data: {
+        labels,
+        datasets: [
+          { label: 'Dokter Luar', data: rjAsal.map(x => x.dokterLuar), backgroundColor: '#1D4ED8' },
+          { label: 'Faskes / RS Luar', data: rjAsal.map(x => x.faskes), backgroundColor: '#0F8B7E' },
+          { label: 'Atas Permintaan Sendiri (APS)', data: rjAsal.map(x => x.aps), backgroundColor: '#F59E0B' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                const total = items.reduce((s, it) => s + (Number(it.raw) || 0), 0);
+                return `Total Kunjungan: ${total}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+        }
+      }
     });
+
+    // Donut Chart: Distribusi Kategori Pemeriksaan Lab (Hematologi, Kimia, dll.)
+    try {
+      const kategoriData = await DB.distribusiKategoriLab({ dari: mk[0] + '-01', sampai: UI.hariIni() });
+      const katLabels = (kategoriData || []).map(k => k.kelompok);
+      const katJml = (kategoriData || []).map(k => k.jml);
+      const warnaKategori = [
+        '#0F8B7E', '#1D4ED8', '#8B5CF6', '#F59E0B',
+        '#EC4899', '#06B6D4', '#10B981', '#64748B', '#E11D48'
+      ];
+
+      buatGrafik('kategoriLabBulan', w.querySelector('#grafik-kategoriLabBulan'), {
+        type: 'doughnut',
+        data: {
+          labels: katLabels.length ? katLabels : ['Belum ada pemeriksaan'],
+          datasets: [{
+            data: katJml.length ? katJml : [1],
+            backgroundColor: katJml.length ? warnaKategori.slice(0, katLabels.length) : ['#E2E8F0'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (item) => {
+                  if (!katJml.length) return ' Belum ada data pemeriksaan';
+                  const total = katJml.reduce((a, b) => a + b, 0);
+                  const val = item.raw || 0;
+                  const pct = total ? Math.round(val / total * 100) : 0;
+                  return ` ${item.label}: ${val} tes (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    } catch (errKat) {
+      console.warn('Gagal memuat distribusi kategori lab:', errKat);
+    }
   }
 
   /* ==================================================================== */

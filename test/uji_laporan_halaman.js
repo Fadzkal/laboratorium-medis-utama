@@ -126,12 +126,12 @@ const server = http.createServer((req, res) => {
   cek('Kalender Kunjungan tergambar', /Kalender Kunjungan/.test(await ov.textContent()));
   cek('Pola Jam Kunjungan tergambar', /Pola Jam Kunjungan/.test(await ov.textContent()));
   cek('Kinerja Dokter tergambar', /Kinerja Dokter/.test(await ov.textContent()));
-  cek('Sepuluh Besar Penyakit ikut tergambar di Overview', /Sepuluh Besar Penyakit/.test(await ov.textContent()));
+  cek('Top 10 Pemeriksaan Lab Terbanyak ikut tergambar di Overview', /Top 10 Pemeriksaan Lab/.test(await ov.textContent()));
 
   const jumlahGrafik = await page.evaluate(() =>
     [...document.querySelectorAll('#isiTab canvas')].filter(c => window.Chart.getChart(c)).length);
-  cek('ketujuh kanvas Chart.js benar-benar terpasang grafiknya (bukan kanvas kosong)',
-      jumlahGrafik === 7, 'dapat ' + jumlahGrafik);
+  cek('kedelapan kanvas Chart.js benar-benar terpasang grafiknya (bukan kanvas kosong)',
+      jumlahGrafik === 8, 'dapat ' + jumlahGrafik);
 
   // Navigasi bulan pada Kinerja Dokter harus benar-benar mengubah isinya.
   const dokterSebelum = await page.locator('#ovDokter').textContent();
