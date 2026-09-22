@@ -2247,6 +2247,108 @@ const DB = (() => {
     }));
   }
 
+  /* Mengambil data pelayanan pasien Prolanis, kunjungan dokter, tanda vital,
+     dan hasil pemeriksaan lab berdasarkan rentang tanggal/bulan langsung dari database RME. */
+  async function prolanisEksporPelayanan(tglMulai, tglSelesai, caraBayar = 'SEMUA') {
+    // 1. Coba RPC jika tersedia di database
+    try {
+      const { data: rpcData, error: rpcErr } = await sb.rpc('prolanis_ekspor_pelayanan', {
+        p_tgl_mulai: tglMulai,
+        p_tgl_selesai: tglSelesai,
+        p_cara_bayar: (caraBayar === 'SEMUA' || !caraBayar) ? null : caraBayar
+      });
+      if (!rpcErr && rpcData && Array.isArray(rpcData)) return rpcData;
+    } catch (_) {}
+
+    // 2. Fallback query client-side dari kunjungan & lab_permintaan
+    let qKunj = sb.from('kunjungan')
+      .select('id,no_kunjungan,tanggal,waktu_daftar,cara_bayar,keluhan_singkat,dokter_id,' +
+              'pasien:pasien_id(id,no_rm,nama,nik,no_bpjs,alamat,fktp,tanggal_lahir,jenis_kelamin),' +
+              'dokter:dokter_id(nama),' +
+              'kajian_awal(sistolik,diastolik,nadi,nafas,suhu,berat_badan,tinggi_badan,lingkar_perut,keluhan_utama),' +
+              'pemeriksaan(subjective,terapi_non_obat,status_pulang),' +
+              'diagnosa(kode_icd10,nama,jenis,urutan),' +
+              'resep(resep_item(nama_obat)),' +
+              'lab_permintaan(id,tanggal,status,lab_hasil(nama,satuan,nilai_angka,nilai_teks,ref_lab:lab_id(kode,nama)))')
+      .gte('tanggal', tglMulai)
+      .lte('tanggal', tglSelesai)
+      .order('tanggal', { ascending: true });
+
+    if (caraBayar && caraBayar !== 'SEMUA') {
+      qKunj = qKunj.eq('cara_bayar', caraBayar);
+    }
+
+    const { data: kunjList, error: errKunj } = await qKunj;
+    if (errKunj) throw errKunj;
+
+    const barisHasil = [];
+    if (kunjList && kunjList.length) {
+      for (const k of kunjList) {
+        const p = k.pasien || {};
+        const ka = (Array.isArray(k.kajian_awal) ? k.kajian_awal[0] : k.kajian_awal) || {};
+        const pem = (Array.isArray(k.pemeriksaan) ? k.pemeriksaan[0] : k.pemeriksaan) || {};
+        const diagList = k.diagnosa || [];
+        const diagPrimer = diagList.find(d => d.jenis === 'PRIMER') || diagList[0] || {};
+        const resepList = k.resep || [];
+        const namaObatList = [];
+        for (const res of resepList) {
+          for (const item of (res.resep_item || [])) {
+            if (item.nama_obat) namaObatList.push(item.nama_obat);
+          }
+        }
+        const labList = (k.lab_permintaan || []).filter(lp => lp.status === 'SELESAI');
+        const listLabHasil = [];
+        for (const lp of labList) {
+          for (const lh of (lp.lab_hasil || [])) {
+            listLabHasil.push({
+              nama: lh.nama,
+              satuan: lh.satuan,
+              nilai_angka: lh.nilai_angka,
+              nilai_teks: lh.nilai_teks,
+              kode: lh.ref_lab ? lh.ref_lab.kode : ''
+            });
+          }
+        }
+
+        barisHasil.push({
+          kunjungan_id: k.id,
+          no_kunjungan: k.no_kunjungan,
+          tgl_pelayanan: k.tanggal,
+          waktu_daftar: k.waktu_daftar,
+          cara_bayar: k.cara_bayar,
+          pasien_id: p.id,
+          no_rm: p.no_rm,
+          nama_pasien: p.nama,
+          nik: p.nik,
+          no_bpjs: p.no_bpjs,
+          alamat: p.alamat,
+          fktp: p.fktp || 'Klinik Griya Medica',
+          tanggal_lahir: p.tanggal_lahir,
+          jenis_kelamin: p.jenis_kelamin,
+          dokter_nama: k.dokter ? k.dokter.nama : '',
+          sistolik: ka.sistolik,
+          diastolik: ka.diastolik,
+          tensi: (ka.sistolik && ka.diastolik) ? `${ka.sistolik}/${ka.diastolik}` : '',
+          tinggi_badan: ka.tinggi_badan,
+          berat_badan: ka.berat_badan,
+          lingkar_perut: ka.lingkar_perut,
+          rr: ka.nafas,
+          hr: ka.nadi,
+          suhu: ka.suhu,
+          keluhan: ka.keluhan_utama || k.keluhan_singkat || '',
+          anamnesa: pem.subjective || '',
+          terapi_non_obat: pem.terapi_non_obat || '',
+          status_pulang: pem.status_pulang || 'BEROBAT JALAN',
+          diagnosa_icd: diagPrimer.kode_icd10 || 'I10',
+          terapi_obat: namaObatList.join(', '),
+          lab_hasil: listLabHasil
+        });
+      }
+    }
+
+    return barisHasil;
+  }
+
   /* --------------------- Pra-daftar pasien (migrasi dari nol) -----------
      Dipakai HANYA saat RME dipasang dari nol dan portal punya banyak orang
      yang perlu didaftarkan sekaligus sebelum Migrasi Portal (di atas) bisa
@@ -3187,6 +3289,7 @@ const DB = (() => {
     kronisImporRingkas, kronisImporDaftar, kronisImporBaris, kronisImporUsulan,
     kronisImporTampung, kronisImporCocokkan, kronisImporBatalCocok,
     kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan, kronisImporEksporKesesuaian,
+    prolanisEksporPelayanan,
     pasienCariMirip, pasienBuatMassal,
     kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
     kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,

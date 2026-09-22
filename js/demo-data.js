@@ -2969,6 +2969,57 @@ const DB = (() => {
     }));
   }
 
+  async function prolanisEksporPelayanan(tglMulai, tglSelesai, caraBayar = 'SEMUA') {
+    await tunggu(80);
+    const pasienList = PASIEN.filter(p => !caraBayar || caraBayar === 'SEMUA' || (caraBayar === 'BPJS' && p.no_bpjs));
+    return pasienList.slice(0, 15).map((p, idx) => {
+      const tgl = tglMulai || '2026-09-01';
+      return {
+        kunjungan_id: 'kunj-demo-' + (idx + 1),
+        no_kunjungan: '20260901-00' + (idx + 1),
+        tgl_pelayanan: tgl,
+        waktu_daftar: tgl + 'T08:' + String(idx * 5).padStart(2, '0') + ':00',
+        cara_bayar: p.no_bpjs ? 'BPJS' : 'UMUM',
+        pasien_id: p.id,
+        no_rm: p.no_rm,
+        nama_pasien: p.nama,
+        nik: p.nik,
+        no_bpjs: p.no_bpjs,
+        alamat: p.alamat,
+        fktp: p.fktp || 'Klinik Griya Medica',
+        tanggal_lahir: p.tanggal_lahir,
+        jenis_kelamin: p.jenis_kelamin,
+        dokter_nama: 'dr. Dede Kurniasih',
+        sistolik: 120 + (idx % 4) * 10,
+        diastolik: 80 + (idx % 3) * 5,
+        tensi: `${120 + (idx % 4) * 10}/${80 + (idx % 3) * 5}`,
+        tinggi_badan: 160 + (idx % 10),
+        berat_badan: 60 + (idx % 15),
+        lingkar_perut: 78 + (idx % 12),
+        rr: 20,
+        hr: 78 + (idx % 6),
+        suhu: 36.4,
+        keluhan: idx % 2 === 0 ? 'Pemeriksaan rutin gula darah Prolanis' : 'Kontrol rutin tekanan darah hipertensi',
+        anamnesa: 'Tidak ada keluhan berarti, kontrol berkala Prolanis.',
+        terapi_non_obat: 'Diet rendah garam dan gula, aktivitas fisik teratur 30 menit.',
+        status_pulang: 'BEROBAT JALAN',
+        diagnosa_icd: idx % 2 === 0 ? 'E11.9' : 'I10',
+        terapi_obat: idx % 2 === 0 ? 'Metformin 500mg, Glibenclamide 5mg' : 'Amlodipine 10mg, Candesartan 8mg',
+        lab_hasil: [
+          { kode: 'GDP', nama: 'Gula Darah Puasa', nilai_angka: 110 + (idx % 30), nilai_teks: String(110 + (idx % 30)), satuan: 'mg/dL' },
+          { kode: 'GD2PP', nama: 'Gula Darah 2 Jam PP', nilai_angka: 140 + (idx % 40), nilai_teks: String(140 + (idx % 40)), satuan: 'mg/dL' },
+          { kode: 'CHOL', nama: 'Kolesterol Total', nilai_angka: 190 + (idx % 35), nilai_teks: String(190 + (idx % 35)), satuan: 'mg/dL' },
+          { kode: 'TG', nama: 'Trigliserida', nilai_angka: 140 + (idx % 25), nilai_teks: String(140 + (idx % 25)), satuan: 'mg/dL' },
+          { kode: 'HDL', nama: 'HDL Kolesterol', nilai_angka: 45 + (idx % 10), nilai_teks: String(45 + (idx % 10)), satuan: 'mg/dL' },
+          { kode: 'LDL', nama: 'LDL Kolesterol', nilai_angka: 115 + (idx % 20), nilai_teks: String(115 + (idx % 20)), satuan: 'mg/dL' },
+          { kode: 'UREUM', nama: 'Ureum', nilai_angka: 24, nilai_teks: '24', satuan: 'mg/dL' },
+          { kode: 'KREAT', nama: 'Kreatinin', nilai_angka: 0.9, nilai_teks: '0.9', satuan: 'mg/dL' },
+          { kode: 'HBA1C', nama: 'HbA1c', nilai_angka: 6.8, nilai_teks: '6.8', satuan: '%' }
+        ]
+      };
+    });
+  }
+
   /* ================= KRONIS: pemantauan (Tahap 2) ======================= */
 
   const hariKe = (tglA, tglB) => Math.round((new Date(tglB) - new Date(tglA)) / 86400000);
@@ -3443,6 +3494,7 @@ const DB = (() => {
            kronisImporRingkas, kronisImporDaftar, kronisImporBaris, kronisImporUsulan,
            kronisImporTampung, kronisImporCocokkan, kronisImporBatalCocok,
            kronisImporAbaikan, kronisImporOtomatis, kronisImporBersihkan, kronisImporEksporKesesuaian,
+           prolanisEksporPelayanan,
            kronisPantauObat, kronisPantauLab, kronisPantauStatin, kronisTelponH1,
            kronisPasien, kronisStatinPasien, kronisUsulanDiagnosa,
            kronisDaftarSimpan, kronisTerapiSelesai, kronisH3Cek,
