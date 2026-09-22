@@ -256,6 +256,79 @@ const SuratCore = (() => {
     'Atas permintaan pasien / keluarga'
   ];
 
+  function parseLabTeks(teks, kode) {
+    if (!teks) return [];
+    const baris = String(teks).split('\n').map(l => l.trim()).filter(Boolean);
+    const res = [];
+    let currentGroup = null;
+    for (const l of baris) {
+      if (l.startsWith('#') || l.startsWith('[') || !l.includes('|')) {
+        const namaGroup = l.replace(/^[#[\]]+|[\]]+$/g, '').trim();
+        currentGroup = { grup: namaGroup, baris: [] };
+        res.push(currentGroup);
+        continue;
+      }
+      const parts = l.split('|').map(s => s.trim());
+      if (!currentGroup) {
+        currentGroup = { grup: '', baris: [] };
+        res.push(currentGroup);
+      }
+      if (kode === 'LAB_UMUM') {
+        // 5 cols: Pemeriksaan, Hasil, Satuan, Nilai Rujukan, Metode
+        if (parts.length >= 5) {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            satuan: parts[2] || '',
+            rujukan: parts[3] || '',
+            metode: parts[4] || ''
+          });
+        } else if (parts.length === 4) {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            rujukan: parts[2] || '',
+            satuan: parts[3] || '',
+            metode: '-'
+          });
+        } else {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            satuan: parts[2] || '',
+            rujukan: '-',
+            metode: '-'
+          });
+        }
+      } else {
+        // LAB_BPJS or LAB_KIRIM: 4 cols: Pemeriksaan, Hasil, Nilai Rujukan, Satuan
+        if (parts.length >= 4) {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            rujukan: parts[2] || '',
+            satuan: parts[3] || ''
+          });
+        } else if (parts.length === 3) {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            rujukan: parts[2] || '',
+            satuan: ''
+          });
+        } else {
+          currentGroup.baris.push({
+            nama: parts[0] || '',
+            hasil: parts[1] || '',
+            rujukan: '-',
+            satuan: ''
+          });
+        }
+      }
+    }
+    return res;
+  }
+
   const JENIS = {
 
     /* ---------------------------------------------------------------- */
@@ -697,6 +770,230 @@ const SuratCore = (() => {
     },
 
     /* ---------------------------------------------------------------- */
+    /* ---------------------------------------------------------------- */
+    LAB_UMUM: {
+      kode: 'LAB_UMUM',
+      nama: 'Hasil Lab Umum',
+      judul: 'HASIL PEMERIKSAAN LABORATORIUM',
+      keterangan: 'Format lengkap dengan metode dan nilai rujukan (5 kolom).',
+      perluKunjungan: false,
+      isian: [
+        { nama: 'no_lab', label: 'No. Lab / Kode Sampel', tipe: 'teks', wajib: true, kolom: 4, contoh: '26090367' },
+        { nama: 'tanggal_periksa', label: 'Tanggal periksa', tipe: 'tanggal', wajib: true, kolom: 4 },
+        { nama: 'jam_periksa', label: 'Jam periksa', tipe: 'teks', kolom: 4, contoh: '07:48:53' },
+        { nama: 'jam_sampel', label: 'Jam sampel', tipe: 'teks', kolom: 4, contoh: '-' },
+        { nama: 'dokter_pengirim', label: 'Dokter pengirim', tipe: 'teks', kolom: 4,
+          saran: ['dr. Makarti Rahayu', 'dr. Minto Rahaju, Sp.PK', 'APS (Atas Permintaan Sendiri)'] },
+        { nama: 'instansi', label: 'Instansi / Penjamin', tipe: 'teks', kolom: 4, contoh: 'umum' },
+        { nama: 'penanggung_jawab', label: 'Penanggung Jawab', tipe: 'teks', kolom: 4, contoh: 'dr. Minto Rahaju, Sp.PK' },
+        { nama: 'verifikator', label: 'Verifikator (Petugas Lab)', tipe: 'teks', kolom: 4, contoh: 'Dede K' },
+        { nama: 'waktu_verifikasi', label: 'Waktu verifikasi', tipe: 'teks', kolom: 4, contoh: '2026-09-19 10:21:15' },
+        { nama: 'catatan', label: 'Catatan hasil', tipe: 'teks', kolom: 12, contoh: '-' },
+        { nama: 'pemeriksaan_teks', label: 'Daftar Pemeriksaan & Hasil (Pemeriksaan | Hasil | Satuan | Nilai Rujukan | Metode)',
+          tipe: 'panjang', baris: 8, wajib: true, kolom: 12,
+          bantuan: 'Format tiap baris: [KELOMPOK] untuk subjudul kelompok, atau Pemeriksaan | Hasil | Satuan | Nilai Rujukan | Metode' }
+      ],
+      awal(ctx) {
+        const tgl = (ctx.kunjungan && ctx.kunjungan.tanggal) || ctx.tanggalSurat || '';
+        const pengirim = bersih(ctx.dokter && ctx.dokter.nama) || 'dr. Makarti Rahayu';
+        const instansi = (ctx.kunjungan && ctx.kunjungan.cara_bayar === 'BPJS') ? 'BPJS Kesehatan' : 'umum';
+        const tglUrut = tgl.replace(/-/g, '').slice(2, 8);
+        const noLab = tglUrut ? `${tglUrut}01` : '26090367';
+        return {
+          no_lab: noLab,
+          tanggal_periksa: tgl,
+          jam_periksa: '07:48:53',
+          jam_sampel: '-',
+          dokter_pengirim: pengirim,
+          instansi: instansi,
+          penanggung_jawab: 'dr. Minto Rahaju, Sp.PK',
+          verifikator: 'Dede K',
+          waktu_verifikasi: tgl ? `${tgl} 10:21:15` : '',
+          catatan: '-',
+          pemeriksaan_teks:
+            '[HEMATOLOGI]\n' +
+            'Hematologi Rutin\n' +
+            'Hemoglobin | 12.3 | g/dl | 12.0 - 16.0 | Cyanmethemoglobin\n' +
+            'Leukosit | 6.7 | 10^3/µl | 5.0 - 10.0 | Impedance\n' +
+            'Trombosit | 246 | 10^3/µl | 150 - 450 | Impedance\n' +
+            'Hematokrit | 37.0 | % | 37.0 - 47.0 | Calculated'
+        };
+      },
+      periksa(d) {
+        const p = [];
+        if (!ada(d.no_lab)) p.push('No. Lab belum diisi.');
+        if (!ada(d.tanggal_periksa)) p.push('Tanggal periksa belum diisi.');
+        if (!ada(d.pemeriksaan_teks)) p.push('Daftar pemeriksaan & hasil belum diisi.');
+        return p;
+      },
+      blok(d, ctx) {
+        return [{
+          t: 'lab_hasil',
+          kode: 'LAB_UMUM',
+          no_lab: bersih(d.no_lab),
+          tanggal_periksa: bersih(d.tanggal_periksa),
+          jam_periksa: bersih(d.jam_periksa),
+          jam_sampel: bersih(d.jam_sampel),
+          dokter_pengirim: bersih(d.dokter_pengirim),
+          instansi: bersih(d.instansi),
+          penanggung_jawab: bersih(d.penanggung_jawab) || 'dr. Minto Rahaju, Sp.PK',
+          verifikator: bersih(d.verifikator) || 'Dede K',
+          waktu_verifikasi: bersih(d.waktu_verifikasi),
+          catatan: bersih(d.catatan),
+          grup: parseLabTeks(d.pemeriksaan_teks, 'LAB_UMUM')
+        }];
+      }
+    },
+
+    /* ---------------------------------------------------------------- */
+    LAB_BPJS: {
+      kode: 'LAB_BPJS',
+      nama: 'Hasil Lab BPJS',
+      judul: 'HASIL PEMERIKSAAN LABORATORIUM',
+      keterangan: 'Format klaim / verifikasi BPJS dengan logo dan instansi (4 kolom).',
+      perluKunjungan: false,
+      isian: [
+        { nama: 'no_lab', label: 'No. Lab / Kode Sampel', tipe: 'teks', wajib: true, kolom: 4, contoh: '26090367' },
+        { nama: 'tanggal_periksa', label: 'Tanggal periksa', tipe: 'tanggal', wajib: true, kolom: 4 },
+        { nama: 'jam_periksa', label: 'Jam periksa', tipe: 'teks', kolom: 4, contoh: '07:48:53' },
+        { nama: 'jam_sampel', label: 'Jam sampel', tipe: 'teks', kolom: 4, contoh: '-' },
+        { nama: 'dokter_pengirim', label: 'Dokter pengirim', tipe: 'teks', kolom: 4,
+          saran: ['dr. Makarti Rahayu', 'dr. Minto Rahaju, Sp.PK', 'Poli BPJS'] },
+        { nama: 'instansi', label: 'Instansi / Penjamin', tipe: 'teks', kolom: 4, contoh: 'BPJS' },
+        { nama: 'penanggung_jawab', label: 'Penanggung Jawab', tipe: 'teks', kolom: 4, contoh: 'dr. Minto Rahaju, Sp.PK' },
+        { nama: 'verifikator', label: 'Verifikator (Petugas Lab)', tipe: 'teks', kolom: 4, contoh: 'Dede K' },
+        { nama: 'waktu_verifikasi', label: 'Waktu verifikasi', tipe: 'teks', kolom: 4, contoh: '2026-09-19 10:21:15' },
+        { nama: 'catatan', label: 'Catatan hasil', tipe: 'teks', kolom: 12, contoh: '-' },
+        { nama: 'pemeriksaan_teks', label: 'Daftar Pemeriksaan & Hasil (Pemeriksaan | Hasil | Nilai Rujukan | Satuan)',
+          tipe: 'panjang', baris: 8, wajib: true, kolom: 12,
+          bantuan: 'Format tiap baris: [KELOMPOK] untuk subjudul kelompok, atau Pemeriksaan | Hasil | Nilai Rujukan | Satuan' }
+      ],
+      awal(ctx) {
+        const tgl = (ctx.kunjungan && ctx.kunjungan.tanggal) || ctx.tanggalSurat || '';
+        const pengirim = bersih(ctx.dokter && ctx.dokter.nama) || 'dr. Makarti Rahayu';
+        const tglUrut = tgl.replace(/-/g, '').slice(2, 8);
+        const noLab = tglUrut ? `${tglUrut}01` : '26090367';
+        return {
+          no_lab: noLab,
+          tanggal_periksa: tgl,
+          jam_periksa: '07:48:53',
+          jam_sampel: '-',
+          dokter_pengirim: pengirim,
+          instansi: 'umum',
+          penanggung_jawab: 'dr. Minto Rahaju, Sp.PK',
+          verifikator: 'Dede K',
+          waktu_verifikasi: tgl ? `${tgl} 10:21:15` : '',
+          catatan: '-',
+          pemeriksaan_teks:
+            '[HEMATOLOGI]\n' +
+            'Hematologi Rutin\n' +
+            'Hemoglobin | 12.3 | 12.0 - 16.0 | g/dl\n' +
+            'Leukosit | 6.7 | 5.0 - 10.0 | 10^3/µl\n' +
+            'Trombosit | 246 | 150 - 450 | 10^3/µl\n' +
+            'Hematokrit | 37.0 | 37.0 - 47.0 | %'
+        };
+      },
+      periksa(d) {
+        const p = [];
+        if (!ada(d.no_lab)) p.push('No. Lab belum diisi.');
+        if (!ada(d.tanggal_periksa)) p.push('Tanggal periksa belum diisi.');
+        if (!ada(d.pemeriksaan_teks)) p.push('Daftar pemeriksaan & hasil belum diisi.');
+        return p;
+      },
+      blok(d, ctx) {
+        return [{
+          t: 'lab_hasil',
+          kode: 'LAB_BPJS',
+          no_lab: bersih(d.no_lab),
+          tanggal_periksa: bersih(d.tanggal_periksa),
+          jam_periksa: bersih(d.jam_periksa),
+          jam_sampel: bersih(d.jam_sampel),
+          dokter_pengirim: bersih(d.dokter_pengirim),
+          instansi: bersih(d.instansi),
+          penanggung_jawab: bersih(d.penanggung_jawab) || 'dr. Minto Rahaju, Sp.PK',
+          verifikator: bersih(d.verifikator) || 'Dede K',
+          waktu_verifikasi: bersih(d.waktu_verifikasi),
+          catatan: bersih(d.catatan),
+          grup: parseLabTeks(d.pemeriksaan_teks, 'LAB_BPJS')
+        }];
+      }
+    },
+
+    /* ---------------------------------------------------------------- */
+    LAB_KIRIM: {
+      kode: 'LAB_KIRIM',
+      nama: 'Kirim PDF / Sederhana',
+      judul: 'HASIL PEMERIKSAAN LABORATORIUM',
+      keterangan: 'Format pengantar / hasil ringkas kirim PDF (4 kolom).',
+      perluKunjungan: false,
+      isian: [
+        { nama: 'no_lab', label: 'No. Lab / Kode Sampel', tipe: 'teks', wajib: true, kolom: 4, contoh: '26090367' },
+        { nama: 'tanggal_periksa', label: 'Tanggal periksa', tipe: 'tanggal', wajib: true, kolom: 4 },
+        { nama: 'jam_periksa', label: 'Jam periksa', tipe: 'teks', kolom: 4, contoh: '07:48:53' },
+        { nama: 'jam_sampel', label: 'Jam sampel', tipe: 'teks', kolom: 4, contoh: '-' },
+        { nama: 'dokter_pengirim', label: 'Dokter pengirim', tipe: 'teks', kolom: 4,
+          saran: ['dr. Makarti Rahayu', 'dr. Minto Rahaju, Sp.PK', 'APS (Atas Permintaan Sendiri)'] },
+        { nama: 'instansi', label: 'Instansi / Penjamin', tipe: 'teks', kolom: 4, contoh: 'umum' },
+        { nama: 'penanggung_jawab', label: 'Penanggung Jawab', tipe: 'teks', kolom: 4, contoh: 'dr. Minto Rahaju, Sp.PK' },
+        { nama: 'verifikator', label: 'Verifikator (Petugas Lab)', tipe: 'teks', kolom: 4, contoh: 'Dede K' },
+        { nama: 'waktu_verifikasi', label: 'Waktu verifikasi', tipe: 'teks', kolom: 4, contoh: '2026-09-19 10:21:15' },
+        { nama: 'catatan', label: 'Catatan hasil', tipe: 'teks', kolom: 12, contoh: '-' },
+        { nama: 'pemeriksaan_teks', label: 'Daftar Pemeriksaan & Hasil (Pemeriksaan | Hasil | Nilai Rujukan | Satuan)',
+          tipe: 'panjang', baris: 8, wajib: true, kolom: 12,
+          bantuan: 'Format tiap baris: [KELOMPOK] untuk subjudul kelompok, atau Pemeriksaan | Hasil | Nilai Rujukan | Satuan' }
+      ],
+      awal(ctx) {
+        const tgl = (ctx.kunjungan && ctx.kunjungan.tanggal) || ctx.tanggalSurat || '';
+        const pengirim = bersih(ctx.dokter && ctx.dokter.nama) || 'dr. Makarti Rahayu';
+        const tglUrut = tgl.replace(/-/g, '').slice(2, 8);
+        const noLab = tglUrut ? `${tglUrut}01` : '26090367';
+        return {
+          no_lab: noLab,
+          tanggal_periksa: tgl,
+          jam_periksa: '07:48:53',
+          jam_sampel: '-',
+          dokter_pengirim: pengirim,
+          instansi: 'umum',
+          penanggung_jawab: 'dr. Minto Rahaju, Sp.PK',
+          verifikator: 'Dede K',
+          waktu_verifikasi: tgl ? `${tgl} 10:21:15` : '',
+          catatan: '-',
+          pemeriksaan_teks:
+            '[HEMATOLOGI]\n' +
+            'Hematologi Rutin\n' +
+            'Hemoglobin | 12.3 | 12.0 - 16.0 | g/dl\n' +
+            'Leukosit | 6.7 | 5.0 - 10.0 | 10^3/µl\n' +
+            'Trombosit | 246 | 150 - 450 | 10^3/µl\n' +
+            'Hematokrit | 37.0 | 37.0 - 47.0 | %'
+        };
+      },
+      periksa(d) {
+        const p = [];
+        if (!ada(d.no_lab)) p.push('No. Lab belum diisi.');
+        if (!ada(d.tanggal_periksa)) p.push('Tanggal periksa belum diisi.');
+        if (!ada(d.pemeriksaan_teks)) p.push('Daftar pemeriksaan & hasil belum diisi.');
+        return p;
+      },
+      blok(d, ctx) {
+        return [{
+          t: 'lab_hasil',
+          kode: 'LAB_KIRIM',
+          no_lab: bersih(d.no_lab),
+          tanggal_periksa: bersih(d.tanggal_periksa),
+          jam_periksa: bersih(d.jam_periksa),
+          jam_sampel: bersih(d.jam_sampel),
+          dokter_pengirim: bersih(d.dokter_pengirim),
+          instansi: bersih(d.instansi),
+          penanggung_jawab: bersih(d.penanggung_jawab) || 'dr. Minto Rahaju, Sp.PK',
+          verifikator: bersih(d.verifikator) || 'Dede K',
+          waktu_verifikasi: bersih(d.waktu_verifikasi),
+          catatan: bersih(d.catatan),
+          grup: parseLabTeks(d.pemeriksaan_teks, 'LAB_KIRIM')
+        }];
+      }
+    },
+
+    /* ---------------------------------------------------------------- */
     SKL: {
       kode: 'SKL',
       nama: 'Surat Keterangan',
@@ -736,7 +1033,7 @@ const SuratCore = (() => {
     }
   };
 
-  const urutJenis = ['SKS', 'SR', 'SK', 'SKBS', 'RM', 'SKL'];
+  const urutJenis = ['SKS', 'SR', 'SK', 'SKBS', 'RM', 'LAB_UMUM', 'LAB_BPJS', 'LAB_KIRIM', 'SKL'];
   const daftarJenis = () => urutJenis.map(k => JENIS[k]);
   const jenis = (kode) => JENIS[kode] || null;
 
@@ -772,7 +1069,9 @@ const SuratCore = (() => {
         nama: bersih(c.ttdNama) || bersih(c.dokter && c.dokter.nama) || '',
         sip: bersih(c.ttdSip) || bersih(c.dokter && c.dokter.no_sip) || ''
       },
-      kaki: bersih(c.pengaturan && c.pengaturan.catatan_kaki)
+      kaki: bersih(c.pengaturan && c.pengaturan.catatan_kaki),
+      data: d,
+      ctx: c
     };
   }
 
@@ -824,6 +1123,11 @@ const SuratCore = (() => {
                           (ada(d.poli_kontrol) ? ` di ${bersih(d.poli_kontrol)}` : '');
       case 'SKBS': return bersih(d.keperluan) || 'Keterangan berbadan sehat';
       case 'RM':   return `Untuk ${bersih(d.diserahkan_kepada) || 'pasien'}`;
+      case 'LAB_UMUM':
+      case 'LAB_BPJS':
+      case 'LAB_KIRIM':
+        return `Hasil Lab No. ${bersih(d.no_lab) || '-'}` +
+               (ada(d.dokter_pengirim) ? ` (${bersih(d.dokter_pengirim)})` : '');
       case 'SKL':  return bersih(d.judul_tambahan) ||
                           bersih(d.isi).replace(/\s+/g, ' ').slice(0, 60);
       default:     return '';
@@ -836,7 +1140,7 @@ const SuratCore = (() => {
     terbilang, angkaHuruf,
     bulanRomawi, formatNomor, bagianNomor,
     alamatPasien, identitasPasien, teksDiagnosa, teksTerapi, teksTindakan, vitalKajian,
-    JENIS, daftarJenis, jenis, urutJenis,
+    JENIS, daftarJenis, jenis, urutJenis, parseLabTeks,
     dokumen, nilaiAwal, periksa, peringatan, perihal
   };
 

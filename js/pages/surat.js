@@ -209,6 +209,12 @@ const Surat = (() => {
       ? rm.kunjungan.dokter
       : (saya && saya.peran === 'dokter' ? saya : null);
 
+    let lab = [];
+    try {
+      if (kunjunganId) lab = await DB.labKunjungan(kunjunganId);
+      else if (pasienId) lab = await DB.labPasien(pasienId);
+    } catch (e) { lab = []; }
+
     return {
       faskes, pasien,
       kunjungan: rm ? rm.kunjungan : null,
@@ -217,7 +223,8 @@ const Surat = (() => {
       diagnosa: rm ? rm.diagnosa : [],
       tindakan: rm ? rm.tindakan : [],
       resep: rm ? rm.resep : null,
-      dokter
+      dokter,
+      lab
     };
   }
 
@@ -280,6 +287,13 @@ const Surat = (() => {
                 <label>Nomor surat yang akan tercetak</label>
                 <div class="nomor-jadi" id="nomorJadi">—</div>
               </div>
+              ${['LAB_UMUM', 'LAB_BPJS', 'LAB_KIRIM'].includes(F.kode) ? `
+                <div class="field mb-0 mt-12">
+                  <label for="fNoLab">No. Lab / Kode Sampel (Bebas diatur)</label>
+                  <input type="text" id="fNoLab" value="${UI.esc(F.data.no_lab || '')}" placeholder="mis. 26090367">
+                  <div class="hint">Nomor Lab yang dicetak di atas blanko hasil laboratorium (bisa disesuaikan bebas).</div>
+                </div>
+              ` : ''}
               <div id="peringatanNomor"></div>
             </div>
           </div>
@@ -291,6 +305,16 @@ const Surat = (() => {
                   kunjungan — boleh diubah</div></div>
             </div>
             <div class="card-body">
+              ${['LAB_UMUM', 'LAB_BPJS', 'LAB_KIRIM'].includes(F.kode) ? `
+                <div class="mb-12 flex flex-wrap gap-8 no-print" id="presetLabWrap">
+                  <span class="text-xs text-muted" style="align-self: center; font-weight: 600;">Paket Cepat:</span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btnPresetDarah">+ Darah Rutin</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btnPresetKimia">+ Glukosa &amp; Kimia</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btnPresetLipid">+ Profil Lipid</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btnPresetUrin">+ Urinalisis</button>
+                  ${(ctx.lab && ctx.lab.length) ? `<button type="button" class="btn btn-primary btn-sm" id="btnPresetSalinLab">&#x21bb; Salin dari Lab Pasien</button>` : ''}
+                </div>
+              ` : ''}
               <div class="surat-isian" id="isianSurat"></div>
               <div id="waspadaSurat"></div>
             </div>
@@ -383,6 +407,10 @@ const Surat = (() => {
       const nama = el.dataset.medan;
       const ubah = () => {
         F.data[nama] = el.type === 'checkbox' ? el.checked : el.value;
+        if (nama === 'no_lab') {
+          const fNoLab = document.getElementById('fNoLab');
+          if (fNoLab && fNoLab.value !== el.value) fNoLab.value = el.value;
+        }
         terapkanTampilJika();
         gambarWaspada();
         pratinjauTertunda();
@@ -502,6 +530,150 @@ const Surat = (() => {
       pratinjauTertunda();
       periksaNomorTertunda();
     });
+
+    const inNoLab = el.querySelector('#fNoLab');
+    if (inNoLab) {
+      inNoLab.addEventListener('input', () => {
+        F.data.no_lab = inNoLab.value.trim();
+        const fNo = el.querySelector('#m_no_lab');
+        if (fNo) fNo.value = F.data.no_lab;
+        pratinjauTertunda();
+      });
+    }
+
+    function pasangTeksHasil(teks) {
+      F.data.pemeriksaan_teks = teks;
+      const ta = el.querySelector('#m_pemeriksaan_teks');
+      if (ta) ta.value = teks;
+      pratinjauTertunda();
+    }
+
+    const bDarah = el.querySelector('#btnPresetDarah');
+    if (bDarah) {
+      bDarah.addEventListener('click', () => {
+        const teks = (F.kode === 'LAB_UMUM')
+          ? '[HEMATOLOGI]\n' +
+            'Hematologi Rutin\n' +
+            'Hemoglobin | 12.3 | g/dl | 12.0 - 16.0 | Cyanmethemoglobin\n' +
+            'Leukosit | 6.7 | 10^3/µl | 5.0 - 10.0 | Impedance\n' +
+            'Trombosit | 246 | 10^3/µl | 150 - 450 | Impedance\n' +
+            'Hematokrit | 37.0 | % | 37.0 - 47.0 | Calculated'
+          : '[HEMATOLOGI]\n' +
+            'Hematologi Rutin\n' +
+            'Hemoglobin | 12.3 | 12.0 - 16.0 | g/dl\n' +
+            'Leukosit | 6.7 | 5.0 - 10.0 | 10^3/µl\n' +
+            'Trombosit | 246 | 150 - 450 | 10^3/µl\n' +
+            'Hematokrit | 37.0 | 37.0 - 47.0 | %';
+        pasangTeksHasil(teks);
+        UI.toast('Paket Darah Rutin dimuat', 'ok');
+      });
+    }
+
+    const bKimia = el.querySelector('#btnPresetKimia');
+    if (bKimia) {
+      bKimia.addEventListener('click', () => {
+        const teks = (F.kode === 'LAB_UMUM')
+          ? '[KIMIA DARAH]\n' +
+            'Glukosa Sewaktu | 110 | mg/dl | < 140 | GOD-PAP\n' +
+            'Glukosa Puasa | 95 | mg/dl | 70 - 105 | GOD-PAP\n' +
+            'Glukosa 2 Jam PP | 120 | mg/dl | < 140 | GOD-PAP\n' +
+            'Ureum | 24 | mg/dl | 15 - 45 | GLDH\n' +
+            'Kreatinin | 0.9 | mg/dl | 0.6 - 1.2 | Jaffe\n' +
+            'Asam Urat | 5.2 | mg/dl | 3.4 - 7.0 | Uricase'
+          : '[KIMIA DARAH]\n' +
+            'Glukosa Sewaktu | 110 | < 140 | mg/dl\n' +
+            'Glukosa Puasa | 95 | 70 - 105 | mg/dl\n' +
+            'Glukosa 2 Jam PP | 120 | < 140 | mg/dl\n' +
+            'Ureum | 24 | 15 - 45 | mg/dl\n' +
+            'Kreatinin | 0.9 | 0.6 - 1.2 | mg/dl\n' +
+            'Asam Urat | 5.2 | 3.4 - 7.0 | mg/dl';
+        pasangTeksHasil(teks);
+        UI.toast('Paket Glukosa & Kimia dimuat', 'ok');
+      });
+    }
+
+    const bLipid = el.querySelector('#btnPresetLipid');
+    if (bLipid) {
+      bLipid.addEventListener('click', () => {
+        const teks = (F.kode === 'LAB_UMUM')
+          ? '[PROFIL LIPID]\n' +
+            'Kolesterol Total | 185 | mg/dl | < 200 | CHOD-PAP\n' +
+            'Trigliserida | 135 | mg/dl | < 150 | GPO-PAP\n' +
+            'HDL Kolesterol | 52 | mg/dl | > 40 | Direct\n' +
+            'LDL Kolesterol | 106 | mg/dl | < 130 | Calculated'
+          : '[PROFIL LIPID]\n' +
+            'Kolesterol Total | 185 | < 200 | mg/dl\n' +
+            'Trigliserida | 135 | < 150 | mg/dl\n' +
+            'HDL Kolesterol | 52 | > 40 | mg/dl\n' +
+            'LDL Kolesterol | 106 | < 130 | mg/dl';
+        pasangTeksHasil(teks);
+        UI.toast('Paket Profil Lipid dimuat', 'ok');
+      });
+    }
+
+    const bUrin = el.querySelector('#btnPresetUrin');
+    if (bUrin) {
+      bUrin.addEventListener('click', () => {
+        const teks = (F.kode === 'LAB_UMUM')
+          ? '[URINALISIS]\n' +
+            'Warna | Kuning Jernih | | Kuning Jernih | Visual\n' +
+            'pH | 6.0 | | 4.8 - 7.5 | Strip\n' +
+            'Berat Jenis | 1.015 | | 1.005 - 1.030 | Refraktometer\n' +
+            'Protein Urin | Negatif | | Negatif | Kolorimetri\n' +
+            'Glukosa Urin | Negatif | | Negatif | Enzimatik\n' +
+            'Sedimen Leukosit | 1 - 2 | /LPB | 0 - 5 | Mikroskopik\n' +
+            'Sedimen Eritrosit | 0 - 1 | /LPB | 0 - 1 | Mikroskopik\n' +
+            'Sedimen Epitel | Positif (+) | | Positif (+) | Mikroskopik'
+          : '[URINALISIS]\n' +
+            'Warna | Kuning Jernih | Kuning Jernih |\n' +
+            'pH | 6.0 | 4.8 - 7.5 |\n' +
+            'Berat Jenis | 1.015 | 1.005 - 1.030 |\n' +
+            'Protein Urin | Negatif | Negatif |\n' +
+            'Glukosa Urin | Negatif | Negatif |\n' +
+            'Sedimen Leukosit | 1 - 2 | 0 - 5 | /LPB\n' +
+            'Sedimen Eritrosit | 0 - 1 | 0 - 1 | /LPB\n' +
+            'Sedimen Epitel | Positif (+) | Positif (+) |';
+        pasangTeksHasil(teks);
+        UI.toast('Paket Urinalisis dimuat', 'ok');
+      });
+    }
+
+    const bSalin = el.querySelector('#btnPresetSalinLab');
+    if (bSalin) {
+      bSalin.addEventListener('click', () => {
+        if (F.ctx.lab && F.ctx.lab.length) {
+          const lp = F.ctx.lab[0];
+          if (lp.no_lab) {
+            F.data.no_lab = lp.no_lab;
+            if (inNoLab) inNoLab.value = lp.no_lab;
+            const fNo = el.querySelector('#m_no_lab');
+            if (fNo) fNo.value = lp.no_lab;
+          }
+          if (lp.hasil && lp.hasil.length) {
+            let currGrp = '';
+            const lines = [];
+            lp.hasil.forEach(h => {
+              const grp = (h.ref && h.ref.kelompok) || 'PEMERIKSAAN';
+              if (grp !== currGrp) {
+                lines.push(`[${grp.toUpperCase()}]`);
+                currGrp = grp;
+              }
+              const val = (h.nilai !== null && h.nilai !== undefined) ? h.nilai : (h.nilai_teks || '-');
+              const ref = h.rujukan_teks || (h.ref && h.ref.teks_normal) || '-';
+              const sat = (h.ref && h.ref.satuan) || h.satuan || '';
+              const met = (h.ref && h.ref.metode) || '-';
+              if (F.kode === 'LAB_UMUM') {
+                lines.push(`${h.ref ? h.ref.nama : (h.nama || '-')} | ${val} | ${sat} | ${ref} | ${met}`);
+              } else {
+                lines.push(`${h.ref ? h.ref.nama : (h.nama || '-')} | ${val} | ${ref} | ${sat}`);
+              }
+            });
+            pasangTeksHasil(lines.join('\n'));
+            UI.toast('Data hasil lab pasien berhasil disalin!', 'ok');
+          }
+        }
+      });
+    }
 
     el.querySelector('#fJabatan').addEventListener('input', pratinjauTertunda);
 

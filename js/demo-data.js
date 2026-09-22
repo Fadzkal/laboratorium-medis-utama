@@ -2628,6 +2628,12 @@ const DB = (() => {
       judul_cetak: 'SURAT KETERANGAN BERBADAN SEHAT', perlu_kunjungan: true, urutan: 4, aktif: true },
     { kode: 'RM',   nama: 'Resume Medis',
       judul_cetak: 'RESUME MEDIS', perlu_kunjungan: true, urutan: 5, aktif: true },
+    { kode: 'LAB_UMUM',  nama: 'Hasil Lab Umum',
+      judul_cetak: 'HASIL PEMERIKSAAN LABORATORIUM', perlu_kunjungan: false, urutan: 6, aktif: true },
+    { kode: 'LAB_BPJS',  nama: 'Hasil Lab BPJS',
+      judul_cetak: 'HASIL PEMERIKSAAN LABORATORIUM', perlu_kunjungan: false, urutan: 7, aktif: true },
+    { kode: 'LAB_KIRIM', nama: 'Kirim PDF / Sederhana',
+      judul_cetak: 'HASIL PEMERIKSAAN LABORATORIUM', perlu_kunjungan: false, urutan: 8, aktif: true },
     { kode: 'SKL',  nama: 'Surat Keterangan',
       judul_cetak: 'SURAT KETERANGAN', perlu_kunjungan: false, urutan: 9, aktif: true }
   ];

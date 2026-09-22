@@ -5532,6 +5532,12 @@ insert into ref_jenis_surat (kode, nama, judul_cetak, keterangan, perlu_kunjunga
    'Hasil pemeriksaan kesehatan untuk melamar kerja, sekolah, atau keperluan lain.', true, 4),
   ('RM',   'Resume Medis',                  'RESUME MEDIS',
    'Ringkasan pelayanan satu kunjungan untuk asuransi atau rujukan lanjutan.', true, 5),
+  ('LAB_UMUM',  'Hasil Lab Umum',           'HASIL PEMERIKSAAN LABORATORIUM',
+   'Format lengkap dengan metode dan nilai rujukan (5 kolom).', false, 6),
+  ('LAB_BPJS',  'Hasil Lab BPJS',           'HASIL PEMERIKSAAN LABORATORIUM',
+   'Format klaim / verifikasi BPJS dengan logo dan instansi (4 kolom).', false, 7),
+  ('LAB_KIRIM', 'Kirim PDF / Sederhana',    'HASIL PEMERIKSAAN LABORATORIUM',
+   'Format pengantar / hasil ringkas kirim PDF.', false, 8),
   ('SKL',  'Surat Keterangan',              'SURAT KETERANGAN',
    'Surat keterangan dengan isi bebas, untuk keperluan yang belum ada bentuk bakunya.', false, 9)
 on conflict (kode) do update set

@@ -389,7 +389,7 @@ const kodeJs = urut ? urut[1].split(',').map(s => s.trim().replace(/['"]/g, ''))
 cek('daftar jenis surat terbaca dari surat_core.js', kodeJs.length > 0);
 
 const seed = SQL.match(/insert into ref_jenis_surat[\s\S]*?on conflict/i);
-const kodeSql = seed ? [...seed[0].matchAll(/\(\s*'([A-Z]+)'\s*,/g)].map(m => m[1]) : [];
+const kodeSql = seed ? [...seed[0].matchAll(/\(\s*'([A-Z_]+)'\s*,/g)].map(m => m[1]) : [];
 cek('daftar jenis surat terbaca dari sql/13_surat.sql', kodeSql.length > 0);
 
 kodeJs.forEach(k => cek(`jenis surat ${k} ada di ref_jenis_surat`, kodeSql.includes(k),
@@ -397,8 +397,8 @@ kodeJs.forEach(k => cek(`jenis surat ${k} ada di ref_jenis_surat`, kodeSql.inclu
 kodeSql.forEach(k => cek(`jenis surat ${k} punya bentuk di surat_core.js`, kodeJs.includes(k),
   'ada di database tetapi tidak bisa dipilih dokter mana pun'));
 
-const kodeDemo = [...DEMO.matchAll(/\{\s*kode:\s*'([A-Z]+)',\s*nama:\s*'Surat|\{\s*kode:\s*'(RM)',/g)]
-  .map(m => m[1] || m[2]);
+const kodeDemo = [...DEMO.matchAll(/\{\s*kode:\s*'([A-Z_]+)',\s*nama:\s*'(?:Surat|Hasil|Kirim|Resume)/g)]
+  .map(m => m[1]);
 kodeJs.forEach(k => cek(`demo-data.js mengenal jenis surat ${k}`, kodeDemo.includes(k),
   'halaman demo menguji dunia yang tidak sama dengan aplikasi'));
 

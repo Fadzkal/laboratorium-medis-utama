@@ -110,6 +110,65 @@ const SuratCetak = (() => {
         padding: 1.4cm 2cm 1.6cm 2cm; box-shadow: 0 2px 14px rgba(0,0,0,.16);
       }
     }
+
+    /* Format Blanko Laboratorium Medis UTAMA */
+    .lembar-lab {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 11px; color: #000; line-height: 1.4;
+    }
+    .lembar-lab .header-lab {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    .lembar-lab .header-bpjs { flex: 1; text-align: left; }
+    .lembar-lab .header-bpjs img { height: 42px; width: auto; }
+    .lembar-lab .header-logo { flex: 1; text-align: center; }
+    .lembar-lab .header-logo img { width: 48px; height: auto; }
+    .lembar-lab .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
+    .lembar-lab .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -3px; }
+    .lembar-lab .header-text { flex: 1.2; text-align: left; font-size: 10.5px; padding-left: 14px; }
+    .lembar-lab .header-text b { font-size: 11.5px; }
+
+    .lembar-lab .barcode-lab { margin-bottom: 4px; }
+    .lembar-lab .barcode-lab img { height: 32px; width: auto; display: block; }
+    .lembar-lab .pj-lab { font-weight: 700; font-size: 11px; margin-bottom: 12px; }
+
+    .lembar-lab .patient-info-lab {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; font-size: 10.5px;
+    }
+    .lembar-lab .info-grid-lab {
+      display: grid; grid-template-columns: 105px 8px 1fr; gap: 2px 0;
+    }
+
+    .lembar-lab table.tbl-lab {
+      width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 16px;
+    }
+    .lembar-lab table.tbl-lab th {
+      text-align: left; padding: 6px 4px; text-transform: uppercase;
+      border-bottom: 1.5px solid #000; font-weight: 700; font-size: 10.5px;
+    }
+    .lembar-lab table.tbl-lab td {
+      padding: 3.5px 4px; vertical-align: top;
+    }
+    .lembar-lab table.tbl-lab tr.grp td {
+      font-weight: 700; text-transform: uppercase; padding-top: 8px; padding-bottom: 2px;
+    }
+
+    .lembar-lab .catatan-lab { font-size: 10.5px; margin-bottom: 4px; }
+    .lembar-lab .keterangan-lab { font-size: 10px; font-weight: bold; margin-bottom: 16px; }
+
+    .lembar-lab .signatures-lab {
+      display: flex; justify-content: space-between; margin-top: 24px; text-align: left; font-size: 10.5px;
+      break-inside: avoid; page-break-inside: avoid;
+    }
+    .lembar-lab .sig-box { display: flex; flex-direction: column; align-items: flex-start; }
+    .lembar-lab .qr-box { margin: 4px 0; }
+    .lembar-lab .qr-box img { width: 55px; height: 55px; }
+
+    .lembar-lab .footer-lab {
+      margin-top: 24px; font-size: 9px; display: flex; justify-content: space-between;
+      align-items: flex-end; border-top: 0.5px solid #ccc; padding-top: 6px;
+      break-inside: avoid; page-break-inside: avoid;
+    }
   `;
 
   function blokHtml(b) {
@@ -149,9 +208,226 @@ const SuratCetak = (() => {
     }
   }
 
+  function urlAset(nama) {
+    if (typeof window !== 'undefined' && window.location) {
+      const loc = window.location;
+      const path = loc.pathname.replace(/\/[^/]*$/, '/');
+      return `${loc.origin}${path}${nama}`;
+    }
+    return nama;
+  }
+
+  function isiLabHtml(m, opsi = {}) {
+    const d = m.data || {};
+    const c = m.ctx || {};
+    const p = c.pasien || {};
+    const labBlock = (m.blok || []).find(b => b.t === 'lab_hasil') || {};
+    const noLab = d.no_lab || labBlock.no_lab || m.nomor || '-';
+    const tglPeriksa = d.tanggal_periksa || labBlock.tanggal_periksa || c.tanggalSurat || '-';
+    const jamPeriksa = d.jam_periksa || labBlock.jam_periksa || '';
+    const jamSampel = d.jam_sampel || labBlock.jam_sampel || '-';
+    const dokterPengirim = d.dokter_pengirim || labBlock.dokter_pengirim || (c.dokter && c.dokter.nama) || 'dr. Makarti Rahayu';
+    const instansi = d.instansi || labBlock.instansi || (m.kode === 'LAB_BPJS' ? 'BPJS' : 'umum');
+    const penanggungJawab = d.penanggung_jawab || labBlock.penanggung_jawab || 'dr. Minto Rahaju, Sp.PK';
+    const verifikator = d.verifikator || labBlock.verifikator || 'Dede K';
+    const waktuVerifikasi = d.waktu_verifikasi || labBlock.waktu_verifikasi || (tglPeriksa + ' 10:21:15');
+    const catatan = d.catatan || labBlock.catatan || '-';
+    const grup = labBlock.grup || (typeof SuratCore !== 'undefined' && SuratCore.parseLabTeks
+      ? SuratCore.parseLabTeks(d.pemeriksaan_teks, m.kode)
+      : []);
+
+    const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(noLab)}&code=Code128&translate-esc=on&dpi=96`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('Verifikator: ' + penanggungJawab)}`;
+
+    const urlBpjs = urlAset('bpjs.png');
+    const urlLogo = urlAset('logo.png');
+
+    let headerHtml = '';
+    if (m.kode === 'LAB_BPJS') {
+      headerHtml = `
+        <div class="header-lab">
+          <div class="header-bpjs">
+            <img src="${urlBpjs}" alt="BPJS Kesehatan" onerror="this.src='bpjs.png'">
+          </div>
+          <div class="header-logo">
+            <img src="${urlLogo}" alt="UTAMA" onerror="this.src='logo.png'">
+            <div class="brand">UTAMA</div>
+            <div class="motto">Kepuasan Anda Prioritas Kami</div>
+          </div>
+          <div class="header-text">
+            <b>Laboratorium Medis UTAMA</b><br>
+            Jl. DI Panjaitan No. 94, Purbalingga<br>
+            Telp. 0281-6580099 / 08121482308<br>
+            Email : laboratoriumutama@yahoo.com
+          </div>
+        </div>`;
+    } else {
+      headerHtml = `
+        <div class="header-lab">
+          <div class="header-logo" style="text-align: left; flex: 0.8;">
+            <img src="${urlLogo}" alt="UTAMA" onerror="this.src='logo.png'">
+            <div class="brand">UTAMA</div>
+            <div class="motto">Kepuasan Anda Prioritas Kami</div>
+          </div>
+          <div class="header-text" style="flex: 1.5; padding-left: 10px;">
+            <b>Laboratorium Medis UTAMA</b><br>
+            Jl. DI Panjaitan No. 94, Purbalingga<br>
+            Telp. 0281-6580099 / 08121482308<br>
+            Email : laboratoriumutama@yahoo.com
+          </div>
+        </div>`;
+    }
+
+    const tglLahir = p.tanggal_lahir
+      ? (typeof SuratCore !== 'undefined' ? SuratCore.tglIndo(p.tanggal_lahir) : p.tanggal_lahir)
+      : '-';
+    const umur = typeof SuratCore !== 'undefined' ? SuratCore.umurTahun(p.tanggal_lahir, tglPeriksa) : null;
+    const umurTeks = umur !== null ? `${umur} Thn` : '-';
+    const jk = p.jenis_kelamin === 'L' ? 'Laki-Laki' : p.jenis_kelamin === 'P' ? 'Perempuan' : '-';
+    const alamat = (typeof SuratCore !== 'undefined' ? SuratCore.alamatPasien(p) : '') || p.alamat || '-';
+    const tglPeriksaIndo = typeof SuratCore !== 'undefined' ? SuratCore.tglIndo(tglPeriksa) : tglPeriksa;
+
+    let tableHtml = '';
+    if (m.kode === 'LAB_UMUM') {
+      tableHtml = `
+        <table class="tbl-lab">
+          <thead>
+            <tr>
+              <th style="width: 32%;">PEMERIKSAAN</th>
+              <th style="width: 14%;">HASIL</th>
+              <th style="width: 14%;">SATUAN</th>
+              <th style="width: 22%;">NILAI RUJUKAN</th>
+              <th style="width: 18%;">METODE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              ${g.grup ? `<tr class="grp"><td colspan="5">${esc(g.grup)}</td></tr>` : ''}
+              ${(g.baris || []).map(r => `
+                <tr>
+                  <td>${esc(r.nama)}</td>
+                  <td><b>${esc(r.hasil)}</b></td>
+                  <td>${esc(r.satuan)}</td>
+                  <td>${esc(r.rujukan)}</td>
+                  <td>${esc(r.metode || '-')}</td>
+                </tr>`).join('')}
+            `).join('')}
+          </tbody>
+        </table>`;
+    } else {
+      tableHtml = `
+        <table class="tbl-lab">
+          <thead>
+            <tr>
+              <th style="width: 40%;">PEMERIKSAAN</th>
+              <th style="width: 18%;">HASIL</th>
+              <th style="width: 27%;">NILAI RUJUKAN</th>
+              <th style="width: 15%;">SATUAN</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grup.map(g => `
+              ${g.grup ? `<tr class="grp"><td colspan="4">${esc(g.grup)}</td></tr>` : ''}
+              ${(g.baris || []).map(r => `
+                <tr>
+                  <td>${esc(r.nama)}</td>
+                  <td><b>${esc(r.hasil)}</b></td>
+                  <td>${esc(r.rujukan)}</td>
+                  <td>${esc(r.satuan)}</td>
+                </tr>`).join('')}
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    let signatureHtml = '';
+    let footerHtml = '';
+
+    if (m.kode === 'LAB_KIRIM') {
+      signatureHtml = `
+        <div style="display: flex; justify-content: space-between; margin-top: 36px; break-inside: avoid; font-size: 11px;">
+          <div style="display: flex; flex-direction: column; justify-content: flex-end;">
+            Jam Sampel : ${esc(jamSampel)}
+          </div>
+          <div style="text-align: center; margin-right: 40px;">
+            Pemeriksa,
+            <br><br><br><br>
+            <b>${esc(penanggungJawab)}</b>
+          </div>
+        </div>`;
+    } else {
+      signatureHtml = `
+        <div class="signatures-lab">
+          <div class="sig-box">
+            <div><b>Verifikator,</b></div>
+            <div style="height: 48px;"></div>
+            <div><b>${esc(verifikator)}</b></div>
+            <div style="font-size: 9.5px; color: #444;">${esc(waktuVerifikasi)}</div>
+          </div>
+          <div class="sig-box" style="align-items: flex-start;">
+            <div><b>Penanggung Jawab,</b></div>
+            <div class="qr-box"><img src="${qrUrl}" alt="QR" onerror="this.style.display='none'"></div>
+            <div><b>${esc(penanggungJawab)}</b></div>
+          </div>
+        </div>`;
+
+      footerHtml = `
+        <div class="footer-lab">
+          <div>
+            Jam Sampel : ${esc(jamSampel)}<br>
+            Hal. 1 dari 1 Halaman
+          </div>
+          <div style="text-align: right;">
+            Printed By : ${esc(verifikator)} / ${tglPeriksaIndo} ${esc(jamPeriksa)}<br>
+            <b>Hasil dicetak secara elektronik dan telah divalidasi.</b>
+          </div>
+        </div>`;
+    }
+
+    return `<div class="lembar lembar-lab">
+      ${m.batal ? `<div class="cap-batal">BATAL</div>
+        <div class="pita-batal">SURAT INI DIBATALKAN${m.alasanBatal ? ' — ' + esc(m.alasanBatal) : ''}</div>` : ''}
+
+      ${headerHtml}
+
+      <div class="barcode-lab">
+        <img src="${barcodeUrl}" alt="Barcode ${esc(noLab)}" onerror="this.style.display='none'">
+      </div>
+
+      <div class="pj-lab">Penanggung Jawab : ${esc(penanggungJawab)}</div>
+
+      <div class="patient-info-lab">
+        <div class="info-grid-lab">
+          <div>No Lab</div><div>:</div><div><b>${esc(noLab)}</b></div>
+          <div>Nama</div><div>:</div><div><b>${esc(p.nama || '-')}</b></div>
+          <div>Dokter Pengirim</div><div>:</div><div>${esc(dokterPengirim)}</div>
+          <div>Alamat</div><div>:</div><div>${esc(alamat)}</div>
+        </div>
+        <div class="info-grid-lab">
+          <div>Tgl. Lahir / Usia</div><div>:</div><div>${esc(tglLahir)} / ${esc(umurTeks)}</div>
+          <div>Jenis Kelamin</div><div>:</div><div>${esc(jk)}</div>
+          <div>Tgl. Periksa</div><div>:</div><div>${esc(tglPeriksaIndo)} ${esc(jamPeriksa)}</div>
+          <div>Instansi</div><div>:</div><div>${esc(instansi)}</div>
+        </div>
+      </div>
+
+      ${tableHtml}
+
+      <div class="catatan-lab"><b>Catatan :</b> ${esc(catatan)}</div>
+      <div class="keterangan-lab">Keterangan : [*] Diluar nilai normal</div>
+
+      ${signatureHtml}
+      ${footerHtml}
+    </div>`;
+  }
+
   /* Isi lembar tanpa <html>/<head>. Dipakai halaman cetak maupun
      pratinjau, supaya keduanya tidak pernah berbeda. */
   function isiHtml(m, opsi = {}) {
+    if (['LAB_UMUM', 'LAB_BPJS', 'LAB_KIRIM'].includes(m.kode)) {
+      return isiLabHtml(m, opsi);
+    }
+
     /* Garis di bawah kop bawaannya MATI: gambar kop Laboratorium Medis Utama sudah
        berakhir dengan garis hijau sendiri, dan menambah garis hitam tepat
        di bawahnya terbaca seperti kesalahan cetak. Klinik yang mengunggah
@@ -321,6 +597,45 @@ const SuratCetak = (() => {
             { text: 'di ' + (b.di || 'tempat') }
           ]
         };
+
+      case 'lab_hasil': {
+        const rows = [];
+        const isUmum = b.kode === 'LAB_UMUM';
+        const headers = isUmum
+          ? ['PEMERIKSAAN', 'HASIL', 'SATUAN', 'NILAI RUJUKAN', 'METODE']
+          : ['PEMERIKSAAN', 'HASIL', 'NILAI RUJUKAN', 'SATUAN'];
+        rows.push(headers.map(h => ({ text: h, bold: true, fillColor: '#eeeeee', fontSize: 9 })));
+        (b.grup || []).forEach(g => {
+          if (g.grup) {
+            rows.push([{ text: g.grup, bold: true, colSpan: isUmum ? 5 : 4, fillColor: '#fafafa', fontSize: 9.5 }]);
+            if (isUmum) rows[rows.length - 1].push({}, {}, {}, {});
+            else rows[rows.length - 1].push({}, {}, {});
+          }
+          (g.baris || []).forEach(r => {
+            if (isUmum) {
+              rows.push([
+                { text: r.nama, fontSize: 8.5 },
+                { text: r.hasil, bold: true, fontSize: 8.5 },
+                { text: r.satuan, fontSize: 8.5 },
+                { text: r.rujukan, fontSize: 8.5 },
+                { text: r.metode || '-', fontSize: 8.5 }
+              ]);
+            } else {
+              rows.push([
+                { text: r.nama, fontSize: 8.5 },
+                { text: r.hasil, bold: true, fontSize: 8.5 },
+                { text: r.rujukan, fontSize: 8.5 },
+                { text: r.satuan, fontSize: 8.5 }
+              ]);
+            }
+          });
+        });
+        const widths = isUmum ? ['30%', '16%', '16%', '22%', '16%'] : ['38%', '18%', '28%', '16%'];
+        return {
+          table: { headerRows: 1, widths, body: rows },
+          margin: [0, 8, 0, 8]
+        };
+      }
 
       case 'kaki':
         return { text: b.teks, fontSize: 8.5, color: '#333333', italics: true,
