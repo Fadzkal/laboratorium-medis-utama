@@ -12,6 +12,10 @@ const Pasien = (() => {
   function formIdentitas(p = {}) {
     const opsi = (arr, terpilih) => arr.map(o =>
       `<option value="${UI.esc(o)}" ${terpilih === o ? 'selected' : ''}>${UI.esc(o)}</option>`).join('');
+    const cpLower = (p.catatan_penting || '').toLowerCase();
+    const isHtChecked = Boolean(p.is_ht || p.kronis?.is_ht || /(hipertensi|\bhpt\b|\bht\b|tensi tinggi)/.test(cpLower));
+    const isDmChecked = Boolean(p.is_dm || p.kronis?.is_dm || /(diabetes|\bdm\b|gula darah|kencing manis)/.test(cpLower));
+
     return `
     <fieldset class="fieldset">
       <legend>Identitas</legend>
@@ -95,7 +99,7 @@ const Pasien = (() => {
     </fieldset>
 
     <fieldset class="fieldset">
-      <legend>Kepesertaan</legend>
+      <legend>Kepesertaan &amp; Status Kronis BPJS (Prolanis)</legend>
       <div class="form-row c2">
         <div class="field">
           <label for="f-bpjs">No. Kartu BPJS <span class="opt">(13 digit)</span></label>
@@ -105,6 +109,24 @@ const Pasien = (() => {
         <div class="field">
           <label for="f-kk">No. Kartu Keluarga</label>
           <input type="text" id="f-kk" name="no_kk" value="${UI.esc(p.no_kk)}" inputmode="numeric" maxlength="16">
+        </div>
+      </div>
+      <div style="margin-top:10px; padding:10px 12px; background:var(--ink-50); border:1px solid var(--ink-200); border-radius:var(--radius-sm);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--brand-700); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+          <span>🩺 Penandaan Pasien Kronis (Pemantauan BPJS 6 Bulan &amp; HbA1c)</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:18px;">
+          <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-800);">
+            <input type="checkbox" name="is_ht" value="1" ${isHtChecked ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+            <span>🩸 Hipertensi (HPT)</span>
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-800);">
+            <input type="checkbox" name="is_dm" value="1" ${isDmChecked ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+            <span>🍬 Diabetes Melitus (DM)</span>
+          </label>
+        </div>
+        <div class="hint" style="margin-top:5px; font-size:11px; color:var(--ink-500);">
+          Centang jika pasien adalah penderita penyakit kronis / peserta Prolanis. Sistem otomatis menghitung siklus klaim BPJS 6 bulan dan jadwal evaluasi HbA1c (&lt; 7% vs &ge; 7%).
         </div>
       </div>
     </fieldset>
@@ -191,6 +213,28 @@ const Pasien = (() => {
               return false;
             }
             try {
+              // Proses penandaan kronis ke dalam catatan_penting
+              const isHt = Boolean(d.is_ht);
+              const isDm = Boolean(d.is_dm);
+              delete d.is_ht;
+              delete d.is_dm;
+
+              let cp = (d.catatan_penting || '').trim();
+              cp = cp.replace(/\[\s*Hipertensi\s*\]/gi, '')
+                     .replace(/\[\s*Diabetes Melitus\s*\]/gi, '')
+                     .replace(/\[\s*HT\s*\]/gi, '')
+                     .replace(/\[\s*DM\s*\]/gi, '')
+                     .trim();
+
+              const tagsKronis = [];
+              if (isHt) tagsKronis.push('[Hipertensi]');
+              if (isDm) tagsKronis.push('[Diabetes Melitus]');
+
+              if (tagsKronis.length > 0) {
+                cp = tagsKronis.join(' ') + (cp ? ' ' + cp : '');
+              }
+              d.catatan_penting = cp || null;
+
               const hasil = await DB.simpanPasien(d, pasienLama?.id || null);
               UI.toast(baru ? `Pasien tersimpan. No. RM ${hasil.no_rm}` : 'Data pasien diperbarui.', 'ok');
               return hasil;
@@ -745,21 +789,30 @@ const Pasien = (() => {
       `;
     }
 
-    // Kartu Pemantauan Kronis BPJS 6 Bulan & HbA1c
+    // Kartu Pemantauan Kronis BPJS 6 Bulan & HbA1c — Tampil KONDISIONAL khusus pasien Hipertensi / Diabetes Melitus
+    const cpLower = (p.catatan_penting || '').toLowerCase();
+    const isHt = Boolean(kronisPasien?.is_ht || /(hipertensi|\bhpt\b|\bht\b|tensi tinggi)/.test(cpLower));
+    const isDm = Boolean(kronisPasien?.is_dm || /(diabetes|\bdm\b|gula darah|kencing manis)/.test(cpLower));
+    const isPasienKronis = isHt || isDm;
+
     let kartuKronisHtml = '';
-    if (kronisPasien && (kronisPasien.is_ht || kronisPasien.is_dm || (p.no_bpjs && kronisPasien.status_klaim_bpjs !== 'NON_BPJS'))) {
+    if (isPasienKronis && kronisPasien) {
+      const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
       const isAktifKlaim = kronisPasien.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN';
       const sisaHari = kronisPasien.hari_sejak_klaim !== null ? (180 - kronisPasien.hari_sejak_klaim) : null;
+      const labelJenis = isHt && isDm ? 'HT & DM' : (isHt ? 'Hipertensi' : 'Diabetes Melitus');
 
       kartuKronisHtml = `
-        <div class="card mb-16" style="border-left: 4px solid var(--brand-700);">
-          <div class="card-head" style="flex-wrap:wrap; gap:8px;">
+        <div class="card mb-16" style="border-left: 4px solid var(--brand-700); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div class="card-head" style="flex-wrap:wrap; gap:8px; background:linear-gradient(to right, #f0fdf4, #ffffff);">
             <div>
-              <h2>Pemantauan Pasien Kronis &amp; Evaluasi BPJS 6 Bulan (Prolanis)</h2>
-              <div class="sub">Pengecekan otomatis kelayakan klaim berkala (siklus 6 bulan) dan kontrol glikemik HbA1c (target &lt; 7.0%)</div>
+              <h2 style="color:var(--brand-900); display:flex; align-items:center; gap:8px;">
+                <span>🩺 Pemantauan Pasien Kronis &amp; Evaluasi BPJS 6 Bulan (Prolanis)</span>
+              </h2>
+              <div class="sub" style="color:var(--ink-600);">Pengecekan otomatis kelayakan klaim berkala (siklus 6 bulan) dan kontrol glikemik HbA1c (target &lt; 7.0%)</div>
             </div>
-            <span class="badge ${kronisPasien.is_ht && kronisPasien.is_dm ? 'b-dokter' : 'b-info'} font-bold">
-              ${UI.esc(kronisPasien.jenis_kronis)}
+            <span class="badge ${isHt && isDm ? 'b-dokter' : 'b-info'}" style="font-size:12px; font-weight:700; padding:4px 10px;">
+              ${UI.esc(labelJenis)}
             </span>
           </div>
           <div class="card-body">
@@ -768,14 +821,18 @@ const Pasien = (() => {
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
                 <div class="flex items-center justify-between mb-8">
                   <span class="text-xs font-bold uppercase text-muted">Siklus Klaim BPJS 6 Bulan</span>
-                  <span class="badge ${isAktifKlaim ? 'b-ok' : 'b-danger'} font-bold">
-                    ${isAktifKlaim ? 'Klaim Aktif (Layak Layanan)' : 'Jatuh Tempo / Belum Klaim'}
-                  </span>
+                  ${isBpjs ? `
+                    <span class="badge ${isAktifKlaim ? 'b-ok' : 'b-danger'} font-bold">
+                      ${isAktifKlaim ? 'Klaim Aktif (Layak Layanan)' : 'Jatuh Tempo / Belum Klaim'}
+                    </span>
+                  ` : `
+                    <span class="badge b-umum font-bold">Pasien Umum / Non-BPJS</span>
+                  `}
                 </div>
                 <div class="text-sm">
                   <div class="flex justify-between py-4 border-b">
                     <span class="text-muted">No. Kartu BPJS:</span>
-                    <b class="mono">${UI.esc(p.no_bpjs || '—')}</b>
+                    <b class="mono">${UI.esc(p.no_bpjs || '— (Umum / Mandiri)')}</b>
                   </div>
                   <div class="flex justify-between py-4 border-b">
                     <span class="text-muted">Klaim Terakhir:</span>
@@ -787,49 +844,76 @@ const Pasien = (() => {
                   </div>
                   <div class="flex justify-between py-4">
                     <span class="text-muted">Status Kelayakan:</span>
-                    <span class="${isAktifKlaim ? 'text-ok font-bold' : 'text-danger font-bold'}">
-                      ${isAktifKlaim 
-                        ? `Masih dalam periode 6 bulan (${sisaHari} hari sisa masa berlaku)` 
-                        : (kronisPasien.hari_sejak_klaim !== null 
-                            ? `Jatuh tempo (terlewat ${kronisPasien.hari_sejak_klaim - 180} hari dari siklus 6 bulan)` 
-                            : 'Belum ada catatan klaim BPJS')}
+                    <span class="${isAktifKlaim ? 'text-ok font-bold' : (isBpjs ? 'text-danger font-bold' : 'text-muted font-bold')}">
+                      ${!isBpjs 
+                        ? 'Pasien membayar umum (tidak terikat kuota klaim 6 bulan BPJS)' 
+                        : (isAktifKlaim 
+                            ? `Masih dalam periode 6 bulan (${sisaHari} hari sisa masa berlaku)` 
+                            : (kronisPasien.hari_sejak_klaim !== null 
+                                ? `Jatuh tempo (terlewat ${kronisPasien.hari_sejak_klaim - 180} hari dari siklus 6 bulan)` 
+                                : 'Belum ada catatan klaim BPJS'))}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <!-- Sisi Kanan: Evaluasi HbA1c -->
+              <!-- Sisi Kanan: Evaluasi HbA1c / Pemantauan Klinis -->
               <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
-                <div class="flex items-center justify-between mb-8">
-                  <span class="text-xs font-bold uppercase text-muted">Evaluasi HbA1c Pasien Diabetes</span>
-                  ${kronisPasien.status_hba1c === 'TERKONTROL' 
-                    ? '<span class="badge b-ok font-bold"><span class="dot"></span> Terkontrol (&lt; 7.0%)</span>' 
-                    : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' 
-                        ? '<span class="badge b-danger font-bold"><span class="dot"></span> Perlu Evaluasi (&ge; 7.0%)</span>' 
-                        : '<span class="badge b-batal">Belum Ada Hasil Tes</span>')}
-                </div>
-                <div class="text-sm">
-                  <div class="flex justify-between py-4 border-b">
-                    <span class="text-muted">Nilai HbA1c Terakhir:</span>
-                    <b style="font-size:16px; color:${kronisPasien.status_hba1c === 'TERKONTROL' ? '#15803d' : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? '#b91c1c' : 'inherit')};">
-                      ${kronisPasien.nilai_hba1c !== null ? kronisPasien.nilai_hba1c + ' %' : '—'}
-                    </b>
+                ${isDm ? `
+                  <div class="flex items-center justify-between mb-8">
+                    <span class="text-xs font-bold uppercase text-muted">Evaluasi HbA1c Pasien Diabetes</span>
+                    ${kronisPasien.status_hba1c === 'TERKONTROL' 
+                      ? '<span class="badge b-ok font-bold"><span class="dot"></span> Terkontrol (&lt; 7.0%)</span>' 
+                      : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' 
+                          ? '<span class="badge b-danger font-bold"><span class="dot"></span> Perlu Evaluasi (&ge; 7.0%)</span>' 
+                          : '<span class="badge b-batal">Belum Ada Hasil Tes</span>')}
                   </div>
-                  <div class="flex justify-between py-4 border-b">
-                    <span class="text-muted">Tanggal Tes Terakhir:</span>
-                    <b>${kronisPasien.tgl_hba1c ? UI.tglIndo(kronisPasien.tgl_hba1c) : '—'}</b>
+                  <div class="text-sm">
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Nilai HbA1c Terakhir:</span>
+                      <b style="font-size:16px; color:${kronisPasien.status_hba1c === 'TERKONTROL' ? '#15803d' : (kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? '#b91c1c' : 'inherit')};">
+                        ${kronisPasien.nilai_hba1c !== null ? kronisPasien.nilai_hba1c + ' %' : '—'}
+                      </b>
+                    </div>
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Tanggal Tes Terakhir:</span>
+                      <b>${kronisPasien.tgl_hba1c ? UI.tglIndo(kronisPasien.tgl_hba1c) : '—'}</b>
+                    </div>
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Target Kontrol Klinis:</span>
+                      <b>&lt; 7.0 %</b>
+                    </div>
+                    <div class="flex justify-between py-4">
+                      <span class="text-muted">Rekomendasi Kontrol:</span>
+                      <b class="${kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? 'text-warn' : 'text-ok'}">
+                        ${kronisPasien.siklus_rekomendasi_hba1c}
+                      </b>
+                    </div>
                   </div>
-                  <div class="flex justify-between py-4 border-b">
-                    <span class="text-muted">Target Kontrol Klinis:</span>
-                    <b>&lt; 7.0 %</b>
+                ` : `
+                  <div class="flex items-center justify-between mb-8">
+                    <span class="text-xs font-bold uppercase text-muted">Pemantauan Pasien Hipertensi</span>
+                    <span class="badge b-info font-bold">Hipertensi Rutin</span>
                   </div>
-                  <div class="flex justify-between py-4">
-                    <span class="text-muted">Rekomendasi Kontrol:</span>
-                    <b class="${kronisPasien.status_hba1c === 'BELUM_TERKONTROL' ? 'text-warn' : 'text-ok'}">
-                      ${kronisPasien.siklus_rekomendasi_hba1c}
-                    </b>
+                  <div class="text-sm">
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Target Tekanan Darah:</span>
+                      <b class="text-ok">&lt; 140/90 mmHg</b>
+                    </div>
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Siklus Kontrol Tensi:</span>
+                      <b>Rutin Setiap 1 Bulan</b>
+                    </div>
+                    <div class="flex justify-between py-4 border-b">
+                      <span class="text-muted">Pemeriksaan Berkala:</span>
+                      <b>Urine Rutin &amp; Fungsi Ginjal (6 Bulan)</b>
+                    </div>
+                    <div class="flex justify-between py-4">
+                      <span class="text-muted">Catatan Klinis:</span>
+                      <span class="text-muted">Pemeriksaan HbA1c diprioritaskan bila ada komorbiditas Diabetes.</span>
+                    </div>
                   </div>
-                </div>
+                `}
               </div>
             </div>
           </div>
@@ -938,6 +1022,8 @@ const Pasien = (() => {
 
     const btnUbah = el.querySelector('#btnUbah');
     if (btnUbah) btnUbah.addEventListener('click', async () => {
+      p.is_ht = isHt;
+      p.is_dm = isDm;
       if (await modalPasien(p)) App.segarkan();
     });
 
