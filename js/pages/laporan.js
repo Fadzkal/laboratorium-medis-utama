@@ -65,6 +65,7 @@ const Laporan = (() => {
 
   async function render(el, param) {
     if (param && param[0]) tabAktif = param[0];
+    if (tabAktif === 'puskesmas') tabAktif = 'ringkasan';
     if (tabAktif !== 'ringkasan' && !bolehAdmin()) tabAktif = 'ringkasan';
 
     const TAB = [
@@ -72,9 +73,8 @@ const Laporan = (() => {
       ...(bolehAdmin() ? [
         ['overview', 'Overview & Tren'],
         ['rujukan', 'Rujukan'],
-        ['register', 'Register Poli'],
+        ['register', 'Registrasi Lab'],
         ['keuangan', 'Keuangan'],
-        ['puskesmas', 'Puskesmas']
       ] : [])
     ];
 
@@ -82,7 +82,7 @@ const Laporan = (() => {
       <div class="page-header mb-16">
         <div class="page-heading">
           <h1>Laporan</h1>
-          <div class="page-sub">Rekap kunjungan, rujukan, keuangan, dan indikator Puskesmas.</div>
+          <div class="page-sub">Rekap kunjungan, pemeriksaan laboratorium, rujukan, dan keuangan.</div>
         </div>
       </div>
       <div class="tabs" id="tabs">
@@ -111,7 +111,6 @@ const Laporan = (() => {
       if (tabAktif === 'rujukan')   return await tabRujukan(w);
       if (tabAktif === 'register')  return await tabRegister(w);
       if (tabAktif === 'keuangan')  return await tabKeuangan(w);
-      if (tabAktif === 'puskesmas') return await tabPuskesmas(w);
     } catch (e) {
       w.innerHTML = `<div class="banner err"><div>${UI.esc(e.message || e)}</div></div>`;
     }
@@ -153,6 +152,40 @@ const Laporan = (() => {
           <div class="bar-fill" style="width:${t.jml / maks * 100}%"></div>
         </div>
       </div>`).join('');
+  }
+
+  /* Daftar peringkat pemeriksaan lab dengan persentase dan kelompok. */
+  function daftarPeringkatLab(items) {
+    if (!items || !items.length) {
+      return '<div class="p-16 text-center text-muted">Belum ada pemeriksaan laboratorium pada kriteria ini.</div>';
+    }
+    const maks = Math.max(1, ...items.map(t => t.jml));
+    const total = items.reduce((s, t) => s + t.jml, 0);
+    return `
+      <div class="mb-12 flex justify-between items-center text-xs text-muted pb-8 border-b">
+        <span><b>Nama Pemeriksaan &amp; Kelompok</b></span>
+        <span class="tabular"><b>Persentase · Jumlah</b></span>
+      </div>` +
+      items.map((t, i) => `
+        <div class="mb-12">
+          <div class="flex justify-between items-center gap-8 mb-4">
+            <div class="min-w-0">
+              <b>${i + 1}. ${UI.esc(t.nama)}</b>
+              ${t.kelompok ? `<span class="badge b-info text-xs ml-4" style="font-size:11px;padding:2px 6px;">${UI.esc(t.kelompok)}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-8 flex-shrink-0">
+              <span class="text-xs text-muted tabular">${total ? Math.round(t.jml / total * 100) : 0}%</span>
+              <b class="tabular text-primary" style="min-width:32px;text-align:right;">${t.jml}</b>
+            </div>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${(t.jml / maks * 100).toFixed(1)}%"></div>
+          </div>
+        </div>`).join('') +
+      `<div class="pt-8 mt-12 border-t flex justify-between items-center text-xs text-muted">
+        <span>Menampilkan ${items.length} jenis pemeriksaan</span>
+        <span>Total frekuensi: <b class="tabular text-dark">${total}</b> kali</span>
+      </div>`;
   }
 
   /* ---- Chart.js: dimuat sekali, tinggal di memori sampai halaman ditutup,
@@ -258,7 +291,8 @@ const Laporan = (() => {
             </div>
             <button class="btn btn-primary btn-sm" id="btnTampil">Tampilkan</button>
             <div class="flex-1"></div>
-            <button class="btn btn-secondary btn-sm" id="btnUnduh">${UI.ikon('unduh', 15)} Unduh CSV</button>
+            <button class="btn btn-secondary btn-sm" id="btnUnduhLab">${UI.ikon('unduh', 15)} Unduh CSV Pemeriksaan</button>
+            <button class="btn btn-secondary btn-sm" id="btnUnduhKunjungan">${UI.ikon('unduh', 15)} Unduh CSV Kunjungan</button>
           </div>
         </div>
       </div>
@@ -271,19 +305,39 @@ const Laporan = (() => {
       const isi = w.querySelector('#isiLaporan');
       isi.innerHTML = UI.memuat(4);
       try {
-        const [kunjungan, top, tindakan] = await Promise.all([
+        const [kunjungan, labAntrean, labTop, kelompokList] = await Promise.all([
           DB.daftarKunjungan({ dari, sampai, batas: 2000 }),
-          DB.diagnosaTeratas(dari, sampai, 10),
-          DB.tindakanTeratas(dari, sampai, 12)
+          DB.labAntrean(dari, sampai),
+          DB.pemeriksaanLabTeratas({ dari, sampai, status: 'SELESAI', batas: 15 }),
+          DB.daftarKelompokLab()
         ]);
-        gambarRingkasan(isi, kunjungan, top, tindakan, dari, sampai);
+        gambarRingkasan(isi, kunjungan, labAntrean, labTop, kelompokList, dari, sampai);
       } catch (e) {
         isi.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
       }
     };
 
     w.querySelector('#btnTampil').addEventListener('click', muat);
-    w.querySelector('#btnUnduh').addEventListener('click', async () => {
+
+    w.querySelector('#btnUnduhLab').addEventListener('click', async () => {
+      const dari = w.querySelector('#dari').value, sampai = w.querySelector('#sampai').value;
+      const d = await DB.pemeriksaanLabTeratas({ dari, sampai, batas: 0 });
+      if (!d.length) { UI.toast('Belum ada data pemeriksaan lab pada periode ini.', 'warn'); return; }
+      const baris = d.map((x, i) => ({
+        no: i + 1,
+        nama: x.nama,
+        kelompok: x.kelompok || 'Lainnya',
+        jml: x.jml
+      }));
+      unduhCsv(baris, [
+        ['no', 'No'],
+        ['nama', 'Nama Pemeriksaan'],
+        ['kelompok', 'Kelompok Lab'],
+        ['jml', 'Jumlah Pemeriksaan']
+      ], `pemeriksaan_lab_${dari}_sd_${sampai}.csv`);
+    });
+
+    w.querySelector('#btnUnduhKunjungan').addEventListener('click', async () => {
       const dari = w.querySelector('#dari').value, sampai = w.querySelector('#sampai').value;
       const d = await DB.daftarKunjungan({ dari, sampai, batas: 5000 });
       unduhCsv(d, KOLOM_KUNJUNGAN, `kunjungan_${dari}_sd_${sampai}.csv`);
@@ -292,59 +346,184 @@ const Laporan = (() => {
     await muat();
   }
 
-  function gambarRingkasan(w, kunjungan, top, tindakan, dari, sampai) {
-    const total = kunjungan.length;
-    const bpjs = kunjungan.filter(k => k.cara_bayar === 'BPJS').length;
-    const selesai = kunjungan.filter(k => k.status === 'SELESAI').length;
-    const perPoli = {};
-    kunjungan.forEach(k => { perPoli[k.nama_poli] = (perPoli[k.nama_poli] || 0) + 1; });
+  function gambarRingkasan(w, kunjungan, labAntrean, labTop, kelompokList, dari, sampai) {
+    const totalKunjungan = kunjungan.length;
+    const totalPermintaan = labAntrean.length;
+    const selesaiLab = labAntrean.filter(l => l.status === 'SELESAI').length;
+    const prosesLab = labAntrean.filter(l => l.status === 'DIMINTA' || l.status === 'DIKERJAKAN').length;
+    const totalItemPeriksa = labAntrean.reduce((s, l) => s + (Number(l.jml_pemeriksaan) || 0), 0);
+    const bpjs = kunjungan.filter(k => k.cara_bayar === 'BPJS').length || labAntrean.filter(l => l.cara_bayar === 'BPJS').length;
+    const totalPasien = totalKunjungan || totalPermintaan;
+    const pctSelesai = totalPermintaan ? Math.round(selesaiLab / totalPermintaan * 100) : 0;
+
+    // Rekap cara bayar riil
+    const perCaraBayar = {};
+    (labAntrean.length ? labAntrean : kunjungan).forEach(item => {
+      const cb = item.cara_bayar || 'UMUM';
+      perCaraBayar[cb] = (perCaraBayar[cb] || 0) + 1;
+    });
+
+    // Rekap kelompok lab riil dari pemeriksaan
+    const perKelompok = {};
+    (labTop || []).forEach(t => {
+      const k = t.kelompok || 'Lainnya';
+      perKelompok[k] = (perKelompok[k] || 0) + t.jml;
+    });
 
     w.innerHTML = `
       <div class="grid grid-4 mb-16">
-        <div class="stat accent"><div class="lbl">Total kunjungan</div>
-          <div class="val tabular">${total}</div>
-          <div class="hint">${UI.tglPendek(dari)} – ${UI.tglPendek(sampai)}</div></div>
-        <div class="stat"><div class="lbl">Peserta BPJS</div>
+        <div class="stat accent">
+          <div class="lbl">Total kunjungan pasien</div>
+          <div class="val tabular">${totalPasien}</div>
+          <div class="hint">${UI.tglPendek(dari)} – ${UI.tglPendek(sampai)}</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Permintaan laboratorium</div>
+          <div class="val tabular">${totalPermintaan}</div>
+          <div class="hint">${selesaiLab} selesai (${pctSelesai}%) · ${prosesLab} diproses</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Total parameter/tes lab</div>
+          <div class="val tabular">${totalItemPeriksa}</div>
+          <div class="hint">${totalPermintaan ? (totalItemPeriksa / totalPermintaan).toFixed(1) : 0} tes / permintaan</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Peserta BPJS</div>
           <div class="val tabular">${bpjs}</div>
-          <div class="hint">${total ? Math.round(bpjs / total * 100) : 0}% dari total</div></div>
-        <div class="stat"><div class="lbl">Umum &amp; lainnya</div>
-          <div class="val tabular">${total - bpjs}</div></div>
-        <div class="stat"><div class="lbl">Selesai dilayani</div>
-          <div class="val tabular">${selesai}</div>
-          <div class="hint">${total - selesai} belum selesai</div></div>
+          <div class="hint">${totalPasien ? Math.round(bpjs / totalPasien * 100) : 0}% dari total pasien</div>
+        </div>
       </div>
 
       <div class="split">
         <div class="card">
-          <div class="card-head"><h2>Sepuluh besar penyakit</h2></div>
-          <div class="card-body">${daftarPeringkat(top)}</div>
+          <div class="card-head flex justify-between items-center gap-12 flex-wrap">
+            <div>
+              <h2>Pemeriksaan Lab Terbanyak</h2>
+              <div class="sub">Frekuensi pemeriksaan dari pendaftaran &amp; hasil laboratorium</div>
+            </div>
+            <div class="flex items-center gap-8 flex-wrap">
+              <select id="fRingkasanStatus" class="control-auto text-xs py-4" title="Filter status permintaan">
+                <option value="SELESAI" selected>Status: Selesai</option>
+                <option value="SEMUA">Semua Status</option>
+                <option value="AKTIF">Sedang Diproses / Antre</option>
+              </select>
+              <select id="fRingkasanKelompok" class="control-auto text-xs py-4" title="Filter kelompok laboratorium">
+                <option value="SEMUA">Semua Kelompok</option>
+                ${kelompokList.map(k => `<option value="${UI.esc(k)}">${UI.esc(k)}</option>`).join('')}
+              </select>
+              <select id="fRingkasanBatas" class="control-auto text-xs py-4" title="Jumlah data yang ditampilkan">
+                <option value="10">Top 10</option>
+                <option value="15" selected>Top 15</option>
+                <option value="25">Top 25</option>
+                <option value="50">Top 50</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body" id="wadahLabTeratas">
+            ${daftarPeringkatLab(labTop)}
+          </div>
         </div>
 
         <div>
-          <div class="card">
-            <div class="card-head"><h2>Kunjungan per poli</h2></div>
-            <div class="card-body">
-              ${Object.keys(perPoli).length === 0 ? '<p class="text-muted mb-0">Tidak ada data.</p>'
-                : Object.entries(perPoli).sort((a, b) => b[1] - a[1]).map(([nama, jml]) => `
-                  <div class="flex justify-between items-center row-line">
-                    <span>${UI.esc(nama)}</span><b class="tabular">${jml}</b></div>`).join('')}
+          <div class="card mb-16">
+            <div class="card-head">
+              <h2>Pemeriksaan per Kelompok Lab</h2>
+              <div class="sub">Distribusi pengujian berdasarkan kategori laboratorium</div>
+            </div>
+            <div class="card-body" id="wadahKelompokLab">
+              ${!Object.keys(perKelompok).length
+                ? '<p class="text-muted mb-0">Belum ada pemeriksaan pada periode ini.</p>'
+                : Object.entries(perKelompok).sort((a, b) => b[1] - a[1]).map(([nama, jml]) => {
+                    const totalKlp = Object.values(perKelompok).reduce((a, b) => a + b, 0);
+                    const pct = totalKlp ? Math.round(jml / totalKlp * 100) : 0;
+                    return `
+                      <div class="flex justify-between items-center row-line clickable" data-kelompok="${UI.esc(nama)}" title="Klik untuk memfilter kelompok ini">
+                        <div class="min-w-0">
+                          <span>${UI.esc(nama)}</span>
+                          <span class="text-xs text-muted ml-4 tabular">(${pct}%)</span>
+                        </div>
+                        <b class="tabular">${jml} tes</b>
+                      </div>`;
+                  }).join('')}
             </div>
           </div>
 
           <div class="card">
-            <div class="card-head"><div class="flex-1"><h2>Tindakan terbanyak</h2>
-              <div class="sub">Berdasarkan kode ICD-9-CM</div></div></div>
+            <div class="card-head">
+              <h2>Status &amp; Cara Bayar</h2>
+              <div class="sub">Proses penyelesaian layanan dan metode bayar</div>
+            </div>
             <div class="card-body">
-              ${!tindakan.length ? '<p class="text-muted mb-0">Belum ada tindakan tercatat pada periode ini.</p>'
-                : tindakan.map(t => `
-                  <div class="flex justify-between items-center gap-8 row-line">
-                    <div class="min-w-0"><span>${UI.esc(t.nama)}</span>
-                      <span class="text-xs text-muted mono"> ${UI.esc(t.kode)}</span></div>
-                    <b class="tabular">${t.jml}</b></div>`).join('')}
+              <div class="mb-12">
+                <div class="text-xs text-muted font-bold mb-4 uppercase">Status Permintaan Laboratorium</div>
+                <div class="flex justify-between items-center row-line">
+                  <span>Selesai Diverifikasi</span>
+                  <span class="badge b-ok tabular font-bold">${selesaiLab}</span>
+                </div>
+                <div class="flex justify-between items-center row-line">
+                  <span>Sedang Diproses / Dikerjakan</span>
+                  <span class="badge b-info tabular font-bold">${labAntrean.filter(l => l.status === 'DIKERJAKAN').length}</span>
+                </div>
+                <div class="flex justify-between items-center row-line">
+                  <span>Menunggu Pemeriksaan (Antrean)</span>
+                  <span class="badge b-warn tabular font-bold">${labAntrean.filter(l => l.status === 'DIMINTA').length}</span>
+                </div>
+                ${labAntrean.some(l => l.status === 'BATAL') ? `
+                  <div class="flex justify-between items-center row-line">
+                    <span>Dibatalkan</span>
+                    <span class="badge b-err tabular font-bold">${labAntrean.filter(l => l.status === 'BATAL').length}</span>
+                  </div>` : ''}
+              </div>
+
+              <div>
+                <div class="text-xs text-muted font-bold mb-4 uppercase">Metode Pembayaran Pasien</div>
+                ${Object.entries(perCaraBayar).map(([cb, jml]) => `
+                  <div class="flex justify-between items-center row-line">
+                    <span>${UI.esc(cb)}</span>
+                    <b class="tabular">${jml} pasien</b>
+                  </div>`).join('')}
+              </div>
             </div>
           </div>
         </div>
       </div>`;
+
+    // Interaktivitas filter di card Pemeriksaan Lab Terbanyak
+    const muatLabTeratas = async () => {
+      const wadah = w.querySelector('#wadahLabTeratas');
+      wadah.innerHTML = UI.memuat(3);
+      const st = w.querySelector('#fRingkasanStatus').value;
+      const klp = w.querySelector('#fRingkasanKelompok').value;
+      const bts = parseInt(w.querySelector('#fRingkasanBatas').value, 10) || 15;
+      try {
+        const data = await DB.pemeriksaanLabTeratas({
+          dari,
+          sampai,
+          status: st === 'SEMUA' ? null : st,
+          kelompok: klp === 'SEMUA' ? null : klp,
+          batas: bts
+        });
+        wadah.innerHTML = daftarPeringkatLab(data);
+      } catch (err) {
+        wadah.innerHTML = `<div class="banner err p-8 mb-0">${UI.esc(err.message)}</div>`;
+      }
+    };
+
+    w.querySelector('#fRingkasanStatus').addEventListener('change', muatLabTeratas);
+    w.querySelector('#fRingkasanKelompok').addEventListener('change', muatLabTeratas);
+    w.querySelector('#fRingkasanBatas').addEventListener('change', muatLabTeratas);
+
+    // Klik kelompok di card samping untuk auto-filter
+    w.querySelectorAll('[data-kelompok]').forEach(el => {
+      el.addEventListener('click', () => {
+        const klp = el.getAttribute('data-kelompok');
+        const sel = w.querySelector('#fRingkasanKelompok');
+        if (sel) {
+          sel.value = klp;
+          muatLabTeratas();
+        }
+      });
+    });
   }
 
   /* ==================================================================== */
@@ -925,13 +1104,23 @@ const Laporan = (() => {
   }
 
   /* ==================================================================== */
-  /*  TAB 4 — REGISTER POLI                                               */
+  /*  TAB 4 — REGISTRASI LAB (Murni pendaftaran pasien laboratorium)     */
   /* ==================================================================== */
 
-  const KOLOM_REGISTER = [
-    ['tanggal', 'Tanggal'], ['no_kunjungan', 'No Kunjungan'], ['no_rm', 'No RM'], ['nama_pasien', 'Nama Pasien'],
-    ['jenis_kelamin', 'L/P'], ['tanggal_lahir', 'Tanggal Lahir'], ['cara_bayar', 'Cara Bayar'],
-    ['nama_poli', 'Poli'], ['nama_dokter', 'Dokter'], ['daftar_diagnosa', 'Diagnosa'], ['status', 'Status']
+  const KOLOM_REGISTRASI_LAB = [
+    ['no', 'No', (r, i) => (i != null ? i + 1 : '')],
+    ['tanggal', 'Tanggal'],
+    ['jam', 'Jam', r => (r.jam_daftar != null ? String(r.jam_daftar).padStart(2, '0') + ':00' : (r.waktu_daftar ? r.waktu_daftar.slice(11, 16) : '—'))],
+    ['no_kunjungan', 'No Registrasi'],
+    ['no_rm', 'No RM'],
+    ['nama_pasien', 'Nama Pasien'],
+    ['jenis_kelamin', 'L/P'],
+    ['tanggal_lahir', 'Tgl Lahir'],
+    ['umur', 'Umur', r => (r.tanggal_lahir ? UI.umurTeks(r.tanggal_lahir) : '—')],
+    ['no_hp', 'No HP / Kontak'],
+    ['cara_bayar', 'Cara Bayar'],
+    ['nama_dokter', 'Dokter / Pengirim', r => (r.nama_dokter || 'APS (Atas Permintaan Sendiri)')],
+    ['status', 'Status']
   ];
 
   async function tabRegister(w) {
@@ -946,81 +1135,130 @@ const Laporan = (() => {
             <span class="text-muted">s.d.</span>
             <input type="date" id="rgSampai" value="${akhir}" class="control-auto">
           </div>
-          <select id="rgPoli" class="control-auto">
-            <option value="">Semua poli</option>
-            <option value="UMUM">Poli Umum</option>
-            <option value="GIGI">Poli Gigi</option>
-            <option value="KIA">Poli KIA</option>
+          <select id="rgCaraBayar" class="control-auto" title="Filter Cara Bayar / Penjamin">
+            <option value="">Semua Cara Bayar</option>
+            <option value="UMUM">Umum / Mandiri</option>
+            <option value="BPJS">BPJS Kesehatan</option>
+            <option value="TRANSFER">Transfer</option>
+            <option value="PERUSAHAAN">Perusahaan / Rekanan</option>
+          </select>
+          <select id="rgStatus" class="control-auto" title="Filter Status Pelayanan">
+            <option value="">Semua Status</option>
+            <option value="SELESAI">Selesai</option>
+            <option value="ANTRI">Antre / Dalam Proses</option>
           </select>
           <button class="btn btn-primary btn-sm" id="rgTampil">Tampilkan</button>
           <div class="search-box min-w-200">
             <span class="ico">${UI.ikon('cari', 16)}</span>
-            <input type="search" id="rgCari" placeholder="Cari nama atau no. RM…">
+            <input type="search" id="rgCari" placeholder="Cari nama, no. RM, atau no. registrasi…">
           </div>
           <div class="flex-1"></div>
-          <button class="btn btn-secondary btn-sm" id="rgUnduh">${UI.ikon('unduh', 15)} Unduh CSV</button>
+          <button class="btn btn-secondary btn-sm" id="rgUnduh">${UI.ikon('unduh', 15)} Unduh CSV Registrasi</button>
         </div>
       </div></div>
       <div id="rgIsi">${UI.memuat(4)}</div>`;
 
-    let rows = [], tindakanPeta = {};
+    let rows = [];
     const muat = async () => {
       const dari = w.querySelector('#rgDari').value, sampai = w.querySelector('#rgSampai').value;
-      const jenisPoli = w.querySelector('#rgPoli').value;
       const isi = w.querySelector('#rgIsi');
       isi.innerHTML = UI.memuat(4);
       try {
-        rows = await DB.laporanRegisterPoli({ dari, sampai, jenisPoli });
-        tindakanPeta = {};
-        if (jenisPoli === 'GIGI' && rows.length) {
-          const daftarTindakan = await DB.laporanTindakanUntukKunjungan(rows.map(r => r.id));
-          daftarTindakan.forEach(t => {
-            (tindakanPeta[t.kunjungan_id] = tindakanPeta[t.kunjungan_id] || []).push(t.nama);
-          });
-        }
+        // Ambil data riil pendaftaran kunjungan laboratorium
+        rows = await DB.laporanRegisterPoli({ dari, sampai });
         saring();
       } catch (e) { isi.innerHTML = `<div class="banner err"><div>${UI.esc(e.message)}</div></div>`; }
     };
 
     const saring = () => {
       const q = w.querySelector('#rgCari').value.trim().toLowerCase();
-      const tampil = q ? rows.filter(r =>
-        (r.nama_pasien || '').toLowerCase().includes(q) || (r.no_rm || '').toLowerCase().includes(q)) : rows;
-      gambarRegister(w.querySelector('#rgIsi'), tampil, tindakanPeta, w.querySelector('#rgPoli').value);
+      const cb = w.querySelector('#rgCaraBayar').value;
+      const st = w.querySelector('#rgStatus').value;
+
+      let tampil = rows;
+      if (cb) tampil = tampil.filter(r => (r.cara_bayar || '').toUpperCase() === cb.toUpperCase());
+      if (st) tampil = tampil.filter(r => (r.status || '').toUpperCase() === st.toUpperCase());
+      if (q) {
+        tampil = tampil.filter(r =>
+          (r.nama_pasien || '').toLowerCase().includes(q) ||
+          (r.no_rm || '').toLowerCase().includes(q) ||
+          (r.no_kunjungan || '').toLowerCase().includes(q) ||
+          (r.no_hp || '').toLowerCase().includes(q)
+        );
+      }
+      gambarRegister(w.querySelector('#rgIsi'), tampil);
     };
 
     w.querySelector('#rgTampil').addEventListener('click', muat);
-    w.querySelector('#rgPoli').addEventListener('change', muat);
+    w.querySelector('#rgCaraBayar').addEventListener('change', saring);
+    w.querySelector('#rgStatus').addEventListener('change', saring);
     w.querySelector('#rgCari').addEventListener('input', UI.tunda(saring, 250));
     w.querySelector('#rgUnduh').addEventListener('click', () => {
-      const jenisPoli = w.querySelector('#rgPoli').value;
-      const kolom = jenisPoli === 'GIGI'
-        ? [...KOLOM_REGISTER, ['tindakan', 'Tindakan', r => (tindakanPeta[r.id] || []).join('; ')]]
-        : KOLOM_REGISTER;
-      unduhCsv(rows, kolom, `register-poli_${w.querySelector('#rgDari').value}_sd_${w.querySelector('#rgSampai').value}.csv`);
+      const q = w.querySelector('#rgCari').value.trim().toLowerCase();
+      const cb = w.querySelector('#rgCaraBayar').value;
+      const st = w.querySelector('#rgStatus').value;
+      let unduhRows = rows;
+      if (cb) unduhRows = unduhRows.filter(r => (r.cara_bayar || '').toUpperCase() === cb.toUpperCase());
+      if (st) unduhRows = unduhRows.filter(r => (r.status || '').toUpperCase() === st.toUpperCase());
+      if (q) {
+        unduhRows = unduhRows.filter(r =>
+          (r.nama_pasien || '').toLowerCase().includes(q) ||
+          (r.no_rm || '').toLowerCase().includes(q) ||
+          (r.no_kunjungan || '').toLowerCase().includes(q)
+        );
+      }
+      unduhCsv(unduhRows, KOLOM_REGISTRASI_LAB, `registrasi-lab_${w.querySelector('#rgDari').value}_sd_${w.querySelector('#rgSampai').value}.csv`);
     });
 
     await muat();
   }
 
-  function gambarRegister(w, rows, tindakanPeta, jenisPoli) {
-    if (!rows.length) { w.innerHTML = UI.kosong('Tidak ada kunjungan', 'Tidak ada kunjungan pada periode dan filter ini.'); return; }
-    const tampilTindakan = jenisPoli === 'GIGI';
+  function gambarRegister(w, rows) {
+    if (!rows.length) {
+      w.innerHTML = UI.kosong('Tidak ada pendaftaran', 'Tidak ada data registrasi pasien pada periode dan filter ini.');
+      return;
+    }
     w.innerHTML = `
       <div class="card"><div class="card-body tight"><div class="table-wrap"><table>
-        <thead><tr><th>Tanggal</th><th>No Kunjungan</th><th>Pasien</th><th>L/P</th><th>Cara Bayar</th>
-          <th>Poli</th><th>Dokter</th>${tampilTindakan ? '<th>Tindakan</th>' : ''}<th>Diagnosa</th></tr></thead>
-        <tbody>${rows.map(r => `<tr>
-          <td>${UI.tglPendek(r.tanggal)}</td>
-          <td class="mono text-xs">${UI.esc(r.no_kunjungan)}</td>
-          <td><b>${UI.esc(r.nama_pasien)}</b><div class="text-muted mono text-xs">${UI.esc(r.no_rm)}</div></td>
-          <td>${UI.esc(r.jenis_kelamin || '—')}</td>
-          <td>${UI.badgeBayar(r.cara_bayar)}</td>
-          <td>${UI.esc(r.nama_poli)}</td>
-          <td>${UI.esc(r.nama_dokter || '—')}</td>
-          ${tampilTindakan ? `<td>${(tindakanPeta[r.id] || []).map(x => UI.esc(x)).join('; ') || '—'}</td>` : ''}
-          <td>${UI.esc(r.daftar_diagnosa || '—')}</td>
-        </tr>`).join('')}</tbody>
+        <thead><tr>
+          <th style="width:40px;">No</th>
+          <th>Waktu Pendaftaran</th>
+          <th>No. Registrasi</th>
+          <th>Data Pasien</th>
+          <th>L/P</th>
+          <th>Umur</th>
+          <th>No. HP / Kontak</th>
+          <th>Cara Bayar</th>
+          <th>Dokter / Pengirim</th>
+          <th>Status</th>
+        </tr></thead>
+        <tbody>${rows.map((r, i) => {
+          const jamTeks = r.jam_daftar != null
+            ? String(r.jam_daftar).padStart(2, '0') + ':00'
+            : (r.waktu_daftar ? r.waktu_daftar.slice(11, 16) : '');
+          const statusBadge = r.status === 'SELESAI'
+            ? '<span class="badge b-ok">Selesai</span>'
+            : (r.status === 'BATAL' ? '<span class="badge b-danger">Batal</span>' : '<span class="badge b-warn">Antre</span>');
+          const dokterTeks = r.nama_dokter || '<span class="text-muted">APS (Atas Permintaan Sendiri)</span>';
+          return `<tr>
+            <td class="text-muted text-xs">${i + 1}</td>
+            <td>
+              <b>${UI.tglPendek(r.tanggal)}</b>
+              ${jamTeks ? `<div class="text-xs text-muted tabular">${jamTeks}</div>` : ''}
+            </td>
+            <td><b class="mono text-xs">${UI.esc(r.no_kunjungan)}</b></td>
+            <td>
+              <b>${UI.esc(r.nama_pasien)}</b>
+              <div class="text-muted mono text-xs">${UI.esc(r.no_rm)}</div>
+            </td>
+            <td>${UI.esc(r.jenis_kelamin || '—')}</td>
+            <td>${r.tanggal_lahir ? UI.umurTeks(r.tanggal_lahir) : '—'}</td>
+            <td><span class="text-xs">${UI.esc(r.no_hp || '—')}</span></td>
+            <td>${UI.badgeBayar(r.cara_bayar)}</td>
+            <td>${dokterTeks}</td>
+            <td>${statusBadge}</td>
+          </tr>`;
+        }).join('')}</tbody>
       </table></div></div></div>`;
   }
 
@@ -1108,131 +1346,157 @@ const Laporan = (() => {
     const totalDitagih = tagihan.reduce((a, r) => a + (Number(r.ditagih) || 0), 0);
     const totalDibayar = tagihan.reduce((a, r) => a + (Number(r.sudah_dibayar) || 0), 0);
     const totalMasuk = pembayaran.reduce((a, r) => a + (Number(r.uang_masuk) || 0), 0);
+    const totalPiutang = Math.max(0, totalDitagih - totalDibayar);
 
-    const perPoli = rekapPerKunci(tagihan, 'jenis_poli', ['nilai_layanan', 'ditagih']);
-    const perPoliMasuk = rekapPerKunci(pembayaran, 'jenis_poli', ['uang_masuk']);
+    const LABEL_METODE = {
+      tunai: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS',
+      debit: 'Kartu Debit', kartu_kredit: 'Kartu Kredit', lainnya: 'Lainnya'
+    };
+
+    // Di laboratorium medis, pengelompokan penjamin/cara bayar jauh lebih relevan daripada poli
+    const perPenjamin = rekapPerKunci(tagihan, 'penjamin', ['nilai_layanan', 'ditagih']);
+    const perPenjaminMasuk = rekapPerKunci(pembayaran, 'penjamin', ['uang_masuk']);
     const perMetode = rekapPerKunci(pembayaran, 'metode', ['uang_masuk', 'jumlah_transaksi']);
 
+    // Gabungkan penjamin dari tagihan & pembayaran jika ada yang hanya muncul di salah satunya
+    const semuaKunciPenjamin = Array.from(new Set([
+      ...perPenjamin.map(p => p.kunci),
+      ...perPenjaminMasuk.map(p => p.kunci)
+    ]));
+
     w.innerHTML = `
-      <div class="banner info mb-16"><div>"Nilai layanan" adalah nilai seluruh tagihan pada periode ini —
-        <b>termasuk</b> yang ditanggung BPJS dan tidak pernah masuk kas. "Uang masuk" adalah kas yang
-        benar-benar diterima kasir. Keduanya konsep berbeda dan sengaja tidak dijumlahkan menjadi satu angka.</div></div>
+      <div class="banner info mb-16">
+        <div>
+          <b>Catatan Keuangan:</b> "Nilai layanan" adalah nilai seluruh pemeriksaan lab pada periode ini (termasuk penjamin BPJS/rekanan).
+          "Uang masuk" adalah kas riil yang benar-benar diterima kasir. Keduanya konsep akuntansi yang berbeda (akrual vs kas).
+        </div>
+      </div>
 
       <div class="grid grid-4 mb-16">
-        <div class="stat accent"><div class="lbl">Nilai Layanan</div><div class="val tabular">${UI.rupiah(totalNilai)}</div></div>
-        <div class="stat"><div class="lbl">Ditagih ke Pasien</div><div class="val tabular">${UI.rupiah(totalDitagih)}</div></div>
-        <div class="stat"><div class="lbl">Sudah Dibayar (Tagihan)</div><div class="val tabular">${UI.rupiah(totalDibayar)}</div></div>
-        <div class="stat"><div class="lbl">Uang Masuk (Kas)</div><div class="val tabular">${UI.rupiah(totalMasuk)}</div></div>
+        <div class="stat accent">
+          <div class="lbl">Nilai Layanan (Akrual)</div>
+          <div class="val tabular">${UI.rupiah(totalNilai)}</div>
+          <div class="hint">Total nilai seluruh tagihan</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Ditagih ke Pasien/Rekanan</div>
+          <div class="val tabular">${UI.rupiah(totalDitagih)}</div>
+          <div class="hint">Setelah potongan &amp; diskon</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Sisa Piutang (Belum Lunas)</div>
+          <div class="val tabular ${totalPiutang > 0 ? 'text-warn' : 'text-success'}">${UI.rupiah(totalPiutang)}</div>
+          <div class="hint">${totalPiutang > 0 ? '<span class="badge b-warn text-xs">Perlu Penagihan</span>' : '<span class="badge b-ok text-xs">Semua Tagihan Lunas</span>'}</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">Uang Masuk (Kas Kasir)</div>
+          <div class="val tabular text-primary">${UI.rupiah(totalMasuk)}</div>
+          <div class="hint">Kas riil diterima di kasir</div>
+        </div>
       </div>
 
       <div class="split">
-        <div class="card"><div class="card-head"><h2>Per Hari</h2></div>
-          <div class="card-body tight"><div class="table-wrap"><table>
-            <thead><tr><th>Tanggal</th><th class="text-right">Nilai Layanan</th>
-              <th class="text-right">Ditagih</th><th class="text-right">Uang Masuk</th></tr></thead>
-            <tbody>${harian.length ? harian.map(h => `<tr>
-              <td>${UI.tglPendek(h.tanggal)}</td>
-              <td class="text-right tabular">${UI.rupiah(h.nilaiLayanan)}</td>
-              <td class="text-right tabular">${UI.rupiah(h.ditagih)}</td>
-              <td class="text-right tabular">${UI.rupiah(h.uangMasuk)}</td>
-            </tr>`).join('') : '<tr><td colspan="4" class="text-muted text-center">Tidak ada data.</td></tr>'}</tbody>
-          </table></div></div></div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Rekap Transaksi Harian</h2>
+            <div class="sub">Rincian nilai layanan, tagihan, dan uang kas per tanggal</div>
+          </div>
+          <div class="card-body tight">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tanggal</th>
+                    <th class="text-right">Nilai Layanan</th>
+                    <th class="text-right">Ditagih</th>
+                    <th class="text-right">Uang Masuk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${harian.length ? harian.map(h => `
+                    <tr>
+                      <td><b>${UI.tglPendek(h.tanggal)}</b></td>
+                      <td class="text-right tabular">${UI.rupiah(h.nilaiLayanan)}</td>
+                      <td class="text-right tabular">${UI.rupiah(h.ditagih)}</td>
+                      <td class="text-right tabular font-bold text-primary">${UI.rupiah(h.uangMasuk)}</td>
+                    </tr>`).join('')
+                    : '<tr><td colspan="4" class="text-muted text-center p-16">Tidak ada transaksi pada periode ini.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div>
-          <div class="card mb-16"><div class="card-head"><h2>Per Poli</h2></div>
-            <div class="card-body tight"><div class="table-wrap"><table>
-              <thead><tr><th>Poli</th><th class="text-right">Nilai Layanan</th><th class="text-right">Uang Masuk</th></tr></thead>
-              <tbody>${perPoli.length ? perPoli.map(p => {
-                const masuk = perPoliMasuk.find(m => m.kunci === p.kunci);
-                return `<tr><td>${UI.esc(p.kunci)}</td>
-                  <td class="text-right tabular">${UI.rupiah(p.nilai_layanan)}</td>
-                  <td class="text-right tabular">${UI.rupiah(masuk ? masuk.uang_masuk : 0)}</td></tr>`;
-              }).join('') : '<tr><td colspan="3" class="text-muted text-center">Tidak ada data.</td></tr>'}</tbody>
-            </table></div></div></div>
-          <div class="card"><div class="card-head"><h2>Per Metode Pembayaran</h2></div>
-            <div class="card-body tight"><div class="table-wrap"><table>
-              <thead><tr><th>Metode</th><th class="text-right">Uang Masuk</th><th class="text-right">Transaksi</th></tr></thead>
-              <tbody>${perMetode.length ? perMetode.map(m => `<tr><td>${UI.esc(m.kunci)}</td>
-                <td class="text-right tabular">${UI.rupiah(m.uang_masuk)}</td>
-                <td class="text-right tabular">${m.jumlah_transaksi}</td></tr>`).join('')
-                : '<tr><td colspan="3" class="text-muted text-center">Tidak ada data.</td></tr>'}</tbody>
-            </table></div></div></div>
+          <div class="card mb-16">
+            <div class="card-head">
+              <h2>Per Penjamin / Cara Bayar</h2>
+              <div class="sub">Distribusi tagihan berdasarkan penjamin pasien</div>
+            </div>
+            <div class="card-body tight">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Penjamin</th>
+                      <th class="text-right">Nilai Tagihan</th>
+                      <th class="text-right">Uang Masuk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${semuaKunciPenjamin.length ? semuaKunciPenjamin.map(kunci => {
+                        const t = perPenjamin.find(p => p.kunci === kunci);
+                        const m = perPenjaminMasuk.find(p => p.kunci === kunci);
+                        const nilaiLayanan = t ? t.nilai_layanan : 0;
+                        const uangMasuk = m ? m.uang_masuk : 0;
+                        const labelPenjamin = kunci === 'UMUM' ? 'Umum / Mandiri' : (kunci === 'BPJS' ? 'BPJS Kesehatan' : kunci);
+                        return `
+                          <tr>
+                            <td><b>${UI.esc(labelPenjamin)}</b></td>
+                            <td class="text-right tabular">${UI.rupiah(nilaiLayanan)}</td>
+                            <td class="text-right tabular font-bold">${UI.rupiah(uangMasuk)}</td>
+                          </tr>`;
+                      }).join('')
+                      : '<tr><td colspan="3" class="text-muted text-center p-16">Tidak ada data penjamin.</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Per Metode Pembayaran Kasir</h2>
+              <div class="sub">Rekap penerimaan kas berdasarkan kanal bayar</div>
+            </div>
+            <div class="card-body tight">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Metode</th>
+                      <th class="text-right">Uang Masuk</th>
+                      <th class="text-right">Jumlah Trx</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${perMetode.length ? perMetode.map(m => {
+                        const namaMetode = LABEL_METODE[String(m.kunci).toLowerCase()] || m.kunci;
+                        return `
+                          <tr>
+                            <td><span class="badge b-info">${UI.esc(namaMetode)}</span></td>
+                            <td class="text-right tabular font-bold text-primary">${UI.rupiah(m.uang_masuk)}</td>
+                            <td class="text-right tabular">${m.jumlah_transaksi} trx</td>
+                          </tr>`;
+                      }).join('')
+                      : '<tr><td colspan="3" class="text-muted text-center p-16">Belum ada pembayaran.</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>`;
-  }
-
-  /* ==================================================================== */
-  /*  TAB 6 — PUSKESMAS                                                   */
-  /* ==================================================================== */
-
-  function kolomPuskesmas() {
-    return [
-      ['kode', 'Kode ICD-10'], ['nama', 'Nama Diagnosa'], ['total', 'Total'], ['L', 'L'], ['P', 'P'],
-      ...LaporanCore.KATEGORI_USIA.map(k => [k, k, r => r.perKategori[k]])
-    ];
-  }
-
-  async function tabPuskesmas(w) {
-    const akhir = UI.hariIni();
-    const awal = UI.bulanIni() + '-01';
-    w.innerHTML = `
-      <div class="card mb-16"><div class="card-body">
-        <div class="flex items-center gap-12 flex-wrap">
-          <div class="flex items-center gap-8 periode-group">
-            <label class="mb-0">Periode</label>
-            <input type="date" id="pkDari" value="${awal}" class="control-auto">
-            <span class="text-muted">s.d.</span>
-            <input type="date" id="pkSampai" value="${akhir}" class="control-auto">
-          </div>
-          <button class="btn btn-primary btn-sm" id="pkTampil">Tampilkan</button>
-          <div class="search-box min-w-200">
-            <span class="ico">${UI.ikon('cari', 16)}</span>
-            <input type="search" id="pkCari" placeholder="Cari kode atau nama diagnosa…">
-          </div>
-          <div class="flex-1"></div>
-          <button class="btn btn-secondary btn-sm" id="pkUnduh">${UI.ikon('unduh', 15)} Unduh CSV</button>
-        </div>
-      </div></div>
-      <div id="pkIsi">${UI.memuat(4)}</div>`;
-
-    let rekap = [];
-    const muat = async () => {
-      const dari = w.querySelector('#pkDari').value, sampai = w.querySelector('#pkSampai').value;
-      const isi = w.querySelector('#pkIsi');
-      isi.innerHTML = UI.memuat(4);
-      try {
-        const rows = await DB.laporanDiagnosaPuskesmas({ dari, sampai });
-        rekap = LaporanCore.rekapPuskesmas(rows, sampai);
-        saring();
-      } catch (e) { isi.innerHTML = `<div class="banner err"><div>${UI.esc(e.message)}</div></div>`; }
-    };
-
-    const saring = () => {
-      const q = w.querySelector('#pkCari').value.trim().toLowerCase();
-      const tampil = q ? rekap.filter(r => r.kode.toLowerCase().includes(q) || r.nama.toLowerCase().includes(q)) : rekap;
-      gambarPuskesmas(w.querySelector('#pkIsi'), tampil);
-    };
-
-    w.querySelector('#pkTampil').addEventListener('click', muat);
-    w.querySelector('#pkCari').addEventListener('input', UI.tunda(saring, 250));
-    w.querySelector('#pkUnduh').addEventListener('click', () => unduhCsv(rekap, kolomPuskesmas(),
-      `puskesmas_${w.querySelector('#pkDari').value}_sd_${w.querySelector('#pkSampai').value}.csv`));
-
-    await muat();
-  }
-
-  function gambarPuskesmas(w, rekap) {
-    if (!rekap.length) { w.innerHTML = UI.kosong('Tidak ada diagnosa', 'Tidak ada diagnosa tercatat pada periode ini.'); return; }
-    w.innerHTML = `
-      <div class="card"><div class="card-body tight"><div class="table-wrap"><table>
-        <thead><tr><th>Kode</th><th>Diagnosa</th><th class="text-right">Total</th><th class="text-right">L</th><th class="text-right">P</th>
-          ${LaporanCore.KATEGORI_USIA.map(k => `<th class="text-right">${UI.esc(k)}</th>`).join('')}</tr></thead>
-        <tbody>${rekap.map(r => `<tr>
-          <td class="mono text-xs">${UI.esc(r.kode)}</td><td>${UI.esc(r.nama)}</td>
-          <td class="text-right tabular"><b>${r.total}</b></td>
-          <td class="text-right tabular">${r.L}</td><td class="text-right tabular">${r.P}</td>
-          ${LaporanCore.KATEGORI_USIA.map(k => `<td class="text-right tabular">${r.perKategori[k] || 0}</td>`).join('')}
-        </tr>`).join('')}</tbody>
-      </table></div></div></div>`;
   }
 
   return { render };

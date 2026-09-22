@@ -569,8 +569,9 @@ const DB = (() => {
   }
   async function diagnosaTeratas(dari, sampai, batas = 10) {
     const { data, error } = await sb.from('diagnosa')
-      .select('kode_icd10, nama, kunjungan!inner(tanggal)')
-      .gte('kunjungan.tanggal', dari).lte('kunjungan.tanggal', sampai);
+      .select('kode_icd10, nama, kunjungan!inner(tanggal, status)')
+      .gte('kunjungan.tanggal', dari).lte('kunjungan.tanggal', sampai)
+      .eq('kunjungan.status', 'SELESAI');
     if (error) throw error;
     const hitung = {};
     (data || []).forEach(d => {
@@ -748,6 +749,52 @@ const DB = (() => {
       hitung[t.kode_icd9].jml++;
     });
     return Object.values(hitung).sort((a, b) => b.jml - a.jml).slice(0, batas);
+  }
+
+  /* Pemeriksaan laboratorium terbanyak — untuk Ringkasan Laporan.
+     Mengelompokkan lab_hasil berdasarkan jenis pemeriksaan, dihitung
+     jumlahnya, dan disortir descending. Filter opsional: status permintaan
+     dan kelompok lab (Hematologi, Kimia Klinik, dll.). */
+  async function pemeriksaanLabTeratas({ dari, sampai, status, kelompok, batas = 15 } = {}) {
+    let q = sb.from('lab_permintaan')
+      .select('id, status, tanggal, lab_hasil(lab_id, nama)')
+      .limit(5000);
+    if (dari) q = q.gte('tanggal', dari);
+    if (sampai) q = q.lte('tanggal', sampai);
+    if (status && status !== 'SEMUA') {
+      if (status === 'AKTIF') q = q.in('status', ['DIMINTA', 'DIKERJAKAN']);
+      else q = q.eq('status', status);
+    } else {
+      q = q.neq('status', 'BATAL');
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    const hitung = {};
+    (data || []).forEach(p => {
+      (p.lab_hasil || []).forEach(h => {
+        const k = h.lab_id;
+        if (!hitung[k]) hitung[k] = { lab_id: k, nama: h.nama, jml: 0 };
+        hitung[k].jml++;
+      });
+    });
+    let hasil = Object.values(hitung).sort((a, b) => b.jml - a.jml);
+    try {
+      const ref = await refLab(true);
+      const peta = {};
+      ref.forEach(r => { peta[r.id] = r.kelompok; });
+      hasil.forEach(h => { h.kelompok = peta[h.lab_id] || 'Lainnya'; });
+      if (kelompok && kelompok !== 'SEMUA') hasil = hasil.filter(h => h.kelompok === kelompok);
+    } catch (e) { /* abaikan jika refLab gagal */ }
+    return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
+  }
+
+  async function daftarKelompokLab() {
+    try {
+      const ref = await refLab(true);
+      const set = new Set();
+      ref.forEach(r => { if (r.kelompok) set.add(r.kelompok); });
+      return Array.from(set).sort();
+    } catch (e) { return []; }
   }
 
 
@@ -2907,7 +2954,7 @@ const DB = (() => {
     refGigi, refKondisiGigi, refBidangGigi,
     odontogram, odontogramPadaKunjungan, simpanOdontogram, riwayatOdontogram,
     pemeriksaanGigi, simpanPemeriksaanGigi,
-    cariIcd9, tindakan, simpanTindakan, tindakanTeratas,
+    cariIcd9, tindakan, simpanTindakan, tindakanTeratas, pemeriksaanLabTeratas, daftarKelompokLab,
     refKesadaran, refStatusPulang,
     refPrognosa, refTacc, refSubspesialis, refSarana, refAlergi, refPpk,
     refSistemFisik, refVital: refVitalSemua,

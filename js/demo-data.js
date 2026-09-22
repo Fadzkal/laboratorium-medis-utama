@@ -1267,6 +1267,37 @@ const DB = (() => {
     return Object.values(h).sort((a, b) => b.jml - a.jml).slice(0, batas);
   }
 
+  async function pemeriksaanLabTeratas({ dari, sampai, status, kelompok, batas = 15 } = {}) {
+    await tunggu(30);
+    let pList = (typeof LAB_PERMINTAAN !== 'undefined' ? LAB_PERMINTAAN : []).filter(lp => lp.status !== 'BATAL');
+    if (dari) pList = pList.filter(lp => lp.tanggal >= dari);
+    if (sampai) pList = pList.filter(lp => lp.tanggal <= sampai);
+    if (status && status !== 'SEMUA') {
+      if (status === 'AKTIF') pList = pList.filter(lp => lp.status === 'DIMINTA' || lp.status === 'DIKERJAKAN');
+      else pList = pList.filter(lp => lp.status === status);
+    }
+    const pIds = new Set(pList.map(p => p.id));
+    const hitung = {};
+    (typeof LAB_HASIL !== 'undefined' ? LAB_HASIL : []).filter(h => pIds.has(h.permintaan_id)).forEach(h => {
+      const k = h.lab_id;
+      if (!hitung[k]) hitung[k] = { lab_id: k, nama: h.nama, jml: 0 };
+      hitung[k].jml++;
+    });
+    let hasil = Object.values(hitung).sort((a, b) => b.jml - a.jml);
+    const peta = {};
+    (typeof REF_LAB !== 'undefined' ? REF_LAB : []).forEach(r => { peta[r.id] = r.kelompok; });
+    hasil.forEach(h => { h.kelompok = peta[h.lab_id] || 'Lainnya'; });
+    if (kelompok && kelompok !== 'SEMUA') hasil = hasil.filter(h => h.kelompok === kelompok);
+    return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
+  }
+
+  async function daftarKelompokLab() {
+    await tunggu(20);
+    const set = new Set();
+    (typeof REF_LAB !== 'undefined' ? REF_LAB : []).forEach(r => { if (r.kelompok) set.add(r.kelompok); });
+    return Array.from(set).sort();
+  }
+
 
   /* ---------------- Rujukan berkode ---------------- */
   async function refKesadaran() { await tunggu(30); return salin(REF_KESADARAN); }
@@ -3320,6 +3351,7 @@ const DB = (() => {
            odontogram, odontogramPadaKunjungan, simpanOdontogram, riwayatOdontogram,
            pemeriksaanGigi, simpanPemeriksaanGigi,
            cariIcd9, tindakan, simpanTindakan, tindakanTeratas,
+           pemeriksaanLabTeratas, daftarKelompokLab,
            refKesadaran, refStatusPulang,
            refPrognosa, refTacc, refSubspesialis, refSarana, refAlergi, refPpk,
            refSistemFisik, refVital: refVitalSemua,
