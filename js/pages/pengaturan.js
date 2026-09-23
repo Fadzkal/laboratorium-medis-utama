@@ -238,9 +238,11 @@ const Pengaturan = (() => {
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="search" id="cariPegawai" placeholder="Cari nama / SIP..."
                    class="ctl-sm" style="width:180px;">
-            <select id="filterPeranPegawai" class="ctl-sm">
-              <option value="">Semua Peran</option>
-              ${PERAN.map(r => `<option value="${r}">${r}</option>`).join('')}
+            <select id="filterPeranPegawai" class="ctl-sm" style="font-weight:600;">
+              <option value="utama" selected>Karyawan &amp; Master</option>
+              <option value="karyawan">Hanya Karyawan</option>
+              <option value="master">Hanya Master</option>
+              <option value="semua">Semua Role Database</option>
             </select>
             <button class="btn btn-primary btn-sm" id="btnTambahPengguna">
               ${UI.ikon('plus',14)} Tambah Pengguna
@@ -271,7 +273,9 @@ const Pengaturan = (() => {
     function renderBaris(list) {
       const tbody = w.querySelector('#badanTabelPegawai');
       const hitung = w.querySelector('#hitungAkun');
-      if (hitung) hitung.textContent = `${list.length} akun` + (list.length !== d.length ? ` (dari ${d.length})` : '');
+      const pFilter = w.querySelector('#filterPeranPegawai')?.value || 'utama';
+      const labelKet = pFilter === 'utama' ? ' (Karyawan & Master)' : (pFilter === 'semua' ? ' (Semua)' : ` (${pFilter})`);
+      if (hitung) hitung.textContent = `${list.length} akun${labelKet}`;
 
       if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-16">Tidak ada pengguna yang cocok dengan pencarian.</td></tr>`;
@@ -284,8 +288,10 @@ const Pengaturan = (() => {
             <input type="text" data-nama="${p.id}" value="${UI.esc(p.nama)}" class="ctl-sm" style="font-weight:600; min-width:140px;">
           </td>
           <td>
-            <select data-peran="${p.id}" class="ctl-sm">
-              ${PERAN.map(r => `<option value="${r}" ${p.peran === r ? 'selected' : ''}>${r}</option>`).join('')}
+            <select data-peran="${p.id}" class="ctl-sm" style="font-weight:600;">
+              <option value="karyawan" ${p.peran === 'karyawan' ? 'selected' : ''}>karyawan</option>
+              <option value="master" ${p.peran === 'master' ? 'selected' : ''}>master</option>
+              ${p.peran !== 'karyawan' && p.peran !== 'master' ? `<option value="${p.peran}" selected>${p.peran}</option>` : ''}
             </select>
           </td>
           <td>
@@ -408,10 +414,17 @@ const Pengaturan = (() => {
 
     function filterList() {
       const q = (w.querySelector('#cariPegawai')?.value || '').toLowerCase().trim();
-      const p = w.querySelector('#filterPeranPegawai')?.value || '';
+      const p = w.querySelector('#filterPeranPegawai')?.value || 'utama';
       return d.filter(x => {
         const cocokKata = !q || (x.nama && x.nama.toLowerCase().includes(q)) || (x.no_sip && x.no_sip.toLowerCase().includes(q));
-        const cocokPeran = !p || x.peran === p;
+        let cocokPeran = true;
+        if (p === 'utama') {
+          cocokPeran = x.peran === 'karyawan' || x.peran === 'master';
+        } else if (p === 'semua') {
+          cocokPeran = true;
+        } else {
+          cocokPeran = x.peran === p;
+        }
         return cocokKata && cocokPeran;
       });
     }
@@ -437,8 +450,9 @@ const Pengaturan = (() => {
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div class="field">
               <label>Peran *</label>
-              <select id="tbPeran" style="width:100%; padding:6px 8px;">
-                ${PERAN.map(r => `<option value="${r}" ${r === 'karyawan' ? 'selected' : ''}>${r}</option>`).join('')}
+              <select id="tbPeran" style="width:100%; padding:6px 8px; font-weight:600;">
+                <option value="karyawan" selected>karyawan</option>
+                <option value="master">master</option>
               </select>
             </div>
             <div class="field" id="wrapTbJenisDokter" style="display:none;">
@@ -507,7 +521,7 @@ const Pengaturan = (() => {
       });
     });
 
-    renderBaris(d);
+    renderBaris(filterList());
   }
 
   /* ---------------- Hak Akses (9 Sep 2026) ----------------
