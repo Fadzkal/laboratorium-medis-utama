@@ -498,8 +498,71 @@ const Lab = (() => {
   }
 
   /* ================================================================== */
-  /*  PEMBANTU TATA LETAK CETAK DOKUMEN (9 FORMAT)                     */
+  /*  PEMBANTU TATA LETAK & PROSES CETAK DOKUMEN (9 FORMAT)            */
   /* ================================================================== */
+
+  /* Cetak dokumen langsung via iframe tersembunyi tanpa jendela pop-up pratinjau */
+  async function cetakDokumen(htmlContent) {
+    const bingkai = document.createElement('iframe');
+    bingkai.setAttribute('aria-hidden', 'true');
+    bingkai.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;opacity:0;border:0;pointer-events:none;z-index:-1';
+    document.body.appendChild(bingkai);
+
+    const bersihkan = () => {
+      setTimeout(() => {
+        try { bingkai.remove(); } catch (e) {}
+      }, 1500);
+    };
+
+    await new Promise((siap) => {
+      let selesai = false;
+      const beres = () => { if (!selesai) { selesai = true; siap(); } };
+      bingkai.onload = beres;
+      bingkai.srcdoc = htmlContent;
+      setTimeout(beres, 2000);
+    });
+
+    const w = bingkai.contentWindow;
+    if (!w) {
+      bersihkan();
+      throw new Error('Gagal menyiapkan lembar dokumen cetak.');
+    }
+
+    // Tunggu gambar (kop, logo, barcode, QR) siap agar cetak tidak kosong
+    try {
+      const gambar = Array.from(w.document.images || []);
+      if (gambar.length) {
+        await Promise.race([
+          Promise.all(gambar.map(g => {
+            if (g.complete && g.naturalWidth) return Promise.resolve();
+            if (g.decode) return g.decode().catch(() => {});
+            return new Promise(r => { g.onload = r; g.onerror = r; });
+          })),
+          new Promise(r => setTimeout(r, 2000))
+        ]);
+      }
+    } catch (e) {}
+
+    try { w.addEventListener('afterprint', bersihkan); } catch (e) {}
+
+    try {
+      w.focus();
+      w.print();
+    } catch (e) {
+      bersihkan();
+      // Fallback jika iframe diblokir peramban
+      const pop = window.open('', '_blank', 'width=880,height=1000');
+      if (pop) {
+        pop.document.open();
+        pop.document.write(htmlContent);
+        pop.document.close();
+        setTimeout(() => { pop.focus(); pop.print(); }, 800);
+      }
+    }
+    setTimeout(bersihkan, 60000);
+    return true;
+  }
+
   function cssCetakDokumen(pageSizeCss, isM2 = false) {
     return `
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -562,13 +625,7 @@ const Lab = (() => {
       .footer-note { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9.5px; color: #64748b; display: flex; justify-content: space-between; align-items: flex-end; }
       .footer-note .disclaimer { max-width: 65%; line-height: 1.3; font-style: italic; }
 
-      /* ACTION BAR (NO PRINT) */
-      .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: #fff; padding: 8px 16px; margin: -24px -30px 16px; border-bottom: 2px solid #0f766e; }
-      .btn-print { background: #0f766e; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 12px; }
-      .btn-print:hover { background: #0d9488; }
-
       @media print {
-        .no-print-bar { display: none !important; }
         body { padding: 0 !important; }
       }
       @page { ${pageSizeCss} }
@@ -747,15 +804,8 @@ const Lab = (() => {
 
   /* ------------------------------------------------------------------ */
   async function cetakLembar(p, rujukanPakai, format = 'Format 3(M3)') {
-    // PENTING: window.open HARUS dipanggil SEBELUM await apapun,
-    // supaya browser tidak menganggap ini bukan user-gesture dan memblokir popup.
-    const w = window.open('', '_blank', 'width=880,height=1000');
-    if (!w) { UI.toast('Pop-up diblokir peramban. Izinkan untuk mencetak.', 'err'); return; }
-
-    // Tampilkan loading sementara data di-fetch
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Memuat...</title>'
-      + '<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#475569;font-size:16px;}</style>'
-      + '</head><body><div>⏳ Menyiapkan dokumen cetak...</div></body></html>');
+    const out = [];
+    const tulis = (s) => out.push(s);
 
     const f = await DB.faskes().catch(() => null);
     const grup = LabCore.kelompokkan(
@@ -837,9 +887,7 @@ const Lab = (() => {
       return dict[nama] || nama;
     };
 
-    // Reset dokumen — hapus loading screen sebelum menulis konten cetak sesungguhnya
-    w.document.open();
-    w.document.write(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
+    tulis(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
       <title>${isEng ? 'Laboratory Examination Result' : 'Hasil Laboratorium'} ${UI.esc(p.no_lab)} - ${UI.esc(format)}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -902,33 +950,18 @@ const Lab = (() => {
         .footer-note { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9.5px; color: #64748b; display: flex; justify-content: space-between; align-items: flex-end; }
         .footer-note .disclaimer { max-width: 65%; line-height: 1.3; font-style: italic; }
 
-        /* ACTION BAR (NO PRINT) */
-        .no-print-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: #fff; padding: 8px 16px; margin: -24px -30px 16px; border-bottom: 2px solid #0f766e; }
-        .btn-print { background: #0f766e; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 12px; }
-        .btn-print:hover { background: #0d9488; }
-
         @media print {
-          .no-print-bar { display: none !important; }
           body { padding: 0 !important; }
         }
         @page { ${pageSizeCss} }
       </style>
     </head>
     <body>
-      <div class="no-print-bar">
-        <div>
-          <b>Pratinjau Cetak Laboratorium</b> — Format: <span style="color:#38bdf8;">${UI.esc(format)}</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-print" onclick="window.print()">🖨️ Cetak Dokumen</button>
-          <button class="btn-print" style="background:#475569;" onclick="window.close()">Tutup</button>
-        </div>
-      </div>
     `);
 
     // 1. RENDER KOP HEADER
     if (is2025) {
-      w.document.write(`
+      tulis(`
         <div class="kop-2025">
           <div class="logo-txt">
             <img src="${logoUrl}" onerror="this.style.display='none'">
@@ -945,7 +978,7 @@ const Lab = (() => {
         </div>
       `);
     } else if (isBpjs1 || isBpjs2) {
-      w.document.write(`
+      tulis(`
         <div class="kop-wrapper" style="border-bottom-color:#059669;">
           <div class="kop-bpjs">
             <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
@@ -967,7 +1000,7 @@ const Lab = (() => {
         </div>
       `);
     } else if (isEng) {
-      w.document.write(`
+      tulis(`
         <div class="kop-wrapper" style="border-bottom-color:#0f766e;">
           <div style="display:flex; align-items:center; gap:12px; flex:1;">
             <img src="${logoUrl}" style="height:50px;" onerror="this.style.display='none'">
@@ -988,7 +1021,7 @@ const Lab = (() => {
       `);
     } else {
       // Default & Standard: Format 3(M3), Format 5(F4), Format 4(M4), Format 2(M2)
-      w.document.write(`
+      tulis(`
         <div class="kop-wrapper">
           <div class="kop-bpjs">
             <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
@@ -1010,7 +1043,7 @@ const Lab = (() => {
 
     // 2. BARCODE & PENANGGUNG JAWAB STRIP
     if (!is2025 && !isM2) {
-      w.document.write(`
+      tulis(`
         <div class="bar-strip">
           <div>
             <img src="${barcodeUrl}" alt="Barcode" class="barcode-img">
@@ -1030,7 +1063,7 @@ const Lab = (() => {
     const instansi = p.pasien.jenis_asuransi === 'UMUM' ? 'Umum' : (p.pasien.jenis_asuransi || p.kunjungan?.cara_bayar || 'Umum');
 
     if (is2025) {
-      w.document.write(`
+      tulis(`
         <div class="patient-card-3">
           <div>
             <div class="meta-row"><span class="label">No. Lab</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
@@ -1050,7 +1083,7 @@ const Lab = (() => {
         </div>
       `);
     } else if (isBpjs1 || isBpjs2) {
-      w.document.write(`
+      tulis(`
         <div class="patient-card" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 14px;">
           <div>
             <div class="meta-row"><span class="label">No. Kartu BPJS</span><span class="colon">:</span><span class="value mono" style="font-size:12px; color:#065f46;">${UI.esc(noBpjs)}</span></div>
@@ -1068,7 +1101,7 @@ const Lab = (() => {
         </div>
       `);
     } else if (isEng) {
-      w.document.write(`
+      tulis(`
         <div class="patient-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px;">
           <div>
             <div class="meta-row"><span class="label">Lab ID No.</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
@@ -1085,7 +1118,7 @@ const Lab = (() => {
         </div>
       `);
     } else {
-      w.document.write(`
+      tulis(`
         <div class="patient-card">
           <div>
             <div class="meta-row"><span class="label">No Lab</span><span class="colon">:</span><span class="value mono"><b>${UI.esc(p.no_lab)}</b></span></div>
@@ -1105,7 +1138,7 @@ const Lab = (() => {
 
     // 4. TABEL HASIL SESUAI FORMAT
     if (isEng) {
-      w.document.write(`
+      tulis(`
         <table class="tbl-hasil">
           <thead>
             <tr>
@@ -1136,7 +1169,7 @@ const Lab = (() => {
       `);
     } else if (isF4_2) {
       // Format 5(F4) Varian 2: Menampilkan Nilai Normal L dan P Terpisah
-      w.document.write(`
+      tulis(`
         <table class="tbl-hasil">
           <thead>
             <tr>
@@ -1173,7 +1206,7 @@ const Lab = (() => {
       `);
     } else if (isF4_1 || isM4) {
       // Format 5(F4) & Format 4(M4): Kolom Lengkap dengan Metode
-      w.document.write(`
+      tulis(`
         <table class="tbl-hasil">
           <thead>
             <tr>
@@ -1209,7 +1242,7 @@ const Lab = (() => {
       `);
     } else if (is2025) {
       // Format 2025: Desain Modern dengan Status Label
-      w.document.write(`
+      tulis(`
         <table class="tbl-hasil">
           <thead>
             <tr style="background:#0f766e; color:#fff;">
@@ -1240,7 +1273,7 @@ const Lab = (() => {
       `);
     } else {
       // Default: Format 3(M3), Format 2(M2), BPJS, BPJS.2
-      w.document.write(`
+      tulis(`
         <table class="tbl-hasil">
           <thead>
             <tr>
@@ -1270,7 +1303,7 @@ const Lab = (() => {
 
     // Catatan Kaki jika ada catatan klinis
     if (p.catatan_klinis) {
-      w.document.write(`
+      tulis(`
         <div style="margin-bottom:14px; padding:6px 10px; background:#f8fafc; border-left:3px solid #0f766e; font-size:10.5px;">
           <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
         </div>
@@ -1278,14 +1311,14 @@ const Lab = (() => {
     }
 
     // Keterangan Asterisk
-    w.document.write(`
+    tulis(`
       <div style="margin-top: 10px; font-size: 10px; font-weight: 600; color: #475569;">
         ${isEng ? 'Note: (*) Result outside clinical reference range' : 'Keterangan : (*) Diluar nilai normal'}
       </div>
     `);
 
     // 5. TANDA TANGAN & PENGESAHAN
-    w.document.write(`
+    tulis(`
       <div class="sig-container">
         <div class="sig-box">
           <div class="role">${isEng ? 'Verified by (Analyst),' : 'Verifikator,'}</div>
@@ -1313,9 +1346,8 @@ const Lab = (() => {
       </div>
     `);
 
-    w.document.write(`</body></html>`);
-    w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 1200);
+    tulis(`</body></html>`);
+    await cetakDokumen(out.join(''));
   }
 
   /* ------------------------------------------------------------------ */
@@ -3204,12 +3236,7 @@ const Lab = (() => {
   }
 
   async function cetakFisik(p, items, format = 'Format 3(M3)') {
-    const w = window.open('', '_blank', 'width=880,height=1000');
-    if (!w) { UI.toast('Pop-up diblokir peramban. Izinkan untuk mencetak.', 'err'); return; }
 
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Memuat...</title>'
-      + '<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#475569;font-size:16px;}</style>'
-      + '</head><body><div>⏳ Menyiapkan dokumen cetak...</div></body></html>');
 
     const f = await DB.faskes().catch(() => null);
     if (!format || format === 'M3' || format === 'Standar' || format === 'Asli') {
@@ -3274,21 +3301,11 @@ const Lab = (() => {
 
     const judulLap = isEng ? 'PHYSICAL EXAMINATION REPORT' : 'HASIL PEMERIKSAAN FISIK';
 
-    w.document.open();
-    w.document.write(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
+    const htmlFisik = `<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
       <title>${judulLap} ${UI.esc(p.no_lab)} - ${UI.esc(format)}</title>
       <style>${cssCetakDokumen(pageSizeCss, isM2)}</style>
     </head>
     <body>
-      <div class="no-print-bar">
-        <div>
-          <b>Pratinjau Cetak Hasil Fisik</b> — Format: <span style="color:#38bdf8;">${UI.esc(format)}</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-print" onclick="window.print()">🖨️ Cetak Dokumen</button>
-          <button class="btn-print" style="background:#475569;" onclick="window.close()">Tutup</button>
-        </div>
-      </div>
 
       ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
       ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
@@ -3348,9 +3365,8 @@ const Lab = (() => {
           <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
         </div>
       </div>
-    </body></html>`);
-    w.document.close();
-    setTimeout(() => { try { w.print(); } catch(e) {} }, 600);
+    </body></html>`;
+    await cetakDokumen(htmlFisik);
   }
 
   /* ================================================================== */
@@ -3479,12 +3495,7 @@ const Lab = (() => {
   }
 
   async function cetakAnamnesa(p, items, format = 'Format 3(M3)') {
-    const w = window.open('', '_blank', 'width=880,height=1000');
-    if (!w) { UI.toast('Pop-up diblokir peramban.', 'err'); return; }
 
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Memuat...</title>'
-      + '<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#475569;font-size:16px;}</style>'
-      + '</head><body><div>⏳ Menyiapkan dokumen anamnesa...</div></body></html>');
 
     const f = await DB.faskes().catch(() => null);
     if (!format || format === 'M3' || format === 'Standar' || format === 'Asli') {
@@ -3575,21 +3586,11 @@ const Lab = (() => {
 
     const judulLap = isEng ? 'MEDICAL ANAMNESIS REPORT' : 'HASIL ANAMNESA';
 
-    w.document.open();
-    w.document.write(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
+    const htmlAnamnesa = `<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
       <title>${judulLap} ${UI.esc(p.no_lab)} - ${UI.esc(format)}</title>
       <style>${cssCetakDokumen(pageSizeCss, isM2)}</style>
     </head>
     <body>
-      <div class="no-print-bar">
-        <div>
-          <b>Pratinjau Cetak Hasil Anamnesa</b> — Format: <span style="color:#38bdf8;">${UI.esc(format)}</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-print" onclick="window.print()">🖨️ Cetak Dokumen</button>
-          <button class="btn-print" style="background:#475569;" onclick="window.close()">Tutup</button>
-        </div>
-      </div>
 
       ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
       ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
@@ -3680,9 +3681,8 @@ const Lab = (() => {
           <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
         </div>
       </div>
-    </body></html>`);
-    w.document.close();
-    setTimeout(() => { try { w.print(); } catch(e) {} }, 600);
+    </body></html>`;
+    await cetakDokumen(htmlAnamnesa);
   }
 
   return { render, modalBacaan, modalArsip, daftarPilihLab, lencanaTanda, lencanaStatus };
