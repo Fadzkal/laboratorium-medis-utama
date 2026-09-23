@@ -2146,6 +2146,7 @@ const Lab = (() => {
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
+                <button id="btnBarcodeLabSky" style="background:#0f766e; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Cetak Barcode Tabung Spesimen">${UI.ikon('cetak', 13)} Barcode</button>
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnAnamnesaSky" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
@@ -2341,6 +2342,15 @@ const Lab = (() => {
         if (btnC) btnC.onclick = () => {
           const fmt = selF ? selF.value : skylabState.formatCetak;
           cetakLembar(p, rujukanPakai, fmt);
+        };
+
+        const btnBarcodeLab = kanan.querySelector('#btnBarcodeLabSky');
+        if (btnBarcodeLab) btnBarcodeLab.onclick = () => {
+          if (typeof BarcodePrinter !== 'undefined') {
+            BarcodePrinter.bukaModal(p);
+          } else {
+            UI.toast('Modul BarcodePrinter belum siap.', 'warn');
+          }
         };
 
         const btnFSky = kanan.querySelector('#btnFisikSky');

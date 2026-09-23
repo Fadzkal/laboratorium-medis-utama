@@ -159,7 +159,7 @@ const DisplayHarian = (() => {
         <!-- KANAN -->
         <div class="dh-right" id="dhKanan">
           <div class="dh-empty">
-            <span style="font-size:48px">&#128202;</span>
+            ${UI.ikon('rekam', 44)}
             <span>Pilih pasien dari daftar</span>
           </div>
         </div>
@@ -229,7 +229,7 @@ const DisplayHarian = (() => {
           if (masih) bukaDetail(masih.id);
           else {
             state.aktifId = null;
-            el.querySelector('#dhKanan').innerHTML = '<div class="dh-empty"><span style="font-size:48px">📊</span><span>Pilih pasien dari daftar</span></div>';
+            el.querySelector('#dhKanan').innerHTML = `<div class="dh-empty">${UI.ikon('rekam', 44)}<span>Pilih pasien dari daftar</span></div>`;
           }
         }
       } catch (e) {
@@ -320,7 +320,7 @@ const DisplayHarian = (() => {
 
           <!-- TOMBOL AKSI SS -->
           <div class="dh-actions">
-            <button class="btn-barcode" id="btnBarcode">&#x1F4C4; Print Barcode</button>
+            <button class="btn-barcode" id="btnBarcode">${UI.ikon('cetak', 13)} Print Barcode</button>
             <button class="btn-checknik" id="btnCheckNIK">CHECK NIK</button>
             <button class="btn-enc" id="btnEnc">1. Encounter SS</button>
             <button class="btn-srv" id="btnSrv">2. Service Req SS</button>
@@ -384,68 +384,13 @@ const DisplayHarian = (() => {
           </div>
         `;
 
-        // Tombol Print Barcode — cetak label QR langsung via driver Windows (iframe tersembunyi)
+        // Tombol Print Barcode — buka dialog cetak label tabung spesimen 1D Code 128 (Per Alat / Per Paket)
         kanan.querySelector('#btnBarcode').onclick = () => {
-          const qrData  = noLab;
-          const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData)}`;
-          const lbarMm  = 40;
-          const tggiMm  = 30;
-          const tglStr  = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-          // Buat / daur-ulang iframe tersembunyi agar layout web utama tidak berantakan
-          let iframe = document.getElementById('print-iframe-blueprint');
-          if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'print-iframe-blueprint';
-            Object.assign(iframe.style, {
-              position: 'fixed', right: '0', bottom: '0',
-              width: '0', height: '0', border: '0'
-            });
-            document.body.appendChild(iframe);
+          if (typeof BarcodePrinter !== 'undefined') {
+            BarcodePrinter.bukaModal(p);
+          } else {
+            modalCetakBarcodeTabung(p);
           }
-
-          const doc = iframe.contentWindow.document;
-          doc.open();
-          doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-            <title>Cetak Label QR</title>
-            <style>
-              @page { size: ${lbarMm}mm ${tggiMm}mm; margin: 0mm !important; }
-              * { box-sizing: border-box; margin: 0; padding: 0; }
-              html, body { width: ${lbarMm}mm; height: ${tggiMm}mm; overflow: hidden;
-                background: #fff; color: #000; font-family: Arial, sans-serif; }
-              .container { width: ${lbarMm}mm; height: ${tggiMm}mm;
-                display: flex; flex-direction: row; align-items: center;
-                justify-content: space-between; padding: 1.5mm 2.2mm; overflow: hidden; }
-              .qr-box { width: ${tggiMm - 4}mm; height: ${tggiMm - 4}mm; flex-shrink: 0;
-                display: flex; align-items: center; justify-content: center; }
-              .qr-box img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-              .info-box { flex: 1; margin-left: 2mm; display: flex; flex-direction: column;
-                justify-content: center; overflow: hidden; line-height: 1.15; }
-              .unit-title { font-size: 6pt; font-weight: bold; text-transform: uppercase;
-                border-bottom: 0.8px solid #000; padding-bottom: 0.4mm;
-                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-              .main-id  { font-size: 7.5pt; font-weight: 800; margin-top: 0.5mm; white-space: nowrap; }
-              .sub-name { font-size: 6.5pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-              .sub-date { font-size: 5.5pt; color: #333; }
-            </style>
-          </head><body>
-            <div class="container">
-              <div class="qr-box"><img src="${qrUrl}" alt="QR"></div>
-              <div class="info-box">
-                <div class="unit-title">LABORATORIUM UTAMA</div>
-                <div class="main-id">${noLab}</div>
-                <div class="sub-name">${pasien.nama || ''}</div>
-                <div class="sub-date">Tgl: ${tglStr} | ${instansiVal}</div>
-              </div>
-            </div>
-          </body></html>`);
-          doc.close();
-
-          // Tunggu QR ter-load lalu langsung cetak
-          const img = doc.querySelector('img');
-          const doCetak = () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); };
-          if (img.complete) setTimeout(doCetak, 60);
-          else { img.onload = () => setTimeout(doCetak, 60); img.onerror = () => setTimeout(doCetak, 60); }
         };
 
         // Tombol Check NIK — notifikasi (implementasi SatuSehat)
@@ -462,6 +407,456 @@ const DisplayHarian = (() => {
         kanan.innerHTML = `<div class="dh-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
       }
     }
+  }
+
+
+  /* ================================================================== */
+  /*  GENERATOR BARCODE CODE 128 & PENCETAKAN LABEL TABUNG SPESIMEN     */
+  /*  Kompatibel 100% dengan Sysmex XP-100, Mindray BS-240, Arkray      */
+  /* ================================================================== */
+
+  const CODE128_PATTERNS = [
+    '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+    '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+    '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+    '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+    '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+    '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+    '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+    '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+    '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+    '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+    '114131','311141','411131','211412','211214','211232','2331112'
+  ];
+
+  function buatBarcodeSVG(teks, tinggi = 36, modulWidth = 1.5) {
+    if (!teks) teks = '00000000';
+    let strTeks = String(teks).trim();
+    let codes = [];
+    const isNumeric = /^\d+$/.test(strTeks) && strTeks.length % 2 === 0;
+    if (isNumeric) {
+      codes.push(105); // Start C
+      for (let i = 0; i < strTeks.length; i += 2) {
+        codes.push(parseInt(strTeks.substr(i, 2), 10));
+      }
+    } else {
+      codes.push(104); // Start B
+      for (let i = 0; i < strTeks.length; i++) {
+        codes.push(strTeks.charCodeAt(i) - 32);
+      }
+    }
+    let check = codes[0];
+    for (let i = 1; i < codes.length; i++) {
+      check = (check + codes[i] * i) % 103;
+    }
+    codes.push(check);
+    codes.push(106); // Stop
+
+    let patternStr = '';
+    for (const c of codes) {
+      if (c >= 0 && c < CODE128_PATTERNS.length) {
+        patternStr += CODE128_PATTERNS[c];
+      }
+    }
+
+    let rects = [];
+    let isBar = true;
+    let x = 10; // Quiet zone 10 modul
+    for (const ch of patternStr) {
+      const w = parseInt(ch, 10);
+      if (isBar) {
+        rects.push(`<rect x="${(x * modulWidth).toFixed(1)}" y="0" width="${(w * modulWidth).toFixed(1)}" height="${tinggi}" fill="#000"/>`);
+      }
+      x += w;
+      isBar = !isBar;
+    }
+    x += 10; // Quiet zone akhir
+    const totalW = (x * modulWidth).toFixed(1);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="${tinggi}px" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">${rects.join('')}</svg>`;
+  }
+
+  function formatNamaLabel(pasien) {
+    let nama = (pasien.nama || '').trim();
+    const jk = (pasien.jenis_kelamin || '').toUpperCase();
+    const isL = jk.startsWith('L') || jk === 'PRIA' || jk === 'M';
+    const isP = jk.startsWith('P') || jk === 'WANITA' || jk === 'F';
+    const jkStr = isL ? '(L)' : isP ? '(P)' : '';
+
+    const hasTitle = /^(Tn\.|Ny\.|Nn\.|An\.|Sdr\.|Sdri\.|By\.|dr\.|drg\.)\s+/i.test(nama);
+    if (!hasTitle) {
+      const umur = pasien.tanggal_lahir ? Math.floor((Date.now() - new Date(pasien.tanggal_lahir)) / 3.15576e10) : 30;
+      let sapaan = 'Tn.';
+      if (umur < 12) sapaan = 'An.';
+      else if (isP) sapaan = 'Ny.';
+      else sapaan = 'Tn.';
+      nama = `${sapaan} ${nama}`;
+    }
+    return `${nama}${jkStr ? jkStr : ''}`;
+  }
+
+  function formatNoLabStandar(rawNoLab, tglStr) {
+    if (rawNoLab) {
+      const str = String(rawNoLab).trim();
+      if (/^\d{8}$/.test(str)) return str;
+      const m = str.match(/LAB-(\d{2,4})-(\d+)/i);
+      if (m) {
+        const yy = m[1].slice(-2);
+        const d = tglStr ? new Date(tglStr) : new Date();
+        const mm = String(isNaN(d) ? new Date().getMonth() + 1 : d.getMonth() + 1).padStart(2, '0');
+        const seq = m[2].padStart(4, '0');
+        return `${yy}${mm}${seq}`;
+      }
+      return str;
+    }
+    return '00000000';
+  }
+
+  function deteksiTabungPasien(hasil) {
+    const tabung = new Set();
+    (hasil || []).forEach(h => {
+      const ref = h.ref || {};
+      const klp = (ref.kelompok || '').toUpperCase();
+      const nm = (ref.nama || '').toUpperCase();
+      const bc = (ref.barcode || '').toUpperCase();
+
+      if (klp.includes('HEMATOLOGI') || nm.includes('DARAH LENGKAP') || nm.includes('HEMOGLOBIN') || nm.includes('LEUKOSIT') || nm.includes('TROMBOSIT') || bc === 'H') {
+        tabung.add('HEMATOLOGI');
+      }
+      if (klp.includes('KIMIA') || nm.includes('GLUKOSA') || nm.includes('KOLESTEROL') || nm.includes('SGOT') || nm.includes('SGPT') || nm.includes('ASAM URAT') || nm.includes('UREUM') || nm.includes('KREATININ') || nm.includes('TRIGLISERIDA') || bc === 'K') {
+        tabung.add('KIMIA');
+      }
+      if (nm.includes('HBA1C') || klp.includes('HBA1C')) {
+        tabung.add('HBA1C');
+      }
+      if (klp.includes('URIN') || nm.includes('URIN') || bc === 'UL') {
+        tabung.add('URIN');
+      }
+      if (klp.includes('IMUNO') || klp.includes('SEROLOGI') || bc === 'I' || bc === 'W') {
+        tabung.add('SEROLOGI');
+      }
+    });
+    if (tabung.size === 0) {
+      tabung.add('KIMIA');
+    }
+    return Array.from(tabung);
+  }
+
+  function cetakLabelTabung(labels, ukuran = '50x20') {
+    let [lbarMm, tggiMm] = [50, 20];
+    if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
+    else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
+    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
+
+    let iframe = document.getElementById('print-iframe-tube-barcode');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'print-iframe-tube-barcode';
+      iframe.setAttribute('aria-hidden', 'true');
+      Object.assign(iframe.style, {
+        position: 'fixed', right: '0', bottom: '0',
+        width: '0', height: '0', border: '0', opacity: '0', pointerEvents: 'none', zIndex: '-1'
+      });
+      document.body.appendChild(iframe);
+    }
+
+    const pagesHtml = labels.map(lbl => {
+      const svg = buatBarcodeSVG(lbl.idBarcode, 38, 1.5);
+      return `
+        <div class="label-tube">
+          <div class="col-id">${UI.esc(lbl.idBarcode)}</div>
+          <div class="col-center">
+            <div class="barcode-wrap">${svg}</div>
+            <div class="patient-name">${UI.esc(lbl.namaPasien)}</div>
+          </div>
+          <div class="col-dept">${UI.esc(lbl.dept)}</div>
+        </div>
+      `;
+    }).join('');
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Cetak Label Barcode Tabung</title>
+        <style>
+          @page { size: ${lbarMm}mm ${tggiMm}mm; margin: 0mm !important; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          html, body {
+            width: ${lbarMm}mm; height: ${tggiMm}mm;
+            margin: 0; padding: 0;
+            background: #fff; color: #000;
+            font-family: 'JetBrains Mono', Consolas, Arial, sans-serif;
+            overflow: hidden;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .label-tube {
+            width: ${lbarMm}mm; height: ${tggiMm}mm;
+            display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+            padding: 1.2mm 1.5mm; overflow: hidden;
+            page-break-after: always; break-after: page;
+          }
+          .col-id {
+            width: 4.8mm; height: ${tggiMm - 2.5}mm;
+            display: flex; align-items: center; justify-content: center;
+            writing-mode: vertical-rl; transform: rotate(180deg);
+            font-size: 7pt; font-weight: 700; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+          }
+          .col-center {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 0 1.2mm; overflow: hidden;
+          }
+          .barcode-wrap {
+            width: 100%; max-width: ${lbarMm - 12}mm; height: ${tggiMm - 9}mm;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+          }
+          .barcode-wrap svg {
+            width: 100%; height: 100%; display: block;
+          }
+          .patient-name {
+            margin-top: 0.6mm; font-size: 6.8pt; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            text-align: center; max-width: ${lbarMm - 12}mm; letter-spacing: -0.2px;
+          }
+          .col-dept {
+            width: 4.8mm; height: ${tggiMm - 2.5}mm;
+            display: flex; align-items: center; justify-content: center;
+            writing-mode: vertical-rl; transform: rotate(180deg);
+            font-size: 7pt; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        ${pagesHtml}
+      </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        console.error('Gagal mencetak label barcode:', e);
+      }
+    }, 250);
+  }
+
+  async function modalCetakBarcodeTabung(p) {
+    const pasien = p.pasien || {};
+    const tgl = p.diminta_pada || null;
+    const noLab = p.no_lab || '';
+    const idStandar = formatNoLabStandar(noLab, tgl);
+    const namaDefault = formatNamaLabel(pasien);
+    const tabungList = deteksiTabungPasien(p.hasil);
+    let deptTerpilih = tabungList[0] || 'KIMIA';
+    let idBarcodeAktif = idStandar;
+    let namaLabelAktif = namaDefault;
+    let ukuranAktif = '50x20';
+    let qtyAktif = 1;
+
+    const modalHtml = `
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <!-- PRATINJAU REALISTIS TABUNG SPESIMEN -->
+        <div style="background:#0f172a; padding:16px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);">
+          <div style="color:#94a3b8; font-size:11px; margin-bottom:8px;">
+            Pratinjau Label Tabung Spesimen (Skala Perbesar 2.5x)
+          </div>
+          
+          <div id="lblPrevBox" style="width:250px; height:100px; background:#fff; border-radius:4px; box-shadow:0 8px 16px rgba(0,0,0,0.3); display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:6px 8px; box-sizing:border-box; color:#000; font-family:'JetBrains Mono', Consolas, Arial, sans-serif; user-select:none;">
+            <div id="lblPrevId" style="width:24px; height:88px; display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; font-weight:700; letter-spacing:0.5px; white-space:nowrap; text-align:center;">
+              ${UI.esc(idStandar)}
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; overflow:hidden;">
+              <div id="lblPrevSvg" style="width:100%; height:55px; display:flex; align-items:center; justify-content:center;">
+                ${buatBarcodeSVG(idStandar, 52, 2.0)}
+              </div>
+              <div id="lblPrevName" style="margin-top:4px; font-size:10.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px;">
+                ${UI.esc(namaDefault)}
+              </div>
+            </div>
+            <div id="lblPrevDept" style="width:24px; height:88px; display:flex; align-items:center; justify-content:center; writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; font-weight:800; letter-spacing:0.5px; white-space:nowrap; text-align:center;">
+              ${UI.esc(deptTerpilih)}
+            </div>
+          </div>
+          
+          <div style="color:#64748b; font-size:10.5px; margin-top:8px; text-align:center;">
+            Format 1D Code 128 terbaca otomatis oleh <b>Sysmex XP-100</b>, <b>Mindray BS-240</b>, &amp; <b>Arkray Adams HA-8380V</b>
+          </div>
+        </div>
+
+        <!-- FORM PENGATURAN LABEL -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px;">
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:4px;">Jenis Tabung / Departemen</label>
+            <div id="deptChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+              ${['KIMIA', 'HEMATOLOGI', 'HBA1C', 'URIN', 'SEROLOGI'].map(d => {
+                const aktif = d === deptTerpilih;
+                return `<button type="button" class="chip-dept" data-dept="${d}" style="font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid ${aktif ? '#0f766e' : '#cbd5e1'}; background:${aktif ? '#0f766e' : '#f8fafc'}; color:${aktif ? '#fff' : '#334155'}; font-weight:600; cursor:pointer;">${d}</button>`;
+              }).join('')}
+            </div>
+            <input type="text" id="inpDeptCustom" placeholder="Ketik jenis tabung lain..." value="${UI.esc(deptTerpilih)}" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px;">
+          </div>
+
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:4px;">Format ID Barcode (Nomor Sampel)</label>
+            <select id="selFormatId" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px; margin-bottom:6px;">
+              <option value="standar" selected>Standar Alat Lab (${idStandar})</option>
+              <option value="nolab">Nomor Lab Penuh (${UI.esc(noLab)})</option>
+              <option value="custom">Ketik ID Manual...</option>
+            </select>
+            <input type="text" id="inpIdCustom" value="${UI.esc(idStandar)}" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px;">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px;">
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:4px;">Nama Pasien pada Label</label>
+            <input type="text" id="inpNamaLabel" value="${UI.esc(namaDefault)}" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px;">
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div>
+              <label style="font-weight:600; display:block; margin-bottom:4px;">Ukuran Kertas Label</label>
+              <select id="selUkuran" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px;">
+                <option value="50x20" selected>50 x 20 mm (Tabung Standar)</option>
+                <option value="50x25">50 x 25 mm</option>
+                <option value="40x20">40 x 20 mm</option>
+                <option value="40x30">40 x 30 mm</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-weight:600; display:block; margin-bottom:4px;">Jumlah Salinan</label>
+              <input type="number" id="inpQty" value="1" min="1" max="10" style="width:100%; padding:6px 8px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+          </div>
+        </div>
+
+        ${tabungList.length > 1 ? `
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; font-size:11.5px; color:#166534; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <b>Pemeriksaan Pasien Mencakup:</b> ${tabungList.join(', ')}
+            </div>
+            <button type="button" id="btnCetakSemuaBatch" class="btn btn-sm" style="background:#16a34a; color:#fff; font-weight:700; border:none; padding:5px 12px; border-radius:4px; cursor:pointer;">
+              Cetak Semua (${tabungList.length} Tabung Sekaligus)
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    await UI.modal({
+      judul: 'Cetak Label Barcode Tabung Spesimen',
+      lebar: false,
+      isi: modalHtml,
+      siap: (b, tutup) => {
+        const lblId = b.querySelector('#lblPrevId');
+        const lblSvg = b.querySelector('#lblPrevSvg');
+        const lblName = b.querySelector('#lblPrevName');
+        const lblDept = b.querySelector('#lblPrevDept');
+
+        const updatePreview = () => {
+          lblId.textContent = idBarcodeAktif;
+          lblSvg.innerHTML = buatBarcodeSVG(idBarcodeAktif, 52, 2.0);
+          lblName.textContent = namaLabelAktif;
+          lblDept.textContent = deptTerpilih;
+        };
+
+        // Event listener Chips
+        b.querySelectorAll('.chip-dept').forEach(btn => {
+          btn.onclick = () => {
+            b.querySelectorAll('.chip-dept').forEach(x => {
+              x.style.border = '1px solid #cbd5e1';
+              x.style.background = '#f8fafc';
+              x.style.color = '#334155';
+            });
+            btn.style.border = '1px solid #0f766e';
+            btn.style.background = '#0f766e';
+            btn.style.color = '#fff';
+            deptTerpilih = btn.dataset.dept;
+            b.querySelector('#inpDeptCustom').value = deptTerpilih;
+            updatePreview();
+          };
+        });
+
+        b.querySelector('#inpDeptCustom').oninput = (e) => {
+          deptTerpilih = e.target.value.trim().toUpperCase() || 'KIMIA';
+          updatePreview();
+        };
+
+        b.querySelector('#selFormatId').onchange = (e) => {
+          const val = e.target.value;
+          if (val === 'standar') {
+            idBarcodeAktif = idStandar;
+            b.querySelector('#inpIdCustom').value = idStandar;
+          } else if (val === 'nolab') {
+            idBarcodeAktif = noLab;
+            b.querySelector('#inpIdCustom').value = noLab;
+          }
+          updatePreview();
+        };
+
+        b.querySelector('#inpIdCustom').oninput = (e) => {
+          idBarcodeAktif = e.target.value.trim() || idStandar;
+          updatePreview();
+        };
+
+        b.querySelector('#inpNamaLabel').oninput = (e) => {
+          namaLabelAktif = e.target.value.trim() || namaDefault;
+          updatePreview();
+        };
+
+        b.querySelector('#selUkuran').onchange = (e) => {
+          ukuranAktif = e.target.value;
+        };
+
+        b.querySelector('#inpQty').oninput = (e) => {
+          qtyAktif = Math.max(1, parseInt(e.target.value, 10) || 1);
+        };
+
+        const btnBatch = b.querySelector('#btnCetakSemuaBatch');
+        if (btnBatch) {
+          btnBatch.onclick = () => {
+            const allLabels = [];
+            tabungList.forEach(tb => {
+              for (let q = 0; q < qtyAktif; q++) {
+                allLabels.push({
+                  idBarcode: idBarcodeAktif,
+                  namaPasien: namaLabelAktif,
+                  dept: tb
+                });
+              }
+            });
+            cetakLabelTabung(allLabels, ukuranAktif);
+            UI.toast(`Mencetak ${allLabels.length} label tabung...`, 'info');
+            tutup(true);
+          };
+        }
+      },
+      tombol: [
+        { teks: 'Batal', nilai: null },
+        {
+          teks: 'Cetak Label Ini',
+          kelas: 'btn-primary',
+          aksi: () => {
+            const labels = [];
+            for (let q = 0; q < qtyAktif; q++) {
+              labels.push({
+                idBarcode: idBarcodeAktif,
+                namaPasien: namaLabelAktif,
+                dept: deptTerpilih
+              });
+            }
+            cetakLabelTabung(labels, ukuranAktif);
+            UI.toast(`Mencetak ${labels.length} label tabung (${deptTerpilih})...`, 'info');
+            return true;
+          }
+        }
+      ]
+    });
   }
 
   return { render };
