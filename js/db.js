@@ -3171,6 +3171,63 @@ const DB = (() => {
     return payload;
   }
 
+  /* --- Pengaturan Tarif Insentif Kontribusi Sistem (Aktivitas Karyawan) --- */
+  async function pengaturanInsentifAktivitas() {
+    const defaultTarif = {
+      tarif_lab: 4000,          // Rp 4.000 / validasi hasil lab
+      tarif_pendaftaran: 2000,  // Rp 2.000 / pendaftaran pasien
+      tarif_surat: 2500,        // Rp 2.500 / pembuatan surat
+      tarif_kasir: 1000         // Rp 1.000 / transaksi pembayaran kasir
+    };
+
+    try {
+      const { data, error } = await sb.from('pengaturan_absensi').select('*').eq('id', 1).maybeSingle();
+      if (!error && data && data.tarif_insentif_lab !== undefined) {
+        return {
+          tarif_lab: data.tarif_insentif_lab ?? defaultTarif.tarif_lab,
+          tarif_pendaftaran: data.tarif_insentif_pendaftaran ?? defaultTarif.tarif_pendaftaran,
+          tarif_surat: data.tarif_insentif_surat ?? defaultTarif.tarif_surat,
+          tarif_kasir: data.tarif_insentif_kasir ?? defaultTarif.tarif_kasir
+        };
+      }
+    } catch (e) {}
+
+    try {
+      const lokal = localStorage.getItem('lab_tarif_insentif_aktivitas');
+      if (lokal) {
+        const parsed = JSON.parse(lokal);
+        return { ...defaultTarif, ...parsed };
+      }
+    } catch (e) {}
+
+    return defaultTarif;
+  }
+
+  async function simpanPengaturanInsentifAktivitas(tarif) {
+    const payload = {
+      tarif_lab: Number(tarif.tarif_lab) || 0,
+      tarif_pendaftaran: Number(tarif.tarif_pendaftaran) || 0,
+      tarif_surat: Number(tarif.tarif_surat) || 0,
+      tarif_kasir: Number(tarif.tarif_kasir) || 0,
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem('lab_tarif_insentif_aktivitas', JSON.stringify(payload));
+    } catch (e) {}
+
+    try {
+      await sb.from('pengaturan_absensi').update({
+        tarif_insentif_lab: payload.tarif_lab,
+        tarif_insentif_pendaftaran: payload.tarif_pendaftaran,
+        tarif_insentif_surat: payload.tarif_surat,
+        tarif_insentif_kasir: payload.tarif_kasir
+      }).eq('id', 1);
+    } catch (e) {}
+
+    return payload;
+  }
+
   async function absensiPegawai(pegawaiId, dari, sampai) {
     const { data, error } = await sb.from('pegawai_absensi').select('*')
       .eq('pegawai_id', pegawaiId)
@@ -3703,6 +3760,7 @@ const DB = (() => {
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni,
     pengaturanJamKerja, simpanPengaturanJamKerja,
+    pengaturanInsentifAktivitas, simpanPengaturanInsentifAktivitas,
     daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
     daftarPegawaiStaff, kpiDaftar, kpiSimpan, kpiHapus, bonusDaftar, bonusSimpan, bonusHapus,
     simpanRekeningPegawai, ambilRekeningPegawaiLokal,

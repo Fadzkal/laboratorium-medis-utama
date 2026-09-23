@@ -22,6 +22,8 @@ const HrisLaporan = (() => {
   let dataBonus = [];
   let dataPegawai = [];
   let jamKerja = { jam_masuk: '08:00', jam_pulang: '16:00', toleransi_keterlambatan_menit: 15 };
+  let dataAktivitas = { kunjungan: [], lab: [], surat: [], kasir: [] };
+  let tarifInsentif = { tarif_lab: 4000, tarif_pendaftaran: 2000, tarif_surat: 2500, tarif_kasir: 1000 };
 
   const NAMA_BULAN = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -74,6 +76,46 @@ const HrisLaporan = (() => {
       bulan,
       teks,
       labelMulai: `${NAMA_BULAN[blnAwal - 1] || ''} ${thnAwal}`
+    };
+  }
+
+  // Hitung kontribusi riil aktivitas karyawan di sistem (audit trail log)
+  function hitungKontribusiPegawai(pegawaiId) {
+    if (!pegawaiId) {
+      return {
+        jmlLab: 0, jmlDaftar: 0, jmlSurat: 0, jmlKasir: 0,
+        nominalLab: 0, nominalDaftar: 0, nominalSurat: 0, nominalKasir: 0,
+        totalNominal: 0, totalTindakan: 0,
+        tarif: tarifInsentif || { tarif_lab: 4000, tarif_pendaftaran: 2000, tarif_surat: 2500, tarif_kasir: 1000 }
+      };
+    }
+
+    const kList = (dataAktivitas?.kunjungan || []).filter(k => k.created_by === pegawaiId);
+    const lList = (dataAktivitas?.lab || []).filter(l => l.selesai_oleh === pegawaiId);
+    const sList = (dataAktivitas?.surat || []).filter(s => s.dibuat_oleh === pegawaiId);
+    const bList = (dataAktivitas?.kasir || []).filter(b => b.dibuat_oleh === pegawaiId);
+
+    const tarif = tarifInsentif || { tarif_lab: 4000, tarif_pendaftaran: 2000, tarif_surat: 2500, tarif_kasir: 1000 };
+
+    const nominalLab = lList.length * (Number(tarif.tarif_lab) || 0);
+    const nominalDaftar = kList.length * (Number(tarif.tarif_pendaftaran) || 0);
+    const nominalSurat = sList.length * (Number(tarif.tarif_surat) || 0);
+    const nominalKasir = bList.length * (Number(tarif.tarif_kasir) || 0);
+
+    const totalNominal = nominalLab + nominalDaftar + nominalSurat + nominalKasir;
+
+    return {
+      jmlLab: lList.length,
+      jmlDaftar: kList.length,
+      jmlSurat: sList.length,
+      jmlKasir: bList.length,
+      nominalLab,
+      nominalDaftar,
+      nominalSurat,
+      nominalKasir,
+      totalNominal,
+      totalTindakan: lList.length + kList.length + sList.length + bList.length,
+      tarif
     };
   }
 
@@ -293,12 +335,14 @@ const HrisLaporan = (() => {
     const akhirBulan = new Date(filterTahun, filterBulan, 0).toISOString().split('T')[0];
     
     try {
-      const [pegawaiList, absensiList, kpiList, bonusList, jamConfig] = await Promise.all([
+      const [pegawaiList, absensiList, kpiList, bonusList, jamConfig, aktivitasData, insentifConfig] = await Promise.all([
         DB.daftarPegawaiStaff(),
         DB.absensiLaporan(awalBulan, akhirBulan),
         DB.kpiDaftar(filterBulan, filterTahun),
         DB.bonusDaftar(filterBulan, filterTahun),
-        DB.pengaturanJamKerja()
+        DB.pengaturanJamKerja(),
+        DB.laporanKaryawanAktivitas ? DB.laporanKaryawanAktivitas({ dari: awalBulan, sampai: akhirBulan }) : Promise.resolve(null),
+        DB.pengaturanInsentifAktivitas ? DB.pengaturanInsentifAktivitas() : Promise.resolve(null)
       ]);
 
       dataPegawai = (pegawaiList || []).map(p => {
@@ -316,6 +360,8 @@ const HrisLaporan = (() => {
       dataKpi = kpiList || [];
       dataBonus = bonusList || [];
       if (jamConfig) jamKerja = jamConfig;
+      if (aktivitasData) dataAktivitas = aktivitasData;
+      if (insentifConfig) tarifInsentif = insentifConfig;
 
       gambarTabMaster();
     } catch (e) {
@@ -909,6 +955,9 @@ const HrisLaporan = (() => {
             </div>
           </div>
           <div class="flex items-center gap-8 flex-wrap">
+            <button class="btn btn-secondary" id="btnAturTarifInsentif" style="height: 38px; font-weight: 600; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px;">
+              ${UI.ikon('gear', 14)} Tarif Insentif Tindakan
+            </button>
             <button class="btn btn-secondary" id="btnAturTarifMakan" style="height: 38px; font-weight: 600; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px;">
               ${UI.ikon('gear', 14)} Tarif Uang Makan (${UI.rupiah(jamKerja.tarif_uang_makan || 20000)})
             </button>
@@ -930,6 +979,7 @@ const HrisLaporan = (() => {
               </div>
               <div style="font-size: 12.5px; color: #334155; margin-top: 2px; line-height: 1.5;">
                 • <b>Uang Makan</b>: Dihitung otomatis 1x per hari jika staf memiliki catatan absensi <b>datang (masuk) DAN pulang</b> lengkap.<br>
+                • <b>Insentif Kinerja & Tindakan</b>: Sistem menghitung kontribusi riil staf (lab, pendaftaran, surat, kasir) sebagai rekomendasi bonus. Pimpinan tetap <b>100% bebas mengubah nominal</b> kapan saja.<br>
                 • <b>Transfer Manual</b>: Nominal bersih yang harus ditransfer ke masing-masing rekening staf tertera jelas pada kolom <b>TOTAL TRANSFER</b>. Klik tombol <b>Tandai Ditransfer</b> setelah melakukan transfer via perbankan.
               </div>
             </div>
@@ -989,13 +1039,14 @@ const HrisLaporan = (() => {
                   const noRek = row.pegawai.nomor_rekening || '';
                   const anRek = row.pegawai.atas_nama_rekening || row.pegawai.nama || '';
                   const masaKerja = hitungLamaBekerja(row.pegawai.tgl_mulai_kerja);
+                  const kont = hitungKontribusiPegawai(row.pegawai.id);
 
                   return `
                     <tr>
                       <td>
                         <b style="color: #0F172A; font-size: 13.5px;">${UI.esc(row.pegawai.nama)}</b>
                         <div class="text-xs text-muted" style="margin-top:2px;">
-                          ${labelRole(row.pegawai.peran)} • Masa Kerja: <b>${masaKerja ? masaKerja.teks : '—'}</b> • Hadir: <b>${row.rekap.hadir} hr</b> (Lengkap: <b>${row.hariMakan} hr</b>)
+                          ${labelRole(row.pegawai.peran)} • Masa Kerja: <b>${masaKerja ? masaKerja.teks : '—'}</b> • Hadir: <b>${row.rekap.hadir} hr</b> • Tindakan: <b>${kont.totalTindakan}x</b> (Insentif: <b>${UI.rupiah(kont.totalNominal)}</b>)
                         </div>
                         ${!masaKerja ? `
                           <div class="mt-2">
@@ -1094,6 +1145,7 @@ const HrisLaporan = (() => {
       </div>
     `;
 
+    isi.querySelector('#btnAturTarifInsentif')?.addEventListener('click', () => dialogAturTarifInsentif());
     isi.querySelector('#btnAturTarifMakan')?.addEventListener('click', () => dialogAturTarifUangMakan());
     isi.querySelector('#btnInputBonusHead')?.addEventListener('click', () => dialogInputBonus());
 
@@ -1192,6 +1244,121 @@ const HrisLaporan = (() => {
     });
   }
 
+  /* Modal Atur Tarif Standar Insentif Aktivitas Tindakan Sistem */
+  function dialogAturTarifInsentif() {
+    const tarifSekarang = tarifInsentif || { tarif_lab: 4000, tarif_pendaftaran: 2000, tarif_surat: 2500, tarif_kasir: 1000 };
+    UI.modal({
+      judul: 'Pengaturan Tarif Insentif Tindakan & Kontribusi Sistem',
+      lebar: true,
+      isi: `
+        <div class="absensi-banner-box mb-16" style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 12px 16px; border-radius: 8px;">
+          <div style="font-size: 13px; color: #166534; font-weight: 700;">
+            Dasar Perhitungan Insentif Tindakan Karyawan
+          </div>
+          <div style="font-size: 12px; color: #334155; margin-top: 4px; line-height: 1.5;">
+            Sistem secara otomatis membaca log riil staf (audit trail) untuk 4 aktivitas operasional. Tarif per tindakan di bawah ini digunakan sebagai rekomendasi kalkulator insentif. Pimpinan tetap <b>100% bebas mengubah nominal</b> penggajian secara manual kapan saja.
+          </div>
+        </div>
+
+        <form id="formTarifInsentifModal" style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="field" style="margin: 0;">
+              <label style="font-weight: 700; color: #0F172A;">1. Verifikasi Hasil Lab (per Pasien/Pemeriksaan) <span class="req">*</span></label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 12px; font-weight: 800; color: #475569; font-size: 14px; pointer-events: none;">Rp</span>
+                <input type="text" inputmode="numeric" name="tarif_lab"
+                       value="${UI.formatRibuan(tarifSekarang.tarif_lab || 4000)}"
+                       class="w-full mono input-rupiah" required
+                       style="padding-left: 42px; height: 40px; font-weight: 700; font-size: 15px; color: #0F172A; border-radius: 8px;">
+              </div>
+              <div class="hint text-xs text-muted mt-2">Diberikan saat staf menyelesaikan & memverifikasi hasil lab.</div>
+            </div>
+
+            <div class="field" style="margin: 0;">
+              <label style="font-weight: 700; color: #0F172A;">2. Pendaftaran Pasien Kunjungan <span class="req">*</span></label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 12px; font-weight: 800; color: #475569; font-size: 14px; pointer-events: none;">Rp</span>
+                <input type="text" inputmode="numeric" name="tarif_pendaftaran"
+                       value="${UI.formatRibuan(tarifSekarang.tarif_pendaftaran || 2000)}"
+                       class="w-full mono input-rupiah" required
+                       style="padding-left: 42px; height: 40px; font-weight: 700; font-size: 15px; color: #0F172A; border-radius: 8px;">
+              </div>
+              <div class="hint text-xs text-muted mt-2">Diberikan saat staf mendaftarkan pasien ke antrean sistem.</div>
+            </div>
+
+            <div class="field" style="margin: 0;">
+              <label style="font-weight: 700; color: #0F172A;">3. Pembuatan Surat Keterangan Lab <span class="req">*</span></label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 12px; font-weight: 800; color: #475569; font-size: 14px; pointer-events: none;">Rp</span>
+                <input type="text" inputmode="numeric" name="tarif_surat"
+                       value="${UI.formatRibuan(tarifSekarang.tarif_surat || 2500)}"
+                       class="w-full mono input-rupiah" required
+                       style="padding-left: 42px; height: 40px; font-weight: 700; font-size: 15px; color: #0F172A; border-radius: 8px;">
+              </div>
+              <div class="hint text-xs text-muted mt-2">Diberikan saat staf menerbitkan surat keterangan resmi.</div>
+            </div>
+
+            <div class="field" style="margin: 0;">
+              <label style="font-weight: 700; color: #0F172A;">4. Transaksi Pembayaran Kasir <span class="req">*</span></label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 12px; font-weight: 800; color: #475569; font-size: 14px; pointer-events: none;">Rp</span>
+                <input type="text" inputmode="numeric" name="tarif_kasir"
+                       value="${UI.formatRibuan(tarifSekarang.tarif_kasir || 1000)}"
+                       class="w-full mono input-rupiah" required
+                       style="padding-left: 42px; height: 40px; font-weight: 700; font-size: 15px; color: #0F172A; border-radius: 8px;">
+              </div>
+              <div class="hint text-xs text-muted mt-2">Diberikan saat staf memproses pembayaran dan kuitansi pasien.</div>
+            </div>
+          </div>
+        </form>
+      `,
+      siap: (badan) => {
+        badan.querySelectorAll('.input-rupiah').forEach(inp => {
+          inp.addEventListener('focus', () => inp.select());
+          inp.addEventListener('input', () => {
+            const raw = String(inp.value || '').replace(/\D/g, '');
+            const num = Number(raw) || 0;
+            inp.value = num === 0 ? '0' : num.toLocaleString('id-ID');
+          });
+        });
+      },
+      tombol: [
+        { teks: 'Batal', nilai: false },
+        {
+          teks: 'Simpan Tarif Insentif',
+          kelas: 'btn-primary',
+          aksi: async (badan) => {
+            const form = badan.querySelector('#formTarifInsentifModal');
+            const lab = Number(String(form.tarif_lab.value).replace(/\D/g, '')) || 0;
+            const pendaftaran = Number(String(form.tarif_pendaftaran.value).replace(/\D/g, '')) || 0;
+            const surat = Number(String(form.tarif_surat.value).replace(/\D/g, '')) || 0;
+            const kasir = Number(String(form.tarif_kasir.value).replace(/\D/g, '')) || 0;
+
+            const payload = {
+              tarif_lab: lab,
+              tarif_pendaftaran: pendaftaran,
+              tarif_surat: surat,
+              tarif_kasir: kasir
+            };
+
+            try {
+              tarifInsentif = payload;
+              if (DB.simpanPengaturanInsentifAktivitas) {
+                await DB.simpanPengaturanInsentifAktivitas(payload);
+              }
+              UI.toast('Tarif insentif tindakan berhasil disimpan!', 'ok');
+              await muatUlangMaster();
+              return true;
+            } catch (e) {
+              UI.toast('Gagal menyimpan tarif insentif: ' + e.message, 'err');
+              return false;
+            }
+          }
+        }
+      ]
+    });
+  }
+
   /* Modal Atur Tarif Standar Uang Makan Harian */
   function dialogAturTarifUangMakan() {
     const tarifSekarang = Number(jamKerja.tarif_uang_makan || 20000);
@@ -1266,6 +1433,7 @@ const HrisLaporan = (() => {
     }
     let b = bonusAwal || dataBonus.find(x => x.pegawai_id === peg.id) || null;
     let rekap = hitungRekapPerPegawai(peg.id);
+    let kontribusi = hitungKontribusiPegawai(peg.id);
 
     const tarifDefault = Number(b?.tarif_uang_makan || jamKerja.tarif_uang_makan || 20000);
     const hariMakanAwal = (b?.hari_uang_makan !== undefined && b?.hari_uang_makan !== null) ? Number(b.hari_uang_makan) : rekap.hadirLengkapMakan;
@@ -1398,6 +1566,73 @@ const HrisLaporan = (() => {
                          style="padding-left: 36px; height: 38px; font-weight: 800; font-size: 15px; color: #166534; background: #fff;">
                 </div>
                 <div class="hint text-xs text-muted mt-2">Dihitung otomatis: <span id="hintRumusMakan">${hariMakanAwal} hari x Rp ${UI.formatRibuan(tarifDefault)}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BAGIAN REKOMENDASI INSENTIF BERBASIS KONTRIBUSI AKTIVITAS SISTEM -->
+          <div id="modalBoxKontribusiAktivitas" style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px;">
+            <div class="flex items-center justify-between mb-8 flex-wrap gap-8">
+              <div style="font-size: 12px; font-weight: 800; color: #1E293B; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                ${UI.ikon('laporan', 15)} Rekomendasi Insentif Berbasis Kontribusi Aktivitas Sistem
+              </div>
+              <button type="button" id="btnTerapkanInsentif" class="btn btn-secondary" style="height: 32px; font-size: 12px; font-weight: 700; padding: 0 12px; border-color: #0F8B7E; color: #0F8B7E; background: #F0FDF4; display: inline-flex; align-items: center; gap: 6px;">
+                ${UI.ikon('cek', 13)} Terapkan Insentif ke Form Bonus
+              </button>
+            </div>
+            
+            <div style="font-size: 12px; color: #475569; margin-bottom: 10px; line-height: 1.4;">
+              Sistem merekam 4 aktivitas operasional riil staf periode ini. Klik <b>Terapkan Insentif</b> untuk memasukkan rekomendasi ke kolom bonus, atau pimpinan tetap <b>100% bebas mengetik angka manual</b> pada kolom di bawah.
+            </div>
+
+            <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+              <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: #64748B; font-weight: 600;">Verifikasi Hasil Lab</div>
+                <div id="mKontribusiLab" class="mono" style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 2px;">
+                  ${kontribusi.jmlLab} tindakan
+                </div>
+                <div id="mSubtotalLab" class="text-xs text-muted" style="margin-top: 2px;">
+                  @ ${UI.rupiah(kontribusi.tarif.tarif_lab)} = <b style="color: #0F766E;">${UI.rupiah(kontribusi.nominalLab)}</b>
+                </div>
+              </div>
+
+              <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: #64748B; font-weight: 600;">Pendaftaran Pasien</div>
+                <div id="mKontribusiDaftar" class="mono" style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 2px;">
+                  ${kontribusi.jmlDaftar} pasien
+                </div>
+                <div id="mSubtotalDaftar" class="text-xs text-muted" style="margin-top: 2px;">
+                  @ ${UI.rupiah(kontribusi.tarif.tarif_pendaftaran)} = <b style="color: #0F766E;">${UI.rupiah(kontribusi.nominalDaftar)}</b>
+                </div>
+              </div>
+
+              <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: #64748B; font-weight: 600;">Pembuatan Surat</div>
+                <div id="mKontribusiSurat" class="mono" style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 2px;">
+                  ${kontribusi.jmlSurat} surat
+                </div>
+                <div id="mSubtotalSurat" class="text-xs text-muted" style="margin-top: 2px;">
+                  @ ${UI.rupiah(kontribusi.tarif.tarif_surat)} = <b style="color: #0F766E;">${UI.rupiah(kontribusi.nominalSurat)}</b>
+                </div>
+              </div>
+
+              <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px;">
+                <div style="font-size: 11px; color: #64748B; font-weight: 600;">Transaksi Kasir</div>
+                <div id="mKontribusiKasir" class="mono" style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 2px;">
+                  ${kontribusi.jmlKasir} transaksi
+                </div>
+                <div id="mSubtotalKasir" class="text-xs text-muted" style="margin-top: 2px;">
+                  @ ${UI.rupiah(kontribusi.tarif.tarif_kasir)} = <b style="color: #0F766E;">${UI.rupiah(kontribusi.nominalKasir)}</b>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-10 pt-8 flex-wrap gap-8" style="border-top: 1px dashed #CBD5E1;">
+              <div style="font-size: 12px; color: #334155;">
+                Total Aktivitas Tercatat: <b id="mTotalTindakan">${kontribusi.totalTindakan} tindakan</b>
+              </div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #0F766E;">
+                Total Rekomendasi Insentif: <span id="mTotalInsentifRupiah" class="mono">${UI.rupiah(kontribusi.totalNominal)}</span>
               </div>
             </div>
           </div>
@@ -1548,6 +1783,17 @@ const HrisLaporan = (() => {
           formatRupiahInput(inp);
         });
 
+        const btnTerapkan = badan.querySelector('#btnTerapkanInsentif');
+        btnTerapkan?.addEventListener('click', () => {
+          const targetPegId = badan.querySelector('#modalSelectPegawaiBonus')?.value || peg.id;
+          const kont = hitungKontribusiPegawai(targetPegId);
+
+          form.komponen_kpi.value = kont.totalNominal === 0 ? '0' : kont.totalNominal.toLocaleString('id-ID');
+          formatRupiahInput(form.komponen_kpi);
+          hitungLive();
+          UI.toast(`Insentif kontribusi (${UI.rupiah(kont.totalNominal)}) diterapkan ke kolom Apresiasi Kinerja / Produktivitas! Pimpinan tetap dapat mengedit nominal secara bebas.`, 'ok');
+        });
+
         const sel = badan.querySelector('#modalSelectPegawaiBonus');
         if (!sel) return;
         sel.addEventListener('change', (e) => {
@@ -1557,6 +1803,8 @@ const HrisLaporan = (() => {
           const bBaru = dataBonus.find(x => x.pegawai_id === idDipilih) || null;
           const rBaru = hitungRekapPerPegawai(idDipilih);
           const mkBaru = hitungLamaBekerja(pBaru.tgl_mulai_kerja);
+          const kBaru = hitungKontribusiPegawai(idDipilih);
+
           const elMk = badan.querySelector('#mRekapMasaKerja');
           if (elMk) elMk.textContent = mkBaru ? mkBaru.teks : 'Belum diatur';
 
@@ -1566,6 +1814,32 @@ const HrisLaporan = (() => {
           badan.querySelector('#mRekapTelat').textContent = `${rBaru.terlambat} kali (${rBaru.totalMenitTelat} menit)`;
           badan.querySelector('#mRekapIzin').textContent = `${rBaru.izinCuti} hari`;
           badan.querySelector('#mRekapDisiplin').textContent = `${rBaru.disiplinPersen}%`;
+
+          // Perbarui tampilan rincian kontribusi aktivitas sistem
+          const elLab = badan.querySelector('#mKontribusiLab');
+          if (elLab) elLab.textContent = `${kBaru.jmlLab} tindakan`;
+          const elSubLab = badan.querySelector('#mSubtotalLab');
+          if (elSubLab) elSubLab.innerHTML = `@ ${UI.rupiah(kBaru.tarif.tarif_lab)} = <b style="color: #0F766E;">${UI.rupiah(kBaru.nominalLab)}</b>`;
+
+          const elDaftar = badan.querySelector('#mKontribusiDaftar');
+          if (elDaftar) elDaftar.textContent = `${kBaru.jmlDaftar} pasien`;
+          const elSubDaftar = badan.querySelector('#mSubtotalDaftar');
+          if (elSubDaftar) elSubDaftar.innerHTML = `@ ${UI.rupiah(kBaru.tarif.tarif_pendaftaran)} = <b style="color: #0F766E;">${UI.rupiah(kBaru.nominalDaftar)}</b>`;
+
+          const elSurat = badan.querySelector('#mKontribusiSurat');
+          if (elSurat) elSurat.textContent = `${kBaru.jmlSurat} surat`;
+          const elSubSurat = badan.querySelector('#mSubtotalSurat');
+          if (elSubSurat) elSubSurat.innerHTML = `@ ${UI.rupiah(kBaru.tarif.tarif_surat)} = <b style="color: #0F766E;">${UI.rupiah(kBaru.nominalSurat)}</b>`;
+
+          const elKasir = badan.querySelector('#mKontribusiKasir');
+          if (elKasir) elKasir.textContent = `${kBaru.jmlKasir} transaksi`;
+          const elSubKasir = badan.querySelector('#mSubtotalKasir');
+          if (elSubKasir) elSubKasir.innerHTML = `@ ${UI.rupiah(kBaru.tarif.tarif_kasir)} = <b style="color: #0F766E;">${UI.rupiah(kBaru.nominalKasir)}</b>`;
+
+          const elTotTindakan = badan.querySelector('#mTotalTindakan');
+          if (elTotTindakan) elTotTindakan.textContent = `${kBaru.totalTindakan} tindakan`;
+          const elTotInsentif = badan.querySelector('#mTotalInsentifRupiah');
+          if (elTotInsentif) elTotInsentif.textContent = UI.rupiah(kBaru.totalNominal);
 
           const tBaru = Number(bBaru?.tarif_uang_makan || jamKerja.tarif_uang_makan || 20000);
           const hBaru = (bBaru?.hari_uang_makan !== undefined && bBaru?.hari_uang_makan !== null) ? Number(bBaru.hari_uang_makan) : rBaru.hadirLengkapMakan;
@@ -1793,14 +2067,18 @@ const HrisLaporan = (() => {
     const akhirBulan = new Date(filterTahun, filterBulan, 0).toISOString().split('T')[0];
 
     try {
-      const [absensiList, bonusList, kpiList, jamConfig] = await Promise.all([
+      const [absensiList, bonusList, kpiList, jamConfig, aktivitasData, insentifConfig] = await Promise.all([
         DB.absensiLaporan(awalBulan, akhirBulan),
         DB.bonusDaftar(filterBulan, filterTahun),
         DB.kpiDaftar(filterBulan, filterTahun),
-        DB.pengaturanJamKerja()
+        DB.pengaturanJamKerja(),
+        DB.laporanKaryawanAktivitas ? DB.laporanKaryawanAktivitas({ dari: awalBulan, sampai: akhirBulan }) : Promise.resolve(null),
+        DB.pengaturanInsentifAktivitas ? DB.pengaturanInsentifAktivitas() : Promise.resolve(null)
       ]);
 
       if (jamConfig) jamKerja = jamConfig;
+      if (aktivitasData) dataAktivitas = aktivitasData;
+      if (insentifConfig) tarifInsentif = insentifConfig;
       dataAbsensi = absensiList || [];
       const bonusSaya = (bonusList || []).find(b => b.pegawai_id === saya.id) || null;
       const kpiSaya = (kpiList || []).filter(k => k.pegawai_id === saya.id);
