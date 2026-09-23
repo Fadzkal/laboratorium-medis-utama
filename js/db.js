@@ -3430,7 +3430,7 @@ const DB = (() => {
   /* --- KPI & Bonus Karyawan --- */
   async function daftarPegawaiStaff() {
     const list = await daftarPegawai();
-    return (list || []).filter(p => p.aktif && p.peran !== 'master' && p.peran !== 'dokter');
+    return (list || []).filter(p => p.aktif && p.peran === 'karyawan');
   }
 
   async function kpiDaftar(bulan, tahun) {
@@ -3514,6 +3514,32 @@ const DB = (() => {
   function ambilRekeningPegawaiLokal(pegawaiId) {
     try {
       const val = localStorage.getItem(`lab_rek_${pegawaiId}`);
+      if (val) return JSON.parse(val);
+    } catch (e) {}
+    return null;
+  }
+
+  /* --- Tanggal Mulai Bekerja Karyawan (Masa Kerja HRIS) --- */
+  async function simpanMulaiKerjaPegawai(pegawaiId, tglMulaiKerja) {
+    const payload = {
+      tgl_mulai_kerja: tglMulaiKerja || null
+    };
+    try {
+      localStorage.setItem(`lab_mulai_kerja_${pegawaiId}`, JSON.stringify(payload));
+    } catch (e) {}
+
+    try {
+      const { data, error } = await sb.from('pegawai').update(payload).eq('id', pegawaiId).select().single();
+      if (!error && data) return data;
+    } catch (e) {
+      console.warn('Simpan tgl mulai kerja pegawai ke DB fallback:', e);
+    }
+    return payload;
+  }
+
+  function ambilMulaiKerjaPegawaiLokal(pegawaiId) {
+    try {
+      const val = localStorage.getItem(`lab_mulai_kerja_${pegawaiId}`);
       if (val) return JSON.parse(val);
     } catch (e) {}
     return null;
@@ -3680,6 +3706,7 @@ const DB = (() => {
     daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
     daftarPegawaiStaff, kpiDaftar, kpiSimpan, kpiHapus, bonusDaftar, bonusSimpan, bonusHapus,
     simpanRekeningPegawai, ambilRekeningPegawaiLokal,
+    simpanMulaiKerjaPegawai, ambilMulaiKerjaPegawaiLokal,
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
     inventoriBatchDaftar, inventoriBatchSimpan, inventoriBatchHapus, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,

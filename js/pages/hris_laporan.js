@@ -32,6 +32,51 @@ const HrisLaporan = (() => {
   let filterBulan = tanggalSekarang.getMonth() + 1;
   let filterTahun = tanggalSekarang.getFullYear();
 
+  // Helper tampilan role asli pegawai
+  function labelRole(peran) {
+    return (peran || '').toUpperCase();
+  }
+
+  // Hitung lama bekerja berdasarkan tanggal/bulan/tahun awal bekerja
+  function hitungLamaBekerja(tglMulaiKerja, refBulan = null, refTahun = null) {
+    if (!tglMulaiKerja) return null;
+    const awal = new Date(tglMulaiKerja);
+    if (isNaN(awal.getTime())) return null;
+
+    const thnAwal = awal.getFullYear();
+    const blnAwal = awal.getMonth() + 1;
+
+    const thnRef = refTahun || (filterTahun || new Date().getFullYear());
+    const blnRef = refBulan || (filterBulan || (new Date().getMonth() + 1));
+
+    let totalBulan = (thnRef - thnAwal) * 12 + (blnRef - blnAwal);
+    if (totalBulan < 0) totalBulan = 0;
+
+    const tahun = Math.floor(totalBulan / 12);
+    const bulan = totalBulan % 12;
+
+    let teks = '';
+    if (tahun > 0 && bulan > 0) {
+      teks = `${tahun} thn ${bulan} bln`;
+    } else if (tahun > 0 && bulan === 0) {
+      teks = `${tahun} thn`;
+    } else if (tahun === 0 && bulan > 0) {
+      teks = `${bulan} bln`;
+    } else {
+      teks = '< 1 bln';
+    }
+
+    return {
+      tahunAwal: thnAwal,
+      bulanAwal: blnAwal,
+      totalBulan,
+      tahun,
+      bulan,
+      teks,
+      labelMulai: `${NAMA_BULAN[blnAwal - 1] || ''} ${thnAwal}`
+    };
+  }
+
   function cekStatusKeterlambatan(waktuMasukIso, jamMasukStr, toleransiMenit = 0) {
     if (!waktuMasukIso || !jamMasukStr) return null;
     const d = new Date(waktuMasukIso);
@@ -258,8 +303,10 @@ const HrisLaporan = (() => {
 
       dataPegawai = (pegawaiList || []).map(p => {
         const rek = DB.ambilRekeningPegawaiLokal ? DB.ambilRekeningPegawaiLokal(p.id) : null;
+        const mk = DB.ambilMulaiKerjaPegawaiLokal ? DB.ambilMulaiKerjaPegawaiLokal(p.id) : null;
         return {
           ...p,
+          tgl_mulai_kerja: p.tgl_mulai_kerja || mk?.tgl_mulai_kerja || null,
           nama_bank: p.nama_bank || rek?.nama_bank || '',
           nomor_rekening: p.nomor_rekening || rek?.nomor_rekening || '',
           atas_nama_rekening: p.atas_nama_rekening || rek?.atas_nama_rekening || p.nama || ''
@@ -361,6 +408,7 @@ const HrisLaporan = (() => {
               <thead><tr>
                 <th>NAMA PEGAWAI</th>
                 <th>PERAN</th>
+                <th>LAMA BEKERJA</th>
                 <th>TOTAL HADIR</th>
                 <th>TEPAT WAKTU</th>
                 <th>TERLAMBAT</th>
@@ -370,10 +418,31 @@ const HrisLaporan = (() => {
                 <th style="text-align: center;">DETAIL PRESENSI</th>
               </tr></thead>
               <tbody>
-                ${barisRekap.map(item => `
+                ${barisRekap.map(item => {
+                  const masaKerja = hitungLamaBekerja(item.pegawai.tgl_mulai_kerja);
+                  return `
                   <tr>
                     <td><b style="color: #0F172A;">${UI.esc(item.pegawai.nama)}</b></td>
-                    <td><span class="badge" style="background:#F1F5F9; color:#475569; text-transform:uppercase; font-size:11px; font-weight:700;">${UI.esc(item.pegawai.peran)}</span></td>
+                    <td><span class="badge" style="background:#F1F5F9; color:#475569; font-size:11px; font-weight:700;">${labelRole(item.pegawai.peran)}</span></td>
+                    <td>
+                      ${masaKerja ? `
+                        <div class="flex items-center gap-6">
+                          <span class="badge" style="background:#EFF6FF; color:#1D4ED8; font-weight:700; font-size:11px; padding:3px 8px;">
+                            ${masaKerja.teks}
+                          </span>
+                          <button class="btn btn-sm btn-ghost" data-atur-mulai="${item.pegawai.id}" title="Ubah Awal Bekerja" style="padding: 2px 5px; height: 22px; color: #64748B;">
+                            ${UI.ikon('pensil', 11)}
+                          </button>
+                        </div>
+                        <div class="text-muted" style="font-size: 10px; margin-top: 2px;">
+                          Mulai ${masaKerja.labelMulai}
+                        </div>
+                      ` : `
+                        <button class="btn btn-sm btn-secondary" data-atur-mulai="${item.pegawai.id}" style="padding: 3px 8px; font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                          ${UI.ikon('plus', 11)} Atur
+                        </button>
+                      `}
+                    </td>
                     <td><b style="font-size: 13.5px; color:#0F172A;">${item.hadir} hari</b></td>
                     <td><span class="badge b-selesai" style="font-size: 11px; padding: 3px 8px;">${item.tepatWaktu} hari</span></td>
                     <td>
@@ -396,13 +465,20 @@ const HrisLaporan = (() => {
                       </button>
                     </td>
                   </tr>
-                `).join('')}
+                `; }).join('')}
               </tbody>
             </table></div>
           `}
         </div>
       </div>
     `;
+
+    isi.querySelectorAll('[data-atur-mulai]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const peg = dataPegawai.find(p => p.id === btn.dataset.aturMulai);
+        if (peg) dialogAturMulaiKerja(peg);
+      });
+    });
 
     isi.querySelectorAll('[data-lihat-presensi]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -415,10 +491,101 @@ const HrisLaporan = (() => {
     });
   }
 
+  /* Modal Input / Sesuaikan Bulan & Tahun Awal Mulai Bekerja */
+  function dialogAturMulaiKerja(peg) {
+    const info = hitungLamaBekerja(peg.tgl_mulai_kerja);
+    const bulanDefault = info ? info.bulanAwal : (filterBulan || (new Date().getMonth() + 1));
+    const tahunDefault = info ? info.tahunAwal : (filterTahun || new Date().getFullYear());
+
+    UI.modal({
+      judul: `Atur Awal Bekerja: ${UI.esc(peg.nama)}`,
+      isi: `
+        <div style="font-size: 13px; color: #475569; margin-bottom: 16px;">
+          Tentukan bulan dan tahun awal mulai bekerja untuk menghitung lama masa kerja staf secara otomatis.
+        </div>
+
+        <form id="formMulaiKerjaModal" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="field">
+              <label style="font-weight: 600; color: #0F172A;">Bulan Awal Bekerja <span class="req">*</span></label>
+              <select name="bulan_mulai" id="inputBulanMulai" required class="w-full" style="height: 38px; font-weight: 600;">
+                ${NAMA_BULAN.map((nama, idx) => `
+                  <option value="${idx + 1}" ${idx + 1 === bulanDefault ? 'selected' : ''}>${nama}</option>
+                `).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label style="font-weight: 600; color: #0F172A;">Tahun Awal Bekerja <span class="req">*</span></label>
+              <input type="number" name="tahun_mulai" id="inputTahunMulai" min="1990" max="${new Date().getFullYear() + 1}" value="${tahunDefault}" required class="w-full mono" style="height: 38px; font-weight: 700;">
+            </div>
+          </div>
+
+          <div id="previewMasaKerjaBox" style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 8px; padding: 12px 14px; margin-top: 4px;">
+            <div style="font-size: 11px; color: #166534; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Estimasi Lama Bekerja:</div>
+            <div id="previewTeksMasaKerja" style="font-size: 16px; font-weight: 800; color: #15803D; margin-top: 3px;">
+              Memuat...
+            </div>
+          </div>
+        </form>
+      `,
+      siap: (badan) => {
+        const bSel = badan.querySelector('#inputBulanMulai');
+        const tInp = badan.querySelector('#inputTahunMulai');
+        const box = badan.querySelector('#previewTeksMasaKerja');
+        function updateLive() {
+          if (!bSel || !tInp || !box) return;
+          const b = Number(bSel.value);
+          const t = Number(tInp.value);
+          if (!b || !t) return;
+          const bStr = String(b).padStart(2, '0');
+          const calc = hitungLamaBekerja(`${t}-${bStr}-01`);
+          if (calc) {
+            box.textContent = `${calc.teks} (Mulai ${calc.labelMulai})`;
+          } else {
+            box.textContent = '—';
+          }
+        }
+        bSel?.addEventListener('change', updateLive);
+        tInp?.addEventListener('input', updateLive);
+        updateLive();
+      },
+      tombol: [
+        { teks: 'Batal', nilai: false },
+        {
+          teks: 'Simpan Masa Kerja',
+          kelas: 'btn-primary',
+          aksi: async (modalBody) => {
+            const form = modalBody.querySelector('#formMulaiKerjaModal');
+            if (!form.reportValidity()) return false;
+
+            const b = Number(form.bulan_mulai.value);
+            const t = Number(form.tahun_mulai.value);
+            const bStr = String(b).padStart(2, '0');
+            const isoDate = `${t}-${bStr}-01`;
+
+            try {
+              await DB.simpanMulaiKerjaPegawai(peg.id, isoDate);
+              peg.tgl_mulai_kerja = isoDate;
+              const pItem = dataPegawai.find(x => x.id === peg.id);
+              if (pItem) pItem.tgl_mulai_kerja = isoDate;
+
+              UI.toast(`Awal bekerja ${peg.nama} berhasil disimpan (${NAMA_BULAN[b - 1]} ${t})!`, 'ok');
+              gambarTabMaster();
+              return true;
+            } catch (err) {
+              UI.toast('Gagal menyimpan masa kerja: ' + err.message, 'err');
+              return false;
+            }
+          }
+        }
+      ]
+    });
+  }
+
   function dialogDetailPresensi(peg, rekap) {
     const list = rekap.daftarHadir || [];
     UI.modal({
-      judul: `Detail Presensi: ${UI.esc(peg.nama)} (${UI.esc(peg.peran).toUpperCase()})`,
+      judul: `Detail Presensi: ${UI.esc(peg.nama)} (${labelRole(peg.peran)})`,
       lebar: true,
       isi: `
         <div class="absensi-banner-box mb-16" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px 18px; border-radius: 10px;">
@@ -545,7 +712,7 @@ const HrisLaporan = (() => {
                   <tr>
                     <td>
                       <b style="color: #0F172A;">${UI.esc(k.pegawai?.nama || 'Karyawan')}</b>
-                      <div class="text-xs text-muted" style="margin-top:2px;">${UI.esc(k.pegawai?.peran || '')}</div>
+                      <div class="text-xs text-muted" style="margin-top:2px;">${labelRole(k.pegawai?.peran)}</div>
                     </td>
                     <td><b style="color: #0F172A;">${UI.esc(k.metrik)}</b></td>
                     <td class="mono font-bold" style="color: #334155;">${k.target}</td>
@@ -609,7 +776,7 @@ const HrisLaporan = (() => {
             <select name="pegawai_id" required class="w-full" ${isEdit ? 'disabled' : ''}>
               ${dataPegawai.map(p => `
                 <option value="${p.id}" ${item?.pegawai_id === p.id ? 'selected' : ''}>
-                  ${UI.esc(p.nama)} (${UI.esc(p.peran)})
+                  ${UI.esc(p.nama)} (${labelRole(p.peran)})
                 </option>
               `).join('')}
             </select>
@@ -821,14 +988,20 @@ const HrisLaporan = (() => {
                   const rekBank = row.pegawai.nama_bank || '';
                   const noRek = row.pegawai.nomor_rekening || '';
                   const anRek = row.pegawai.atas_nama_rekening || row.pegawai.nama || '';
+                  const masaKerja = hitungLamaBekerja(row.pegawai.tgl_mulai_kerja);
 
                   return `
                     <tr>
                       <td>
                         <b style="color: #0F172A; font-size: 13.5px;">${UI.esc(row.pegawai.nama)}</b>
                         <div class="text-xs text-muted" style="margin-top:2px;">
-                          ${UI.esc(row.pegawai.peran).toUpperCase()} • Hadir: <b>${row.rekap.hadir} hr</b> (Lengkap: <b>${row.hariMakan} hr</b>)
+                          ${labelRole(row.pegawai.peran)} • Masa Kerja: <b>${masaKerja ? masaKerja.teks : '—'}</b> • Hadir: <b>${row.rekap.hadir} hr</b> (Lengkap: <b>${row.hariMakan} hr</b>)
                         </div>
+                        ${!masaKerja ? `
+                          <div class="mt-2">
+                            <span style="color:var(--brand-800); font-weight:600; font-size:10.5px; cursor:pointer;" data-atur-mulai="${row.pegawai.id}">+ Atur Masa Kerja</span>
+                          </div>
+                        ` : ''}
                         ${b?.catatan ? `<div class="text-xs mt-4" style="color: #047857; font-style: italic;">"${UI.esc(b.catatan)}"</div>` : ''}
                       </td>
 
@@ -931,6 +1104,13 @@ const HrisLaporan = (() => {
           const b = dataBonus.find(x => x.pegawai_id === peg.id) || null;
           dialogInputBonus(peg, b);
         }
+      });
+    });
+
+    isi.querySelectorAll('[data-atur-mulai]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const peg = dataPegawai.find(p => p.id === btn.dataset.aturMulai);
+        if (peg) dialogAturMulaiKerja(peg);
       });
     });
 
@@ -1115,19 +1295,20 @@ const HrisLaporan = (() => {
           <select id="modalSelectPegawaiBonus" class="w-full" style="height: 40px; font-weight: 700; font-size: 14px;">
             ${dataPegawai.map(p => `
               <option value="${p.id}" ${p.id === peg.id ? 'selected' : ''}>
-                ${UI.esc(p.nama)} (${UI.esc(p.peran).toUpperCase()})
+                ${UI.esc(p.nama)} (${labelRole(p.peran)})
               </option>
             `).join('')}
           </select>
         </div>
 
-        <!-- Rekap Presensi Periode Ini -->
+        <!-- Rekap Presensi & Masa Kerja Periode Ini -->
         <div id="modalBoxRekapPresensi" class="absensi-banner-box mb-16" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px 18px; border-radius: 10px;">
           <div>
             <div style="font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">
               Rekapitulasi Kehadiran Bulan Ini (${NAMA_BULAN[filterBulan - 1]} ${filterTahun}):
             </div>
             <div class="flex items-center gap-14 mt-6 text-xs flex-wrap" style="color: #0F172A;">
+              <span>Masa Kerja: <b id="mRekapMasaKerja" style="color: #1D4ED8;">${hitungLamaBekerja(peg.tgl_mulai_kerja)?.teks || 'Belum diatur'}</b></span>
               <span>Total Hadir: <b id="mRekapHadir">${rekap.hadir} hari</b></span>
               <span>Hadir Lengkap (Masuk & Pulang): <b id="mRekapLengkap" style="color: #0F8B7E;">${rekap.hadirLengkapMakan} hari</b></span>
               <span>Tepat Waktu: <b id="mRekapTepat" style="color:var(--ok-700);">${rekap.tepatWaktu} hari</b></span>
@@ -1375,6 +1556,9 @@ const HrisLaporan = (() => {
           if (!pBaru) return;
           const bBaru = dataBonus.find(x => x.pegawai_id === idDipilih) || null;
           const rBaru = hitungRekapPerPegawai(idDipilih);
+          const mkBaru = hitungLamaBekerja(pBaru.tgl_mulai_kerja);
+          const elMk = badan.querySelector('#mRekapMasaKerja');
+          if (elMk) elMk.textContent = mkBaru ? mkBaru.teks : 'Belum diatur';
 
           badan.querySelector('#mRekapHadir').textContent = `${rBaru.hadir} hari`;
           badan.querySelector('#mRekapLengkap').textContent = `${rBaru.hadirLengkapMakan} hari`;
@@ -1494,7 +1678,7 @@ const HrisLaporan = (() => {
       isi: `
         <div class="mb-16 flex items-center justify-between flex-wrap gap-10" style="background:#F8FAFC; padding:12px 16px; border-radius:8px; border:1px solid #E2E8F0;">
           <div>
-            <div style="font-size:12px; color:#64748B;">Karyawan: <b>${UI.esc(pegawai.nama)}</b> (${UI.esc(pegawai.peran).toUpperCase()})</div>
+            <div style="font-size:12px; color:#64748B;">Karyawan: <b>${UI.esc(pegawai.nama)}</b> (${labelRole(pegawai.peran)})</div>
             <div style="font-size:13px; font-weight:700; color:#0F172A; margin-top:2px;">Periode: ${NAMA_BULAN[filterBulan - 1]} ${filterTahun}</div>
           </div>
           <div class="flex items-center gap-8 text-xs">
@@ -1887,7 +2071,7 @@ const HrisLaporan = (() => {
         <div class="identitas-grid">
           <div><b>Nama Karyawan:</b> ${UI.esc(pegawai.nama)}</div>
           <div><b>Periode Gaji:</b> ${namaPeriode}</div>
-          <div><b>Jabatan / Peran:</b> ${UI.esc(pegawai.peran).toUpperCase()}</div>
+          <div><b>Jabatan / Peran:</b> ${labelRole(pegawai.peran)}</div>
           <div><b>Nomor Dokumen:</b> ${UI.esc(noSlip)}</div>
           <div class="col-span-2">
             <b>Rekening Transfer:</b> ${pegawai.nama_bank ? `${UI.esc(pegawai.nama_bank)} — <b>${UI.esc(pegawai.nomor_rekening)}</b> (a.n. ${UI.esc(pegawai.atas_nama_rekening || pegawai.nama)})` : '<span style="color:#94A3B8;">Transfer Perbankan Manual (Belum disetel)</span>'}
@@ -1976,7 +2160,7 @@ const HrisLaporan = (() => {
             <div>Penerima,</div>
             <div class="ttd-space"></div>
             <div class="ttd-nama">${UI.esc(pegawai.nama)}</div>
-            <div class="ttd-role">${UI.esc(pegawai.peran).toUpperCase()}</div>
+            <div class="ttd-role">${labelRole(pegawai.peran)}</div>
           </div>
           <div class="ttd-col">
             <div>Purbalingga, ${tglCetak}</div>
