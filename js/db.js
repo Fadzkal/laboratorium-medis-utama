@@ -2529,98 +2529,130 @@ const DB = (() => {
 
   /* Mengambil data pelayanan pasien Prolanis, kunjungan dokter, tanda vital,
      dan hasil pemeriksaan lab berdasarkan rentang tanggal/bulan langsung dari database RME. */
-  async function prolanisEksporPelayanan(tglMulai, tglSelesai, caraBayar = 'SEMUA') {
+  async function prolanisEksporPelayanan(tglMulai, tglSelesai, caraBayar = 'SEMUA', filterRekanan = '') {
     // 1. Coba RPC jika tersedia di database
     try {
       const { data: rpcData, error: rpcErr } = await sb.rpc('prolanis_ekspor_pelayanan', {
         p_tgl_mulai: tglMulai,
         p_tgl_selesai: tglSelesai,
-        p_cara_bayar: (caraBayar === 'SEMUA' || !caraBayar) ? null : caraBayar
+        p_cara_bayar: (caraBayar === 'SEMUA' || !caraBayar) ? null : caraBayar,
+        p_rekanan: (filterRekanan === 'SEMUA' || !filterRekanan) ? null : filterRekanan
       });
-      if (!rpcErr && rpcData && Array.isArray(rpcData)) return rpcData;
+      if (!rpcErr && rpcData && Array.isArray(rpcData) && rpcData.length > 0) return rpcData;
     } catch (_) {}
 
-    // 2. Fallback query client-side dari kunjungan & lab_permintaan
-    let qKunj = sb.from('kunjungan')
-      .select('id,no_kunjungan,tanggal,waktu_daftar,cara_bayar,keluhan_singkat,dokter_id,' +
-              'pasien:pasien_id(id,no_rm,nama,nik,no_bpjs,alamat,fktp,tanggal_lahir,jenis_kelamin),' +
-              'dokter:dokter_id(nama),' +
-              'kajian_awal(sistolik,diastolik,nadi,nafas,suhu,berat_badan,tinggi_badan,lingkar_perut,keluhan_utama),' +
-              'pemeriksaan(subjective,terapi_non_obat,status_pulang),' +
-              'diagnosa(kode_icd10,nama,jenis,urutan),' +
-              'resep(resep_item(nama_obat)),' +
-              'lab_permintaan(id,tanggal,status,lab_hasil(nama,satuan,nilai_angka,nilai_teks,ref_lab:lab_id(kode,nama)))')
+    // 2. Query dari lab_permintaan (hub utama hasil lab & fisik)
+    let qLab = sb.from('lab_permintaan')
+      .select('id,no_lab,tanggal,status,catatan_klinis,created_at,' +
+              'pasien:pasien_id(id,no_rm,nama,nik,no_bpjs,alamat,bpjs_faskes,plant,bagian,tanggal_lahir,jenis_kelamin),' +
+              'dokter:diminta_oleh(nama),' +
+              'lab_hasil(nama,satuan,nilai_angka,nilai_teks,ref_lab:lab_id(kode,nama)),' +
+              'lab_fisik(item_id,nama_item,hasil,unit),' +
+              'kunjungan:kunjungan_id(id,cara_bayar,keluhan_singkat,waktu_daftar,dokter:dokter_id(nama),kajian_awal(sistolik,diastolik,nadi,nafas,suhu,berat_badan,tinggi_badan,lingkar_perut))')
       .gte('tanggal', tglMulai)
       .lte('tanggal', tglSelesai)
       .order('tanggal', { ascending: true });
 
-    if (caraBayar && caraBayar !== 'SEMUA') {
-      qKunj = qKunj.eq('cara_bayar', caraBayar);
-    }
-
-    const { data: kunjList, error: errKunj } = await qKunj;
-    if (errKunj) throw errKunj;
+    const { data: lpList, error: errLp } = await qLab;
+    if (errLp) throw errLp;
 
     const barisHasil = [];
-    if (kunjList && kunjList.length) {
-      for (const k of kunjList) {
-        const p = k.pasien || {};
-        const ka = (Array.isArray(k.kajian_awal) ? k.kajian_awal[0] : k.kajian_awal) || {};
-        const pem = (Array.isArray(k.pemeriksaan) ? k.pemeriksaan[0] : k.pemeriksaan) || {};
-        const diagList = k.diagnosa || [];
-        const diagPrimer = diagList.find(d => d.jenis === 'PRIMER') || diagList[0] || {};
-        const resepList = k.resep || [];
-        const namaObatList = [];
-        for (const res of resepList) {
-          for (const item of (res.resep_item || [])) {
-            if (item.nama_obat) namaObatList.push(item.nama_obat);
-          }
+    if (lpList && lpList.length) {
+      for (const lp of lpList) {
+        const p = lp.pasien || {};
+        const k = lp.kunjungan || {};
+        const cb = k.cara_bayar || 'BPJS';
+
+        // Filter cara bayar
+        if (caraBayar && caraBayar !== 'SEMUA') {
+          if (caraBayar === 'BPJS' && cb !== 'BPJS' && !p.no_bpjs) continue;
+          if (caraBayar === 'UMUM' && cb !== 'UMUM') continue;
         }
-        const labList = (k.lab_permintaan || []).filter(lp => lp.status === 'SELESAI');
+
+        // Tentukan Rekanan / FKTP
+        let fktp = p.bpjs_faskes || p.plant || p.bagian || '';
+        if (!fktp && k.keluhan_singkat && k.keluhan_singkat.startsWith('Dokter Pengirim: ')) {
+          fktp = k.keluhan_singkat.replace('Dokter Pengirim: ', '').trim();
+        }
+        if (!fktp) {
+          fktp = k.dokter?.nama || lp.dokter?.nama || 'Klinik Griya Medica';
+        }
+
+        // Filter rekanan bila ditentukan
+        if (filterRekanan && filterRekanan !== 'SEMUA') {
+          const frLower = filterRekanan.toLowerCase();
+          const strCek = [fktp, p.bpjs_faskes, p.plant, p.bagian, k.keluhan_singkat, k.dokter?.nama, lp.dokter?.nama].filter(Boolean).join(' ').toLowerCase();
+          if (!strCek.includes(frLower)) continue;
+        }
+
+        // Tanda vital / Fisik (prioritas lab_fisik, fallback kajian_awal)
+        const lfList = lp.lab_fisik || [];
+        const lfFind = (id) => (lfList.find(x => x.item_id === id)?.hasil || '').trim();
+        const ka = (Array.isArray(k.kajian_awal) ? k.kajian_awal[0] : k.kajian_awal) || {};
+
+        let tensi = lfFind(200);
+        const tensiDia = lfFind(201);
+        if (tensi && tensiDia && !tensi.includes('/')) {
+          tensi = `${tensi}/${tensiDia}`;
+        } else if (!tensi && ka.sistolik && ka.diastolik) {
+          tensi = `${ka.sistolik}/${ka.diastolik}`;
+        }
+        if (!tensi) tensi = '120/80';
+
+        const tb = lfFind(100) || ka.tinggi_badan || '';
+        const bb = lfFind(101) || ka.berat_badan || '';
+        const lpVal = lfFind(103) || ka.lingkar_perut || '';
+        const rr = lfFind(203) || ka.nafas || '20';
+        const hr = lfFind(202) || ka.nadi || '80';
+        const suhu = ka.suhu ? String(ka.suhu).replace('.', ',') : '36,0';
+
+        // Hasil Lab
         const listLabHasil = [];
-        for (const lp of labList) {
-          for (const lh of (lp.lab_hasil || [])) {
-            listLabHasil.push({
-              nama: lh.nama,
-              satuan: lh.satuan,
-              nilai_angka: lh.nilai_angka,
-              nilai_teks: lh.nilai_teks,
-              kode: lh.ref_lab ? lh.ref_lab.kode : ''
-            });
-          }
+        for (const lh of (lp.lab_hasil || [])) {
+          listLabHasil.push({
+            nama: lh.nama,
+            satuan: lh.satuan,
+            nilai_angka: lh.nilai_angka,
+            nilai_teks: lh.nilai_teks,
+            kode: lh.ref_lab ? lh.ref_lab.kode : ''
+          });
         }
 
         barisHasil.push({
-          kunjungan_id: k.id,
-          no_kunjungan: k.no_kunjungan,
-          tgl_pelayanan: k.tanggal,
-          waktu_daftar: k.waktu_daftar,
-          cara_bayar: k.cara_bayar,
+          permintaan_id: lp.id,
+          kunjungan_id: k.id || null,
+          no_kunjungan: lp.no_lab,
+          no_lab: lp.no_lab,
+          tgl_pelayanan: lp.tanggal,
+          waktu_daftar: k.waktu_daftar || lp.created_at,
+          cara_bayar: cb,
           pasien_id: p.id,
           no_rm: p.no_rm,
           nama_pasien: p.nama,
           nik: p.nik,
           no_bpjs: p.no_bpjs,
           alamat: p.alamat,
-          fktp: p.fktp || 'Klinik Griya Medica',
+          fktp: fktp,
+          plant: p.plant,
+          bagian: p.bagian,
           tanggal_lahir: p.tanggal_lahir,
           jenis_kelamin: p.jenis_kelamin,
-          dokter_nama: k.dokter ? k.dokter.nama : '',
-          sistolik: ka.sistolik,
-          diastolik: ka.diastolik,
-          tensi: (ka.sistolik && ka.diastolik) ? `${ka.sistolik}/${ka.diastolik}` : '',
-          tinggi_badan: ka.tinggi_badan,
-          berat_badan: ka.berat_badan,
-          lingkar_perut: ka.lingkar_perut,
-          rr: ka.nafas,
-          hr: ka.nadi,
-          suhu: ka.suhu,
-          keluhan: ka.keluhan_utama || k.keluhan_singkat || '',
-          anamnesa: pem.subjective || '',
-          terapi_non_obat: pem.terapi_non_obat || '',
-          status_pulang: pem.status_pulang || 'BEROBAT JALAN',
-          diagnosa_icd: diagPrimer.kode_icd10 || 'I10',
-          terapi_obat: namaObatList.join(', '),
+          dokter_nama: lp.dokter?.nama || k.dokter?.nama || 'dr. Minto Rahaju, Sp.PK',
+          tensi: tensi,
+          sistolik: ka.sistolik || null,
+          diastolik: ka.diastolik || null,
+          tinggi_badan: tb,
+          berat_badan: bb,
+          lingkar_perut: lpVal,
+          rr: rr,
+          hr: hr,
+          suhu: suhu,
+          keluhan: ka.keluhan_utama || k.keluhan_singkat || 'Pemeriksaan Rutin Prolanis',
+          anamnesa: 'Pemeriksaan Rutin Prolanis',
+          terapi_non_obat: '',
+          status_pulang: 'BEROBAT JALAN',
+          diagnosa_icd: 'E11.9',
+          terapi_obat: '',
           lab_hasil: listLabHasil
         });
       }

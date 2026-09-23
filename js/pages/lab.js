@@ -2117,6 +2117,7 @@ const Lab = (() => {
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnAnamnesaSky" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
+                <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunci" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
               </div>
             </div>
@@ -2533,6 +2534,7 @@ const Lab = (() => {
                 <button id="btnHasilSkyFisik" style="background:#1565c0; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Hasil Px</button>
                 <button id="btnAnamnesaSkyFisik" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
                 <button id="btnWaFisik" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
+                <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunciFisik" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
               </div>
             </div>
@@ -2896,6 +2898,7 @@ const Lab = (() => {
                 <button id="btnHasilSkyAnamnesa" style="background:#1565c0; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Hasil Px</button>
                 <button id="btnFisikSkyAnamnesa" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnWaAnamnesa" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
+                <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunciAnamnesa" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
               </div>
             </div>

@@ -66,7 +66,8 @@ const Laporan = (() => {
   async function render(el, param) {
     if (param && param[0]) tabAktif = param[0];
     if (tabAktif === 'puskesmas') tabAktif = 'ringkasan';
-    if (tabAktif !== 'ringkasan' && !bolehAdmin()) tabAktif = 'ringkasan';
+    const bolehProlanis = bolehAdmin() || App.boleh('lab') || App.boleh('laporan');
+    if (tabAktif !== 'ringkasan' && !bolehAdmin() && !(tabAktif === 'prolanis' && bolehProlanis)) tabAktif = 'ringkasan';
 
     const TAB = [
       ['ringkasan', 'Ringkasan'],
@@ -74,9 +75,12 @@ const Laporan = (() => {
         ['overview', 'Overview & Tren'],
         ['rujukan', 'Rujukan'],
         ['register', 'Registrasi Lab'],
+        ['prolanis', 'Ekspor Prolanis'],
         ['keuangan', 'Keuangan'],
         ['karyawan', 'Karyawan'],
-      ] : [])
+      ] : (bolehProlanis ? [
+        ['prolanis', 'Ekspor Prolanis']
+      ] : []))
     ];
 
     el.innerHTML = `
@@ -111,6 +115,7 @@ const Laporan = (() => {
       if (tabAktif === 'overview')  return await tabOverview(w);
       if (tabAktif === 'rujukan')   return await tabRujukan(w);
       if (tabAktif === 'register')  return await tabRegister(w);
+      if (tabAktif === 'prolanis')  return await tabProlanis(w);
       if (tabAktif === 'keuangan')  return await tabKeuangan(w);
       if (tabAktif === 'karyawan')  return await tabKaryawan(w);
     } catch (e) {
@@ -2155,6 +2160,524 @@ const Laporan = (() => {
     w.querySelector('#karCetak').addEventListener('click', () => {
       window.print();
     });
+
+    await muat();
+  }
+
+  /* ==================================================================== */
+  /*  TAB EKSPOR PROLANIS (Format Rekapitulasi Pelayanan Prolanis / BPJS) */
+  /* ==================================================================== */
+
+  let xlsxSiap = null;
+  function muatSheetJS() {
+    if (typeof XLSX !== 'undefined') return Promise.resolve();
+    if (xlsxSiap) return xlsxSiap;
+    xlsxSiap = new Promise((ok, gagal) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = ok;
+      s.onerror = () => gagal(new Error('Gagal memuat pustaka Excel (SheetJS).'));
+      document.head.appendChild(s);
+    }).catch(e => { xlsxSiap = null; throw e; });
+    return xlsxSiap;
+  }
+
+  function formatDesimalPl(val) {
+    if (val == null || val === '') return '';
+    const s = String(val).trim();
+    return s.replace('.', ',');
+  }
+
+  function ekstrakNilaiProlanis(item) {
+    const res = {
+      cho: '', tg: '', hdl: '', ldl: '', ur: '', cre: '', mau: '',
+      hba1c: '', gdp: '', gdpp: '', gds: ''
+    };
+    const listHasil = item.lab_hasil || [];
+    for (const h of listHasil) {
+      const kode = ((h.ref_lab && h.ref_lab.kode) || h.kode || '').toUpperCase();
+      const nm = (h.nama || '').toLowerCase();
+      const val = h.nilai_angka != null ? formatDesimalPl(h.nilai_angka) : (h.nilai_teks || '').trim();
+      if (!val) continue;
+
+      if (kode === 'CHOL' || kode === 'CHO' || nm.includes('kolesterol total') || nm.includes('cholesterol')) res.cho = val;
+      else if (kode === 'TG' || nm.includes('trigliserida') || nm.includes('triglycerid')) res.tg = val;
+      else if (kode === 'HDL' || nm.includes('hdl')) res.hdl = val;
+      else if (kode === 'LDL' || nm.includes('ldl')) res.ldl = val;
+      else if (kode === 'UREUM' || kode === 'UR' || nm.includes('ureum') || nm.includes('urea')) res.ur = val;
+      else if (kode === 'KREAT' || kode === 'CRE' || nm.includes('kreatinin') || nm.includes('creatinin')) res.cre = val;
+      else if (kode === 'MAU' || nm.includes('mikroalbumin') || nm.includes('microalbumin')) res.mau = val;
+      else if (kode === 'HBA1C' || nm.includes('hba1c')) res.hba1c = val;
+      else if (kode === 'GDP' || (nm.includes('puasa') && !nm.includes('2 jam'))) res.gdp = val;
+      else if (kode === 'GD2PP' || kode === 'GDPP' || nm.includes('2 jam') || nm.includes('gd2pp')) res.gdpp = val;
+      else if (kode === 'GDS' || (nm.includes('sewaktu') || nm.includes('gds'))) res.gds = val;
+    }
+    return res;
+  }
+
+  async function tabProlanis(w) {
+    const akhir = UI.hariIni();
+    const awal = UI.bulanIni() + '-01';
+
+    // Ambil master rekanan untuk dropdown
+    let masterRekanan = [];
+    try {
+      masterRekanan = await DB.daftarRekanan() || [];
+    } catch (_) {}
+
+    w.innerHTML = `
+      <style>
+        .tbl-prolanis th { text-align: center; vertical-align: middle; padding: 6px 8px; border: 1px solid #c8e6c9; font-weight: 700; }
+        .tbl-prolanis td { padding: 5px 8px; border: 1px solid #e0e0e0; vertical-align: middle; white-space: nowrap; }
+        .th-pasien { background: #eef2f6; color: #1e293b; }
+        .th-fisik { background: #e0f2fe; color: #0369a1; }
+        .th-kimia { background: #fee2e2; color: #991b1b; }
+        .th-hba1c { background: #fef3c7; color: #92400e; }
+        .th-gula { background: #ffedd5; color: #9a3412; }
+        .td-num { text-align: center; font-variant-numeric: tabular-nums; }
+        .td-kimia { background: #fff5f5; text-align: center; }
+        .td-gula { background: #fffaf0; text-align: center; }
+        .td-fisik { background: #f8fafc; text-align: center; }
+        .badge-kpi { font-size: 11px; padding: 2px 7px; border-radius: 99px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+      </style>
+
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="flex items-center gap-12 flex-wrap mb-12">
+            <!-- Filter Tanggal -->
+            <div class="flex items-center gap-8 periode-group" style="flex-shrink:0;">
+              <label class="mb-0 font-medium">Periode</label>
+              <input type="date" id="plDari" value="${awal}" class="control-auto" style="width:130px;">
+              <span class="text-muted">s.d.</span>
+              <input type="date" id="plSampai" value="${akhir}" class="control-auto" style="width:130px;">
+            </div>
+
+            <!-- Tombol Cepat Periode -->
+            <div class="flex gap-4">
+              <button class="btn btn-secondary btn-sm" id="btnPlHariIni" type="button">Hari Ini</button>
+              <button class="btn btn-secondary btn-sm" id="btnPlBulanIni" type="button">Bulan Ini</button>
+              <button class="btn btn-secondary btn-sm" id="btnPlBulanLalu" type="button">Bulan Lalu</button>
+            </div>
+
+            <!-- Filter Rekanan -->
+            <div class="flex items-center gap-8">
+              <label class="mb-0 font-medium">Rekanan</label>
+              <select id="plRekanan" class="control-auto" style="min-width: 220px; max-width: 320px;" title="Filter Rekanan / Faskes / Dokter Pengirim">
+                <option value="">Semua Rekanan / FKTP</option>
+                ${masterRekanan.map(r => `<option value="${UI.esc(r.nama)}">${UI.esc(r.nama)}</option>`).join('')}
+              </select>
+            </div>
+
+            <!-- Filter Cara Bayar -->
+            <div class="flex items-center gap-8">
+              <label class="mb-0 font-medium">Penjamin</label>
+              <select id="plCaraBayar" class="control-auto" title="Filter Cara Bayar">
+                <option value="SEMUA">Semua Penjamin</option>
+                <option value="BPJS" selected>BPJS</option>
+                <option value="UMUM">Umum</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary btn-sm" id="btnPlTampilkan">
+              ${UI.ikon('cari', 14)} Tampilkan
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between gap-12 flex-wrap pt-8 border-t" style="border-color:#edf2f7;">
+            <!-- Live Search -->
+            <div class="search-box min-w-240">
+              <span class="ico">${UI.ikon('cari', 16)}</span>
+              <input type="search" id="plCari" placeholder="Cari nama pasien, no. BPJS, atau no. RM…">
+            </div>
+
+            <!-- Export Buttons -->
+            <div class="flex items-center gap-8">
+              <button class="btn btn-sm" id="btnPlUnduhXlsx" style="background:#16a34a; color:#fff; border:none; font-weight:600; padding:6px 14px; border-radius:4px; display:inline-flex; align-items:center; gap:6px;">
+                ${UI.ikon('unduh', 15)} Unduh Excel (.xlsx)
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnPlUnduhCsv">
+                ${UI.ikon('dokumen', 15)} Unduh CSV
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnPlCetak">
+                ${UI.ikon('cetak', 15)} Cetak
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ringkasan KPI -->
+      <div id="plKpi" class="mb-16"></div>
+
+      <!-- Tabel Pratinjau -->
+      <div id="plIsi">${UI.memuat(4)}</div>
+    `;
+
+    let rowsSemua = [];
+
+    // Helper tombol cepat tanggal
+    w.querySelector('#btnPlHariIni').addEventListener('click', () => {
+      w.querySelector('#plDari').value = UI.hariIni();
+      w.querySelector('#plSampai').value = UI.hariIni();
+      muat();
+    });
+    w.querySelector('#btnPlBulanIni').addEventListener('click', () => {
+      w.querySelector('#plDari').value = UI.bulanIni() + '-01';
+      w.querySelector('#plSampai').value = UI.hariIni();
+      muat();
+    });
+    w.querySelector('#btnPlBulanLalu').addEventListener('click', () => {
+      const blnLalu = UI.geserBulan(UI.bulanIni(), -1);
+      const [thn, bln] = blnLalu.split('-');
+      const akhirBln = new Date(thn, bln, 0).getDate();
+      w.querySelector('#plDari').value = `${blnLalu}-01`;
+      w.querySelector('#plSampai').value = `${blnLalu}-${String(akhirBln).padStart(2, '0')}`;
+      muat();
+    });
+
+    w.querySelector('#btnPlTampilkan').addEventListener('click', () => muat());
+    w.querySelector('#plRekanan').addEventListener('change', () => muat());
+    w.querySelector('#plCaraBayar').addEventListener('change', () => muat());
+    w.querySelector('#plCari').addEventListener('input', UI.tunda(() => saring(), 250));
+
+    // Tombol Unduh Excel
+    w.querySelector('#btnPlUnduhXlsx').addEventListener('click', () => {
+      const terfilter = dapatkanTerfilter();
+      const dari = w.querySelector('#plDari').value;
+      const sampai = w.querySelector('#plSampai').value;
+      const rekanan = w.querySelector('#plRekanan').value;
+      unduhExcelProlanis(terfilter, dari, sampai, rekanan);
+    });
+
+    // Tombol Unduh CSV
+    w.querySelector('#btnPlUnduhCsv').addEventListener('click', () => {
+      const terfilter = dapatkanTerfilter();
+      const dari = w.querySelector('#plDari').value;
+      const sampai = w.querySelector('#plSampai').value;
+      const rekanan = w.querySelector('#plRekanan').value;
+      unduhCsvProlanis(terfilter, dari, sampai, rekanan);
+    });
+
+    // Tombol Cetak
+    w.querySelector('#btnPlCetak').addEventListener('click', () => {
+      window.print();
+    });
+
+    const muat = async () => {
+      const dari = w.querySelector('#plDari').value;
+      const sampai = w.querySelector('#plSampai').value;
+      const rekanan = w.querySelector('#plRekanan').value;
+      const caraBayar = w.querySelector('#plCaraBayar').value;
+
+      const isi = w.querySelector('#plIsi');
+      isi.innerHTML = UI.memuat(4);
+
+      try {
+        rowsSemua = await DB.prolanisEksporPelayanan(dari, sampai, caraBayar, rekanan);
+        saring();
+      } catch (e) {
+        isi.innerHTML = `<div class="banner err"><div><b>Gagal memuat data Prolanis:</b> ${UI.esc(e.message || e)}</div></div>`;
+      }
+    };
+
+    const dapatkanTerfilter = () => {
+      const q = (w.querySelector('#plCari')?.value || '').trim().toLowerCase();
+      if (!q) return rowsSemua;
+      return rowsSemua.filter(r => {
+        const cariString = [r.nama_pasien, r.no_rm, r.no_bpjs, r.fktp, r.alamat, r.dokter_nama].filter(Boolean).join(' ').toLowerCase();
+        return cariString.includes(q);
+      });
+    };
+
+    const saring = () => {
+      const data = dapatkanTerfilter();
+      gambarKpi(data);
+      gambarTabel(data);
+    };
+
+    const gambarKpi = (data) => {
+      const kpiEl = w.querySelector('#plKpi');
+      if (!kpiEl) return;
+
+      let jmlFisik = 0, jmlKimia = 0, jmlHba1c = 0, jmlGula = 0;
+      data.forEach(r => {
+        if (r.tensi || r.tinggi_badan || r.berat_badan || r.lingkar_perut) jmlFisik++;
+        const lab = ekstrakNilaiProlanis(r);
+        if (lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau) jmlKimia++;
+        if (lab.hba1c) jmlHba1c++;
+        if (lab.gdp || lab.gdpp || lab.gds) jmlGula++;
+      });
+
+      kpiEl.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+          <div class="stat p-12" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+            <div class="lbl text-muted" style="font-size:11px;">TOTAL PASIEN</div>
+            <div class="val tabular font-bold" style="font-size:22px; color:#1e293b;">${data.length}</div>
+            <div class="hint text-xs text-muted">Data pelayanan tercatat</div>
+          </div>
+          <div class="stat p-12" style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;">
+            <div class="lbl" style="font-size:11px; color:#0369a1;">PEMERIKSAAN FISIK</div>
+            <div class="val tabular font-bold" style="font-size:22px; color:#0284c7;">${jmlFisik}</div>
+            <div class="hint text-xs" style="color:#0369a1;">Tensi, TB, BB, LP terisi</div>
+          </div>
+          <div class="stat p-12" style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px;">
+            <div class="lbl" style="font-size:11px; color:#991b1b;">KIMIA DARAH</div>
+            <div class="val tabular font-bold" style="font-size:22px; color:#dc2626;">${jmlKimia}</div>
+            <div class="hint text-xs" style="color:#991b1b;">CHO, TG, HDL, LDL, UR, CRE</div>
+          </div>
+          <div class="stat p-12" style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px;">
+            <div class="lbl" style="font-size:11px; color:#92400e;">EVALUASI HBA1C</div>
+            <div class="val tabular font-bold" style="font-size:22px; color:#d97706;">${jmlHba1c}</div>
+            <div class="hint text-xs" style="color:#92400e;">Siklus evaluasi DM</div>
+          </div>
+          <div class="stat p-12" style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px;">
+            <div class="lbl" style="font-size:11px; color:#9a3412;">GULA DARAH</div>
+            <div class="val tabular font-bold" style="font-size:22px; color:#ea580c;">${jmlGula}</div>
+            <div class="hint text-xs" style="color:#9a3412;">GDP, GDPP, GDS</div>
+          </div>
+        </div>
+      `;
+    };
+
+    const gambarTabel = (data) => {
+      const isi = w.querySelector('#plIsi');
+      if (!data.length) {
+        isi.innerHTML = `
+          <div class="card p-24 text-center">
+            <p class="text-muted" style="font-size:14px; margin:0 0 6px;">Tidak ada data pelayanan Prolanis yang ditemukan untuk filter ini.</p>
+            <p class="text-xs text-muted" style="margin:0;">Silakan sesuaikan tanggal atau pilihan rekanan di atas.</p>
+          </div>
+        `;
+        return;
+      }
+
+      isi.innerHTML = `
+        <div class="card p-0" style="border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
+          <div style="overflow-x:auto; max-height:640px;">
+            <table class="tbl tbl-prolanis" style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead style="position:sticky; top:0; z-index:3; box-shadow:0 2px 4px rgba(0,0,0,.06);">
+                <!-- Baris Header 1 -->
+                <tr>
+                  <th rowspan="2" class="th-pasien" style="width:40px;">NO</th>
+                  <th rowspan="2" class="th-pasien" style="width:90px;">TGL PLY</th>
+                  <th rowspan="2" class="th-pasien" style="width:120px;">NO BPJS</th>
+                  <th rowspan="2" class="th-pasien" style="width:160px;">NAMA PESERTA</th>
+                  <th rowspan="2" class="th-pasien" style="width:140px;">REKANAN / FKTP</th>
+                  <th rowspan="2" class="th-fisik" style="width:75px;">TENSI</th>
+                  <th rowspan="2" class="th-fisik" style="width:50px;">TB</th>
+                  <th rowspan="2" class="th-fisik" style="width:50px;">BB</th>
+                  <th rowspan="2" class="th-fisik" style="width:50px;">LP</th>
+                  <th rowspan="2" class="th-fisik" style="width:50px;">RR</th>
+                  <th rowspan="2" class="th-fisik" style="width:50px;">HR</th>
+                  <th colspan="7" class="th-kimia">PELAYANAN KIMIA DARAH</th>
+                  <th rowspan="2" class="th-hba1c" style="width:70px;">HBA1C</th>
+                  <th colspan="3" class="th-gula">PELAYANAN GULA DARAH</th>
+                </tr>
+                <!-- Baris Header 2 (Sub-kolom Kimia & Gula Darah) -->
+                <tr>
+                  <th class="th-kimia" style="width:55px;">CHO</th>
+                  <th class="th-kimia" style="width:55px;">TG</th>
+                  <th class="th-kimia" style="width:55px;">HDL</th>
+                  <th class="th-kimia" style="width:55px;">LDL</th>
+                  <th class="th-kimia" style="width:55px;">UR</th>
+                  <th class="th-kimia" style="width:55px;">CRE</th>
+                  <th class="th-kimia" style="width:55px;">MAU</th>
+                  <th class="th-gula" style="width:55px;">GDP</th>
+                  <th class="th-gula" style="width:55px;">GDPP</th>
+                  <th class="th-gula" style="width:55px;">GDS</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map((r, i) => {
+                  const lab = ekstrakNilaiProlanis(r);
+                  const isGenap = i % 2 === 0;
+                  const bgRow = isGenap ? '#ffffff' : '#fcfcfc';
+                  return `
+                    <tr style="background:${bgRow};">
+                      <td class="td-num text-muted">${i + 1}</td>
+                      <td class="td-num">${UI.esc(r.tgl_pelayanan || '')}</td>
+                      <td class="td-num" style="font-family:monospace; font-size:11px;">${UI.esc(r.no_bpjs || '-')}</td>
+                      <td><b>${UI.esc(r.nama_pasien || '')}</b></td>
+                      <td><span style="color:#0f766e; font-weight:600;">${UI.esc(r.fktp || '-')}</span></td>
+                      <td class="td-num td-fisik"><b>${UI.esc(r.tensi || '-')}</b></td>
+                      <td class="td-num td-fisik">${UI.esc(r.tinggi_badan || '-')}</td>
+                      <td class="td-num td-fisik">${UI.esc(r.berat_badan || '-')}</td>
+                      <td class="td-num td-fisik">${UI.esc(r.lingkar_perut || '-')}</td>
+                      <td class="td-num td-fisik">${UI.esc(r.rr || '-')}</td>
+                      <td class="td-num td-fisik">${UI.esc(r.hr || '-')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.cho || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.tg || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.hdl || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.ldl || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.ur || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.cre || '')}</td>
+                      <td class="td-kimia td-num font-medium">${UI.esc(lab.mau || '')}</td>
+                      <td class="td-num" style="background:#fffef5; font-weight:700; color:#b45309;">${UI.esc(lab.hba1c || '')}</td>
+                      <td class="td-gula td-num font-medium">${UI.esc(lab.gdp || '')}</td>
+                      <td class="td-gula td-num font-medium">${UI.esc(lab.gdpp || '')}</td>
+                      <td class="td-gula td-num font-medium">${UI.esc(lab.gds || '')}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+
+    // Ekspor Excel .xlsx dengan multi-level merged headers
+    async function unduhExcelProlanis(dataTampil, tglMulai, tglSelesai, namaRekanan) {
+      if (!dataTampil.length) {
+        UI.toast('Tidak ada data untuk diunduh.', 'warn');
+        return;
+      }
+      try {
+        UI.toast('Menyiapkan berkas Excel Prolanis...', 'info', 1500);
+        await muatSheetJS();
+        const wb = XLSX.utils.book_new();
+
+        const aoa = [
+          ['DATA INPUTAN PELAYANAN PROLANIS'],
+          [`PERIODE: ${tglMulai} s.d ${tglSelesai} | REKANAN: ${namaRekanan || 'SEMUA REKANAN'}`],
+          [],
+          [
+            'NO', 'TGL PLY', 'NO BPJS', 'NAMA PESERTA', 'ALAMAT', 'FKTP / REKANAN', 'DOKTER PENGIRIM',
+            'TENSI', 'TB', 'BB', 'LP', 'RR', 'HR',
+            'PELAYANAN KIMIA DARAH', '', '', '', '', '', '',
+            'HBA1C',
+            'PELAYANAN GULA DARAH', '', ''
+          ],
+          [
+            '', '', '', '', '', '', '',
+            '', '', '', '', '', '',
+            'CHO', 'TG', 'HDL', 'LDL', 'UR', 'CRE', 'MAU',
+            '',
+            'GDP', 'GDPP', 'GDS'
+          ]
+        ];
+
+        dataTampil.forEach((row, idx) => {
+          const lab = ekstrakNilaiProlanis(row);
+          aoa.push([
+            idx + 1,
+            row.tgl_pelayanan || '',
+            row.no_bpjs || '',
+            row.nama_pasien || '',
+            row.alamat || '',
+            row.fktp || '',
+            row.dokter_nama || '',
+            row.tensi || '',
+            row.tinggi_badan || '',
+            row.berat_badan || '',
+            row.lingkar_perut || '',
+            row.rr || '',
+            row.hr || '',
+            lab.cho,
+            lab.tg,
+            lab.hdl,
+            lab.ldl,
+            lab.ur,
+            lab.cre,
+            lab.mau,
+            lab.hba1c,
+            lab.gdp,
+            lab.gdpp,
+            lab.gds
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // Merge range
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 23 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 23 } },
+          { s: { r: 3, c: 0 }, e: { r: 4, c: 0 } },  // NO
+          { s: { r: 3, c: 1 }, e: { r: 4, c: 1 } },  // TGL PLY
+          { s: { r: 3, c: 2 }, e: { r: 4, c: 2 } },  // NO BPJS
+          { s: { r: 3, c: 3 }, e: { r: 4, c: 3 } },  // NAMA
+          { s: { r: 3, c: 4 }, e: { r: 4, c: 4 } },  // ALAMAT
+          { s: { r: 3, c: 5 }, e: { r: 4, c: 5 } },  // FKTP
+          { s: { r: 3, c: 6 }, e: { r: 4, c: 6 } },  // DOKTER
+          { s: { r: 3, c: 7 }, e: { r: 4, c: 7 } },  // TENSI
+          { s: { r: 3, c: 8 }, e: { r: 4, c: 8 } },  // TB
+          { s: { r: 3, c: 9 }, e: { r: 4, c: 9 } },  // BB
+          { s: { r: 3, c: 10 }, e: { r: 4, c: 10 } }, // LP
+          { s: { r: 3, c: 11 }, e: { r: 4, c: 11 } }, // RR
+          { s: { r: 3, c: 12 }, e: { r: 4, c: 12 } }, // HR
+          { s: { r: 3, c: 13 }, e: { r: 3, c: 19 } }, // KIMIA DARAH (CHO-MAU)
+          { s: { r: 3, c: 20 }, e: { r: 4, c: 20 } }, // HBA1C
+          { s: { r: 3, c: 21 }, e: { r: 3, c: 23 } }, // GULA DARAH (GDP-GDS)
+        ];
+
+        // Lebar kolom
+        ws['!cols'] = [
+          { wch: 5 },  { wch: 12 }, { wch: 16 }, { wch: 25 }, { wch: 22 }, { wch: 22 }, { wch: 22 },
+          { wch: 10 }, { wch: 6 },  { wch: 6 },  { wch: 6 },  { wch: 6 },  { wch: 6 },
+          { wch: 8 },  { wch: 8 },  { wch: 8 },  { wch: 8 },  { wch: 8 },  { wch: 8 },  { wch: 8 },
+          { wch: 9 },  { wch: 8 },  { wch: 8 },  { wch: 8 }
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Pelayanan Prolanis');
+        const tagRekanan = namaRekanan ? `_${namaRekanan.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        const namaFile = `rekap_prolanis_${tglMulai}_sd_${tglSelesai}${tagRekanan}.xlsx`;
+        XLSX.writeFile(wb, namaFile);
+        UI.toast(`Berhasil mengunduh ${dataTampil.length} data ke Excel!`, 'ok');
+      } catch (err) {
+        console.error('Gagal unduh excel:', err);
+        UI.toast('Gagal mengunduh Excel: ' + (err.message || err), 'err');
+      }
+    }
+
+    // Ekspor CSV Prolanis
+    function unduhCsvProlanis(dataTampil, tglMulai, tglSelesai, namaRekanan) {
+      if (!dataTampil.length) {
+        UI.toast('Tidak ada data untuk diunduh.', 'warn');
+        return;
+      }
+      const bersih = (v) => {
+        const s = (v ?? '').toString().replace(/"/g, '""');
+        return /[",\n;]/.test(s) ? `"${s}"` : s;
+      };
+
+      const header = [
+        'NO', 'TGL PLY', 'NO BPJS', 'NAMA PESERTA', 'ALAMAT', 'FKTP / REKANAN', 'DOKTER PENGIRIM',
+        'TENSI', 'TB', 'BB', 'LP', 'RR', 'HR',
+        'CHO', 'TG', 'HDL', 'LDL', 'UR', 'CRE', 'MAU', 'HBA1C', 'GDP', 'GDPP', 'GDS'
+      ];
+
+      const baris = dataTampil.map((row, idx) => {
+        const lab = ekstrakNilaiProlanis(row);
+        return [
+          idx + 1,
+          row.tgl_pelayanan || '',
+          row.no_bpjs || '',
+          row.nama_pasien || '',
+          row.alamat || '',
+          row.fktp || '',
+          row.dokter_nama || '',
+          row.tensi || '',
+          row.tinggi_badan || '',
+          row.berat_badan || '',
+          row.lingkar_perut || '',
+          row.rr || '',
+          row.hr || '',
+          lab.cho, lab.tg, lab.hdl, lab.ldl, lab.ur, lab.cre, lab.mau,
+          lab.hba1c, lab.gdp, lab.gdpp, lab.gds
+        ].map(bersih).join(';');
+      });
+
+      const isi = [header.join(';'), ...baris].join('\r\n');
+      const blob = new Blob(['\ufeff' + isi], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const tagRekanan = namaRekanan ? `_${namaRekanan.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+      a.download = `rekap_prolanis_${tglMulai}_sd_${tglSelesai}${tagRekanan}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      UI.toast(`Berhasil mengunduh CSV (${dataTampil.length} baris).`, 'ok');
+    }
 
     await muat();
   }
