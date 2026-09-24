@@ -18,11 +18,11 @@ DB_MODE = "SUPABASE"
 # ---------------------------------------------------------------------------
 # 2. KONFIGURASI SUPABASE (Aktif Sekarang)
 # ---------------------------------------------------------------------------
-SUPABASE_URL = "https://gicekgdzymdbtlxwqmvd.supabase.co"
+SUPABASE_URL = "http://187.53.142.245:8001"
 SUPABASE_ANON_KEY = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpY2VrZ2R6eW1kYnRseHdxbXZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NDc0NjIsImV4cCI6MjEwNTAyMzQ2Mn0."
-    "3yKSwH5G-VTQCg36eujWaH2GV_aRwVjaM8JAt6ocGms"
+    "eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0."
+    "dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE"
 )
 # Kunci service_role (opsional, jika ingin bypass RLS langsung dari backend bridge)
 SUPABASE_SERVICE_KEY = ""
