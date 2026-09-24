@@ -206,7 +206,18 @@ const App = (() => {
     document.getElementById('btnKeluar').innerHTML = UI.ikon('keluar', 16);
     document.getElementById('btnMenu').innerHTML = UI.ikon('antrian', 18);
 
-    document.getElementById('btnKeluar').addEventListener('click', async () => {
+    const cardUser = document.querySelector('.sidebar-user');
+    if (cardUser) {
+      cardUser.style.cursor = 'pointer';
+      cardUser.title = 'Buka Pengaturan Profil Saya';
+      cardUser.addEventListener('click', (e) => {
+        if (e.target.closest('#btnKeluar')) return;
+        location.hash = '#/pengaturan/profil';
+      });
+    }
+
+    document.getElementById('btnKeluar').addEventListener('click', async (e) => {
+      e.stopPropagation();
       if (await UI.konfirmasi('Keluar dari aplikasi?',
           'Anda perlu memasukkan email dan kata sandi lagi untuk masuk.', 'Keluar')) {
         await DB.keluar(); location.replace('index.html');

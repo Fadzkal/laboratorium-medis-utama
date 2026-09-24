@@ -8,7 +8,7 @@
    saat dibuka untuk peran lain. */
 const Pengaturan = (() => {
 
-  let tabAktif = 'klinik';
+  let tabAktif = 'profil';
 
   async function render(el, param) {
     if (!App.boleh('menu_pengaturan')) {
@@ -16,10 +16,14 @@ const Pengaturan = (() => {
       return;
     }
     if (param && param[0]) tabAktif = param[0];
-    if (tabAktif === 'hak' && !App.boleh('hak_akses')) tabAktif = 'klinik';
-    if (tabAktif === 'pengguna' && App.siapa()?.peran !== 'master') tabAktif = 'klinik';
+    if (tabAktif === 'hak' && !App.boleh('hak_akses')) tabAktif = 'profil';
+    if (tabAktif === 'pengguna' && App.siapa()?.peran !== 'master') tabAktif = 'profil';
 
-    const semuaTab = [['klinik','Profil Klinik'],['poli','Poli']];
+    const semuaTab = [
+      ['profil','Profil Saya'],
+      ['klinik','Profil Klinik'],
+      ['poli','Poli']
+    ];
     if (App.siapa()?.peran === 'master') semuaTab.push(['pengguna','Pengguna']);
     semuaTab.push(
        ['surat','Kop &amp; Surat'],['resep','Resep'],
@@ -31,7 +35,7 @@ const Pengaturan = (() => {
       <div class="page-header mb-16">
         <div class="page-heading">
           <h1>Pengaturan</h1>
-          <div class="page-sub">Profil klinik, poli, pengguna, dan status bridging.</div>
+          <div class="page-sub">Profil akun Anda, klinik, poli, pengguna, dan status bridging.</div>
         </div>
       </div>
       <div class="tabs" id="tabs">
@@ -54,6 +58,7 @@ const Pengaturan = (() => {
   async function gambarTab(w) {
     w.innerHTML = UI.memuat(3);
     try {
+      if (tabAktif === 'profil')   return await tabProfilSaya(w);
       if (tabAktif === 'klinik')   return await tabKlinik(w);
       if (tabAktif === 'poli')     return await tabPoli(w);
       if (tabAktif === 'pengguna') return await tabPengguna(w);
@@ -65,6 +70,146 @@ const Pengaturan = (() => {
     } catch (e) {
       w.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
     }
+  }
+
+  /* ---------------- Profil Saya (Mandiri untuk Karyawan & Master) ---------------- */
+  async function tabProfilSaya(w) {
+    const saya = await DB.saya(true);
+    const inisial = UI.inisial(saya?.nama || 'U');
+    const labelPeran = saya?.peran === 'master' ? 'Pimpinan / Pemilik Lab (Master)' : (saya?.peran || 'Karyawan');
+
+    w.innerHTML = `
+      <div style="display:grid; grid-template-columns: minmax(280px, 320px) 1fr; gap:20px; align-items:start;">
+        
+        <!-- Kartu Identitas Akun -->
+        <div class="card" style="text-align:center; padding:24px 16px;">
+          <div style="width:76px; height:76px; border-radius:50%; background:linear-gradient(135deg, #0F766E, #0D9488); color:#fff; font-size:26px; font-weight:700; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; box-shadow:0 4px 12px rgba(15,118,110,0.25);" id="profilAvatarBox">
+            ${inisial}
+          </div>
+          <h2 style="font-size:18px; margin:0 0 4px; color:#0F172A;" id="profilNamaTampil">${UI.esc(saya?.nama || '-')}</h2>
+          <div style="font-size:12px; font-weight:600; color:#0F766E; margin-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
+            ${UI.esc(labelPeran)}
+          </div>
+          <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:12px; color:#64748B; text-align:left;">
+            <div style="margin-bottom:6px;"><b>Email Login:</b> <span class="mono text-xs" id="profilEmailTampil" style="color:#0F172A; font-weight:600;">${UI.esc(saya?.email || '-')}</span></div>
+            <div style="margin-bottom:6px;"><b>Hak Akses:</b> <span style="color:#0F766E; font-weight:600;">${UI.esc(saya?.peran || 'karyawan')}</span></div>
+            <div><b>Status Akun:</b> <span style="color:#16A34A; font-weight:600;">Aktif</span></div>
+          </div>
+        </div>
+
+        <!-- Formulir Ubah Profil & Sandi Mandiri -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Pengaturan Profil &amp; Kredensial</h2>
+              <div class="sub">Perbarui nama lengkap, alamat email masuk, dan kata sandi akun Anda</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="formProfilSaya" style="display:flex; flex-direction:column; gap:16px;">
+              <div class="field">
+                <label style="font-weight:600;">Nama Lengkap <span class="req">*</span></label>
+                <input type="text" id="inpProfilNama" value="${UI.esc(saya?.nama || '')}" required class="w-full">
+              </div>
+
+              <div class="field">
+                <label style="font-weight:600;">Email Login (Akun Masuk) <span class="req">*</span></label>
+                <input type="email" id="inpProfilEmail" value="${UI.esc(saya?.email || '')}" required class="w-full mono">
+                <div class="hint text-xs text-muted mt-1">Email ini digunakan untuk login ke sistem web RME.</div>
+              </div>
+
+              <div class="field">
+                <label style="font-weight:600;">Peran / Jabatan Sistem</label>
+                <input type="text" value="${UI.esc(labelPeran)}" disabled class="w-full" style="background:#F1F5F9; color:#64748B;">
+              </div>
+
+              <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:16px; margin-top:4px;">
+                <div style="font-weight:700; font-size:13px; color:#1E293B; margin-bottom:4px;">Ganti Kata Sandi Akun</div>
+                <div style="font-size:12px; color:#64748B; margin-bottom:12px;">Kosongkan jika Anda tidak ingin mengganti kata sandi.</div>
+
+                <div class="form-row c2">
+                  <div class="field">
+                    <label style="font-size:12px;">Kata Sandi Baru (Min. 6 Karakter)</label>
+                    <input type="password" id="inpProfilSandiBaru" placeholder="••••••••" minlength="6" class="w-full">
+                  </div>
+                  <div class="field">
+                    <label style="font-size:12px;">Ulangi Kata Sandi Baru</label>
+                    <input type="password" id="inpProfilKonfirmasiSandi" placeholder="••••••••" minlength="6" class="w-full">
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                <button type="submit" class="btn btn-primary" id="btnSimpanProfilSaya">
+                  ${UI.ikon('centang', 15)} Simpan Perubahan Profil
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    const form = w.querySelector('#formProfilSaya');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nama = w.querySelector('#inpProfilNama').value.trim();
+      const email = w.querySelector('#inpProfilEmail').value.trim();
+      const passBaru = w.querySelector('#inpProfilSandiBaru').value;
+      const passKonf = w.querySelector('#inpProfilKonfirmasiSandi').value;
+
+      if (!nama || nama.length < 2) {
+        UI.toast('Nama lengkap minimal 2 karakter.', 'err');
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        UI.toast('Format email tidak valid.', 'err');
+        return;
+      }
+      if (passBaru) {
+        if (passBaru.length < 6) {
+          UI.toast('Kata sandi baru minimal 6 karakter.', 'err');
+          return;
+        }
+        if (passBaru !== passKonf) {
+          UI.toast('Konfirmasi kata sandi tidak cocok. Harap periksa kembali.', 'err');
+          return;
+        }
+      }
+
+      const btn = w.querySelector('#btnSimpanProfilSaya');
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+
+      try {
+        await DB.ubahProfilSaya({
+          nama,
+          email,
+          password: passBaru || null
+        });
+
+        // Perbarui tampilan kartu
+        w.querySelector('#profilNamaTampil').textContent = nama;
+        w.querySelector('#profilEmailTampil').textContent = email;
+        w.querySelector('#profilAvatarBox').textContent = UI.inisial(nama);
+        w.querySelector('#inpProfilSandiBaru').value = '';
+        w.querySelector('#inpProfilKonfirmasiSandi').value = '';
+
+        // Perbarui elemen sidebar kiri bawah
+        const elNama = document.getElementById('userNama');
+        const elAvatar = document.getElementById('userAvatar');
+        if (elNama) elNama.textContent = nama;
+        if (elAvatar) elAvatar.textContent = UI.inisial(nama);
+
+        UI.toast('Profil dan kredensial login Anda berhasil disimpan!', 'ok');
+      } catch (err) {
+        UI.toast(err.message || 'Gagal menyimpan profil.', 'err');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `${UI.ikon('centang', 15)} Simpan Perubahan Profil`;
+      }
+    });
   }
 
   /* ---------------- Profil klinik ---------------- */
@@ -255,6 +400,7 @@ const Pengaturan = (() => {
               <thead>
                 <tr>
                   <th>Nama</th>
+                  <th>Email Login</th>
                   <th>Peran</th>
                   <th>Jenis Dokter</th>
                   <th>No. SIP / SIPA</th>
@@ -278,7 +424,7 @@ const Pengaturan = (() => {
       if (hitung) hitung.textContent = `${list.length} akun${labelKet}`;
 
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted p-16">Tidak ada pengguna yang cocok dengan pencarian.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted p-16">Tidak ada pengguna yang cocok dengan pencarian.</td></tr>`;
         return;
       }
 
@@ -286,6 +432,9 @@ const Pengaturan = (() => {
         <tr>
           <td>
             <input type="text" data-nama="${p.id}" value="${UI.esc(p.nama)}" class="ctl-sm" style="font-weight:600; min-width:140px;">
+          </td>
+          <td>
+            <span class="mono" style="font-size:12px; color:#0F172A; font-weight:500;">${UI.esc(p.email || '—')}</span>
           </td>
           <td>
             <select data-peran="${p.id}" class="ctl-sm" style="font-weight:600;">
@@ -316,8 +465,8 @@ const Pengaturan = (() => {
             </label>
           </td>
           <td style="text-align:center; white-space:nowrap;">
-            <button class="btn btn-secondary btn-sm" data-sandi="${p.id}" data-nama="${UI.esc(p.nama)}" title="Reset Kata Sandi">
-              Sandi
+            <button class="btn btn-secondary btn-sm" data-edit-akun="${p.id}" title="Edit Email & Sandi Pengguna">
+              Edit Akun
             </button>
             ${p.id !== sayaId ? `
               <button class="btn btn-danger btn-sm" data-hapus="${p.id}" data-nama="${UI.esc(p.nama)}" title="Hapus Pengguna">
@@ -359,35 +508,71 @@ const Pengaturan = (() => {
         UI.toast(error ? error.message : 'No. SIP/SIPA diperbarui.', error ? 'err' : 'ok');
       }));
 
-      tbody.querySelectorAll('[data-sandi]').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.dataset.sandi;
-        const nama = btn.dataset.nama;
+      tbody.querySelectorAll('[data-edit-akun]').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.dataset.editAkun;
+        const item = d.find(x => x.id === id);
+        if (!item) return;
+
         const formHtml = `
-          <div style="display:flex; flex-direction:column; gap:10px;">
-            <p style="margin:0; font-size:13px;">Masukkan kata sandi baru untuk <b>${UI.esc(nama)}</b>:</p>
-            <input type="password" id="inputSandiBaru" placeholder="Minimal 6 karakter" class="ctl-sm" style="width:100%; padding:8px;" required minlength="6">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="field">
+              <label style="font-weight:600;">Nama Lengkap *</label>
+              <input type="text" id="editModalNama" value="${UI.esc(item.nama || '')}" class="ctl-sm w-full" style="padding:7px 10px;" required>
+            </div>
+            <div class="field">
+              <label style="font-weight:600;">Email Login (Akun Masuk) *</label>
+              <input type="email" id="editModalEmail" value="${UI.esc(item.email || '')}" class="ctl-sm w-full mono" style="padding:7px 10px;" required>
+              <div class="hint text-xs text-muted mt-1">Gunakan format email resmi (misal: nama@labmedis.id).</div>
+            </div>
+            <div class="field">
+              <label style="font-weight:600;">Kata Sandi Baru</label>
+              <input type="password" id="editModalPassword" placeholder="Kosongkan jika sandi tidak diubah (min. 6 karakter)" class="ctl-sm w-full" style="padding:7px 10px;" minlength="6">
+              <div class="hint text-xs text-muted mt-1">Hanya isi jika ingin mereset/mengganti kata sandi staf ini.</div>
+            </div>
           </div>
         `;
+
         UI.modal({
-          judul: 'Reset Kata Sandi',
+          judul: 'Edit Akun & Kredensial: ' + item.nama,
           isi: formHtml,
           tombol: [
             { teks: 'Batal' },
             {
-              teks: 'Simpan Kata Sandi',
+              teks: 'Simpan Perubahan',
               kelas: 'btn-primary',
               aksi: async (m) => {
-                const pass = m.querySelector('#inputSandiBaru').value;
-                if (!pass || pass.length < 6) {
-                  UI.toast('Kata sandi minimal 6 karakter.', 'err');
+                const namaBaru = m.querySelector('#editModalNama').value.trim();
+                const emailBaru = m.querySelector('#editModalEmail').value.trim();
+                const passBaru = m.querySelector('#editModalPassword').value;
+
+                if (!namaBaru || namaBaru.length < 2) {
+                  UI.toast('Nama lengkap minimal 2 karakter.', 'err');
                   return false;
                 }
+                if (!emailBaru || !emailBaru.includes('@')) {
+                  UI.toast('Format email tidak valid.', 'err');
+                  return false;
+                }
+                if (passBaru && passBaru.length < 6) {
+                  UI.toast('Kata sandi baru minimal 6 karakter.', 'err');
+                  return false;
+                }
+
                 try {
-                  await DB.resetPasswordPengguna(id, pass);
-                  UI.toast('Kata sandi berhasil diubah.', 'ok');
+                  await DB.adminUbahPengguna({
+                    id: item.id,
+                    nama: namaBaru,
+                    email: emailBaru,
+                    password: passBaru || null
+                  });
+
+                  item.nama = namaBaru;
+                  item.email = emailBaru;
+                  UI.toast('Data akun & kredensial berhasil disimpan.', 'ok');
+                  renderBaris(filterList());
                   return true;
                 } catch (err) {
-                  UI.toast(err.message || 'Gagal mengubah kata sandi', 'err');
+                  UI.toast(err.message || 'Gagal mengubah data akun.', 'err');
                   return false;
                 }
               }
@@ -416,7 +601,10 @@ const Pengaturan = (() => {
       const q = (w.querySelector('#cariPegawai')?.value || '').toLowerCase().trim();
       const p = w.querySelector('#filterPeranPegawai')?.value || 'utama';
       return d.filter(x => {
-        const cocokKata = !q || (x.nama && x.nama.toLowerCase().includes(q)) || (x.no_sip && x.no_sip.toLowerCase().includes(q));
+        const cocokKata = !q
+          || (x.nama && x.nama.toLowerCase().includes(q))
+          || (x.email && x.email.toLowerCase().includes(q))
+          || (x.no_sip && x.no_sip.toLowerCase().includes(q));
         let cocokPeran = true;
         if (p === 'utama') {
           cocokPeran = x.peran === 'karyawan' || x.peran === 'master';

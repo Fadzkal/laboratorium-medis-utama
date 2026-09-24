@@ -117,6 +117,29 @@ const DB = (() => {
     if (error) throw error;
     return data;
   }
+  async function ubahProfilSaya(payload) {
+    const { data, error } = await sb.rpc('ubah_profil_saya', {
+      p_nama: payload.nama,
+      p_email: payload.email,
+      p_password_baru: payload.password || null
+    });
+    if (error) throw error;
+    if (_saya) {
+      _saya.nama = payload.nama;
+      _saya.email = payload.email;
+    }
+    return data;
+  }
+  async function adminUbahPengguna(payload) {
+    const { data, error } = await sb.rpc('admin_ubah_pengguna', {
+      p_id: payload.id,
+      p_nama: payload.nama,
+      p_email: payload.email,
+      p_password_baru: payload.password || null
+    });
+    if (error) throw error;
+    return data;
+  }
 
   /* ------------------------- Hak akses (9 Sep 2026) -------------------- */
   // Kode yang diizinkan untuk PERAN SENDIRI — dimuat sekali saat masuk
@@ -3803,7 +3826,7 @@ const DB = (() => {
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
     faskes, simpanFaskes,
     daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
-    tambahPengguna, hapusPengguna, resetPasswordPengguna,
+    tambahPengguna, hapusPengguna, resetPasswordPengguna, ubahProfilSaya, adminUbahPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
     cariPasien, daftarPasienLengkap, dataKronisBpjsPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
     antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
