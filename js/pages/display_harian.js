@@ -8,12 +8,21 @@
 const DisplayHarian = (() => {
 
   let state = {
-    bulanTahun: '',
-    instansi:   '',
-    status:     '',
-    cari:       '',
-    daftar:     [],
-    aktifId:    null
+    bulanTahun:  '',
+    instansi:    '',
+    optInstansi: '',
+    cari:        '',
+    optDokter:   '',
+    optBayar:    '',
+    bayar:       '',
+    optPx:       '',
+    px:          '',
+    status:      '',
+    noLab:       '',
+    optPetugas:  '',
+    petugas:     '',
+    daftar:      [],
+    aktifId:     null
   };
 
   /* ------------------------------------------------------------------ */
@@ -118,37 +127,53 @@ const DisplayHarian = (() => {
               <input type="month" id="dhBulan" value="${UI.esc(state.bulanTahun)}" style="max-width:130px">
             </div>
             <div class="fr">
-              <select id="dhInstansiOpt">
+              <select id="dhInstansiOpt" style="max-width:140px;">
                 <option value="">Semua Instansi</option>
-                <option value="umum">Umum</option>
-                <option value="bpjs">BPJS</option>
+                <option value="umum" ${state.optInstansi==='umum'?'selected':''}>Umum</option>
+                <option value="bpjs" ${state.optInstansi==='bpjs'?'selected':''}>BPJS</option>
               </select>
               <input type="text" id="dhInstansi" placeholder="Ketik instansi..." value="${UI.esc(state.instansi||'')}">
             </div>
             <div class="fr">
-              <select style="max-width:140px"><option>Semua Dokter/Pasien</option></select>
-              <input type="text" id="dhCari" placeholder="Nama / No Lab..." value="${UI.esc(state.cari||'')}">
-            </div>
-            <div class="fr">
-              <select style="max-width:140px"><option>Pembayaran(Semua)</option><option>Lunas</option><option>Belum Lunas</option></select>
-              <input type="text" disabled style="background:#f5f5f5">
-            </div>
-            <div class="fr">
-              <select style="max-width:140px"><option>Semua Px</option></select>
-              <input type="text" disabled style="background:#f5f5f5">
-            </div>
-            <div class="fr">
-              <select id="dhStatus" style="max-width:140px">
-                <option value="">Semua No Lab</option>
-                <option value="SELESAI">Selesai</option>
-                <option value="AKTIF">Belum Selesai</option>
+              <select id="dhOptDokter" style="max-width:140px;">
+                <option value="">Semua Dokter/Pasien</option>
               </select>
-              <input type="text" disabled style="background:#f5f5f5">
-              <button id="dhRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px" title="Refresh">${UI.ikon('ulang', 15)}</button>
+              <input type="text" id="dhCari" placeholder="Nama / No Lab / Pengirim..." value="${UI.esc(state.cari||'')}">
             </div>
             <div class="fr">
-              <select style="max-width:140px"><option>Semua Petugas</option></select>
-              <input type="text" disabled style="background:#f5f5f5">
+              <select id="dhOptBayar" style="max-width:140px;">
+                <option value="">Pembayaran(Semua)</option>
+                <option value="Lunas" ${state.optBayar==='Lunas'?'selected':''}>Lunas</option>
+                <option value="Belum Lunas" ${state.optBayar==='Belum Lunas'?'selected':''}>Belum Lunas</option>
+                <option value="UMUM" ${state.optBayar==='UMUM'?'selected':''}>Umum</option>
+                <option value="BPJS" ${state.optBayar==='BPJS'?'selected':''}>BPJS</option>
+              </select>
+              <input type="text" id="dhBayar" placeholder="Ketik status / bayar..." value="${UI.esc(state.bayar||'')}">
+            </div>
+            <div class="fr">
+              <select id="dhOptPx" style="max-width:140px;">
+                <option value="">Semua Px</option>
+                <option value="Hematologi" ${state.optPx==='Hematologi'?'selected':''}>Hematologi</option>
+                <option value="Kimia Klinik" ${state.optPx==='Kimia Klinik'?'selected':''}>Kimia Klinik</option>
+                <option value="Urin" ${state.optPx==='Urin'?'selected':''}>Urin</option>
+                <option value="Imunologi" ${state.optPx==='Imunologi'?'selected':''}>Imunologi</option>
+              </select>
+              <input type="text" id="dhPx" placeholder="Ketik nama Px..." value="${UI.esc(state.px||'')}">
+            </div>
+            <div class="fr">
+              <select id="dhStatus" style="max-width:140px;">
+                <option value="">Semua No Lab</option>
+                <option value="SELESAI" ${state.status==='SELESAI'?'selected':''}>Selesai</option>
+                <option value="AKTIF" ${state.status==='AKTIF'?'selected':''}>Belum Selesai</option>
+              </select>
+              <input type="text" id="dhNoLab" placeholder="Ketik No Lab..." value="${UI.esc(state.noLab||'')}">
+              <button id="dhRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
+            </div>
+            <div class="fr">
+              <select id="dhOptPetugas" style="max-width:140px;">
+                <option value="">Semua Petugas</option>
+              </select>
+              <input type="text" id="dhPetugas" placeholder="Ketik petugas / dokter..." value="${UI.esc(state.petugas||'')}">
             </div>
           </div>
           <div class="dh-list" id="dhDaftar">
@@ -166,7 +191,7 @@ const DisplayHarian = (() => {
       </div>
     `;
 
-    // Isi pilihan bulan (12 bulan ke belakang)
+    // Isi pilihan bulan (24 bulan ke belakang)
     const optBulan = el.querySelector('#dhOptBulan');
     const now = new Date();
     for (let i = 0; i < 24; i++) {
@@ -179,24 +204,78 @@ const DisplayHarian = (() => {
       if (val === state.bulanTahun) opt.selected = true;
       optBulan.appendChild(opt);
     }
-    optBulan.addEventListener('change', e => { state.bulanTahun = e.target.value || bulanIni(); el.querySelector('#dhBulan').value = state.bulanTahun; muat(); });
+    optBulan.addEventListener('change', e => {
+      state.bulanTahun = e.target.value || bulanIni();
+      el.querySelector('#dhBulan').value = state.bulanTahun;
+      muat();
+    });
+
+    // Muat daftar dokter & petugas untuk dropdown filter
+    try {
+      const dokList = await DB.daftarDokter();
+      const selDok = el.querySelector('#dhOptDokter');
+      const selPet = el.querySelector('#dhOptPetugas');
+      if (dokList && dokList.length) {
+        dokList.forEach(d => {
+          if (selDok) {
+            const o = document.createElement('option');
+            o.value = d.nama;
+            o.textContent = d.nama;
+            if (state.optDokter === d.nama) o.selected = true;
+            selDok.appendChild(o);
+          }
+          if (selPet) {
+            const o = document.createElement('option');
+            o.value = d.nama;
+            o.textContent = d.nama;
+            if (state.optPetugas === d.nama) o.selected = true;
+            selPet.appendChild(o);
+          }
+        });
+      }
+      const pegList = await DB.daftarPegawai();
+      if (pegList && pegList.length && selPet) {
+        pegList.forEach(p => {
+          if (!dokList || !dokList.some(d => d.nama === p.nama)) {
+            const o = document.createElement('option');
+            o.value = p.nama;
+            o.textContent = p.nama;
+            if (state.optPetugas === p.nama) o.selected = true;
+            selPet.appendChild(o);
+          }
+        });
+      }
+    } catch(err) {
+      console.warn('Gagal memuat dokter/petugas untuk filter:', err);
+    }
 
     const bind = (id, prop) => {
       const el2 = el.querySelector('#' + id);
       if (el2) el2.addEventListener('change', e => { state[prop] = e.target.value; muat(); });
     };
-    bind('dhBulan',   'bulanTahun');
-    bind('dhStatus',  'status');
-    bind('dhInstansiOpt', 'instansi');
+    bind('dhBulan',        'bulanTahun');
+    bind('dhStatus',       'status');
+    bind('dhInstansiOpt',  'optInstansi');
+    bind('dhOptDokter',    'optDokter');
+    bind('dhOptBayar',     'optBayar');
+    bind('dhOptPx',        'optPx');
+    bind('dhOptPetugas',   'optPetugas');
 
-    const dbounce = (id, prop, ms = 400) => {
+    const dbounce = (id, prop, ms = 300) => {
       const inp = el.querySelector('#' + id);
       if (!inp) return;
       let t;
-      inp.addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { state[prop] = e.target.value; muat(); }, ms); });
+      inp.addEventListener('input', e => {
+        clearTimeout(t);
+        t = setTimeout(() => { state[prop] = e.target.value; muat(); }, ms);
+      });
     };
-    dbounce('dhCari',    'cari');
+    dbounce('dhCari',     'cari');
     dbounce('dhInstansi', 'instansi');
+    dbounce('dhBayar',    'bayar');
+    dbounce('dhPx',       'px');
+    dbounce('dhNoLab',    'noLab');
+    dbounce('dhPetugas',  'petugas');
 
     el.querySelector('#dhRefresh').onclick = () => muat();
 
@@ -210,27 +289,117 @@ const DisplayHarian = (() => {
         const { dari, sampai } = rentangBulan(state.bulanTahun);
         let data = await DB.labAntrean(dari, sampai, state.status || null);
 
-        // Filter instansi
-        const ins = (state.instansi || '').toLowerCase().trim();
-        if (ins) data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins));
+        // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
+        if (data.length > 0 && (state.px || state.optPx)) {
+          const pIds = data.map(d => d.id);
+          try {
+            const { data: hList } = await DB.sb.from('lab_hasil')
+              .select('permintaan_id, ref:lab_id(nama,kode,kelompok)')
+              .in('permintaan_id', pIds);
+            if (hList) {
+              const mapPx = {};
+              hList.forEach(h => {
+                if (!mapPx[h.permintaan_id]) mapPx[h.permintaan_id] = [];
+                if (h.ref?.nama) mapPx[h.permintaan_id].push(h.ref.nama.toLowerCase());
+                if (h.ref?.kode) mapPx[h.permintaan_id].push(h.ref.kode.toLowerCase());
+                if (h.ref?.kelompok) mapPx[h.permintaan_id].push(h.ref.kelompok.toLowerCase());
+              });
+              data.forEach(d => {
+                d.daftar_px = mapPx[d.id] || [];
+              });
+            }
+          } catch(e) {
+            console.warn('Gagal memuat item px untuk filter:', e);
+          }
+        }
 
-        // Filter cari
-        const k = (state.cari || '').toLowerCase().trim();
-        if (k) data = data.filter(d =>
-          (d.nama_pasien||'').toLowerCase().includes(k) ||
-          (d.no_lab||'').toLowerCase().includes(k) ||
-          (d.nama_dokter||'').toLowerCase().includes(k)
-        );
+        // 1. Filter Instansi
+        let cariIns = state.instansi || '';
+        if (state.optInstansi) cariIns = state.optInstansi;
+        if (cariIns) {
+          const ins = cariIns.toLowerCase().trim();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
+        }
+
+        // 2. Filter Dokter/Pasien/Cari
+        if (state.optDokter) {
+          const od = state.optDokter.toLowerCase().trim();
+          data = data.filter(d => (d.nama_dokter||'').toLowerCase().includes(od));
+        }
+        if (state.cari) {
+          const k = state.cari.toLowerCase().trim();
+          data = data.filter(d =>
+            (d.nama_pasien||'').toLowerCase().includes(k) ||
+            (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.no_rm||'').toLowerCase().includes(k) ||
+            (d.nama_dokter||'').toLowerCase().includes(k)
+          );
+        }
+
+        // 3. Filter Pembayaran
+        if (state.optBayar) {
+          const ob = state.optBayar.toLowerCase();
+          if (ob === 'lunas') {
+            data = data.filter(d => d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI');
+          } else if (ob === 'belum lunas') {
+            data = data.filter(d => d.status_bayar !== 'LUNAS' && d.lunas !== true && d.status !== 'SELESAI');
+          } else {
+            data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+          }
+        }
+        if (state.bayar) {
+          const kb = state.bayar.toLowerCase().trim();
+          data = data.filter(d =>
+            (d.cara_bayar||'').toLowerCase().includes(kb) ||
+            (d.status_bayar||'').toLowerCase().includes(kb) ||
+            (kb === 'lunas' && (d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI')) ||
+            (kb.includes('belum') && d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI')
+          );
+        }
+
+        // 4. Filter Px (Pemeriksaan)
+        if (state.optPx) {
+          const opx = state.optPx.toLowerCase();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(opx)));
+        }
+        if (state.px) {
+          const kpx = state.px.toLowerCase().trim();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
+        }
+
+        // 5. Filter No Lab spesifik
+        if (state.noLab) {
+          const knl = state.noLab.toLowerCase().trim();
+          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
+        }
+
+        // 6. Filter Petugas
+        if (state.optPetugas) {
+          const op = state.optPetugas.toLowerCase().trim();
+          data = data.filter(d => (d.nama_dokter||'').toLowerCase().includes(op) || (d.petugas_nama||'').toLowerCase().includes(op));
+        }
+        if (state.petugas) {
+          const kp = state.petugas.toLowerCase().trim();
+          data = data.filter(d => (d.nama_dokter||'').toLowerCase().includes(kp) || (d.petugas_nama||'').toLowerCase().includes(kp));
+        }
 
         state.daftar = data;
         gambarDaftar(data);
         if (state.aktifId) {
           const masih = data.find(d => d.id === state.aktifId);
           if (masih) bukaDetail(masih.id);
-          else {
+          else if (data.length > 0) {
+            state.aktifId = data[0].id;
+            bukaDetail(data[0].id);
+          } else {
             state.aktifId = null;
             el.querySelector('#dhKanan').innerHTML = `<div class="dh-empty">${UI.ikon('rekam', 44)}<span>Pilih pasien dari daftar</span></div>`;
           }
+        } else if (data.length > 0) {
+          state.aktifId = data[0].id;
+          bukaDetail(data[0].id);
+        } else {
+          el.querySelector('#dhKanan').innerHTML = `<div class="dh-empty">${UI.ikon('rekam', 44)}<span>Pilih pasien dari daftar</span></div>`;
         }
       } catch (e) {
         daftar.innerHTML = `<div class="dh-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
