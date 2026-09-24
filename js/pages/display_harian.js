@@ -648,36 +648,64 @@ const DisplayHarian = (() => {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="${tinggi}px" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">${rects.join('')}</svg>`;
   }
 
-  function formatNamaLabel(pasien) {
+  function hitungUmurTahun(pasien, tglReferensi = null) {
+    if (pasien?.umur !== undefined && pasien?.umur !== null && pasien?.umur !== '') {
+      const u = parseInt(pasien.umur, 10);
+      if (!isNaN(u)) return u;
+    }
+    if (pasien?.tanggal_lahir) {
+      const ref = tglReferensi ? new Date(tglReferensi) : new Date();
+      const birth = new Date(pasien.tanggal_lahir);
+      let age = ref.getFullYear() - birth.getFullYear();
+      const m = ref.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) {
+        age--;
+      }
+      return age >= 0 ? age : 0;
+    }
+    return null;
+  }
+
+  function formatIdentitasPasien(pasien, tglReferensi = null) {
     let nama = (pasien?.nama || '').trim();
     const jk = (pasien?.jenis_kelamin || '').toUpperCase();
     const isL = jk.startsWith('L') || jk === 'PRIA' || jk === 'M';
     const isP = jk.startsWith('P') || jk === 'WANITA' || jk === 'F';
     const jkKode = isL ? 'L' : isP ? 'P' : '';
 
-    let umurStr = '';
-    if (pasien?.umur) {
-      umurStr = `${pasien.umur} th`;
-    } else if (pasien?.tanggal_lahir) {
-      const ms = Date.now() - new Date(pasien.tanggal_lahir);
-      if (!isNaN(ms) && ms > 0) umurStr = `${Math.floor(ms / 3.15576e10)} th`;
-    }
-
-    let infoTambahan = '';
-    if (jkKode && umurStr) infoTambahan = ` (${jkKode}/${umurStr})`;
-    else if (jkKode) infoTambahan = ` (${jkKode})`;
-    else if (umurStr) infoTambahan = ` (${umurStr})`;
+    const umurNum = hitungUmurTahun(pasien, tglReferensi);
+    const umurStr = umurNum !== null ? `${umurNum} Th` : '';
 
     const hasTitle = /^(Tn\.|Ny\.|Nn\.|An\.|Sdr\.|Sdri\.|By\.|dr\.|drg\.)\s+/i.test(nama);
     if (!hasTitle) {
-      const uNum = parseInt(umurStr, 10) || 30;
+      const u = umurNum !== null ? umurNum : 30;
       let sapaan = 'Tn.';
-      if (uNum < 12) sapaan = 'An.';
+      if (u < 12) sapaan = 'An.';
       else if (isP) sapaan = 'Ny.';
       else sapaan = 'Tn.';
       nama = `${sapaan} ${nama}`;
     }
-    return `${nama}${infoTambahan}`;
+
+    let infoBaris2 = '';
+    if (jkKode && umurStr) {
+      infoBaris2 = `(${jkKode}) / ${umurStr}`;
+    } else if (jkKode) {
+      infoBaris2 = `(${jkKode})`;
+    } else if (umurStr) {
+      infoBaris2 = `${umurStr}`;
+    }
+
+    const teksLengkap = infoBaris2 ? `${nama} ${infoBaris2}` : nama;
+
+    return {
+      namaHanya: nama,
+      infoBaris2: infoBaris2,
+      teksLengkap: teksLengkap
+    };
+  }
+
+  function formatNamaLabel(pasien, tglReferensi = null) {
+    return formatIdentitasPasien(pasien, tglReferensi).teksLengkap;
   }
 
   function formatNoLabStandar(rawNoLab, tglStr) {
@@ -728,11 +756,11 @@ const DisplayHarian = (() => {
   }
 
   function cetakLabelTabung(labels, ukuran = '40x30') {
-    let [lbarMm, tggiMm] = [40, 30];
-    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
-    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
-    else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
-    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
+    let [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
+    if (ukuran === '50x20') [lbarMm, tggiMm, safeH] = [50, 20, 18.2];
+    else if (ukuran === '50x25') [lbarMm, tggiMm, safeH] = [50, 25, 23.0];
+    else if (ukuran === '40x20') [lbarMm, tggiMm, safeH] = [40, 20, 18.2];
+    else if (ukuran === '40x30') [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
 
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
@@ -747,15 +775,29 @@ const DisplayHarian = (() => {
     }
 
     const pagesHtml = labels.map(lbl => {
-      const svg = buatBarcodeSVG(lbl.idBarcode, 38, 1.5);
+      let nama = (lbl.namaPasien || '').trim();
+      let infoBaris2 = (lbl.infoPasien || '').trim();
+
+      if (!infoBaris2) {
+        const m = nama.match(/^(.*?)\s*(\((?:L|P|M|F)[^)]*\)(?:\s*\/\s*\d+\s*Th)?|\((?:L|P|M|F)\/\d+\s*Th\))$/i);
+        if (m) {
+          nama = m[1].trim();
+          infoBaris2 = m[2].trim();
+        }
+      }
+
+      const svgH = safeH <= 20 ? 30 : 34;
+      const svg = buatBarcodeSVG(lbl.idBarcode, svgH, 1.4);
+
       return `
         <div class="label-tube">
           <div class="col-id">${UI.esc(lbl.idBarcode)}</div>
           <div class="col-center">
             <div class="barcode-wrap">${svg}</div>
-            <div class="patient-name">${UI.esc(lbl.namaPasien)}</div>
+            <div class="patient-name">${UI.esc(nama)}</div>
+            ${infoBaris2 ? `<div class="patient-sub">${UI.esc(infoBaris2)}</div>` : ''}
           </div>
-          <div class="col-dept">${UI.esc(lbl.dept)}</div>
+          <div class="col-dept">${UI.esc(lbl.dept || 'KIMIA')}</div>
         </div>
       `;
     }).join('');
@@ -769,59 +811,118 @@ const DisplayHarian = (() => {
         <title>Label Barcode</title>
         <style>
           @page {
-            size: ${lbarMm}mm ${tggiMm}mm portrait;
+            size: ${lbarMm}mm ${tggiMm}mm;
             margin: 0 !important;
           }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           html, body {
-            width: ${lbarMm}mm; height: ${tggiMm}mm;
-            margin: 0 !important; padding: 0 !important;
-            background: #fff; color: #000;
+            width: ${lbarMm}mm;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff;
+            color: #000;
             font-family: 'JetBrains Mono', Consolas, Arial, sans-serif;
             overflow: hidden;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .label-tube {
-            width: ${lbarMm}mm; height: ${tggiMm - 0.6}mm;
-            max-height: ${tggiMm - 0.6}mm;
-            display: flex; flex-direction: row; align-items: center; justify-content: space-between;
-            padding: 0.8mm 1mm; overflow: hidden;
+            width: ${lbarMm}mm;
+            height: ${safeH}mm;
+            max-height: ${safeH}mm;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6mm 1mm;
+            overflow: hidden;
             box-sizing: border-box;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           .label-tube:not(:last-child) {
-            page-break-after: always; break-after: page;
+            page-break-after: always;
+            break-after: page;
           }
           .label-tube:last-child {
-            page-break-after: avoid; break-after: avoid;
+            page-break-after: avoid;
+            break-after: avoid;
           }
           .col-id {
-            width: 4.8mm; height: ${tggiMm - 2.5}mm;
-            display: flex; align-items: center; justify-content: center;
-            writing-mode: vertical-rl; transform: rotate(180deg);
-            font-size: 7pt; font-weight: 700; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+            width: 4.2mm;
+            height: ${safeH - 2}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 6.8pt;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-align: center;
           }
           .col-center {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 0 1.2mm; overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 0.8mm;
+            overflow: hidden;
           }
           .barcode-wrap {
-            width: 100%; max-width: ${lbarMm - 12}mm; height: ${tggiMm - 9}mm;
-            display: flex; align-items: center; justify-content: center; overflow: hidden;
+            width: 100%;
+            max-width: ${lbarMm - 10}mm;
+            height: ${safeH <= 20 ? '9.5mm' : '11.5mm'};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
           }
           .barcode-wrap svg {
-            width: 100%; height: 100%; display: block;
+            width: 100%;
+            height: 100%;
+            display: block;
           }
           .patient-name {
-            margin-top: 0.6mm; font-size: 6.8pt; font-weight: 700;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            text-align: center; max-width: ${lbarMm - 12}mm; letter-spacing: -0.2px;
+            margin-top: 0.4mm;
+            font-size: 6pt;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            max-width: ${lbarMm - 10}mm;
+            letter-spacing: -0.2px;
+            line-height: 1.1;
+          }
+          .patient-sub {
+            margin-top: 0.2mm;
+            font-size: 6pt;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            max-width: ${lbarMm - 10}mm;
+            letter-spacing: -0.1px;
+            line-height: 1.0;
           }
           .col-dept {
-            width: 4.8mm; height: ${tggiMm - 2.5}mm;
-            display: flex; align-items: center; justify-content: center;
-            writing-mode: vertical-rl; transform: rotate(180deg);
-            font-size: 7pt; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+            width: 4.5mm;
+            height: ${safeH - 2}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 7.2pt;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-align: center;
           }
         </style>
       </head>
@@ -843,6 +944,10 @@ const DisplayHarian = (() => {
   }
 
   async function modalCetakBarcodeTabung(p) {
+    if (typeof BarcodePrinter !== 'undefined' && BarcodePrinter.bukaModal) {
+      return BarcodePrinter.bukaModal(p);
+    }
+
     const pasien = p.pasien || {};
     const tgl = p.diminta_pada || null;
     const noLab = p.no_lab || '';

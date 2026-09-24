@@ -150,51 +150,72 @@ const BarcodePrinter = (() => {
   }
 
   /**
-   * Format teks umur pasien
+   * Hitung umur pasien dalam tahun
    */
-  function hitungUmurTeks(pasien) {
-    if (pasien?.umur) return `${pasien.umur} th`;
-    if (pasien?.tanggal_lahir) {
-      const ms = Date.now() - new Date(pasien.tanggal_lahir);
-      if (!isNaN(ms) && ms > 0) {
-        const th = Math.floor(ms / 3.15576e10);
-        return `${th} th`;
-      }
+  function hitungUmurTahun(pasien, tglReferensi = null) {
+    if (pasien?.umur !== undefined && pasien?.umur !== null && pasien?.umur !== '') {
+      const u = parseInt(pasien.umur, 10);
+      if (!isNaN(u)) return u;
     }
-    return '';
+    if (pasien?.tanggal_lahir) {
+      const ref = tglReferensi ? new Date(tglReferensi) : new Date();
+      const birth = new Date(pasien.tanggal_lahir);
+      let age = ref.getFullYear() - birth.getFullYear();
+      const m = ref.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) {
+        age--;
+      }
+      return age >= 0 ? age : 0;
+    }
+    return null;
   }
 
   /**
-   * Format sapaan, nama, jenis kelamin dan usia pasien untuk label tabung:
-   * Contoh: Ny. ENDANG SUPRIYATI (P/54 th) atau Tn. DANU PRASETYO (L/28 th)
+   * Format identitas pasien untuk label tabung spesimen:
+   * Baris 1: Sapaan & Nama Pasien (misal: "Ny. ENDANG SUPRIYATI" atau "Ny. LISTYOWATI")
+   * Baris 2: Gender & Usia (misal: "(P) / 54 Th" atau "(L) / 42 Th")
+   * Teks Lengkap: "Ny. ENDANG SUPRIYATI (P) / 54 Th"
    */
-  function formatNamaLabel(pasien) {
+  function formatIdentitasPasien(pasien, tglReferensi = null) {
     let nama = (pasien?.nama || '').trim();
     const jk = (pasien?.jenis_kelamin || '').toUpperCase();
     const isL = jk.startsWith('L') || jk === 'PRIA' || jk === 'M';
     const isP = jk.startsWith('P') || jk === 'WANITA' || jk === 'F';
     const jkKode = isL ? 'L' : isP ? 'P' : '';
-    const umurStr = hitungUmurTeks(pasien);
 
-    let infoTambahan = '';
-    if (jkKode && umurStr) {
-      infoTambahan = ` (${jkKode}/${umurStr})`;
-    } else if (jkKode) {
-      infoTambahan = ` (${jkKode})`;
-    } else if (umurStr) {
-      infoTambahan = ` (${umurStr})`;
-    }
+    const umurNum = hitungUmurTahun(pasien, tglReferensi);
+    const umurStr = umurNum !== null ? `${umurNum} Th` : '';
 
     const hasTitle = /^(Tn\.|Ny\.|Nn\.|An\.|Sdr\.|Sdri\.|By\.|dr\.|drg\.)\s+/i.test(nama);
     if (!hasTitle) {
-      const uNum = parseInt(umurStr, 10) || 30;
+      const u = umurNum !== null ? umurNum : 30;
       let sapaan = 'Tn.';
-      if (uNum < 12) sapaan = 'An.';
+      if (u < 12) sapaan = 'An.';
       else if (isP) sapaan = 'Ny.';
       else sapaan = 'Tn.';
       nama = `${sapaan} ${nama}`;
     }
-    return `${nama}${infoTambahan}`;
+
+    let infoBaris2 = '';
+    if (jkKode && umurStr) {
+      infoBaris2 = `(${jkKode}) / ${umurStr}`;
+    } else if (jkKode) {
+      infoBaris2 = `(${jkKode})`;
+    } else if (umurStr) {
+      infoBaris2 = `${umurStr}`;
+    }
+
+    const teksLengkap = infoBaris2 ? `${nama} ${infoBaris2}` : nama;
+
+    return {
+      namaHanya: nama,
+      infoBaris2: infoBaris2,
+      teksLengkap: teksLengkap
+    };
+  }
+
+  function formatNamaLabel(pasien, tglReferensi = null) {
+    return formatIdentitasPasien(pasien, tglReferensi).teksLengkap;
   }
 
   /**
@@ -237,14 +258,19 @@ const BarcodePrinter = (() => {
   /**
    * Cetak label langsung melalui driver Windows menggunakan iframe terisolasi
    * Dioptimalkan khusus printer thermal label Blueprint ECO 80 (40x30 mm)
+   * Formula CSS Bebas Blank Page:
+   * - @page { size: 40mm 30mm; margin: 0 !important; }
+   * - html, body { width: 40mm; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: hidden; }
+   * - .label-tube { height: 27.5mm; max-height: 27.5mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
+   * - page-break HANYA di antara label: :not(:last-child) { page-break-after: always; break-after: page; }
    */
   function cetakWindows(labels, opsi = {}) {
     const ukuran = opsi.ukuran || localStorage.getItem('lab_barcode_paper_size') || '40x30';
-    let [lbarMm, tggiMm] = [40, 30];
-    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
-    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
-    else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
-    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
+    let [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
+    if (ukuran === '50x20') [lbarMm, tggiMm, safeH] = [50, 20, 18.2];
+    else if (ukuran === '50x25') [lbarMm, tggiMm, safeH] = [50, 25, 23.0];
+    else if (ukuran === '40x20') [lbarMm, tggiMm, safeH] = [40, 20, 18.2];
+    else if (ukuran === '40x30') [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
 
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
@@ -259,15 +285,29 @@ const BarcodePrinter = (() => {
     }
 
     const pagesHtml = labels.map(lbl => {
-      // Jika mode paket: tidak ada subInfo (bersih persis foto tabung)
-      // Jika mode persatuan: tampil nama tes satuannya (misal: Leukosit)
-      const svg = buatBarcodeSVG(lbl.idBarcode, lbl.subInfo ? 36 : 42, 1.5);
+      let nama = (lbl.namaPasien || '').trim();
+      let infoBaris2 = (lbl.infoPasien || '').trim();
+
+      if (!infoBaris2) {
+        // Coba pisahkan otomatis jika namaPasien mengandung format "Nama (P) / 54 Th"
+        const m = nama.match(/^(.*?)\s*(\((?:L|P|M|F)[^)]*\)(?:\s*\/\s*\d+\s*Th)?|\((?:L|P|M|F)\/\d+\s*Th\))$/i);
+        if (m) {
+          nama = m[1].trim();
+          infoBaris2 = m[2].trim();
+        }
+      }
+
+      // Barcode SVG: ketinggian proporsional agar tidak memicu micro-overflow
+      const svgH = safeH <= 20 ? 30 : 34;
+      const svg = buatBarcodeSVG(lbl.idBarcode, svgH, 1.4);
+
       return `
         <div class="label-tube">
           <div class="col-id">${UI.esc(lbl.idBarcode)}</div>
           <div class="col-center">
             <div class="barcode-wrap">${svg}</div>
-            <div class="patient-name">${UI.esc(lbl.namaPasien)}</div>
+            <div class="patient-name">${UI.esc(nama)}</div>
+            ${infoBaris2 ? `<div class="patient-sub">${UI.esc(infoBaris2)}</div>` : ''}
             ${lbl.subInfo ? `<div class="single-test-name">${UI.esc(lbl.subInfo)}</div>` : ''}
           </div>
           <div class="col-dept">${UI.esc(lbl.labelKanan || 'KIMIA')}</div>
@@ -284,7 +324,7 @@ const BarcodePrinter = (() => {
         <title>Label Barcode</title>
         <style>
           @page {
-            size: ${lbarMm}mm ${tggiMm}mm portrait;
+            size: ${lbarMm}mm ${tggiMm}mm;
             margin: 0 !important;
           }
           * {
@@ -294,7 +334,7 @@ const BarcodePrinter = (() => {
           }
           html, body {
             width: ${lbarMm}mm;
-            height: ${tggiMm}mm;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff;
@@ -306,15 +346,17 @@ const BarcodePrinter = (() => {
           }
           .label-tube {
             width: ${lbarMm}mm;
-            height: ${tggiMm - 0.6}mm;
-            max-height: ${tggiMm - 0.6}mm;
+            height: ${safeH}mm;
+            max-height: ${safeH}mm;
             display: flex;
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
-            padding: 0.8mm 1mm;
+            padding: 0.6mm 1mm;
             overflow: hidden;
             box-sizing: border-box;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           .label-tube:not(:last-child) {
             page-break-after: always;
@@ -326,7 +368,7 @@ const BarcodePrinter = (() => {
           }
           .col-id {
             width: 4.2mm;
-            height: ${tggiMm - 3}mm;
+            height: ${safeH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -350,7 +392,7 @@ const BarcodePrinter = (() => {
           .barcode-wrap {
             width: 100%;
             max-width: ${lbarMm - 10}mm;
-            height: ${tggiMm <= 22 ? '10mm' : '13mm'};
+            height: ${safeH <= 20 ? '9.5mm' : '11.5mm'};
             display: flex;
             align-items: center;
             justify-content: center;
@@ -362,8 +404,8 @@ const BarcodePrinter = (() => {
             display: block;
           }
           .patient-name {
-            margin-top: 0.5mm;
-            font-size: 6.2pt;
+            margin-top: 0.4mm;
+            font-size: 6pt;
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
@@ -373,8 +415,20 @@ const BarcodePrinter = (() => {
             letter-spacing: -0.2px;
             line-height: 1.1;
           }
+          .patient-sub {
+            margin-top: 0.2mm;
+            font-size: 6pt;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            max-width: ${lbarMm - 10}mm;
+            letter-spacing: -0.1px;
+            line-height: 1.0;
+          }
           .single-test-name {
-            font-size: 5.5pt;
+            font-size: 5.2pt;
             font-weight: 700;
             color: #000;
             white-space: nowrap;
@@ -387,13 +441,13 @@ const BarcodePrinter = (() => {
           }
           .col-dept {
             width: 4.5mm;
-            height: ${tggiMm - 3}mm;
+            height: ${safeH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7pt;
+            font-size: 7.2pt;
             font-weight: 800;
             letter-spacing: 0.3px;
             white-space: nowrap;
@@ -445,7 +499,7 @@ const BarcodePrinter = (() => {
     const tgl = p.diminta_pada || p.tanggal || null;
     const noLab = p.no_lab || '';
     const idStandar = formatNoLabStandar(noLab, tgl);
-    const namaPasien = formatNamaLabel(pasien);
+    const idt = formatIdentitasPasien(pasien, tgl);
 
     // Kelompokkan per alat medis / tabung
     const itemPerAlat = kelompokkanItemPerAlat(hasilList);
@@ -460,7 +514,8 @@ const BarcodePrinter = (() => {
       const info = ALAT_MEDIS[k] || ALAT_MEDIS.MINDRAY;
       labels.push({
         idBarcode: idStandar,
-        namaPasien: namaPasien,
+        namaPasien: idt.namaHanya,
+        infoPasien: idt.infoBaris2,
         labelKanan: info.bahasaMedis,
         subInfo: ''
       });
@@ -486,7 +541,8 @@ const BarcodePrinter = (() => {
     const tgl = p.diminta_pada || p.tanggal || null;
     const noLab = p.no_lab || '';
     const idStandar = formatNoLabStandar(noLab, tgl);
-    const namaDefault = formatNamaLabel(pasien);
+    const idt = formatIdentitasPasien(pasien, tgl);
+    const namaDefault = idt.teksLengkap;
     const hasilList = p.hasil || [];
 
     // Kelompokkan per alat medis
@@ -500,7 +556,7 @@ const BarcodePrinter = (() => {
     let tesSatuanTerpilih = (itemPerAlat[alatTerpilih] && itemPerAlat[alatTerpilih][0]) ? itemPerAlat[alatTerpilih][0].nama : '';
     let idBarcodeAktif = idStandar;
     let namaLabelAktif = namaDefault;
-    let ukuranAktif = localStorage.getItem('lab_barcode_paper_size') || '50x20';
+    let ukuranAktif = localStorage.getItem('lab_barcode_paper_size') || '40x30';
     let qtyAktif = 1;
 
     // Helper teks sisi kanan
@@ -524,15 +580,18 @@ const BarcodePrinter = (() => {
               ${UI.esc(idStandar)}
             </div>
 
-            <!-- Tengah: Barcode + Nama Pasien + (Opsional 1 Tes Satuan) -->
+            <!-- Tengah: Barcode + Nama Pasien + Gender/Usia + (Opsional 1 Tes Satuan) -->
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; overflow:hidden;">
-              <div id="lblPrevSvg" style="width:100%; height:52px; display:flex; align-items:center; justify-content:center;">
-                ${buatBarcodeSVG(idStandar, 52, 2.0)}
+              <div id="lblPrevSvg" style="width:100%; height:48px; display:flex; align-items:center; justify-content:center;">
+                ${buatBarcodeSVG(idStandar, 48, 2.0)}
               </div>
-              <div id="lblPrevName" style="margin-top:3px; font-size:10.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px;">
-                ${UI.esc(namaDefault)}
+              <div id="lblPrevName" style="margin-top:2px; font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px;">
+                ${UI.esc(idt.namaHanya)}
               </div>
-              <div id="lblPrevSingleTest" style="font-size:9.5px; font-weight:700; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px; display:none;">
+              <div id="lblPrevSub" style="font-size:9.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px;">
+                ${UI.esc(idt.infoBaris2)}
+              </div>
+              <div id="lblPrevSingleTest" style="font-size:9px; font-weight:700; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; max-width:180px; display:none;">
                 <!-- Tes Satuan jika dipilih -->
               </div>
             </div>
@@ -669,6 +728,7 @@ const BarcodePrinter = (() => {
         const lblId = b.querySelector('#lblPrevId');
         const lblSvg = b.querySelector('#lblPrevSvg');
         const lblName = b.querySelector('#lblPrevName');
+        const lblSub = b.querySelector('#lblPrevSub');
         const lblSingleTest = b.querySelector('#lblPrevSingleTest');
         const lblDept = b.querySelector('#lblPrevDept');
         const prevUkuranInfo = b.querySelector('#prevUkuranInfo');
@@ -708,8 +768,18 @@ const BarcodePrinter = (() => {
 
         const updatePreview = () => {
           lblId.textContent = idBarcodeAktif;
-          lblSvg.innerHTML = buatBarcodeSVG(idBarcodeAktif, tipeCetak === 'satuan' ? 44 : 52, 2.0);
-          lblName.textContent = namaLabelAktif;
+          lblSvg.innerHTML = buatBarcodeSVG(idBarcodeAktif, tipeCetak === 'satuan' ? 42 : 48, 2.0);
+
+          let nHanya = namaLabelAktif;
+          let iSub = idt.infoBaris2;
+          const m = namaLabelAktif.match(/^(.*?)\s*(\((?:L|P|M|F)[^)]*\)(?:\s*\/\s*\d+\s*Th)?|\((?:L|P|M|F)\/\d+\s*Th\))$/i);
+          if (m) {
+            nHanya = m[1].trim();
+            iSub = m[2].trim();
+          }
+          lblName.textContent = nHanya;
+          if (lblSub) lblSub.textContent = iSub;
+
           const kanan = dapatkanLabelKanan(alatTerpilih);
           lblDept.textContent = kanan;
           lblTxtContoh.textContent = kanan;
@@ -853,6 +923,7 @@ const BarcodePrinter = (() => {
     buatBarcodeSVG,
     formatNoLabStandar,
     formatNamaLabel,
+    formatIdentitasPasien,
     kelompokkanItemPerAlat,
     cetakWindows,
     cetakOtomatis,
