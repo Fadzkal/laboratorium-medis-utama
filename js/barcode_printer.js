@@ -126,7 +126,7 @@ const BarcodePrinter = (() => {
     }
     x += 10; // Quiet zone kanan
     const totalW = (x * modulWidth).toFixed(1);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="${tinggi}px" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">${rects.join('')}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">${rects.join('')}</svg>`;
   }
 
   /**
@@ -266,11 +266,11 @@ const BarcodePrinter = (() => {
    */
   function cetakWindows(labels, opsi = {}) {
     const ukuran = opsi.ukuran || localStorage.getItem('lab_barcode_paper_size') || '40x30';
-    let [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
-    if (ukuran === '50x20') [lbarMm, tggiMm, safeH] = [50, 20, 18.2];
-    else if (ukuran === '50x25') [lbarMm, tggiMm, safeH] = [50, 25, 23.0];
-    else if (ukuran === '40x20') [lbarMm, tggiMm, safeH] = [40, 20, 18.2];
-    else if (ukuran === '40x30') [lbarMm, tggiMm, safeH] = [40, 30, 27.5];
+    let [lbarMm, tggiMm] = [40, 30];
+    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
+    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
+    else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
+    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
 
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
@@ -298,7 +298,7 @@ const BarcodePrinter = (() => {
       }
 
       // Barcode SVG: ketinggian proporsional agar tidak memicu micro-overflow
-      const svgH = safeH <= 20 ? 30 : 34;
+      const svgH = tggiMm <= 20 ? 30 : 34;
       const svg = buatBarcodeSVG(lbl.idBarcode, svgH, 1.4);
 
       return `
@@ -315,17 +315,19 @@ const BarcodePrinter = (() => {
       `;
     }).join('');
 
+    const bodyHeightPrint = labels.length <= 1 ? `${tggiMm}mm !important` : 'auto !important';
+
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(`<!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Label Barcode</title>
+        <title></title>
         <style>
           @page {
-            size: ${lbarMm}mm ${tggiMm}mm;
-            margin: 0 !important;
+            size: ${lbarMm}mm ${tggiMm}mm landscape;
+            margin: 0mm !important;
           }
           * {
             box-sizing: border-box;
@@ -334,7 +336,7 @@ const BarcodePrinter = (() => {
           }
           html, body {
             width: ${lbarMm}mm;
-            height: auto !important;
+            height: ${tggiMm}mm;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff;
@@ -344,10 +346,25 @@ const BarcodePrinter = (() => {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
+          @media print {
+            @page {
+              size: ${lbarMm}mm ${tggiMm}mm landscape;
+              margin: 0mm !important;
+            }
+            html, body {
+              width: ${lbarMm}mm !important;
+              height: ${bodyHeightPrint};
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+          }
           .label-tube {
-            width: ${lbarMm}mm;
-            height: ${safeH}mm;
-            max-height: ${safeH}mm;
+            width: ${lbarMm}mm !important;
+            height: ${tggiMm}mm !important;
+            max-height: ${tggiMm}mm !important;
             display: flex;
             flex-direction: row;
             align-items: center;
@@ -368,7 +385,7 @@ const BarcodePrinter = (() => {
           }
           .col-id {
             width: 4.2mm;
-            height: ${safeH - 2}mm;
+            height: ${tggiMm - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -392,7 +409,7 @@ const BarcodePrinter = (() => {
           .barcode-wrap {
             width: 100%;
             max-width: ${lbarMm - 10}mm;
-            height: ${safeH <= 20 ? '9.5mm' : '11.5mm'};
+            height: ${tggiMm <= 20 ? '9.5mm' : '11.5mm'};
             display: flex;
             align-items: center;
             justify-content: center;
@@ -441,7 +458,7 @@ const BarcodePrinter = (() => {
           }
           .col-dept {
             width: 4.5mm;
-            height: ${safeH - 2}mm;
+            height: ${tggiMm - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
