@@ -3,20 +3,20 @@
 -- Laboratorium Medis Utama
 -- ============================================================================
 -- Daftar Karyawan yang Dibuatkan Akun (Peran: karyawan, Sandi Default: lab123456):
--- 1.  Anisah Nur Adinah            (anisah@labmedis.id)
--- 2.  Awit Priyanti                (awit@labmedis.id)
--- 3.  Aziz Budi Laksono            (aziz@labmedis.id)
--- 4.  Lilis Apriyanti              (lilis@labmedis.id)
--- 5.  Minto Rahaju                 (minto@labmedis.id)
--- 6.  Nabila Nadhifatul Jannah     (nabila@labmedis.id)
--- 7.  Nafis Salma Afiyah           (nafis@labmedis.id)
--- 8.  Ratna Ruby Mutiarin          (ratna@labmedis.id)
--- 9.  Retno Dwijayanti             (retno@labmedis.id)
--- 10. Salsa Billa Luthfi Ramadhany (salsa@labmedis.id)
--- 11. Siti Aminatul Khasanah       (siti.aminatul@labmedis.id)
--- 12. Yana Jumhana                 (yana@labmedis.id)
--- 13. Ma'rifah Nurul Ilmiatun      (marifah@labmedis.id)
--- 14. Aisyah Nur Hidayah           (aisyah@labmedis.id)
+-- 1.  Anisah Nur Adinah            (anisah@labutama.id)
+-- 2.  Awit Priyanti                (awit@labutama.id)
+-- 3.  Aziz Budi Laksono            (aziz@labutama.id)
+-- 4.  Lilis Apriyanti              (lilis@labutama.id)
+-- 5.  Minto Rahaju                 (minto@labutama.id)
+-- 6.  Nabila Nadhifatul Jannah     (nabila@labutama.id)
+-- 7.  Nafis Salma Afiyah           (nafis@labutama.id)
+-- 8.  Ratna Ruby Mutiarin          (ratna@labutama.id)
+-- 9.  Retno Dwijayanti             (retno@labutama.id)
+-- 10. Salsa Billa Luthfi Ramadhany (salsa@labutama.id)
+-- 11. Siti Aminatul Khasanah       (siti.aminatul@labutama.id)
+-- 12. Yana Jumhana                 (yana@labutama.id)
+-- 13. Ma'rifah Nurul Ilmiatun      (marifah@labutama.id)
+-- 14. Aisyah Nur Hidayah           (aisyah@labutama.id)
 --
 -- Catatan: Ibu Dede Kurniasih dikecualikan karena sudah memiliki akun sebagai Master.
 -- ============================================================================
@@ -33,20 +33,20 @@ BEGIN
   ALTER TYPE public.peran_pegawai ADD VALUE IF NOT EXISTS 'karyawan';
 
   FOR r IN SELECT * FROM (VALUES
-    ('Anisah Nur Adinah',            'anisah@labmedis.id',        'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Awit Priyanti',                'awit@labmedis.id',          'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Aziz Budi Laksono',            'aziz@labmedis.id',          'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Lilis Apriyanti',              'lilis@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Minto Rahaju',                 'minto@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Nabila Nadhifatul Jannah',     'nabila@labmedis.id',        'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Nafis Salma Afiyah',           'nafis@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Ratna Ruby Mutiarin',          'ratna@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Retno Dwijayanti',             'retno@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Salsa Billa Luthfi Ramadhany', 'salsa@labmedis.id',         'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Siti Aminatul Khasanah',       'siti.aminatul@labmedis.id', 'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Yana Jumhana',                 'yana@labmedis.id',          'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Ma''rifah Nurul Ilmiatun',     'marifah@labmedis.id',       'lab123456', 'karyawan'::public.peran_pegawai),
-    ('Aisyah Nur Hidayah',           'aisyah@labmedis.id',        'lab123456', 'karyawan'::public.peran_pegawai)
+    ('Anisah Nur Adinah',            'anisah@labutama.id',        'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Awit Priyanti',                'awit@labutama.id',          'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Aziz Budi Laksono',            'aziz@labutama.id',          'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Lilis Apriyanti',              'lilis@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Minto Rahaju',                 'minto@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Nabila Nadhifatul Jannah',     'nabila@labutama.id',        'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Nafis Salma Afiyah',           'nafis@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Ratna Ruby Mutiarin',          'ratna@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Retno Dwijayanti',             'retno@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Salsa Billa Luthfi Ramadhany', 'salsa@labutama.id',         'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Siti Aminatul Khasanah',       'siti.aminatul@labutama.id', 'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Yana Jumhana',                 'yana@labutama.id',          'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Ma''rifah Nurul Ilmiatun',     'marifah@labutama.id',       'lab123456', 'karyawan'::public.peran_pegawai),
+    ('Aisyah Nur Hidayah',           'aisyah@labutama.id',        'lab123456', 'karyawan'::public.peran_pegawai)
   ) AS t(nama, email, pass, peran)
   LOOP
     -- Cek apakah email sudah terdaftar di auth.users
@@ -157,5 +157,5 @@ END $$;
 SELECT p.id, p.nama, u.email, p.peran, p.aktif, u.created_at
   FROM public.pegawai p
   JOIN auth.users u ON u.id = p.id
- WHERE u.email LIKE '%@labmedis.id'
+ WHERE u.email LIKE '%@labutama.id'
  ORDER BY p.nama ASC;

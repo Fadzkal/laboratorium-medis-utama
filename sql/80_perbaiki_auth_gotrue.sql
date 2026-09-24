@@ -62,6 +62,22 @@ WHERE NOT EXISTS (
   SELECT 1 FROM auth.identities i WHERE i.user_id = u.id
 );
 
+-- 6. Ubah semua domain email dari @labmedis.id menjadi @labutama.id
+UPDATE auth.users
+   SET email = replace(email, '@labmedis.id', '@labutama.id'),
+       updated_at = now()
+ WHERE email LIKE '%@labmedis.id';
+
+UPDATE auth.identities
+   SET identity_data = jsonb_set(coalesce(identity_data, '{}'::jsonb), '{email}', to_jsonb(replace(coalesce(identity_data->>'email', ''), '@labmedis.id', '@labutama.id'))),
+       updated_at = now()
+ WHERE coalesce(identity_data->>'email', '') LIKE '%@labmedis.id';
+
+UPDATE public.pegawai
+   SET email = replace(email, '@labmedis.id', '@labutama.id'),
+       updated_at = now()
+ WHERE email LIKE '%@labmedis.id';
+
 -- 6. Fungsi ubah_profil_saya (Versi aman untuk GoTrue)
 CREATE OR REPLACE FUNCTION public.ubah_profil_saya(
   p_nama text,
