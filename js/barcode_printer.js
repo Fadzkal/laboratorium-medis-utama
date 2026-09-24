@@ -265,13 +265,6 @@ const BarcodePrinter = (() => {
    * - page-break HANYA di antara label: :not(:last-child) { page-break-after: always; break-after: page; }
    */
   function cetakWindows(labels, opsi = {}) {
-    const ukuran = opsi.ukuran || localStorage.getItem('lab_barcode_paper_size') || '40x30';
-    let [lbarMm, tggiMm] = [40, 30];
-    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
-    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
-    else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
-    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
-
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
       iframe = document.createElement('iframe');
@@ -298,7 +291,7 @@ const BarcodePrinter = (() => {
       }
 
       // Barcode SVG: viewBox 50 modul tinggi dengan preserveAspectRatio="none"
-      const svg = buatBarcodeSVG(lbl.idBarcode, 50, 1.5);
+      const svg = buatBarcodeSVG(lbl.idBarcode, 50, 1.8);
 
       return `
         <div class="label-tube">
@@ -314,12 +307,6 @@ const BarcodePrinter = (() => {
       `;
     }).join('');
 
-    const bodyHeightPrint = labels.length <= 1 ? `${tggiMm}mm !important` : 'auto !important';
-    const labelW = lbarMm;
-    const labelH = tggiMm >= 30 ? 28 : (tggiMm - 2);
-    const marginV = ((tggiMm - labelH) / 2).toFixed(1);
-    const bcWrapH = tggiMm <= 20 ? '9.5mm' : '14mm';
-
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(`<!DOCTYPE html>
@@ -329,7 +316,7 @@ const BarcodePrinter = (() => {
         <title></title>
         <style>
           @page {
-            size: ${lbarMm}mm ${tggiMm}mm landscape;
+            size: 80mm 100mm portrait;
             margin: 0mm !important;
           }
           * {
@@ -338,8 +325,7 @@ const BarcodePrinter = (() => {
             padding: 0;
           }
           html, body {
-            width: ${lbarMm}mm;
-            height: ${tggiMm}mm;
+            width: 80mm;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff;
@@ -351,12 +337,11 @@ const BarcodePrinter = (() => {
           }
           @media print {
             @page {
-              size: ${lbarMm}mm ${tggiMm}mm landscape;
+              size: 80mm 100mm portrait;
               margin: 0mm !important;
             }
             html, body {
-              width: ${lbarMm}mm !important;
-              height: ${bodyHeightPrint};
+              width: 80mm !important;
               margin: 0 !important;
               padding: 0 !important;
               overflow: hidden !important;
@@ -365,11 +350,11 @@ const BarcodePrinter = (() => {
             }
           }
           .label-tube {
-            width: ${labelW}mm !important;
-            height: ${labelH}mm !important;
-            max-height: ${labelH}mm !important;
-            margin: ${marginV}mm 0 !important;
-            padding: 1mm 2mm 1mm 3.5mm !important;
+            width: 78mm !important;
+            height: 29mm !important;
+            max-height: 29.5mm !important;
+            margin: 0 auto !important;
+            padding: 1mm 3mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -388,37 +373,36 @@ const BarcodePrinter = (() => {
             break-after: avoid;
           }
           .col-id {
-            width: 3.5mm;
-            min-width: 3.5mm;
-            height: ${labelH - 2}mm;
+            width: 4mm;
+            min-width: 4mm;
+            height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 6.5pt;
+            font-size: 7.5pt;
             font-weight: 700;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.3px;
             white-space: nowrap;
             text-align: center;
             color: #000;
           }
           .col-center {
             flex: 1;
-            width: 27.5mm;
-            max-width: 28mm;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0;
+            padding: 0 1mm;
             overflow: hidden;
+            width: 100%;
           }
           .barcode-wrap {
-            width: 100%;
-            max-width: 27.5mm;
-            height: ${bcWrapH};
+            width: 48mm;
+            max-width: 50mm;
+            height: 14.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -432,8 +416,8 @@ const BarcodePrinter = (() => {
             margin: 0 auto;
           }
           .patient-name {
-            margin-top: 0.5mm;
-            font-size: 6.5pt;
+            margin-top: 0.6mm;
+            font-size: 7.5pt;
             font-weight: 700;
             line-height: 1.15;
             text-align: center;
@@ -441,13 +425,13 @@ const BarcodePrinter = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 27.5mm;
+            max-width: 56mm;
             letter-spacing: -0.1px;
             color: #000;
           }
           .patient-sub {
-            margin-top: 0.3mm;
-            font-size: 6.2pt;
+            margin-top: 0.5mm;
+            font-size: 7pt;
             font-weight: 700;
             line-height: 1.1;
             text-align: center;
@@ -455,34 +439,34 @@ const BarcodePrinter = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 27.5mm;
+            max-width: 56mm;
             letter-spacing: -0.1px;
             color: #000;
           }
           .single-test-name {
-            font-size: 5.5pt;
+            font-size: 6pt;
             font-weight: 700;
             color: #000;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             text-align: center;
-            max-width: 27.5mm;
+            max-width: 56mm;
             line-height: 1.0;
-            margin-top: 0.2mm;
+            margin-top: 0.3mm;
           }
           .col-dept {
-            width: 3.5mm;
-            min-width: 3.5mm;
-            height: ${labelH - 2}mm;
+            width: 4.5mm;
+            min-width: 4.5mm;
+            height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7pt;
+            font-size: 8pt;
             font-weight: 700;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.3px;
             white-space: nowrap;
             text-align: center;
             color: #000;
