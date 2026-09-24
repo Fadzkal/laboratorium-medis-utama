@@ -1030,6 +1030,7 @@ const Master = (() => {
     const cariLabInput = w.querySelector('#cariLab');
     if (!cariLabInput) return; // Tab sudah berganti
     cariLabInput.addEventListener('input', UI.tunda(gambar, 200));
+
     w.querySelector('#btnLabBaru').addEventListener('click', async () => {
       if (await modalLab(null)) {
         cache.lab = await DB.refLab(false);
@@ -1118,10 +1119,10 @@ const Master = (() => {
         <td class="muted">${UI.esc(m.janji_hasil || '')}</td>
         <td class="muted">${UI.esc(m.metode || '')}</td>
         <td class="text-right" style="position:sticky; right:0; background:#fff; border-left:1px solid #ddd;">
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="resep" title="Resep Reagen">💊</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="rujukan" title="Multi-Umur (Lama)">⚙️</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="ubah" title="Ubah">✏️</button>
-          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="hapus" title="Hapus">🗑️</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="resep" title="Resep Reagen">${UI.ikon('pil', 14)}</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="rujukan" title="Multi-Umur (Lama)">${UI.ikon('pengaturan', 14)}</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="ubah" title="Ubah">${UI.ikon('pensil', 14)}</button>
+          <button class="btn btn-ghost btn-sm" data-lab="${m.id}" data-aksi="hapus" title="Hapus">${UI.ikon('hapus', 14)}</button>
         </td></tr>`).join('')}</tbody></table></div>`;
   }
 

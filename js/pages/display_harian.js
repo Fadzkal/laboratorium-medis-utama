@@ -144,7 +144,7 @@ const DisplayHarian = (() => {
                 <option value="AKTIF">Belum Selesai</option>
               </select>
               <input type="text" disabled style="background:#f5f5f5">
-              <button id="dhRefresh" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0 4px" title="Refresh">&#x21bb;</button>
+              <button id="dhRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px" title="Refresh">${UI.ikon('ulang', 15)}</button>
             </div>
             <div class="fr">
               <select style="max-width:140px"><option>Semua Petugas</option></select>

@@ -1,0 +1,43 @@
+Waktu,Alat,Sample_ID,Nama_Pasien,Parameter,Nilai,Satuan,Flag
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,GLU-S,112.5,mg/dL,N
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,TC,195.0,mg/dL,N
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,TG,145.2,mg/dL,N
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,UA,5.8,mg/dL,N
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,CREA-S,0.95,mg/dL,N
+2026-09-23 22:49:05,Mindray BS-240,26090026,Tn. Budi Santoso,UREA,24.6,mg/dL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,WBC,7.45,10*3/uL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,RBC,4.82,10*6/uL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,HGB,14.2,g/dL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,HCT,42.8,%,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,PLT,265,10*3/uL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,MCV,88.8,fL,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,MCH,29.5,pg,N
+2026-09-23 22:49:06,Sysmex XP-100,26090026,Tn. Budi Santoso,MCHC,33.2,g/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,GLU-S,112.5,mg/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,TC,195.0,mg/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,TG,145.2,mg/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,UA,5.8,mg/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,CREA-S,0.95,mg/dL,N
+2026-09-23 23:08:53,Mindray BS-240,26090026,Tn. Budi Santoso,UREA,24.6,mg/dL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,WBC,7.45,10*3/uL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,RBC,4.82,10*6/uL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,HGB,14.2,g/dL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,HCT,42.8,%,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,PLT,265,10*3/uL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,MCV,88.8,fL,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,MCH,29.5,pg,N
+2026-09-24 00:41:43,Sysmex XP-100,26,Fadzkaruffy,MCHC,33.2,g/dL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,WBC,7.45,10*3/uL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,RBC,4.82,10*6/uL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,HGB,14.2,g/dL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,HCT,42.8,%,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,PLT,265,10*3/uL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,MCV,88.8,fL,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,MCH,29.5,pg,N
+2026-09-24 00:43:22,Sysmex XP-100,26,Fadzkaruffy,MCHC,33.2,g/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,GLU-S,112.5,mg/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,TC,195.0,mg/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,TG,145.2,mg/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,UA,5.8,mg/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,CREA-S,0.95,mg/dL,N
+2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,UREA,24.6,mg/dL,N

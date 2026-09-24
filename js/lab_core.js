@@ -141,29 +141,78 @@ const LabCore = (() => {
     if (nilai === null || nilai === undefined || nilai === '' || isNaN(nilai)) return 'BELUM';
     const r = ruj || {};
     const n  = Number(nilai);
-    const kb = r.kritis_bawah, ka = r.kritis_atas;
-    const bb = r.batas_bawah,  ba = r.batas_atas;
-    if (kb !== null && kb !== undefined && n <= Number(kb)) return 'KRITIS_RENDAH';
-    if (ka !== null && ka !== undefined && n >= Number(ka)) return 'KRITIS_TINGGI';
-    if (bb !== null && bb !== undefined && n <  Number(bb)) return 'RENDAH';
-    if (ba !== null && ba !== undefined && n >  Number(ba)) return 'TINGGI';
-    if ((bb === null || bb === undefined) && (ba === null || ba === undefined)) return 'BELUM';
+    let kb = r.kritis_bawah, ka = r.kritis_atas;
+    let bb = r.batas_bawah,  ba = r.batas_atas;
+
+    // Jika batas_bawah / batas_atas belum di-parse tapi ada r.teks (misal: "12 - 16" atau "8.1 - 10.4")
+    if ((bb === null || bb === undefined) && (ba === null || ba === undefined) && r.teks) {
+      const mTeks = String(r.teks).match(/([\d.,]+)\s*-\s*([\d.,]+)/);
+      if (mTeks) {
+        bb = parseFloat(mTeks[1].replace(',', '.'));
+        ba = parseFloat(mTeks[2].replace(',', '.'));
+      } else {
+        const mKurang = String(r.teks).match(/<\s*([\d.,]+)/);
+        if (mKurang) ba = parseFloat(mKurang[1].replace(',', '.'));
+        const mLebih = String(r.teks).match(/>\s*([\d.,]+)/);
+        if (mLebih) bb = parseFloat(mLebih[1].replace(',', '.'));
+      }
+    }
+
+    if (kb !== null && kb !== undefined && !isNaN(kb) && n <= Number(kb)) return 'KRITIS_RENDAH';
+    if (ka !== null && ka !== undefined && !isNaN(ka) && n >= Number(ka)) return 'KRITIS_TINGGI';
+    if (bb !== null && bb !== undefined && !isNaN(bb) && n <  Number(bb)) return 'RENDAH';
+    if (ba !== null && ba !== undefined && !isNaN(ba) && n >  Number(ba)) return 'TINGGI';
+    if ((bb === null || bb === undefined || isNaN(bb)) && (ba === null || ba === undefined || isNaN(ba))) return 'BELUM';
     return 'NORMAL';
   }
 
   function tandaTeks(nilaiTeks, teksNormal) {
     const v = (nilaiTeks == null ? '' : String(nilaiTeks)).trim();
     if (!v) return 'BELUM';
-    if (teksNormal == null || teksNormal === '') return 'NORMAL';
-    return v.toLowerCase() === String(teksNormal).trim().toLowerCase() ? 'NORMAL' : 'ABNORMAL';
+
+    // 1. Jika teks yang diketik berupa angka dan teks normal berupa rentang (misal "8.1 - 10.4" atau "< 20")
+    const n = parseFloat(v.replace(',', '.'));
+    if (!isNaN(n) && teksNormal && /[\d]/.test(teksNormal)) {
+      const resAngka = tandaAngka(n, { teks: teksNormal });
+      if (resAngka !== 'BELUM') return resAngka;
+    }
+
+    // 2. Jika ada acuan teks normal dari master
+    if (teksNormal != null && String(teksNormal).trim() !== '') {
+      const tn = String(teksNormal).trim().toLowerCase();
+      const vLow = v.toLowerCase();
+      if (vLow === tn) return 'NORMAL';
+      if (/negatif|non\s*reaktif|normal/i.test(tn)) {
+        if (/positif|reaktif|abnormal/i.test(vLow)) return 'ABNORMAL';
+        if (/negatif|non\s*reaktif|normal/i.test(vLow)) return 'NORMAL';
+      }
+      return 'ABNORMAL';
+    }
+
+    // 3. Deteksi kata abnormal umum
+    const vLow = v.toLowerCase();
+    if (/^(positif|reaktif|abnormal|ditemukan|keruh|merah|pos|\+)/i.test(vLow)) return 'ABNORMAL';
+    if (/^(negatif|non\s*reaktif|normal|-)/i.test(vLow)) return 'NORMAL';
+
+    // 4. Untuk teks deskriptif spesifik (misal: "Kuning jernih", "Jernih")
+    if (teksNormal == null || teksNormal === '') {
+      if (/kuning|jernih|coklat|putih|bening/i.test(vLow)) return 'NORMAL';
+      return 'BELUM';
+    }
+
+    return 'NORMAL';
   }
 
   /* Satu pintu: pilih cara menandai berdasarkan jenis nilai pemeriksaan. */
   function tandai(lab, ruj, nilaiAngka, nilaiTeks) {
     if (!lab) return 'BELUM';
-    return lab.jenis_nilai === 'ANGKA'
-      ? tandaAngka(nilaiAngka, ruj)
-      : tandaTeks(nilaiTeks, lab.teks_normal);
+    if (lab.jenis_nilai === 'ANGKA' || (nilaiAngka !== null && nilaiAngka !== undefined)) {
+      return tandaAngka(nilaiAngka, ruj);
+    }
+    if (nilaiTeks && !isNaN(parseFloat(String(nilaiTeks).replace(',', '.'))) && (ruj && (ruj.batas_bawah != null || ruj.batas_atas != null || ruj.teks))) {
+      return tandaAngka(parseFloat(String(nilaiTeks).replace(',', '.')), ruj);
+    }
+    return tandaTeks(nilaiTeks, lab.teks_normal);
   }
 
   /* ------------------------------------------------------------------

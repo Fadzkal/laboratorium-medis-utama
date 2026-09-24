@@ -1,0 +1,102 @@
+[
+  {
+    "sample_id": "26",
+    "nama_pasien": "Fadzkaruffy",
+    "alat": "Mindray BS-240",
+    "waktu": "2026-09-24 00:43:27",
+    "hasil": [
+      {
+        "test_name": "GLU-S",
+        "value": "112.5",
+        "unit": "mg/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "TC",
+        "value": "195.0",
+        "unit": "mg/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "TG",
+        "value": "145.2",
+        "unit": "mg/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "UA",
+        "value": "5.8",
+        "unit": "mg/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "CREA-S",
+        "value": "0.95",
+        "unit": "mg/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "UREA",
+        "value": "24.6",
+        "unit": "mg/dL",
+        "flag": "N"
+      }
+    ]
+  },
+  {
+    "sample_id": "26",
+    "nama_pasien": "Fadzkaruffy",
+    "alat": "Sysmex XP-100",
+    "waktu": "2026-09-24 00:43:22",
+    "hasil": [
+      {
+        "test_name": "WBC",
+        "value": "7.45",
+        "unit": "10*3/uL",
+        "flag": "N"
+      },
+      {
+        "test_name": "RBC",
+        "value": "4.82",
+        "unit": "10*6/uL",
+        "flag": "N"
+      },
+      {
+        "test_name": "HGB",
+        "value": "14.2",
+        "unit": "g/dL",
+        "flag": "N"
+      },
+      {
+        "test_name": "HCT",
+        "value": "42.8",
+        "unit": "%",
+        "flag": "N"
+      },
+      {
+        "test_name": "PLT",
+        "value": "265",
+        "unit": "10*3/uL",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCV",
+        "value": "88.8",
+        "unit": "fL",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCH",
+        "value": "29.5",
+        "unit": "pg",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCHC",
+        "value": "33.2",
+        "unit": "g/dL",
+        "flag": "N"
+      }
+    ]
+  }
+]

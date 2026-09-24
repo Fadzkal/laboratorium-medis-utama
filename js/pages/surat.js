@@ -312,7 +312,7 @@ const Surat = (() => {
                   <button type="button" class="btn btn-secondary btn-sm" id="btnPresetKimia">+ Glukosa &amp; Kimia</button>
                   <button type="button" class="btn btn-secondary btn-sm" id="btnPresetLipid">+ Profil Lipid</button>
                   <button type="button" class="btn btn-secondary btn-sm" id="btnPresetUrin">+ Urinalisis</button>
-                  ${(ctx.lab && ctx.lab.length) ? `<button type="button" class="btn btn-primary btn-sm" id="btnPresetSalinLab">&#x21bb; Salin dari Lab Pasien</button>` : ''}
+                  ${(ctx.lab && ctx.lab.length) ? `<button type="button" class="btn btn-primary btn-sm" id="btnPresetSalinLab">${UI.ikon('ulang', 14)} Salin dari Lab Pasien</button>` : ''}
                 </div>
               ` : ''}
               <div class="surat-isian" id="isianSurat"></div>

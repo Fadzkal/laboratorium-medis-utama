@@ -113,16 +113,16 @@ const Pasien = (() => {
       </div>
       <div style="margin-top:10px; padding:10px 12px; background:var(--ink-50); border:1px solid var(--ink-200); border-radius:var(--radius-sm);">
         <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--brand-700); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-          <span>🩺 Penandaan Pasien Kronis (Pemantauan BPJS 6 Bulan &amp; HbA1c)</span>
+          <span>Penandaan Pasien Kronis (Pemantauan BPJS 6 Bulan &amp; HbA1c)</span>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:18px;">
           <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-800);">
             <input type="checkbox" name="is_ht" value="1" ${isHtChecked ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
-            <span>🩸 Hipertensi (HPT)</span>
+            <span>Hipertensi (HPT)</span>
           </label>
           <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-800);">
             <input type="checkbox" name="is_dm" value="1" ${isDmChecked ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
-            <span>🍬 Diabetes Melitus (DM)</span>
+            <span>Diabetes Melitus (DM)</span>
           </label>
         </div>
         <div class="hint" style="margin-top:5px; font-size:11px; color:var(--ink-500);">
@@ -285,12 +285,12 @@ const Pasien = (() => {
           <label for="fKronis" style="font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:4px; display:block;">Status BPJS 6 Bln &amp; HbA1c</label>
           <select id="fKronis" style="width:100%; padding:6px 8px; border:1px solid var(--ink-300); border-radius:var(--radius-sm); font-size:13px;">
             <option value="semua">Semua Pasien</option>
-            <option value="bpjs_sudah_klaim">✅ BPJS: Sudah Klaim (&le; 6 Bln)</option>
-            <option value="bpjs_belum_klaim">⚠️ BPJS: Belum Klaim / Jatuh Tempo</option>
-            <option value="dm_hba1c_terkontrol">🟢 DM: HbA1c &lt; 7% (Terkontrol 6 Bln)</option>
-            <option value="dm_hba1c_tinggi">🔴 DM: HbA1c &ge; 7% (Evaluasi Ulang 3 Bln)</option>
-            <option value="dm_hba1c_belum">⚪ DM: Belum Periksa HbA1c</option>
-            <option value="semua_kronis">🩺 Semua Pasien Kronis (HT/DM)</option>
+            <option value="bpjs_sudah_klaim">BPJS: Sudah Klaim (&le; 6 Bln)</option>
+            <option value="bpjs_belum_klaim">BPJS: Belum Klaim / Jatuh Tempo</option>
+            <option value="dm_hba1c_terkontrol">DM: HbA1c &lt; 7% (Terkontrol 6 Bln)</option>
+            <option value="dm_hba1c_tinggi">DM: HbA1c &ge; 7% (Evaluasi Ulang 3 Bln)</option>
+            <option value="dm_hba1c_belum">DM: Belum Periksa HbA1c</option>
+            <option value="semua_kronis">Semua Pasien Kronis (HT/DM)</option>
           </select>
         </div>
 
@@ -807,7 +807,7 @@ const Pasien = (() => {
           <div class="card-head" style="flex-wrap:wrap; gap:8px; background:linear-gradient(to right, #f0fdf4, #ffffff);">
             <div>
               <h2 style="color:var(--brand-900); display:flex; align-items:center; gap:8px;">
-                <span>🩺 Pemantauan Pasien Kronis &amp; Evaluasi BPJS 6 Bulan (Prolanis)</span>
+                <span>Pemantauan Pasien Kronis &amp; Evaluasi BPJS 6 Bulan (Prolanis)</span>
               </h2>
               <div class="sub" style="color:var(--ink-600);">Pengecekan otomatis kelayakan klaim berkala (siklus 6 bulan) dan kontrol glikemik HbA1c (target &lt; 7.0%)</div>
             </div>

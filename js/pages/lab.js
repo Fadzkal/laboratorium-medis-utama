@@ -173,6 +173,59 @@ const Lab = (() => {
   }[s] || UI.esc(s));
 
   /* ================================================================== */
+  /*  Kamus Nilai Rujukan Standar Medis (Fallback Internasional)        */
+  /* ================================================================== */
+  const RUJUKAN_STANDAR_MEDIS = {
+    'hemoglobin': { L: { bb: 14.0, ba: 18.0, teks: '14.0 - 18.0' }, P: { bb: 12.0, ba: 16.0, teks: '12.0 - 16.0' }, satuan: 'g/dL' },
+    'leukosit': { default: { bb: 5.0, ba: 10.0, teks: '5.0 - 10.0' }, satuan: '10^3/µL' },
+    'trombosit': { default: { bb: 150, ba: 450, teks: '150 - 450' }, satuan: '10^3/µL' },
+    'hematokrit': { L: { bb: 40, ba: 54, teks: '40.0 - 54.0' }, P: { bb: 37, ba: 47, teks: '37.0 - 47.0' }, satuan: '%' },
+    'eritrosit': { L: { bb: 4.6, ba: 6.2, teks: '4.60 - 6.20' }, P: { bb: 4.2, ba: 5.4, teks: '4.20 - 5.40' }, satuan: '10^6/µL' },
+    'mcv': { default: { bb: 80, ba: 96, teks: '80 - 96' }, satuan: 'fL' },
+    'mch': { default: { bb: 27, ba: 31, teks: '27 - 31' }, satuan: 'pg' },
+    'mchc': { default: { bb: 32, ba: 36, teks: '32 - 36' }, satuan: 'g/dL' },
+    'rdw': { default: { bb: 11.5, ba: 14.5, teks: '11.5 - 14.5' }, satuan: '%' },
+    'rdw-cv': { default: { bb: 11.5, ba: 14.5, teks: '11.5 - 14.5' }, satuan: '%' },
+    'limfosit': { default: { bb: 20, ba: 40, teks: '20 - 40' }, satuan: '%' },
+    'monosit': { default: { bb: 2, ba: 8, teks: '2 - 8' }, satuan: '%' },
+    'neutrofil': { default: { bb: 50, ba: 70, teks: '50 - 70' }, satuan: '%' },
+    'kolesterol total': { default: { ba: 200, teks: '< 200' }, satuan: 'mg/dL' },
+    'cholesterol total': { default: { ba: 200, teks: '< 200' }, satuan: 'mg/dL' },
+    'trigliserida': { default: { ba: 150, teks: '< 150' }, satuan: 'mg/dL' },
+    'cholesterol hdl': { L: { bb: 40, teks: '> 40' }, P: { bb: 50, teks: '> 50' }, satuan: 'mg/dL' },
+    'cholesterol ldl': { default: { ba: 100, teks: '< 100' }, satuan: 'mg/dL' },
+    'glukosa darah sewaktu': { default: { ba: 140, teks: '< 140' }, satuan: 'mg/dL' },
+    'glukosa darah puasa': { default: { bb: 70, ba: 100, teks: '70 - 100' }, satuan: 'mg/dL' },
+    'asam urat': { L: { bb: 3.5, ba: 7.2, teks: '3.5 - 7.2' }, P: { bb: 2.6, ba: 6.0, teks: '2.6 - 6.0' }, satuan: 'mg/dL' },
+    'ureum': { default: { bb: 15, ba: 45, teks: '15 - 45' }, satuan: 'mg/dL' },
+    'creatinin': { L: { bb: 0.7, ba: 1.3, teks: '0.70 - 1.30' }, P: { bb: 0.6, ba: 1.1, teks: '0.60 - 1.10' }, satuan: 'mg/dL' },
+    'sgot': { default: { ba: 35, teks: '< 35' }, satuan: 'U/L' },
+    'sgpt': { default: { ba: 45, teks: '< 45' }, satuan: 'U/L' },
+    'hba 1c': { default: { ba: 6.5, teks: '< 6.5' }, satuan: '%' },
+    'hba1c': { default: { ba: 6.5, teks: '< 6.5' }, satuan: '%' }
+  };
+
+  function ambilRujukanMedisFallback(namaPemeriksaan, jk) {
+    if (!namaPemeriksaan) return null;
+    const nm = namaPemeriksaan.trim().toLowerCase();
+    for (const [k, v] of Object.entries(RUJUKAN_STANDAR_MEDIS)) {
+      if (nm === k || nm.includes(k) || k.includes(nm)) {
+        const j = (jk || 'L').toUpperCase().startsWith('P') ? 'P' : 'L';
+        const d = v[j] || v.default;
+        if (d) {
+          return {
+            batas_bawah: d.bb != null ? d.bb : null,
+            batas_atas: d.ba != null ? d.ba : null,
+            teks: d.teks || '',
+            satuan: v.satuan || ''
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ================================================================== */
   /*  Layar pengisian hasil                                             */
   /* ================================================================== */
   async function layarHasil(el, id) {
@@ -189,19 +242,31 @@ const Lab = (() => {
     const rujukanPakai = {};
     p.hasil.forEach(h => {
       const m = master.find(x => x.id === h.lab_id);
-      if (!m) { rujukanPakai[h.id] = null; return; }
       const jk = p.pasien.jenis_kelamin;
-      if (m.rujukan && m.rujukan.length > 0) {
-        rujukanPakai[h.id] = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
-      } else {
+      let ruj = null;
+      if (m && m.rujukan && m.rujukan.length > 0) {
+        ruj = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
+      } else if (m) {
         const bBawah = jk === 'P' && m.min_p != null ? m.min_p : (jk === 'L' && m.min_l != null ? m.min_l : m.min_normal);
         const bAtas  = jk === 'P' && m.max_p != null ? m.max_p : (jk === 'L' && m.max_l != null ? m.max_l : m.max_normal);
         const tNormal = jk === 'P' && m.normal_p ? m.normal_p : (jk === 'L' && m.normal_l ? m.normal_l : m.nilai_normal);
-        rujukanPakai[h.id] = {
+        ruj = {
           batas_bawah: bBawah != null ? bBawah : null,
           batas_atas:  bAtas != null ? bAtas : null,
           teks: tNormal || ''
         };
+      }
+      // Bila belum ada rujukan di master, gunakan rujukan standar medis
+      if (!ruj || (ruj.batas_bawah == null && ruj.batas_atas == null && !ruj.teks)) {
+        const fb = ambilRujukanMedisFallback(h.nama, jk);
+        if (fb) {
+          ruj = fb;
+          if (!h.satuan && fb.satuan) h.satuan = fb.satuan;
+        }
+      }
+      rujukanPakai[h.id] = ruj;
+      if (!h.rujukan_teks && ruj && ruj.teks) {
+        h.rujukan_teks = ruj.teks;
       }
     });
 
@@ -266,6 +331,10 @@ const Lab = (() => {
             <button class="btn btn-secondary btn-sm" id="btnCetak">${UI.ikon('cetak',15)} Cetak</button>
             <button class="btn btn-secondary btn-sm" id="btnFisik" style="background:#2e7d32;color:#fff;">Fisik</button>
             <button class="btn btn-secondary btn-sm" id="btnAnamnesa" style="background:#0288d1;color:#fff;">Anamnesa</button>
+            ${p.status !== 'SELESAI' && p.status !== 'BATAL' && bolehIsi()
+              ? `<button class="btn btn-secondary btn-sm" id="btnTarikAlat" style="background:#0f766e;color:#fff;" title="Tarik hasil otomatis dari alat (Mindray BS-240 / Sysmex XP-100)">
+                   ${UI.ikon('unduh',15)} Tarik Hasil Alat
+                 </button>` : ''}
             ${p.status === 'SELESAI' && adminSaja()
               ? `<button class="btn btn-secondary btn-sm" id="btnBuka">Buka kunci</button>` : ''}
             ${p.status !== 'SELESAI' && p.status !== 'BATAL' && bolehIsi()
@@ -306,6 +375,55 @@ const Lab = (() => {
     el.querySelector('#btnFisik').addEventListener('click', () => modalFisik(p));
     el.querySelector('#btnAnamnesa').addEventListener('click', () => modalAnamnesa(p));
 
+    const bTarikAlat = el.querySelector('#btnTarikAlat');
+    if (bTarikAlat) {
+      bTarikAlat.addEventListener('click', async () => {
+        await tarikHasilDariAlat(el, p, rujukanPakai, bTarikAlat);
+      });
+    }
+
+    if (!terkunci) {
+      const modalTimer = setInterval(async () => {
+        if (!document.body.contains(el)) {
+          clearInterval(modalTimer);
+          return;
+        }
+        try {
+          const fresh = await DB.labPermintaan(p.id);
+          if (fresh && Array.isArray(fresh.hasil)) {
+            let syncCount = 0;
+            fresh.hasil.forEach(fh => {
+              const local = p.hasil.find(h => h.id === fh.id);
+              if (local && (fh.nilai_angka !== local.nilai_angka || fh.nilai_teks !== local.nilai_teks)) {
+                Object.assign(local, fh);
+                syncCount++;
+                const inp = el.querySelector(`[data-hasil="${fh.id}"]`);
+                if (inp) {
+                  const m = fh.ref || {};
+                  inp.value = m.jenis_nilai === 'ANGKA'
+                    ? (fh.nilai_angka != null ? LabCore.formatNilai(fh.nilai_angka, m.desimal) : '')
+                    : (fh.nilai_teks || '');
+                  inp.style.transition = 'background-color 0.4s';
+                  inp.style.backgroundColor = '#ecfdf5';
+                  setTimeout(() => { if (inp) inp.style.backgroundColor = ''; }, 2000);
+                }
+                const selTanda = el.querySelector(`[data-tanda="${fh.id}"]`);
+                if (selTanda) selTanda.innerHTML = lencanaTanda(fh.tanda);
+              }
+            });
+            if (syncCount > 0) {
+              const r = LabCore.ringkasLembar(p.hasil);
+              const rk = el.querySelector('#ringkasLembar');
+              if (rk) rk.textContent = `${r.terisi} dari ${r.total} terisi`;
+              const bs = el.querySelector('#btnSelesai');
+              if (bs) bs.disabled = !r.siapDitutup;
+              UI.toast(`Sinkronisasi alat: ${syncCount} hasil otomatis masuk.`, 'ok', 3000);
+            }
+          }
+        } catch (_) {}
+      }, 3500);
+    }
+
     const bSelesai = el.querySelector('#btnSelesai');
     if (bSelesai) bSelesai.addEventListener('click', async () => {
       if (!await UI.konfirmasi('Selesaikan lembar hasil?',
@@ -343,15 +461,235 @@ const Lab = (() => {
     });
   }
 
+  /* Kamus kode tes alat ke nama pemeriksaan klinik untuk sinkronisasi antarmuka */
+  const MAP_KODE_ALAT = {
+    'GLU-S': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa', 'GDS', 'GDP'],
+    'GLU': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa'],
+    'GLUCOSE': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa'],
+    'TC': ['Cholesterol Total', 'Kolesterol Total'],
+    'CHOL': ['Cholesterol Total', 'Kolesterol Total'],
+    'TG': ['Trigliserida', 'Triglyceride'],
+    'TRIG': ['Trigliserida', 'Triglyceride'],
+    'HDL-C': ['Cholesterol HDL', 'HDL Kolesterol'],
+    'HDL': ['Cholesterol HDL', 'HDL Kolesterol'],
+    'LDL-C': ['Cholesterol LDL', 'LDL Kolesterol'],
+    'LDL': ['Cholesterol LDL', 'LDL Kolesterol'],
+    'UA': ['Asam Urat', 'Uric Acid'],
+    'UREA': ['Ureum', 'Urea', 'BUN'],
+    'UREUM': ['Ureum', 'Urea'],
+    'CREA-S': ['Creatinin', 'Kreatinin', 'Creatinine'],
+    'CREA': ['Creatinin', 'Kreatinin', 'Creatinine'],
+    'AST': ['SGOT', 'SGOT (AST)'],
+    'SGOT': ['SGOT', 'SGOT (AST)'],
+    'ALT': ['SGPT', 'SGPT (ALT)'],
+    'SGPT': ['SGPT', 'SGPT (ALT)'],
+    'ALB': ['Albumin'],
+    'ALBUMIN': ['Albumin'],
+    'TP': ['Total Protein', 'Protein Total'],
+    'TBIL': ['Bilirubin Total', 'Total Bilirubin'],
+    'T-BIL': ['Bilirubin Total', 'Total Bilirubin'],
+    'DBIL': ['Bilirubin Direk', 'Direct Bilirubin'],
+    'D-BIL': ['Bilirubin Direk', 'Direct Bilirubin'],
+    'ALP': ['Alkali Fosfatase', 'Alkaline Phosphatase'],
+    'GGT': ['Gamma GT', 'GGT'],
+    'CK': ['Creatine Kinase', 'CK'],
+    'CK-MB': ['CK-MB', 'CKMB'],
+    'AMY': ['Amilase', 'Amylase'],
+    'LIP': ['Lipase'],
+    'NA': ['Natrium', 'Sodium'],
+    'K': ['Kalium', 'Potassium'],
+    'CL': ['Klorida', 'Chloride'],
+    'CA': ['Kalsium', 'Calcium'],
+    'WBC': ['Leukosit', 'Jumlah Sel Leukosit', 'Jumlah Leukosit', 'WBC'],
+    'RBC': ['Eritrosit', 'Jumlah Sel Eritrosit', 'Jumlah Eritrosit', 'RBC'],
+    'HGB': ['Hemoglobin', 'HB', 'HGB'],
+    'HB': ['Hemoglobin', 'HB', 'HGB'],
+    'HCT': ['Hematokrit', 'HCT'],
+    'PLT': ['Trombosit', 'Jumlah Trombosit', 'PLT'],
+    'MCV': ['MCV'],
+    'MCH': ['MCH'],
+    'MCHC': ['MCHC'],
+    'RDW-CV': ['RDW-CV', 'RDW_CV', 'RDW'],
+    'RDW-SD': ['RDW-SD', 'RDW_SD'],
+    'LYM%': ['Limfosit', 'Lymposit', 'LYM%', 'LYMPH%'],
+    'LYMPH%': ['Limfosit', 'Lymposit', 'LYM%', 'LYMPH%'],
+    'LYM#': ['Limfosit Absolut', 'LYM#', 'LYMPH#'],
+    'LYMPH#': ['Limfosit Absolut', 'LYM#', 'LYMPH#'],
+    'NEUT%': ['Neutrofil', 'Segmen', 'GRAN%', 'NEUT%'],
+    'NEUT#': ['Neutrofil Absolut', 'NEUT#', 'GRAN#'],
+    'GRAN%': ['Neutrofil', 'Segmen', 'GRAN%'],
+    'GRAN#': ['Neutrofil Absolut', 'NEUT#', 'GRAN#'],
+    'MXD%': ['Monosit', 'MXD%'],
+    'MXD#': ['Monosit Absolut', 'MXD#'],
+    'PDW': ['PDW'],
+    'MPV': ['MPV'],
+    'P-LCR': ['P-LCR'],
+    'PCT': ['PCT'],
+    'LED': ['LED', 'Laju Endap Darah', 'ESR'],
+    'ESR': ['LED', 'Laju Endap Darah', 'ESR'],
+    'HBA1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c']
+  };
+
+  async function tarikHasilDariAlat(el, p, rujukanPakai, bTarikAlat) {
+    const teksAsli = bTarikAlat.innerHTML;
+    bTarikAlat.disabled = true;
+    bTarikAlat.innerHTML = `${UI.ikon('ulang', 15)} Menghubungi alat...`;
+
+    try {
+      const sid = String(p.no_lab || '').trim();
+      let resBridge = null;
+      const daftarKunci = [sid];
+
+      if (/^\d{8}$/.test(sid)) {
+        daftarKunci.push(sid);
+      } else {
+        const m = sid.match(/LAB-(\d{2,4})-(\d+)/i);
+        if (m) {
+          const yy = m[1].slice(-2);
+          const mm = String(new Date().getMonth() + 1).padStart(2, '0');
+          const seq = m[2].padStart(4, '0');
+          daftarKunci.push(`${yy}${mm}${seq}`);
+          daftarKunci.push(seq);
+        }
+      }
+
+      for (const k of daftarKunci) {
+        try {
+          const c = new AbortController();
+          const tid = setTimeout(() => c.abort(), 2000);
+          const r = await fetch(`http://127.0.0.1:7119/api/hasil?no_lab=${encodeURIComponent(k)}`, {
+            signal: c.signal
+          });
+          clearTimeout(tid);
+          if (r.ok) {
+            const j = await r.json();
+            if (j.sukses && j.data) {
+              resBridge = j.data;
+              break;
+            }
+          }
+        } catch (eBridge) {}
+      }
+
+      let terisi = 0;
+      let namaAlat = '';
+
+      if (resBridge && Array.isArray(resBridge.hasil) && resBridge.hasil.length > 0) {
+        namaAlat = resBridge.alat || 'Alat Medis';
+        for (const itemAlat of resBridge.hasil) {
+          const rawCode = (itemAlat.test_name || '').toUpperCase().trim();
+          const rawVal = itemAlat.value;
+          const aliases = MAP_KODE_ALAT[rawCode] || [rawCode];
+
+          const target = p.hasil.find(h => {
+            const hNama = (h.nama || '').trim().toLowerCase();
+            return aliases.some(a => a.toLowerCase() === hNama) || hNama === rawCode.toLowerCase();
+          });
+
+          if (target) {
+            const m = target.ref || {};
+            const numVal = parseFloat(String(rawVal).replace(',', '.'));
+            const isAngka = !isNaN(numVal) && m.jenis_nilai === 'ANGKA';
+            const patch = {
+              nilai_angka: isAngka ? numVal : null,
+              nilai_teks: isAngka ? null : String(rawVal),
+              catatan: 'Otomatis dari ' + namaAlat
+            };
+
+            const baru = await DB.simpanHasilLab(target.id, patch);
+            Object.assign(target, baru);
+            terisi++;
+
+            const inp = el.querySelector(`[data-hasil="${target.id}"]`);
+            if (inp) {
+              inp.value = isAngka ? LabCore.formatNilai(numVal, m.desimal) : String(rawVal);
+              inp.style.transition = 'background-color 0.5s';
+              inp.style.backgroundColor = '#ecfdf5';
+              setTimeout(() => { if (inp) inp.style.backgroundColor = ''; }, 2500);
+            }
+            const selTanda = el.querySelector(`[data-tanda="${target.id}"]`);
+            if (selTanda) selTanda.innerHTML = lencanaTanda(baru.tanda);
+
+            // Perbarui label baris dengan lencana alat bila belum ada
+            const tr = el.querySelector(`tr[data-baris="${target.id}"] td:first-child`);
+            if (tr && !tr.querySelector('.badge-alat')) {
+              const bgWarna = /mindray/i.test(namaAlat) ? '#e0f2fe' : '#f3e8ff';
+              const teksWarna = /mindray/i.test(namaAlat) ? '#0369a1' : '#7e22ce';
+              tr.insertAdjacentHTML('beforeend', `<span class="badge badge-alat" style="background:${bgWarna};color:${teksWarna};margin-left:5px;font-size:10px;padding:1px 5px;">${UI.esc(namaAlat.split(' ')[0])}</span>`);
+            }
+          }
+        }
+      }
+
+      if (terisi > 0) {
+        const r = LabCore.ringkasLembar(p.hasil);
+        const rk = el.querySelector('#ringkasLembar');
+        if (rk) rk.textContent = `${r.terisi} dari ${r.total} terisi`;
+        const bs = el.querySelector('#btnSelesai');
+        if (bs) bs.disabled = !r.siapDitutup;
+        UI.toast(`Berhasil menarik ${terisi} hasil dari ${namaAlat}.`, 'ok');
+      } else {
+        // Coba periksa apakah data di database sudah diperbarui oleh background sync
+        const fresh = await DB.labPermintaan(p.id);
+        let syncCount = 0;
+        if (fresh && Array.isArray(fresh.hasil)) {
+          fresh.hasil.forEach(fh => {
+            const local = p.hasil.find(h => h.id === fh.id);
+            if (local && (fh.nilai_angka !== local.nilai_angka || fh.nilai_teks !== local.nilai_teks)) {
+              Object.assign(local, fh);
+              syncCount++;
+              const inp = el.querySelector(`[data-hasil="${fh.id}"]`);
+              if (inp) {
+                const m = fh.ref || {};
+                inp.value = m.jenis_nilai === 'ANGKA'
+                  ? (fh.nilai_angka != null ? LabCore.formatNilai(fh.nilai_angka, m.desimal) : '')
+                  : (fh.nilai_teks || '');
+              }
+              const selTanda = el.querySelector(`[data-tanda="${fh.id}"]`);
+              if (selTanda) selTanda.innerHTML = lencanaTanda(fh.tanda);
+            }
+          });
+        }
+        if (syncCount > 0) {
+          const r = LabCore.ringkasLembar(p.hasil);
+          const rk = el.querySelector('#ringkasLembar');
+          if (rk) rk.textContent = `${r.terisi} dari ${r.total} terisi`;
+          const bs = el.querySelector('#btnSelesai');
+          if (bs) bs.disabled = !r.siapDitutup;
+          UI.toast(`Diperbarui: ${syncCount} hasil tersimpan dari sinkronisasi alat.`, 'ok');
+        } else {
+          UI.toast('Belum ada data masuk dari alat untuk nomor lembar ini. Pastikan alat sudah selesai membaca sampel.', 'info');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      UI.toast(e.message || 'Gagal menghubungi alat laboratorium.', 'err');
+    } finally {
+      bTarikAlat.disabled = false;
+      bTarikAlat.innerHTML = teksAsli;
+    }
+  }
+
+  function cekHarusAngka(h, m, ruj) {
+    if (m && m.jenis_nilai === 'ANGKA') return true;
+    if (h.rujukan_bawah != null || h.rujukan_atas != null) return true;
+    if (ruj && (ruj.batas_bawah != null || ruj.batas_atas != null)) return true;
+    if (ruj && ruj.teks && /[\d.,]+/.test(ruj.teks)) return true;
+    if (h.satuan && h.satuan.trim() !== '') return true;
+    const nm = (h.nama || '').toLowerCase();
+    return /hematologi|kimia|leukosit|hemoglobin|trombosit|eritrosit|hematokrit|glukosa|kolesterol|trigliserida|asam\s*urat|ureum|creatinin|kreatinin|sgot|sgpt|mcv|mch|mchc|rdw|limfosit|monosit|neutrofil|segmen|batang|eosinofil|basofil|led|bilirubin|protein|albumin|kalsium|natrium|kalium|klorida|tensi|nadi|suhu|hb/i.test(nm);
+  }
+
   /* Satu baris pemeriksaan. Bentuk isiannya mengikuti jenis nilainya:
      angka pakai kotak teks (supaya koma desimal Indonesia bisa diketik
      apa adanya), pilihan pakai daftar, sisanya teks bebas. */
   function barisHasil(h, ruj, terkunci) {
     const m = h.ref || {};
-    const nilai = m.jenis_nilai === 'ANGKA'
-      ? (h.nilai_angka === null || h.nilai_angka === undefined ? ''
+    const harusAngka = cekHarusAngka(h, m, ruj);
+    const nilai = harusAngka
+      ? (h.nilai_angka === null || h.nilai_angka === undefined ? (h.nilai_teks || '')
          : LabCore.formatNilai(h.nilai_angka, m.desimal))
-      : (h.nilai_teks || '');
+      : (h.nilai_teks || (h.nilai_angka !== null && h.nilai_angka !== undefined ? String(h.nilai_angka) : ''));
 
     let isian;
     if (terkunci) {
@@ -362,19 +700,33 @@ const Lab = (() => {
         ${(m.pilihan || []).map(o =>
           `<option ${o === h.nilai_teks ? 'selected' : ''}>${UI.esc(o)}</option>`).join('')}
       </select>`;
+    } else if (harusAngka) {
+      isian = `<input type="text" data-hasil="${h.id}" data-angka="1" class="w-full text-right"
+                 inputmode="decimal" placeholder="0" value="${UI.esc(nilai)}"
+                 oninput="this.value = this.value.replace(/[^0-9.,\\-]/g, '')">`;
     } else {
-      isian = `<input type="text" data-hasil="${h.id}" class="w-full ${m.jenis_nilai === 'ANGKA' ? 'text-right' : ''}"
-                 inputmode="decimal" value="${UI.esc(nilai)}">`;
+      isian = `<input type="text" data-hasil="${h.id}" class="w-full"
+                 value="${UI.esc(nilai)}">`;
+    }
+
+    let badgeAlat = '';
+    if (h.catatan && /mindray/i.test(h.catatan)) {
+      badgeAlat = '<span class="badge badge-alat" style="background:#e0f2fe;color:#0369a1;margin-left:5px;font-size:10px;padding:1px 5px;">Mindray</span>';
+    } else if (h.catatan && /sysmex/i.test(h.catatan)) {
+      badgeAlat = '<span class="badge badge-alat" style="background:#f3e8ff;color:#7e22ce;margin-left:5px;font-size:10px;padding:1px 5px;">Sysmex</span>';
+    } else if (h.catatan && /alat/i.test(h.catatan)) {
+      badgeAlat = '<span class="badge badge-alat" style="background:#f1f5f9;color:#475569;margin-left:5px;font-size:10px;padding:1px 5px;">Alat</span>';
     }
 
     return `<tr data-baris="${h.id}">
       <td>${UI.esc(h.nama)}
-          ${m.kode ? `<span class="text-muted mono text-xs"> ${UI.esc(m.kode)}</span>` : ''}</td>
+          ${m.kode ? `<span class="text-muted mono text-xs"> ${UI.esc(m.kode)}</span>` : ''}
+          ${badgeAlat}</td>
       <td>${isian}</td>
-      <td class="muted">${UI.esc(h.satuan || '')}</td>
-      <td class="muted mono text-sm">${UI.esc(h.rujukan_teks || LabCore.teksRujukan(ruj, m) || '—')}</td>
+      <td class="muted">${UI.esc(h.satuan || (ruj && ruj.satuan) || '')}</td>
+      <td class="muted mono text-sm">${UI.esc(h.rujukan_teks || LabCore.teksRujukan(ruj, m) || (ruj && ruj.teks) || '—')}</td>
       <td data-tanda="${h.id}">${lencanaTanda(h.tanda)}</td>
-      <td class="no-print">${m.jenis_nilai === 'ANGKA'
+      <td class="no-print">${m.jenis_nilai === 'ANGKA' || harusAngka
         ? `<button class="btn-icon" data-tren="${h.lab_id}" data-nama="${UI.esc(h.nama)}"
              title="Lihat tren">${UI.ikon('laporan',15)}</button>` : ''}</td>
     </tr>`;
@@ -402,9 +754,16 @@ const Lab = (() => {
         const h = p.hasil.find(x => x.id === id);
         const m = h.ref || {};
         const ruj = rujukanPakai[id];
-        const tanda = m.jenis_nilai === 'ANGKA'
+        const harusAngka = inp.dataset.angka === '1';
+
+        if (harusAngka) {
+          const valBersih = inp.value.replace(/[^0-9.,\-]/g, '');
+          if (inp.value !== valBersih) inp.value = valBersih;
+        }
+
+        const tanda = harusAngka
           ? LabCore.tandaAngka(LabCore.bacaNilai(inp.value, m.desimal), ruj)
-          : LabCore.tandaTeks(inp.value, m.teks_normal);
+          : LabCore.tandai(m, ruj, null, inp.value);
         const sel = el.querySelector(`[data-tanda="${id}"]`);
         if (sel) sel.innerHTML = lencanaTanda(tanda);
       });
@@ -413,28 +772,48 @@ const Lab = (() => {
         const id = inp.dataset.hasil;
         const h = p.hasil.find(x => x.id === id);
         const m = h.ref || {};
+        const ruj = rujukanPakai[id];
+        const harusAngka = inp.dataset.angka === '1';
         const patch = {};
 
-        if (m.jenis_nilai === 'ANGKA') {
-          const n = LabCore.bacaNilai(inp.value, m.desimal);
-          if (inp.value.trim() !== '' && n === null) {
-            UI.toast('"' + inp.value + '" bukan angka yang bisa dibaca.', 'err');
-            inp.focus(); return;
+        if (harusAngka) {
+          const raw = inp.value.trim();
+          if (raw !== '') {
+            const n = LabCore.bacaNilai(raw, m.desimal);
+            if (n === null || isNaN(n)) {
+              UI.toast('Pemeriksaan ' + h.nama + ' harus diisi angka standar medis.', 'err');
+              inp.value = '';
+              inp.focus(); return;
+            }
+            const salah = LabCore.validasi({ ...m, jenis_nilai: 'ANGKA' }, n, null);
+            if (salah) { UI.toast(salah, 'err'); inp.focus(); return; }
+            patch.nilai_angka = n; patch.nilai_teks = String(n);
+            inp.value = LabCore.formatNilai(n, m.desimal);
+          } else {
+            patch.nilai_angka = null; patch.nilai_teks = null;
           }
-          const salah = LabCore.validasi(m, n, null);
-          if (salah) { UI.toast(salah, 'err'); inp.focus(); return; }
-          patch.nilai_angka = n; patch.nilai_teks = null;
-          inp.value = n === null ? '' : LabCore.formatNilai(n, m.desimal);
-        } else {
+        } else if (m.jenis_nilai === 'PILIHAN') {
           const v = inp.value.trim() || null;
           const salah = LabCore.validasi(m, null, v);
           if (salah) { UI.toast(salah, 'err'); inp.focus(); return; }
           patch.nilai_teks = v; patch.nilai_angka = null;
+        } else {
+          const v = inp.value.trim() || null;
+          patch.nilai_teks = v;
+          const n = v ? LabCore.bacaNilai(v, m.desimal) : null;
+          if (n !== null) patch.nilai_angka = n;
         }
 
         try {
           const baru = await DB.simpanHasilLab(id, patch);
           Object.assign(h, baru);
+          const hitungTanda = harusAngka
+            ? LabCore.tandaAngka(LabCore.bacaNilai(inp.value, m.desimal), ruj)
+            : LabCore.tandai(m, ruj, h.nilai_angka, inp.value);
+          if (baru.tanda === 'NORMAL' && hitungTanda !== 'NORMAL') {
+            baru.tanda = hitungTanda;
+            h.tanda = hitungTanda;
+          }
           const sel = el.querySelector(`[data-tanda="${id}"]`);
           if (sel) sel.innerHTML = lencanaTanda(baru.tanda);
 
@@ -1255,7 +1634,7 @@ const Lab = (() => {
           </thead>
           <tbody>
             ${grup.map(g => `
-              <tr class="grp-row" style="background:#f0fdfa; color:#0f766e;"><td colspan="5">📁 ${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
+              <tr class="grp-row" style="background:#f0fdfa; color:#0f766e;"><td colspan="5" style="font-weight:700;">${UI.esc(g.kelompok || 'PEMERIKSAAN')}</td></tr>
               ${g.isi.map(h => {
                 const abnormal = isAbnormalItem(h);
                 const rujukanStr = h.rujukan_teks || LabCore.teksRujukan(rujukanPakai[h.id], h.ref) || '—';
@@ -1931,10 +2310,15 @@ const Lab = (() => {
     instansi: '', optInstansi: '',
     terpilih: null,
     formatCetak: 'Format 3(M3)',
-    daftar: []
+    daftar: [],
+    syncTimer: null
   };
 
   function gantiTab(targetTab, pId) {
+    if (skylabState.syncTimer) {
+      clearInterval(skylabState.syncTimer);
+      skylabState.syncTimer = null;
+    }
     if (pId) skylabState.terpilih = pId;
     tabAktif = targetTab;
     const tabsEl = document.getElementById('tabsLab');
@@ -2000,14 +2384,14 @@ const Lab = (() => {
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
               <input type="text" class="f-inp" disabled>
-              <button id="hsBtnRefresh" style="background:none;border:none;font-size:18px;font-weight:bold;cursor:pointer;padding:0 4px;" title="Muat Ulang">&#x21bb;</button>
+              <button id="hsBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
           <div class="skylab-list" id="skyDaftar"><div class="skylab-empty">Memuat...</div></div>
         </div>
         <div class="skylab-right" id="skyKanan">
           <div class="skylab-empty" style="height:100%">
-            <span style="font-size:36px">&#128203;</span>
+            <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
             <span>Pilih pasien dari daftar kiri</span>
           </div>
         </div>
@@ -2071,6 +2455,10 @@ const Lab = (() => {
     };
 
     const bukaHasil = async (id) => {
+      if (skylabState.syncTimer) {
+        clearInterval(skylabState.syncTimer);
+        skylabState.syncTimer = null;
+      }
       skylabState.terpilih = id;
       w.querySelectorAll('#skyDaftar tr.baris').forEach(r => r.classList.toggle('aktif', r.dataset.id === id));
       const kanan = document.getElementById('skyKanan');
@@ -2082,20 +2470,28 @@ const Lab = (() => {
         const rujukanPakai = {};
         p.hasil.forEach(h => {
           const m = h.ref;
-          if (!m) { rujukanPakai[h.id] = null; return; }
           const jk = p.pasien.jenis_kelamin;
-          if (m.rujukan && m.rujukan.length > 0) {
-            rujukanPakai[h.id] = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
-          } else {
+          let ruj = null;
+          if (m && m.rujukan && m.rujukan.length > 0) {
+            ruj = LabCore.pilihRujukan(m.rujukan, jk, umurBln);
+          } else if (m) {
             const bBawah = jk === 'P' && m.min_p != null ? m.min_p : (jk === 'L' && m.min_l != null ? m.min_l : m.min_normal);
             const bAtas  = jk === 'P' && m.max_p != null ? m.max_p : (jk === 'L' && m.max_l != null ? m.max_l : m.max_normal);
             const tNormal = jk === 'P' && m.normal_p ? m.normal_p : (jk === 'L' && m.normal_l ? m.normal_l : m.nilai_normal);
-            rujukanPakai[h.id] = {
+            ruj = {
               batas_bawah: bBawah != null ? bBawah : null,
               batas_atas:  bAtas != null ? bAtas : null,
               teks: tNormal || ''
             };
           }
+          if (!ruj || (ruj.batas_bawah == null && ruj.batas_atas == null && !ruj.teks)) {
+            const fb = ambilRujukanMedisFallback(h.nama || (m && m.nama), jk);
+            if (fb) {
+              ruj = fb;
+              if (m && !m.satuan && fb.satuan) m.satuan = fb.satuan;
+            }
+          }
+          rujukanPakai[h.id] = ruj;
         });
         const terkunci = p.status === 'SELESAI' || p.status === 'BATAL';
 
@@ -2111,18 +2507,28 @@ const Lab = (() => {
           if (ruj.batas_atas !== null) return `< ${ruj.batas_atas}`;
           return ruj.teks || '';
         };
+        const tandaItem = (h, ruj) => {
+          const m = h.ref || {};
+          const harusAngka = cekHarusAngka(h, m, ruj);
+          if (harusAngka) {
+            const n = h.nilai_angka !== null && h.nilai_angka !== undefined ? h.nilai_angka : LabCore.bacaNilai(h.nilai_teks, m.desimal);
+            return LabCore.tandaAngka(n, ruj);
+          }
+          return LabCore.tandai(m, ruj, h.nilai_angka, h.nilai_teks);
+        };
         const isAbnormal = (h, ruj) => {
-          if (!ruj || h.ref?.jenis_nilai !== 'ANGKA' || h.nilai_angka === null) return false;
-          if (ruj.batas_bawah !== null && h.nilai_angka < ruj.batas_bawah) return true;
-          if (ruj.batas_atas !== null && h.nilai_angka > ruj.batas_atas) return true;
-          return false;
+          const t = tandaItem(h, ruj);
+          return ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
         };
 
         const catatan = p.catatan_klinis || '';
 
         kanan.innerHTML = `
           <div style="background: #0f6cba; color: #fff; padding: 8px; font-family: Arial, sans-serif; flex-shrink:0;">
-            <div style="font-size: 13px; margin-bottom: 8px; margin-left: 4px;">Hasil Pemeriksaan</div>
+            <div style="font-size: 13px; margin-bottom: 8px; margin-left: 4px; display:flex; justify-content:space-between; align-items:center;">
+              <span>Hasil Pemeriksaan</span>
+              ${!terkunci ? `<span id="skyLiveIndicator" style="font-size:11px; background:rgba(255,255,255,0.18); padding:2px 8px; border-radius:10px; font-weight:normal;">Live Sync Alat Aktif</span>` : ''}
+            </div>
             <div style="border: 1px solid #419641; padding: 12px 8px 8px 8px;">
               <div style="display: flex; font-size: 12px; line-height: 1.4;">
                 <div style="flex: 1; display: grid; grid-template-columns: 80px 10px auto; gap: 0;">
@@ -2147,6 +2553,7 @@ const Lab = (() => {
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
                 <button id="btnBarcodeLabSky" style="background:#0f766e; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Cetak Barcode Tabung Spesimen">${UI.ikon('cetak', 13)} Barcode</button>
+                ${!terkunci ? `<button id="btnTarikAlatSky" style="background:#0284c7; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tarik Hasil Otomatis dari Alat Laboratorium">${UI.ikon('ulang', 13)} Tarik Alat</button>` : ''}
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnAnamnesaSky" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
@@ -2185,9 +2592,10 @@ const Lab = (() => {
               <tbody id="skyTbody" style="background:#fff;">
                 ${p.hasil.map((h, idx) => {
                   const ruj = rujukanPakai[h.id];
+                  const m = h.ref || {};
+                  const harusAngka = cekHarusAngka(h, m, ruj);
                   const abnormal = isAbnormal(h, ruj);
                   const val = nilaiStr(h);
-                  const m = h.ref || {};
                   
                   let rL = null; let rP = null;
                   if (m.rujukan) {
@@ -2202,10 +2610,10 @@ const Lab = (() => {
                     <td>
                       ${terkunci
                         ? `<span class="${abnormal?'abnormal':''}">${UI.esc(val)||'—'}</span>`
-                        : `<input type="text" class="hasil-val" data-hid="${h.id}" data-jenis="${m.jenis_nilai||'ANGKA'}" value="${UI.esc(val)}" placeholder="isi hasil..." style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;">`
+                        : `<input type="text" class="hasil-val" data-hid="${h.id}" data-angka="${harusAngka ? '1' : '0'}" data-jenis="${harusAngka ? 'ANGKA' : (m.jenis_nilai||'ANGKA')}" ${harusAngka ? 'inputmode="decimal" oninput="this.value = this.value.replace(/[^0-9.,\\-]/g, \'\')"' : ''} value="${UI.esc(val)}" placeholder="${harusAngka ? '0' : 'isi hasil...'}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;">`
                       }
                     </td>
-                    <td style="text-align:center; color:${abnormal?'#c00':'#333'};">${ abnormal ? '↑' : '' }</td>
+                    <td style="text-align:center; color:${abnormal?'#c00':'#333'};" data-star="${h.id}">${ abnormal ? '↑' : '' }</td>
                     <td><input type="text" class="ref-val" data-col="satuan" data-labid="${m.id}" value="${UI.esc(m.satuan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td>${UI.esc(rujStr(ruj))}</td>
                     <td><input type="text" class="ref-val" data-col="catatan_aktif" data-rid="${ruj?.id||''}" data-jk="${ruj?.jenis_kelamin||''}" data-labid="${m.id}" value="${UI.esc(ruj?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
@@ -2236,27 +2644,71 @@ const Lab = (() => {
 
         if (!terkunci) {
           kanan.querySelectorAll('.hasil-val').forEach(inp => {
+            const hid = inp.dataset.hid;
+            const h = p.hasil.find(x => x.id === hid);
+            const m = (h && h.ref) || {};
+            const ruj = rujukanPakai[hid];
+            const harusAngka = inp.dataset.angka === '1';
+
+            if (harusAngka) {
+              inp.addEventListener('input', () => {
+                const valBersih = inp.value.replace(/[^0-9.,\-]/g, '');
+                if (inp.value !== valBersih) inp.value = valBersih;
+                const n = LabCore.bacaNilai(inp.value, m.desimal);
+                const t = LabCore.tandaAngka(n, ruj);
+                const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                const starCell = kanan.querySelector(`td[data-star="${hid}"]`);
+                if (starCell) {
+                  starCell.innerHTML = ab ? '↑' : '';
+                  starCell.style.color = ab ? '#c00' : '#333';
+                }
+              });
+            }
+
             inp.addEventListener('change', async (e) => {
               const el = e.target;
-              const hid = el.dataset.hid;
-              const j = el.dataset.jenis;
               let v = el.value.trim();
-              if (j === 'ANGKA') v = v.replace(/,/g, '.');
+
+              if (harusAngka) {
+                if (v !== '') {
+                  const n = LabCore.bacaNilai(v, m.desimal);
+                  if (n === null || isNaN(n)) {
+                    UI.toast('Pemeriksaan ' + (h.nama || m.nama) + ' harus diisi angka standar medis.', 'err');
+                    el.value = '';
+                    el.focus();
+                    return;
+                  }
+                  v = String(n);
+                  el.value = LabCore.formatNilai(n, m.desimal);
+                }
+              }
 
               el.style.background = '#fff8e1';
               try {
                 const patch = {};
-                if (j === 'ANGKA') patch.nilai_angka = v === '' ? null : parseFloat(v);
-                else patch.nilai_teks = v === '' ? null : v;
+                if (harusAngka || el.dataset.jenis === 'ANGKA') {
+                  const n = v === '' ? null : parseFloat(v.replace(/,/g, '.'));
+                  patch.nilai_angka = n;
+                  patch.nilai_teks = n !== null ? String(n) : null;
+                } else {
+                  patch.nilai_teks = v === '' ? null : v;
+                }
 
                 await DB.simpanHasilLab(hid, patch);
                 el.style.background = '#e8f5e9';
                 setTimeout(() => el.style.background = '', 1000);
 
-                const ht = p.hasil.find(x => x.id === hid);
-                if (ht) {
-                  if (j === 'ANGKA') ht.nilai_angka = patch.nilai_angka;
-                  else ht.nilai_teks = patch.nilai_teks;
+                if (h) {
+                  h.nilai_angka = patch.nilai_angka !== undefined ? patch.nilai_angka : h.nilai_angka;
+                  h.nilai_teks = patch.nilai_teks !== undefined ? patch.nilai_teks : h.nilai_teks;
+                }
+
+                const t = tandaItem(h, ruj);
+                const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                const starCell = kanan.querySelector(`td[data-star="${hid}"]`);
+                if (starCell) {
+                  starCell.innerHTML = ab ? '↑' : '';
+                  starCell.style.color = ab ? '#c00' : '#333';
                 }
               } catch (err) {
                 el.style.background = '#ffebee';
@@ -2313,12 +2765,169 @@ const Lab = (() => {
           if (btnV) btnV.onclick = async () => {
             if (!await UI.konfirmasi('Yakin ingin memverifikasi (mengunci) lembar hasil ini? Setelah diverifikasi, hasil tidak bisa diubah.')) return;
             try {
+              if (skylabState.syncTimer) {
+                clearInterval(skylabState.syncTimer);
+                skylabState.syncTimer = null;
+              }
               await DB.labSelesaikan(p.id);
               UI.toast('Lembar berhasil diverifikasi!');
               await muat();
               await bukaHasil(p.id);
             } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }
           };
+
+          const sinkronAlatSekarang = async (manual = false) => {
+            if (!document.getElementById('skyTbody') || skylabState.terpilih !== id) {
+              if (skylabState.syncTimer) {
+                clearInterval(skylabState.syncTimer);
+                skylabState.syncTimer = null;
+              }
+              return;
+            }
+
+            const btnT = kanan.querySelector('#btnTarikAlatSky');
+            if (manual && btnT) {
+              btnT.disabled = true;
+              btnT.innerHTML = `${UI.ikon('ulang', 13)} Menghubungi alat...`;
+            }
+
+            try {
+              let terisi = 0;
+              let namaAlat = '';
+              const sid = String(p.no_lab || '').trim();
+              const daftarKunci = [sid];
+              const m = sid.match(/LAB-(\d{2,4})-(\d+)/i);
+              if (m) {
+                const yy = m[1].slice(-2);
+                const mm = String(new Date().getMonth() + 1).padStart(2, '0');
+                const seq = m[2].padStart(4, '0');
+                daftarKunci.push(`${yy}${mm}${seq}`);
+                daftarKunci.push(seq);
+              }
+
+              let resBridge = null;
+              for (const k of daftarKunci) {
+                try {
+                  const resp = await fetch(`http://127.0.0.1:7119/api/hasil?no_lab=${encodeURIComponent(k)}`, {
+                    signal: AbortSignal.timeout(1800)
+                  });
+                  if (resp.ok) {
+                    const j = await resp.json();
+                    if (j.sukses && j.data && Array.isArray(j.data.hasil) && j.data.hasil.length > 0) {
+                      resBridge = j.data;
+                      break;
+                    }
+                  }
+                } catch (_) {}
+              }
+
+              if (resBridge && Array.isArray(resBridge.hasil) && resBridge.hasil.length > 0) {
+                namaAlat = resBridge.alat || 'Alat Medis';
+                for (const itemAlat of resBridge.hasil) {
+                  const rawCode = (itemAlat.test_name || '').toUpperCase().trim();
+                  const rawVal = itemAlat.value;
+                  const aliases = MAP_KODE_ALAT[rawCode] || [rawCode];
+
+                  const target = p.hasil.find(h => {
+                    const hNama = (h.nama || '').trim().toLowerCase();
+                    return aliases.some(a => a.toLowerCase() === hNama) || hNama === rawCode.toLowerCase();
+                  });
+
+                  if (target) {
+                    const inp = kanan.querySelector(`.hasil-val[data-hid="${target.id}"]`);
+                    const mRef = target.ref || {};
+                    const harusAngka = inp ? inp.dataset.angka === '1' : cekHarusAngka(target, mRef, rujukanPakai[target.id]);
+                    const numVal = parseFloat(String(rawVal).replace(',', '.'));
+                    const isAngka = !isNaN(numVal) && (harusAngka || mRef.jenis_nilai === 'ANGKA');
+
+                    const patch = {
+                      nilai_angka: isAngka ? numVal : null,
+                      nilai_teks: isAngka ? String(numVal) : String(rawVal),
+                      catatan: 'Otomatis dari ' + namaAlat
+                    };
+
+                    const curVal = inp ? inp.value.trim() : '';
+                    const newValStr = isAngka ? LabCore.formatNilai(numVal, mRef.desimal) : String(rawVal);
+
+                    if (curVal === '' || inp?.dataset.dariAlat === '1' || curVal !== newValStr) {
+                      if (inp && curVal !== newValStr) {
+                        inp.value = newValStr;
+                        inp.dataset.dariAlat = '1';
+                        inp.style.transition = 'background-color 0.4s';
+                        inp.style.background = '#ecfdf5';
+                        setTimeout(() => { if (inp) inp.style.background = 'transparent'; }, 2000);
+                      }
+
+                      const baru = await DB.simpanHasilLab(target.id, patch);
+                      Object.assign(target, baru);
+                      terisi++;
+
+                      const ruj = rujukanPakai[target.id];
+                      const t = tandaItem(target, ruj);
+                      const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                      const starCell = kanan.querySelector(`td[data-star="${target.id}"]`);
+                      if (starCell) {
+                        starCell.innerHTML = ab ? '↑' : '';
+                        starCell.style.color = ab ? '#c00' : '#333';
+                      }
+                    }
+                  }
+                }
+              }
+
+              const fresh = await DB.labPermintaan(p.id);
+              if (fresh && Array.isArray(fresh.hasil)) {
+                fresh.hasil.forEach(fh => {
+                  const local = p.hasil.find(h => h.id === fh.id);
+                  if (local && (fh.nilai_angka !== local.nilai_angka || fh.nilai_teks !== local.nilai_teks)) {
+                    Object.assign(local, fh);
+                    const inp = kanan.querySelector(`.hasil-val[data-hid="${fh.id}"]`);
+                    if (inp) {
+                      const mRef = fh.ref || {};
+                      const valStr = fh.nilai_angka != null 
+                        ? LabCore.formatNilai(fh.nilai_angka, mRef.desimal) 
+                        : (fh.nilai_teks || '');
+                      if (inp.value.trim() !== valStr) {
+                        inp.value = valStr;
+                        inp.dataset.dariAlat = '1';
+                        inp.style.transition = 'background-color 0.4s';
+                        inp.style.background = '#ecfdf5';
+                        setTimeout(() => { if (inp) inp.style.background = 'transparent'; }, 2000);
+                        
+                        const ruj = rujukanPakai[fh.id];
+                        const t = tandaItem(local, ruj);
+                        const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                        const starCell = kanan.querySelector(`td[data-star="${fh.id}"]`);
+                        if (starCell) {
+                          starCell.innerHTML = ab ? '↑' : '';
+                          starCell.style.color = ab ? '#c00' : '#333';
+                        }
+                        terisi++;
+                      }
+                    }
+                  }
+                });
+              }
+
+              if (terisi > 0) {
+                UI.toast(`Sinkronisasi alat medis: ${terisi} hasil otomatis diperbarui.`, 'ok', 3500);
+              } else if (manual) {
+                UI.toast('Belum ada data baru dari alat untuk no lab ini.', 'info');
+              }
+            } catch (errSync) {
+              if (manual) UI.toast('Gagal menarik data: ' + errSync.message, 'err');
+            } finally {
+              if (manual && btnT) {
+                btnT.disabled = false;
+                btnT.innerHTML = `${UI.ikon('ulang', 13)} Tarik Alat`;
+              }
+            }
+          };
+
+          const btnTAlat = kanan.querySelector('#btnTarikAlatSky');
+          if (btnTAlat) btnTAlat.onclick = () => sinkronAlatSekarang(true);
+
+          skylabState.syncTimer = setInterval(() => sinkronAlatSekarang(false), 3500);
         }
 
         const btnBK = kanan.querySelector('#btnBukaKunci');
@@ -2459,14 +3068,14 @@ const Lab = (() => {
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
               <input type="text" class="f-inp" disabled>
-              <button id="fsBtnRefresh" style="background:none;border:none;font-size:18px;font-weight:bold;cursor:pointer;padding:0 4px;" title="Muat Ulang">&#x21bb;</button>
+              <button id="fsBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
           <div class="skylab-list" id="fsDaftar"><div class="skylab-empty">Memuat...</div></div>
         </div>
         <div class="skylab-right" id="fsKanan">
           <div class="skylab-empty" style="height:100%">
-            <span style="font-size:36px">&#128203;</span>
+            <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
             <span>Pilih pasien dari daftar kiri</span>
           </div>
         </div>
@@ -2823,14 +3432,14 @@ const Lab = (() => {
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
               <input type="text" class="f-inp" disabled>
-              <button id="asBtnRefresh" style="background:none;border:none;font-size:18px;font-weight:bold;cursor:pointer;padding:0 4px;" title="Muat Ulang">&#x21bb;</button>
+              <button id="asBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
           <div class="skylab-list" id="asDaftar"><div class="skylab-empty">Memuat...</div></div>
         </div>
         <div class="skylab-right" id="asKanan">
           <div class="skylab-empty" style="height:100%">
-            <span style="font-size:36px">&#128203;</span>
+            <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
             <span>Pilih pasien dari daftar kiri</span>
           </div>
         </div>
