@@ -1045,20 +1045,14 @@ const Lab = (() => {
     }
     if (isBpjs1 || isBpjs2) {
       return `
-        <div class="kop-wrapper" style="border-bottom-color:#059669;">
-          <div class="kop-bpjs">
-            <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
-            <div>
-              <div style="font-weight:800; font-size:14px; color:#065f46;">BPJS KESEHATAN</div>
-              <div style="font-size:10px; color:#047857;">${isBpjs2 ? 'PROGRAM KRONIS &amp; PROLANIS' : 'LEMBAR HASIL LABORATORIUM'}</div>
-            </div>
+        <div class="kop-wrapper" style="border-bottom-color:#059669; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;">
+          <div class="kop-bpjs" style="display: flex; align-items: center;">
+            <img src="${bpjsLogoUrl}" style="height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo BPJS">
           </div>
-          <div class="kop-center">
-            <img src="${logoUrl}" onerror="this.style.display='none'">
-            <div class="brand-title">UTAMA</div>
-            <div class="brand-sub">Mitra Faskes BPJS Kesehatan</div>
+          <div class="kop-center" style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
+            <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo Utama">
           </div>
-          <div class="kop-right">
+          <div class="kop-right" style="text-align: right;">
             <b>Laboratorium Medis UTAMA</b><br>
             Jl. DI Panjaitan No. 94, Purbalingga<br>
             Telp. 0281-6580099
@@ -1367,20 +1361,14 @@ const Lab = (() => {
       `);
     } else if (isBpjs1 || isBpjs2) {
       tulis(`
-        <div class="kop-wrapper" style="border-bottom-color:#059669;">
-          <div class="kop-bpjs">
-            <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
-            <div>
-              <div style="font-weight:800; font-size:14px; color:#065f46;">BPJS KESEHATAN</div>
-              <div style="font-size:10px; color:#047857;">${isBpjs2 ? 'PROGRAM KRONIS &amp; PROLANIS' : 'LEMBAR HASIL LABORATORIUM'}</div>
-            </div>
+        <div class="kop-wrapper" style="border-bottom-color:#059669; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;">
+          <div class="kop-bpjs" style="display: flex; align-items: center;">
+            <img src="${bpjsLogoUrl}" style="height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo BPJS">
           </div>
-          <div class="kop-center">
-            <img src="${logoUrl}" onerror="this.style.display='none'">
-            <div class="brand-title">UTAMA</div>
-            <div class="brand-sub">Mitra Faskes BPJS Kesehatan</div>
+          <div class="kop-center" style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
+            <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo Utama">
           </div>
-          <div class="kop-right">
+          <div class="kop-right" style="text-align: right;">
             <b>Laboratorium Medis UTAMA</b><br>
             Jl. DI Panjaitan No. 94, Purbalingga<br>
             Telp. 0281-6580099
