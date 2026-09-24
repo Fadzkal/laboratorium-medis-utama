@@ -219,8 +219,70 @@ const App = (() => {
     if (!location.hash) location.hash = '#/beranda';
     await jalankanRute();
 
+    // Inisialisasi pemantau status LIS Bridge alat medis
+    inisialisasiStatusBridge();
+
     // Segarkan hitungan antrian tiap 60 detik
     setInterval(perbaruiHitungAntrian, 60000);
+  }
+
+  /* Pemantau LIS Bridge Alat Medis di Komputer Lokal */
+  function inisialisasiStatusBridge() {
+    const box = document.getElementById('statusBridgeContainer');
+    if (!box) return;
+
+    let sedangCek = false;
+
+    async function cekStatus() {
+      if (sedangCek) return;
+      sedangCek = true;
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 1500);
+        const res = await fetch('http://127.0.0.1:7119/api/status', {
+          method: 'GET',
+          signal: ctrl.signal
+        });
+        clearTimeout(tid);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.status === 'ONLINE') {
+            box.innerHTML = `
+              <div class="badge-bridge-online" title="Mindray BS-240 & Sysmex XP-100 aktif di komputer ini">
+                ${UI.ikon('centang', 12)} LIS Bridge: Terhubung
+              </div>
+            `;
+            sedangCek = false;
+            return;
+          }
+        }
+      } catch (_) {}
+
+      // Tampilkan tombol Hubungkan Alat jika offline
+      box.innerHTML = `
+        <button id="btnHubungkanBridge" class="btn-bridge-offline" title="Klik untuk mengaktifkan LIS Bridge di komputer ini">
+          ${UI.ikon('stetoskop', 12)} Hubungkan Alat
+        </button>
+      `;
+
+      const btn = document.getElementById('btnHubungkanBridge');
+      if (btn) {
+        btn.onclick = () => {
+          window.location.href = 'lmu-bridge://start';
+          setTimeout(() => {
+            UI.pesan(
+              'Sinyal penghubung dikirim ke komputer lokal. Jika belum aktif, buka file jalankan.bat atau aktifkan pasang_otomatis_startup.bat.',
+              'info'
+            );
+            setTimeout(cekStatus, 3000);
+          }, 800);
+        };
+      }
+      sedangCek = false;
+    }
+
+    cekStatus();
+    setInterval(cekStatus, 10000);
   }
 
   /* Bantu halaman lain */
