@@ -882,6 +882,10 @@ const Surat = (() => {
 
     const model = modelSekarang();
     model.nomor = baris.nomor_surat;
+    const frame = document.getElementById('framePratinjau');
+    if (frame) {
+      try { frame.srcdoc = SuratCetak.halamanHtml(model, opsiCetak()); } catch (e) {}
+    }
 
     try {
       if (lanjut === 'cetak') { await SuratCetak.cetak(model, opsiCetak()); await DB.suratCatatCetak(baris.id); }

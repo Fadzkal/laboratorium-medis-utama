@@ -48,7 +48,10 @@ const SuratCetak = (() => {
       color: #000; background: #fff;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
-    .lembar { padding: 0; position: relative; }
+    .lembar {
+      width: 210mm; min-height: 297mm; box-sizing: border-box; background: #ffffff;
+      padding: 1.4cm 2cm 1.6cm 2cm; position: relative; margin: 0 auto;
+    }
     .kop { width: 100%; display: block; margin: 0 0 4px; }
     .kop-garis { border-top: 2.2px solid #111; margin: 0 0 16px; }
     .kop-jarak { height: 16px; }
@@ -106,18 +109,19 @@ const SuratCetak = (() => {
     @media screen {
       body { background: #eceff1; padding: 18px 0; }
       .lembar {
-        width: 21cm; min-height: 29.7cm; margin: 0 auto; background: #fff;
+        width: 210mm; min-height: 297mm; box-sizing: border-box; margin: 0 auto; background: #ffffff;
         padding: 1.4cm 2cm 1.6cm 2cm; box-shadow: 0 2px 14px rgba(0,0,0,.16);
       }
     }
 
     /* Format Blanko Laboratorium Medis UTAMA */
     .lembar-lab {
+      width: 210mm; min-height: 297mm; box-sizing: border-box; background: #ffffff;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 11px; color: #000; line-height: 1.4;
     }
     .lembar-lab .header-lab {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; width: 100%;
     }
     .lembar-lab .header-bpjs { flex: 1; text-align: left; }
     .lembar-lab .header-bpjs img { height: 42px; width: auto; }
@@ -125,7 +129,7 @@ const SuratCetak = (() => {
     .lembar-lab .header-logo img { height: 50px; width: auto; object-fit: contain; }
     .lembar-lab .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
     .lembar-lab .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -3px; }
-    .lembar-lab .header-text { flex: 1.2; text-align: left; font-size: 10.5px; padding-left: 14px; }
+    .lembar-lab .header-text { flex: 1.2; text-align: right; margin-left: auto; font-size: 10.5px; }
     .lembar-lab .header-text b { font-size: 11.5px; }
 
     .lembar-lab .barcode-lab { margin-bottom: 4px; }
@@ -261,15 +265,21 @@ const SuratCetak = (() => {
         </div>`;
     } else {
       headerHtml = `
-        <div class="header-lab">
-          <div class="header-logo" style="text-align: left; flex: 0.8;">
-            <img src="${urlLogo}" alt="UTAMA" onerror="this.src='logo.png'">
+        <div class="header-lab" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; margin-bottom: 16px;">
+          <!-- Kolom 1: Penyeimbang kiri kosong -->
+          <div></div>
+
+          <!-- Kolom 2: Logo Utama persis di tengah -->
+          <div class="header-logo" style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
+            <img src="${urlLogo}" style="height: 55px; width: auto; object-fit: contain;" alt="UTAMA" onerror="this.src='logo.png'">
           </div>
-          <div class="header-text" style="flex: 1.5; padding-left: 10px;">
-            <b>Laboratorium Medis UTAMA</b><br>
-            Jl. DI Panjaitan No. 94, Purbalingga<br>
-            Telp. 0281-6580099 / 08121482308<br>
-            Email : laboratoriumutama@yahoo.com
+
+          <!-- Kolom 3: Alamat di pojok kanan -->
+          <div class="header-text" style="text-align: right; margin-left: auto; line-height: 1.35; font-size: 8.5pt;">
+            <div style="font-weight: 700; font-size: 9.5pt; color: #000;">Laboratorium Medis UTAMA</div>
+            <div style="color: #333;">Jl. DI Panjaitan No. 94, Purbalingga</div>
+            <div style="color: #333;">Telp. 0281-6580099 / 08121482308</div>
+            <div style="color: #333;">Email : laboratoriumutama@yahoo.com</div>
           </div>
         </div>`;
     }
@@ -715,20 +725,144 @@ const SuratCetak = (() => {
     };
   }
 
+  let html2pdfSiap = null;
+  function muatHtml2Pdf() {
+    if (typeof html2pdf !== 'undefined') return Promise.resolve();
+    if (html2pdfSiap) return html2pdfSiap;
+    const ambil = (src) => new Promise((ok, gagal) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = ok;
+      s.onerror = () => gagal(new Error('Gagal memuat ' + src));
+      document.head.appendChild(s);
+    });
+    const cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    html2pdfSiap = ambil(cdnUrl)
+      .catch(e => { html2pdfSiap = null; throw e; });
+    return html2pdfSiap;
+  }
+
+  function tungguGambarElemen(el, batasMs = 4000) {
+    return new Promise((selesai) => {
+      let sudah = false;
+      const habis = setTimeout(() => { if (!sudah) { sudah = true; selesai(); } }, batasMs);
+      const beres = () => { if (sudah) return; sudah = true; clearTimeout(habis); selesai(); };
+      try {
+        const gambar = Array.from((el && el.querySelectorAll) ? el.querySelectorAll('img') : []);
+        if (!gambar.length) return beres();
+        Promise.all(gambar.map(g => {
+          if (g.complete && g.naturalWidth) return Promise.resolve();
+          if (g.decode) return g.decode().catch(() => {});
+          return new Promise(r => { g.onload = r; g.onerror = r; });
+        })).then(beres, beres);
+      } catch (e) { beres(); }
+    });
+  }
+
   /* Nama berkas dari nomor surat: garis miring tidak boleh ada di nama
      berkas mana pun, di Windows maupun di Linux. */
   const namaBerkas = (m) =>
     ((m.nomor || m.judul) + '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() + '.pdf';
 
+  /* Ekspor PDF 100% WYSIWYG:
+     Mengkloning langsung elemen DOM pratinjau yang sedang tampil di layar,
+     dikunci dengan dimensi standar A4 murni (210mm x 297mm), styles lengkap,
+     canvas scale 2, useCORS, scrollY 0, dan jsPDF format A4 portrait margin 0. */
   async function unduhPdf(m, opsi = {}) {
-    await muatPdfMake();
-    pdfMake.createPdf(docPdf(m, opsi)).download(opsi.namaBerkas || namaBerkas(m));
-    return true;
+    const namaFile = opsi.namaBerkas || namaBerkas(m);
+    try {
+      await muatHtml2Pdf();
+
+      // Cari elemen pratinjau yang sedang tampil di layar
+      let targetLembar = null;
+      const framePratinjau = document.getElementById('framePratinjau');
+      const frameLihat = document.getElementById('frameLihat');
+
+      if (framePratinjau && framePratinjau.contentDocument) {
+        targetLembar = framePratinjau.contentDocument.querySelector('.lembar');
+      } else if (frameLihat && frameLihat.contentDocument) {
+        targetLembar = frameLihat.contentDocument.querySelector('.lembar');
+      }
+
+      // Kunci kontainer wadah dan elemen ekspor dengan dimensi standar A4 murni
+      const wadahEkspor = document.createElement('div');
+      wadahEkspor.style.cssText = 'position:fixed; left:-10000px; top:0; width:210mm; min-height:297mm; ' +
+                                  'box-sizing:border-box; background:#ffffff; z-index:-9999; overflow:visible;';
+
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        * { box-sizing: border-box !important; }
+        ${GAYA}
+        .lembar {
+          width: 210mm !important;
+          min-height: 297mm !important;
+          box-sizing: border-box !important;
+          background: #ffffff !important;
+          padding: 1.4cm 2cm 1.6cm 2cm !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+        }
+      `;
+      wadahEkspor.appendChild(styleEl);
+
+      let klon = null;
+      if (targetLembar) {
+        klon = targetLembar.cloneNode(true);
+      } else {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = isiHtml(m, opsi);
+        klon = tempDiv.querySelector('.lembar') || tempDiv.firstElementChild;
+      }
+
+      if (klon) {
+        klon.style.width = '210mm';
+        klon.style.minHeight = '297mm';
+        klon.style.boxSizing = 'border-box';
+        klon.style.background = '#ffffff';
+        klon.style.padding = '1.4cm 2cm 1.6cm 2cm';
+        klon.style.margin = '0';
+        klon.style.boxShadow = 'none';
+        wadahEkspor.appendChild(klon);
+      }
+
+      document.body.appendChild(wadahEkspor);
+      await tungguGambarElemen(wadahEkspor);
+
+      const opt = {
+        margin: 0,
+        filename: namaFile,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          scrollY: 0
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        }
+      };
+
+      await html2pdf().set(opt).from(klon || wadahEkspor).save();
+      setTimeout(() => { wadahEkspor.remove(); }, 1200);
+      return true;
+    } catch (errHtml2Pdf) {
+      console.warn('html2pdf gagal atau terkendala koneksi, mencoba fallback pdfMake:', errHtml2Pdf);
+      try {
+        await muatPdfMake();
+        pdfMake.createPdf(docPdf(m, opsi)).download(namaFile);
+        return true;
+      } catch (errPdfMake) {
+        console.error('Semua mesin PDF gagal:', errPdfMake);
+        throw errHtml2Pdf;
+      }
+    }
   }
 
   const API = {
     GAYA, esc, blokHtml, isiHtml, halamanHtml,
-    cetak, muatPdfMake, blokPdf, docPdf, unduhPdf, namaBerkas
+    cetak, muatPdfMake, muatHtml2Pdf, blokPdf, docPdf, unduhPdf, namaBerkas
   };
 
   return API;
