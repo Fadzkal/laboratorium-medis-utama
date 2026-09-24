@@ -837,11 +837,11 @@ const DisplayHarian = (() => {
             width: 38mm !important;
             height: 28mm !important;
             max-height: 28mm !important;
-            margin-left: 2mm !important;
+            margin-left: 14mm !important;
             margin-right: auto !important;
             margin-top: 0 !important;
             margin-bottom: 0 !important;
-            padding: 1mm 1.2mm !important;
+            padding: 1mm 1.5mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -860,8 +860,8 @@ const DisplayHarian = (() => {
             break-after: avoid;
           }
           .col-id {
-            width: 3.8mm;
-            min-width: 3.8mm;
+            width: 4mm;
+            min-width: 4mm;
             height: 26mm;
             display: flex;
             align-items: center;
@@ -883,13 +883,13 @@ const DisplayHarian = (() => {
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0 0.8mm;
+            padding: 0 1mm;
             overflow: hidden;
             width: 100%;
           }
           .barcode-wrap {
-            width: 27.5mm;
-            max-width: 28mm;
+            width: 26mm;
+            max-width: 26mm;
             height: 13mm;
             display: flex;
             align-items: center;
@@ -913,7 +913,7 @@ const DisplayHarian = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 28mm;
+            max-width: 26.5mm;
             letter-spacing: -0.1px;
             color: #000;
           }
@@ -927,13 +927,13 @@ const DisplayHarian = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 28mm;
+            max-width: 26.5mm;
             letter-spacing: -0.1px;
             color: #000;
           }
           .col-dept {
-            width: 4mm;
-            min-width: 4mm;
+            width: 4.5mm;
+            min-width: 4.5mm;
             height: 26mm;
             display: flex;
             align-items: center;
