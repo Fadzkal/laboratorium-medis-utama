@@ -6,17 +6,26 @@ node_modules/
 package.json
 package-lock.json
 
-# Berkas kerja
+# Python & Bridge
+__pycache__/
+*.py[cod]
+*$py.class
+bridge/logs/*.log
+bridge/logs/*.csv
+bridge/logs/*.json
+bridge/logs/__pycache__/
 *.log
+
+# Sistem Operasi & Editor
 .DS_Store
 Thumbs.db
 *.swp
 *~
+.vscode/
+.idea/
+*.tmp
 
-# js/config.js SENGAJA ikut ter-commit sebagai contoh berisi nilai
-# 'GANTI-DENGAN-…'. Kunci `anon` di dalamnya memang aman terlihat: seluruh
-# pembatasan akses dijalankan Row Level Security di database, bukan browser.
-# Yang tidak boleh ikut hanyalah kunci `service_role` — kunci itu melewati
-# RLS sepenuhnya dan tidak pernah dipakai aplikasi ini.
+# Lingkungan & Rahasia
 .env
 .env.*
+*.local

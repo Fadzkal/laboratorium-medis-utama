@@ -1,68 +1,129 @@
-﻿# RME Laboratorium Medis Utama
+# Sistem Informasi RME & LIS Terpadu — Laboratorium Medis Utama
 
-Rekam Medis Elektronik untuk klinik pratama BPJS — rawat jalan.
-Biaya operasional Rp 0 (Supabase + Cloudflare Pages paket gratis).
+Sistem Rekam Medis Elektronik (RME) dan Laboratory Information System (LIS) terpadu berbasis web modern, cepat, dan handal untuk operasional klinik dan laboratorium medis. Dilengkapi integrasi alat medis otomatis (*Sysmex XP-100* & *Mindray BS-240*), sistem antrean audio visual, serta manajemen rekam medis lengkap.
 
-**Mulai dari sini → [PANDUAN.md](PANDUAN.md)**
+---
 
-## Lihat dulu tanpa menyiapkan apa pun
+## Ringkasan Fitur Utama
 
-Buka `demo.html` lewat peramban. Berisi data contoh (nama pasien fiktif),
-tidak terhubung ke database mana pun. Ada pemilih **Lihat sebagai** di bagian
-atas untuk mencoba tampilan tiap peran, termasuk dokter gigi.
+- **Pemeriksaan Laboratorium (Skylab Interface)**:
+  - Layout dua panel khas laboratorium (filter & antrean di sisi kiri, lembar kerja & verifikasi di sisi kanan).
+  - Integrasi otomatis LIS Bridge untuk pembacaan hasil langsung dari mesin lab.
+  - Verifikasi bertingkat (*Verify & Lock* dan *Buka Kunci dengan Audit Trail*).
+  - Proteksi hapus 2 langkah (*Double-Confirmation Modal*) untuk mencegah kehilangan rekam medis legal.
+  - 9 format cetak resmi standar laboratorium.
+- **Pemeriksaan Fisik & Anamnesa**: Terstruktur sesuai standar klinis dan siap sinkronisasi PCare / SatuSehat.
+- **Kasir & Billing**: Otomatisasi perhitungan tagihan dari tindakan, obat, dan laboratorium, serta cetak struk thermal/invoice.
+- **Farmasi & Apotek**: Manajemen stok FEFO (*First Expired, First Out*), kartu stok, dan antrean resep dokter.
+- **Display Antrean Layar TV (`display.html`)**: Layar panggilan mandiri dengan suara berbahasa Indonesia untuk loket dan poli.
+- **LIS Bridge Server (`bridge/`)**:
+  - *Sysmex XP-100*: Listener ASTM E1381/E1394 (Port 8000).
+  - *Mindray BS-240*: Listener HL7 MLLP (Port 7118).
+  - *Local Bridge API*: Sinkronisasi status realtime ke browser web (Port 7119).
 
-## Ringkas
+---
 
-- **Peran**: admin · pendaftaran · perawat · dokter · apoteker · kasir
-- **Poli**: umum dan gigi (poli gigi memunculkan odontogram dan pemeriksaan gigi)
-- **Alur**: pendaftaran → kajian awal → pemeriksaan dokter (anamnesis + pemeriksaan
-  fisik per sistem + ICD-10 + tindakan + penunjang + resep) → kunci rekam medis →
-  surat keterangan bila perlu → apotek (stok terpotong FEFO) → kasir (tagihan + kwitansi)
-- **Pemeriksaan dokter berfield, bukan paragraf**: setiap hal yang diminta PCare dan
-  SatuSehat punya kolomnya sendiri — keluhan, kesadaran, tanda vital, temuan fisik per
-  sistem tubuh, prognosa, TACC, rujukan berkode. Catatan S/O/A/P tetap ada dan
-  **tersusun sendiri** dari isian itu, jadi rekam medis yang dicetak tetap berbunyi
-  seperti tulisan dokter. Satu tombol menandai seluruh pemeriksaan fisik dalam batas
-  normal; dokter tinggal membuka yang memang tidak normal
-- **Apotek**: stok per batch dengan urutan keluar FEFO, antrean resep dari dokter,
-  kartu stok harian, laporan bulanan, impor & ekspor Excel (saldo awal dan pembelian)
-- **Kasir**: tagihan disusun otomatis dari tindakan dokter dan obat yang benar-benar
-  diserahkan; kunjungan BPJS dicatat nilainya tanpa ditagihkan; kwitansi PDF dan
-  struk thermal 58/80 mm
-- **Lab & penunjang**: dokter meminta lewat paket, petugas mengisi angkanya, nilai di
-  luar rujukan ditandai otomatis menurut jenis kelamin dan umur, nilai kritis diberi
-  peringatan, tren antar kunjungan, lembar hasil siap cetak. Bacaan rontgen gigi
-  terkait nomor gigi dan tampil di odontogram
-- **Tanpa penyimpanan gambar**: yang disimpan angka dan bacaannya; berkas fisik
-  (film, lembar hasil lab luar) dicatat nomor arsipnya. Kuota 1 GB Supabase Storage
-  tidak terpakai sedikit pun — alasannya di [PANDUAN.md](PANDUAN.md#lab--pemeriksaan-penunjang)
-- **Surat keterangan**: surat sakit, rujukan bentuk BPJS, surat kontrol, keterangan
-  berbadan sehat, resume medis, dan surat keterangan bebas isi — berkop klinik,
-  bernomor `XX/JENIS/YAKIM/BULAN-ROMAWI/TAHUN` (yang diketik hanya angka nomornya),
-  pratinjau yang sama persis dengan hasil cetak, riwayat lengkap dengan cetak ulang,
-  unduh PDF, dan pembatalan beralasan. Tanda tangan tetap dengan pulpen —
-  [alasannya di PANDUAN.md](PANDUAN.md#tanda-tangan)
-- **Siap bridging, bukan sekadar "nanti disesuaikan"**: empat view di database menyusun
-  payload `POST /kunjungan`, `/obat/kunjungan`, `/tindakan` PCare dan daftar Observation
-  SatuSehat persis seperti bentuk yang diminta — isinya bisa dilihat dari layar dokter
-  hari ini juga. Yang tersisa hanya memasangkan kode milik BPJS di
-  **Pengaturan → Rujukan & Kode PCare**; sistem sengaja tidak menebaknya, karena kode
-  yang salah tidak menimbulkan galat apa pun
-- **Antrean & layar tunggu**: papan antrean dua tahap (loket → poli), panggil dari
-  loket maupun dari ruang periksa, panggil ulang, tandai tidak hadir. Layar TV ruang
-  tunggu berdiri sendiri (`display.html`) — tanpa login, **nomor saja tanpa nama
-  pasien**, dengan bel dan suara panggilan berbahasa Indonesia
-- **Antrean online Mobile JKN (Antrol) — siap pasang**: enam web service yang diminta
-  BPJS untuk FKTP sudah lengkap sebagai Edge Function `antrol`, dengan jadwal poli,
-  kuota total vs kuota online, hari libur, akun web service berhash, dan log
-  permintaan masuk. Arahnya terbalik dari PCare: **BPJS yang memanggil klinik**.
-  Yang tersisa hanya kredensial dari Kantor Cabang —
-  [alasan & caranya di PANDUAN.md](PANDUAN.md#antrean-layar-tunggu-dan-antrean-online-mobile-jkn)
-- **Master data**: kelola obat, ICD-10, tindakan, pemeriksaan lab, dan tarif dari
-  aplikasi; impor/ekspor CSV
-- **Kepatuhan**: PMK 24/2022 — audit trail, penguncian rekam medis, addendum, ICD-10
+## Arsitektur & Teknologi
 
-## Satu-satunya berkas yang perlu disunting
+| Lapisan | Teknologi | Deskripsi |
+|---|---|---|
+| **Antarmuka (Frontend)** | HTML5, Vanilla CSS3, Modern ES6 | Sangat ringan, cepat, tanpa overhead build-step npm |
+| **Database & API** | PostgreSQL, PostgREST / Kong, Self-Hosted Supabase Docker | Skema terstandarisasi, RLS (Row Level Security), performa tinggi |
+| **LIS Bridge Server** | Python 3 (Multi-threaded Sockets) | Koneksi TCP/IP & Serial ASTM / HL7 ke instrumen lab |
+| **Web Server App** | Python Threading HTTPServer | Port 5100 dengan optimasi CORS & caching |
 
-`js/config.js` — isi `SUPABASE_URL` dan `SUPABASE_ANON_KEY`.
+---
 
+## Struktur Direktori Proyek
+
+```text
+├── bridge/                     # Modul LIS Bridge Alat Medis (Sysmex ASTM & Mindray HL7)
+│   ├── bridge_alat.py          # Server multi-thread TCP socket listener
+│   ├── config.py               # Konfigurasi port, host, dan koneksi database
+│   ├── db_adapter.py           # Adaptor sinkronisasi data ke Supabase / PostgreSQL
+│   ├── dictionary.py           # Kamus pemetaan parameter uji alat ke sistem RME
+│   └── tes_simulasi.py         # Skrip uji kirim data alat virtual
+├── css/                        # Berkas gaya CSS desain sistem
+│   └── style.css               # Gaya antarmuka utama, tema warna, dan utilitas
+├── data/                       # Berkas master data referensi (CSV & JSON)
+├── deploy/                     # Skrip & konfigurasi deployment server Linux (VPS)
+│   ├── rme-web.service         # Systemd service unit untuk Linux
+│   ├── nginx.conf.example      # Contoh konfigurasi reverse proxy Nginx
+│   └── setup_server.sh         # Skrip otomasi instalasi & aktivasi di server VPS
+├── docs/                       # Dokumentasi tambahan dan aset mockup
+├── js/                         # Modul logika JavaScript (ES6)
+│   ├── app.js                  # Router navigasi, inisialisasi sesi, dan layout
+│   ├── config.js               # Pengaturan endpoint API Supabase & identitas klinik
+│   ├── db.js                   # Lapisan data interaksi database PostgreSQL/Supabase
+│   ├── ui.js                   # Komponen modal, ikon SVG resmi, toast, dan dialog
+│   └── pages/                  # Halaman aplikasi (lab, kasir, apotek, dokter, dll.)
+├── migrasi/                    # Skrip SQL & berkas bantu migrasi data
+├── scripts/                    # Skrip utilitas impor data, seeder, dan ekspor
+├── sql/                        # Berkas skema tabel, fungsi RPC, dan migrasi SQL (01-81)
+├── app.html                    # Halaman utama aplikasi RME (Portal Pengguna)
+├── display.html                # Layar TV antrean publik mandiri
+├── index.html                  # Halaman masuk (Login)
+├── jalankan.bat                # Peluncur 1-klik untuk lingkungan Windows
+├── pasang_otomatis_startup.bat # Registrasi auto-start Windows & protokol lmu-bridge://
+├── requirements.txt            # Daftar pustaka dependensi Python
+└── run.py                      # Peluncur terpadu Web Server RME & LIS Bridge
+```
+
+---
+
+## Panduan Menjalankan
+
+### 1. Di Komputer Laboratorium / Lokal (Windows)
+
+1. Pastikan Python 3 sudah terpasang.
+2. Pasang pustaka pendukung:
+   ```cmd
+   pip install -r requirements.txt
+   ```
+3. Cukup klik ganda **`jalankan.bat`** atau jalankan via terminal:
+   ```cmd
+   python run.py
+   ```
+4. Web otomatis terbuka di `http://localhost:5100/app.html`.
+5. *(Opsional)* Untuk otomatisasi komputer lab, jalankan **`pasang_otomatis_startup.bat`** (otomatis jalan saat Windows menyala dan mendaftarkan protokol web `lmu-bridge://`).
+
+---
+
+### 2. Di Server VPS (Linux Ubuntu / Debian)
+
+1. Masuk ke direktori proyek di server:
+   ```bash
+   cd /var/www/rme-lab-utama
+   ```
+2. Jalankan skrip setup otomatis:
+   ```bash
+   chmod +x deploy/setup_server.sh
+   sudo bash deploy/setup_server.sh
+   ```
+3. Periksa status layanan:
+   ```bash
+   systemctl status rme-web
+   ```
+4. Pantau log secara realtime:
+   ```bash
+   journalctl -u rme-web -f
+   ```
+
+---
+
+## Daftar Port Layanan
+
+| Port | Layanan | Keterangan |
+|---|---|---|
+| **5100** | Web Server RME | Akses aplikasi web browser & display TV antrean |
+| **8000** | Sysmex XP-100 Listener | Koneksi data hematologi ASTM E1381/E1394 |
+| **7118** | Mindray BS-240 Listener | Koneksi data kimia darah HL7 MLLP |
+| **7119** | LIS Bridge REST API | Status komunikasi alat lokal ke browser |
+| **8001** | Supabase Kong API | Gerbang API REST / Realtime Database PostgreSQL |
+| **8081** | Supabase Studio | Portal administrasi database (khusus tim IT) |
+| **5432** | PostgreSQL Server | Database internal Supabase |
+
+---
+
+## Lisensi & Hak Cipta
+Hak Cipta © 2026 Laboratorium Medis Utama. Seluruh hak dilindungi undang-undang.

@@ -1,0 +1,17 @@
+[Unit]
+Description=RME & LIS Web Service - Laboratorium Medis Utama
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/rme-lab-utama
+ExecStart=/usr/bin/python3 /var/www/rme-lab-utama/run.py --no-browser
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
