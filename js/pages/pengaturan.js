@@ -91,7 +91,7 @@ const Pengaturan = (() => {
             ${UI.esc(labelPeran)}
           </div>
           <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:12px; color:#64748B; text-align:left;">
-            <div style="margin-bottom:6px;"><b>Username / Login:</b> <span class="mono text-xs" id="profilEmailTampil" style="color:#0F172A; font-weight:600;">${UI.esc(saya?.username || (saya?.email && !saya.email.endsWith('@labutama.id') ? saya.email : saya?.email?.split('@')[0]) || '-')}</span></div>
+            <div style="margin-bottom:6px;"><b>Email / Username:</b> <span class="mono text-xs" id="profilEmailTampil" style="color:#0F172A; font-weight:600;">${UI.esc(saya?.email || saya?.username || '-')}</span></div>
             <div style="margin-bottom:6px;"><b>Hak Akses:</b> <span style="color:#0F766E; font-weight:600;">${UI.esc(saya?.peran || 'karyawan')}</span></div>
             <div><b>Status Akun:</b> <span style="color:#16A34A; font-weight:600;">Aktif</span></div>
           </div>
@@ -102,7 +102,7 @@ const Pengaturan = (() => {
           <div class="card-head">
             <div>
               <h2>Pengaturan Profil &amp; Kredensial</h2>
-              <div class="sub">Perbarui nama lengkap, username atau email masuk, dan kata sandi akun Anda</div>
+              <div class="sub">Perbarui nama lengkap, email atau username login, dan kata sandi akun Anda</div>
             </div>
           </div>
           <div class="card-body">
@@ -113,9 +113,9 @@ const Pengaturan = (() => {
               </div>
 
               <div class="field">
-                <label style="font-weight:600;">Username / Email Login <span class="req">*</span></label>
-                <input type="text" id="inpProfilEmail" value="${UI.esc(saya?.username || (saya?.email && !saya.email.endsWith('@labutama.id') ? saya.email : saya?.email?.split('@')[0]) || '')}" required class="w-full mono" placeholder="Contoh: testing atau nama@klinik.id">
-                <div class="hint text-xs text-muted mt-1">Anda bebas menggunakan username (contoh: tes, admin, analis1) atau alamat email.</div>
+                <label style="font-weight:600;">Email / Username Login <span class="req">*</span></label>
+                <input type="text" id="inpProfilEmail" value="${UI.esc(saya?.email || saya?.username || '')}" required class="w-full mono" placeholder="nama@klinik.id atau username">
+                <div class="hint text-xs text-muted mt-1">Anda bebas menggunakan alamat email ataupun username.</div>
               </div>
 
               <div class="field">
@@ -190,10 +190,10 @@ const Pengaturan = (() => {
         });
 
         // Perbarui tampilan kartu
-        const usernameHasil = res?.username || (email.includes('@') && email.endsWith('@labutama.id') ? email.split('@')[0] : email);
+        const loginHasil = res?.email || email;
         w.querySelector('#profilNamaTampil').textContent = nama;
-        w.querySelector('#profilEmailTampil').textContent = usernameHasil;
-        w.querySelector('#inpProfilEmail').value = usernameHasil;
+        w.querySelector('#profilEmailTampil').textContent = loginHasil;
+        w.querySelector('#inpProfilEmail').value = loginHasil;
         w.querySelector('#profilAvatarBox').textContent = UI.inisial(nama);
         w.querySelector('#inpProfilSandiBaru').value = '';
         w.querySelector('#inpProfilKonfirmasiSandi').value = '';
@@ -402,7 +402,7 @@ const Pengaturan = (() => {
               <thead>
                 <tr>
                   <th>Nama</th>
-                  <th>Username / Login</th>
+                  <th>Email / Username</th>
                   <th>Peran</th>
                   <th>Jenis Dokter</th>
                   <th>No. SIP / SIPA</th>
@@ -431,7 +431,7 @@ const Pengaturan = (() => {
       }
 
       tbody.innerHTML = list.map(p => {
-        const loginTampil = p.username || (p.email && !p.email.endsWith('@labutama.id') ? p.email : p.email?.split('@')[0]) || p.email || '—';
+        const loginTampil = p.email || p.username || '—';
         return `
         <tr>
           <td>
@@ -525,9 +525,9 @@ const Pengaturan = (() => {
               <input type="text" id="editModalNama" value="${UI.esc(item.nama || '')}" class="ctl-sm w-full" style="padding:7px 10px;" required>
             </div>
             <div class="field">
-              <label style="font-weight:600;">Username / Email Login (Akun Masuk) *</label>
-              <input type="text" id="editModalEmail" value="${UI.esc(item.username || (item.email && !item.email.endsWith('@labutama.id') ? item.email : item.email?.split('@')[0]) || item.email || '')}" class="ctl-sm w-full mono" style="padding:7px 10px;" required>
-              <div class="hint text-xs text-muted mt-1">Bebas menggunakan username singkat (misal: kasir1, analis2) atau alamat email.</div>
+              <label style="font-weight:600;">Email / Username Login *</label>
+              <input type="text" id="editModalEmail" value="${UI.esc(item.email || item.username || '')}" class="ctl-sm w-full mono" style="padding:7px 10px;" required placeholder="nama@klinik.id atau username">
+              <div class="hint text-xs text-muted mt-1">Bebas menggunakan alamat email ataupun username akun.</div>
             </div>
             <div class="field">
               <label style="font-weight:600;">Kata Sandi Baru</label>
@@ -634,9 +634,9 @@ const Pengaturan = (() => {
             <input type="text" id="tbNama" placeholder="Nama lengkap pegawai" required style="width:100%; padding:6px 8px;">
           </div>
           <div class="field">
-            <label>Username / Email Login *</label>
-            <input type="text" id="tbEmail" placeholder="Contoh: kasir1 atau nama@klinik.id" required style="width:100%; padding:6px 8px;">
-            <div class="hint text-xs text-muted mt-1">Bebas menggunakan username singkat (misal: kasir1, analis2) atau alamat email.</div>
+            <label>Email / Username Login *</label>
+            <input type="text" id="tbEmail" placeholder="nama@klinik.id atau username" required style="width:100%; padding:6px 8px;">
+            <div class="hint text-xs text-muted mt-1">Bebas menggunakan alamat email resmi ataupun username akun.</div>
           </div>
           <div class="field">
             <label>Kata Sandi * (min. 6 karakter)</label>
