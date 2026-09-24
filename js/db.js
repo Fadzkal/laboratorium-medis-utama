@@ -116,7 +116,8 @@ const DB = (() => {
       p_password: payload.password,
       p_peran: payload.peran || 'admin',
       p_jenis_dokter: payload.jenis_dokter || null,
-      p_no_sip: payload.no_sip || null
+      p_no_sip: payload.no_sip || null,
+      p_username: payload.username || null
     });
     if (error) throw error;
     return data;
@@ -135,12 +136,13 @@ const DB = (() => {
     const { data, error } = await sb.rpc('ubah_profil_saya', {
       p_nama: payload.nama,
       p_email: payload.email,
-      p_password_baru: payload.password || null
+      p_password_baru: payload.password || null,
+      p_username: payload.username || null
     });
     if (error) throw error;
     if (_saya) {
       _saya.nama = payload.nama;
-      _saya.username = data?.username || (payload.email.includes('@') ? payload.email.split('@')[0] : payload.email);
+      _saya.username = data?.username || payload.username || (payload.email?.includes('@') ? payload.email.split('@')[0] : payload.email);
       _saya.email = data?.email || payload.email;
     }
     return data;
@@ -150,7 +152,8 @@ const DB = (() => {
       p_id: payload.id,
       p_nama: payload.nama,
       p_email: payload.email,
-      p_password_baru: payload.password || null
+      p_password_baru: payload.password || null,
+      p_username: payload.username || null
     });
     if (error) throw error;
     return data;
