@@ -126,7 +126,7 @@ const BarcodePrinter = (() => {
     }
     x += 10; // Quiet zone kanan
     const totalW = (x * modulWidth).toFixed(1);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">${rects.join('')}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${tinggi}" width="100%" height="100%" preserveAspectRatio="none" shape-rendering="crispEdges">${rects.join('')}</svg>`;
   }
 
   /**
@@ -286,7 +286,7 @@ const BarcodePrinter = (() => {
 
     const pagesHtml = labels.map(lbl => {
       let nama = (lbl.namaPasien || '').trim();
-      let infoBaris2 = (lbl.infoPasien || '').trim();
+      let infoBaris2 = (lbl.infoBaris2 || lbl.infoPasien || '').trim();
 
       if (!infoBaris2) {
         // Coba pisahkan otomatis jika namaPasien mengandung format "Nama (P) / 54 Th"
@@ -297,9 +297,8 @@ const BarcodePrinter = (() => {
         }
       }
 
-      // Barcode SVG: ketinggian proporsional agar tidak memicu micro-overflow
-      const svgH = tggiMm <= 20 ? 30 : 34;
-      const svg = buatBarcodeSVG(lbl.idBarcode, svgH, 1.4);
+      // Barcode SVG: viewBox 50 modul tinggi dengan preserveAspectRatio="none"
+      const svg = buatBarcodeSVG(lbl.idBarcode, 50, 1.5);
 
       return `
         <div class="label-tube">
@@ -316,6 +315,10 @@ const BarcodePrinter = (() => {
     }).join('');
 
     const bodyHeightPrint = labels.length <= 1 ? `${tggiMm}mm !important` : 'auto !important';
+    const labelW = lbarMm >= 40 ? 38 : (lbarMm - 2);
+    const labelH = tggiMm >= 30 ? 27 : (tggiMm - 2);
+    const marginV = ((tggiMm - labelH) / 2).toFixed(1);
+    const bcWrapH = tggiMm <= 20 ? '9.5mm' : '14.5mm';
 
     const doc = iframe.contentWindow.document;
     doc.open();
@@ -362,18 +365,19 @@ const BarcodePrinter = (() => {
             }
           }
           .label-tube {
-            width: ${lbarMm}mm !important;
-            height: ${tggiMm}mm !important;
-            max-height: ${tggiMm}mm !important;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.6mm 1mm;
-            overflow: hidden;
-            box-sizing: border-box;
-            page-break-inside: avoid;
-            break-inside: avoid;
+            width: ${labelW}mm !important;
+            height: ${labelH}mm !important;
+            max-height: ${labelH}mm !important;
+            margin: ${marginV}mm auto !important;
+            padding: 1mm 1.5mm !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .label-tube:not(:last-child) {
             page-break-after: always;
@@ -384,8 +388,9 @@ const BarcodePrinter = (() => {
             break-after: avoid;
           }
           .col-id {
-            width: 4.2mm;
-            height: ${tggiMm - 2}mm;
+            width: 3.2mm;
+            min-width: 3.2mm;
+            height: ${labelH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -393,9 +398,10 @@ const BarcodePrinter = (() => {
             transform: rotate(180deg);
             font-size: 6.8pt;
             font-weight: 700;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
             white-space: nowrap;
             text-align: center;
+            color: #000;
           }
           .col-center {
             flex: 1;
@@ -403,17 +409,20 @@ const BarcodePrinter = (() => {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0 0.8mm;
+            text-align: center;
+            padding: 0 0.5mm;
             overflow: hidden;
+            width: 100%;
           }
           .barcode-wrap {
-            width: 100%;
-            max-width: ${lbarMm - 10}mm;
-            height: ${tggiMm <= 20 ? '9.5mm' : '11.5mm'};
+            width: 28.5mm;
+            max-width: 28.5mm;
+            height: ${bcWrapH};
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            margin: 0 auto;
           }
           .barcode-wrap svg {
             width: 100%;
@@ -421,54 +430,60 @@ const BarcodePrinter = (() => {
             display: block;
           }
           .patient-name {
-            margin-top: 0.4mm;
-            font-size: 6pt;
-            font-weight: 700;
+            margin-top: 0.6mm;
+            font-size: 6.8pt;
+            font-weight: bold;
+            line-height: 1.2;
+            text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            text-align: center;
-            max-width: ${lbarMm - 10}mm;
-            letter-spacing: -0.2px;
-            line-height: 1.1;
+            width: 100%;
+            max-width: 28.5mm;
+            letter-spacing: -0.1px;
+            color: #000;
           }
           .patient-sub {
-            margin-top: 0.2mm;
-            font-size: 6pt;
-            font-weight: 700;
+            margin-top: 0.5mm;
+            font-size: 6.5pt;
+            font-weight: bold;
+            line-height: 1.1;
+            text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            text-align: center;
-            max-width: ${lbarMm - 10}mm;
+            width: 100%;
+            max-width: 28.5mm;
             letter-spacing: -0.1px;
-            line-height: 1.0;
+            color: #000;
           }
           .single-test-name {
-            font-size: 5.2pt;
-            font-weight: 700;
+            font-size: 5.5pt;
+            font-weight: bold;
             color: #000;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             text-align: center;
-            max-width: ${lbarMm - 10}mm;
+            max-width: 28.5mm;
             line-height: 1.0;
-            margin-top: 0.2mm;
+            margin-top: 0.3mm;
           }
           .col-dept {
-            width: 4.5mm;
-            height: ${tggiMm - 2}mm;
+            width: 3.8mm;
+            min-width: 3.8mm;
+            height: ${labelH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7.2pt;
+            font-size: 7.5pt;
             font-weight: 800;
             letter-spacing: 0.3px;
             white-space: nowrap;
             text-align: center;
+            color: #000;
           }
         </style>
       </head>
@@ -894,6 +909,7 @@ const BarcodePrinter = (() => {
                 allLabels.push({
                   idBarcode: idBarcodeAktif,
                   namaPasien: namaLabelAktif,
+                  infoBaris2: (b.querySelector('#lblPrevSub')?.textContent || '').trim(),
                   labelKanan: kanan,
                   subInfo: '' // Paket bersih tanpa deretan teks
                 });
@@ -916,11 +932,13 @@ const BarcodePrinter = (() => {
           aksi: () => {
             const kanan = dapatkanLabelKanan(alatTerpilih);
             const sub = (tipeCetak === 'satuan' && tesSatuanTerpilih) ? tesSatuanTerpilih : '';
+            const subText = (b.querySelector('#lblPrevSub')?.textContent || '').trim();
             const labels = [];
             for (let q = 0; q < qtyAktif; q++) {
               labels.push({
                 idBarcode: idBarcodeAktif,
                 namaPasien: namaLabelAktif,
+                infoBaris2: subText,
                 labelKanan: kanan,
                 subInfo: sub
               });
