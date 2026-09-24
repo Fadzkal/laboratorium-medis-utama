@@ -1,38 +1,35 @@
 -- ============================================================================
--- Migrasi 80: Perbaikan Skema & Identitas Auth GoTrue Supabase
+-- Migrasi 80: Perbaikan Skema & Identitas Auth GoTrue Supabase (Revisi)
 -- Laboratorium Medis Utama
--- ============================================================================
--- Memperbaiki error "Database error querying schema" pada GoTrue Auth:
--- 1. Hapus trigger yang menempel pada auth.users (trigger di auth.users mengganggu GoTrue)
--- 2. Pastikan kolom-kolom string di auth.users bernilai string kosong (''), bukan NULL
--- 3. Pastikan provider_id di auth.identities terisi (tidak NULL)
--- 4. Pastikan semua akun memiliki entri di auth.identities
 -- ============================================================================
 
 -- 1. Hapus trigger pada tabel auth.users
 DROP TRIGGER IF EXISTS trg_sync_pegawai_email ON auth.users;
 DROP FUNCTION IF EXISTS public.sync_pegawai_email_trigger();
 
--- 2. Perbaiki seluruh baris di auth.users (GoTrue Auth scanner gagal bila ada NULL pada kolom string ini)
+-- 2. Pastikan kolom string token di auth.users bernilai '' (string kosong)
+-- Catatan: phone tidak boleh diubah jadi '' karena ada UNIQUE constraint
 UPDATE auth.users
    SET confirmation_token = COALESCE(confirmation_token, ''),
        recovery_token = COALESCE(recovery_token, ''),
        email_change_token_new = COALESCE(email_change_token_new, ''),
        email_change_token_current = COALESCE(email_change_token_current, ''),
        email_change = COALESCE(email_change, ''),
-       phone = COALESCE(phone, ''),
        phone_change = COALESCE(phone_change, ''),
-       phone_change_token = COALESCE(phone_change_token, '')
+       phone_change_token = COALESCE(phone_change_token, ''),
+       reauthentication_token = COALESCE(reauthentication_token, '')
  WHERE confirmation_token IS NULL
     OR recovery_token IS NULL
     OR email_change_token_new IS NULL
     OR email_change_token_current IS NULL
-    OR email_change IS NULL
-    OR phone IS NULL
-    OR phone_change IS NULL
-    OR phone_change_token IS NULL;
+    OR email_change IS NULL;
 
--- 3. Perbaiki auth.identities agar provider_id terisi user_id::text
+-- 3. Kembalikan phone yang kosong menjadi NULL agar tidak melanggar unique constraint
+UPDATE auth.users
+   SET phone = NULL
+ WHERE phone = '';
+
+-- 4. Perbaiki auth.identities: pastikan provider_id terisi
 UPDATE auth.identities
    SET provider_id = COALESCE(NULLIF(provider_id, ''), user_id::text),
        identity_data = jsonb_build_object('sub', user_id::text, 'email', lower(trim(u.email)))
@@ -40,7 +37,7 @@ UPDATE auth.identities
  WHERE auth.identities.user_id = u.id
    AND (auth.identities.provider_id IS NULL OR auth.identities.provider_id = '');
 
--- 4. Pastikan semua akun di auth.users memiliki baris di auth.identities
+-- 5. Masukkan ke auth.identities untuk user yang belum memiliki identitas (id bertipe uuid)
 INSERT INTO auth.identities (
   id,
   user_id,
@@ -52,7 +49,7 @@ INSERT INTO auth.identities (
   updated_at
 )
 SELECT 
-  u.id::text,
+  u.id,
   u.id,
   jsonb_build_object('sub', u.id::text, 'email', lower(trim(u.email))),
   'email',
@@ -65,7 +62,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM auth.identities i WHERE i.user_id = u.id
 );
 
--- 5. Perbarui juga fungsi ubah_profil_saya dan admin_ubah_pengguna agar menyertakan provider_id yang valid
+-- 6. Fungsi ubah_profil_saya (Versi aman untuk GoTrue)
 CREATE OR REPLACE FUNCTION public.ubah_profil_saya(
   p_nama text,
   p_email text,
@@ -148,6 +145,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.ubah_profil_saya(text, text, text) TO authenticated;
 
+-- 7. Fungsi admin_ubah_pengguna (Versi aman untuk GoTrue)
 CREATE OR REPLACE FUNCTION public.admin_ubah_pengguna(
   p_id uuid,
   p_nama text,
