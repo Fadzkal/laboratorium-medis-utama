@@ -1911,6 +1911,34 @@ const DB = (() => {
     const { error } = await sb.rpc('lab_batalkan', { p_permintaan_id: id, p_alasan: alasan });
     if (error) throw error;
   }
+  async function labTambahItem(permintaanId, labId) {
+    const { data: ref, error: errRef } = await sb.from('ref_lab').select('*').eq('id', labId).single();
+    if (errRef) throw errRef;
+    const { data: existing } = await sb.from('lab_hasil').select('urutan').eq('permintaan_id', permintaanId).order('urutan', { ascending: false }).limit(1);
+    const nextUrut = (existing && existing.length > 0) ? (existing[0].urutan || 0) + 1 : 1;
+    const { data, error } = await sb.from('lab_hasil').insert({
+      permintaan_id: permintaanId,
+      lab_id: labId,
+      nama: ref.nama,
+      satuan: ref.satuan,
+      urutan: nextUrut
+    }).select().single();
+    if (error) throw error;
+    return data;
+  }
+  async function labHapusItem(id) {
+    const { error } = await sb.from('lab_hasil').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+  async function labHapusPermintaan(id) {
+    await sb.from('lab_hasil').delete().eq('permintaan_id', id);
+    await sb.from('lab_fisik').delete().eq('permintaan_id', id);
+    await sb.from('lab_anamnesa').delete().eq('permintaan_id', id);
+    const { error } = await sb.from('lab_permintaan').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
   async function labTren(pasienId, labId, batas = 12) {
     const { data, error } = await sb.from('v_lab_tren').select('*')
       .eq('pasien_id', pasienId).eq('lab_id', labId)
@@ -3809,6 +3837,7 @@ const DB = (() => {
     refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
     simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
+    labTambahItem, labHapusItem, labHapusPermintaan,
     labTren, riwayatLabPasien, labBelumSelesai,
     labFisikAmbil, labFisikSimpan, labAnamnesaAmbil, labAnamnesaSimpan, labSimpanCatatan,
     penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,

@@ -450,8 +450,16 @@ const Lab = (() => {
 
     const bBatal = el.querySelector('#btnBatal');
     if (bBatal) bBatal.addEventListener('click', async () => {
-      const alasan = await modalAlasan('Batalkan lembar hasil',
-        'Lembar yang dibatalkan tidak ikut ditagihkan dan tidak muncul di rekam medis.');
+      const yakin = await UI.konfirmasiGanda({
+        judul: 'Batalkan Lembar Hasil',
+        pesan1: 'Apakah Anda yakin ingin membatalkan lembar hasil pemeriksaan laboratorium ini?',
+        pesan2: 'PERINGATAN TERAKHIR: Lembar yang dibatalkan tidak ikut ditagihkan dan tidak muncul di rekam medis aktif. Tindakan tidak dapat dibatalkan. Lanjutkan?',
+        tombolLanjut: 'Lanjutkan Pembatalan',
+        tombolFinal: 'Ya, Batalkan Lembar'
+      });
+      if (!yakin) return;
+      const alasan = await modalAlasan('Batalkan Lembar Hasil',
+        'Lembar yang dibatalkan tidak ikut ditagihkan dan tidak muncul di rekam medis. Alasan pembatalan wajib diisi:');
       if (!alasan) return;
       try {
         await DB.labBatalkan(p.id, alasan);
@@ -2546,19 +2554,21 @@ const Lab = (() => {
                   <div>Encounter SS</div><div>:</div><div>-</div>
                 </div>
               </div>
-              <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
-                ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
-                <select id="selFormatCetakExt" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
+              <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap;">
+                ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                <select id="selFormatCetakExt" style="flex: 1; min-width: 140px; max-width: 200px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
                 <button id="btnBarcodeLabSky" style="background:#0f766e; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Cetak Barcode Tabung Spesimen">${UI.ikon('cetak', 13)} Barcode</button>
                 ${!terkunci ? `<button id="btnTarikAlatSky" style="background:#0284c7; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tarik Hasil Otomatis dari Alat Laboratorium">${UI.ikon('ulang', 13)} Tarik Alat</button>` : ''}
+                ${!terkunci ? `<button id="btnTambahPxSky" style="background:#2563eb; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tambah parameter pemeriksaan ke pasien ini">${UI.ikon('plus', 13)} Tambah PX</button>` : ''}
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnAnamnesaSky" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
                 <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
-                ${terkunci && adminSaja() ? `<button id="btnBukaKunci" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
+                ${!terkunci ? `<button id="btnHapusLembarSky" style="background:#dc2626; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Hapus seluruh lembar pemeriksaan pasien ini">${UI.ikon('hapus', 13)} Hapus Lembar</button>` : ''}
+                ${terkunci && adminSaja() ? `<button id="btnBukaKunci" style="font-size:11px; margin-left:12px; color:#333; padding:4px 10px; cursor:pointer; font-weight:600;">Buka Kunci</button>` : ''}
               </div>
             </div>
           </div>
@@ -2568,6 +2578,7 @@ const Lab = (() => {
               <thead>
                 <tr>
                   <th style="width:30px; text-align:center;">#</th>
+                  <th style="width:65px; text-align:center;">Aksi</th>
                   <th style="width:80px;">Kode PX <span style="font-size:8px; color:#1a73e8;">▲</span></th>
                   <th>Nama Px</th>
                   <th style="width:130px;">Hasil Pemeriksaan</th>
@@ -2605,6 +2616,13 @@ const Lab = (() => {
 
                   return `<tr data-hid="${h.id}">
                     <td style="text-align:center; color:#1a73e8; background:#f5faff;">${idx + 1}</td>
+                    <td style="text-align:center; padding:2px;">
+                      ${!terkunci ? `
+                        <button type="button" class="btn-sky-hapus-item" data-hid="${h.id}" data-nama="${UI.esc(m.nama||h.nama||'')}" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:2px 6px; border-radius:3px; font-size:10px; cursor:pointer; display:inline-flex; align-items:center; gap:2px;" title="Hapus pemeriksaan ini">
+                          ${UI.ikon('hapus', 10)} Hapus
+                        </button>
+                      ` : `<span style="color:#9ca3af; font-size:10px;">-</span>`}
+                    </td>
                     <td>${UI.esc(m.kode||'')}</td>
                     <td>${UI.esc(m.nama||h.ref?.nama||'')}</td>
                     <td>
@@ -2930,13 +2948,147 @@ const Lab = (() => {
           skylabState.syncTimer = setInterval(() => sinkronAlatSekarang(false), 3500);
         }
 
+        // CRUD: Hapus Baris Item Pemeriksaan dengan Verifikasi 2 Langkah
+        kanan.querySelectorAll('.btn-sky-hapus-item').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const hid = btn.dataset.hid;
+            const namaItem = btn.dataset.nama || 'pemeriksaan ini';
+
+            const yakin = await UI.konfirmasiGanda({
+              judul: 'Hapus Pemeriksaan Lab',
+              pesan1: `Apakah Anda yakin ingin menghapus item pemeriksaan "${namaItem}" dari lembar pasien ${p.pasien.nama}?`,
+              pesan2: `PERINGATAN TERAKHIR: Parameter "${namaItem}" beserta seluruh hasil pengukurannya akan dihapus secara permanen dari lembar ini. Tindakan tidak dapat dibatalkan. Lanjutkan?`,
+              tombolLanjut: 'Lanjutkan Hapus',
+              tombolFinal: 'Ya, Hapus Sekarang'
+            });
+
+            if (!yakin) return;
+
+            try {
+              await DB.labHapusItem(hid);
+              UI.toast(`Pemeriksaan "${namaItem}" berhasil dihapus.`);
+              await bukaHasil(p.id);
+            } catch (err) {
+              UI.toast('Gagal menghapus pemeriksaan: ' + err.message, 'err');
+            }
+          });
+        });
+
+        // CRUD: Hapus / Batalkan Seluruh Lembar Lab dengan Verifikasi 2 Langkah
+        const btnHL = kanan.querySelector('#btnHapusLembarSky');
+        if (btnHL) {
+          btnHL.onclick = async () => {
+            const noLab = p.no_lab || '-';
+            const namaPasien = p.pasien?.nama || '-';
+
+            const yakin = await UI.konfirmasiGanda({
+              judul: 'Hapus Seluruh Lembar Hasil Lab',
+              pesan1: `Apakah Anda yakin ingin menghapus seluruh lembar hasil ${noLab} untuk pasien "${namaPasien}"? Seluruh daftar parameter pemeriksaan (${p.hasil?.length || 0} item) akan dihapus.`,
+              pesan2: `PERINGATAN TERAKHIR: Lembar ${noLab} atas nama "${namaPasien}" akan dihapus permanen dari antrean dan database laboratorium. Tindakan ini TIDAK DAPAT DIBATALKAN. Anda benar-benar yakin?`,
+              tombolLanjut: 'Lanjutkan Hapus Lembar',
+              tombolFinal: 'Ya, Hapus Lembar Permanen'
+            });
+
+            if (!yakin) return;
+
+            try {
+              await DB.labHapusPermintaan(p.id);
+              UI.toast(`Lembar ${noLab} berhasil dihapus.`);
+              skylabState.terpilih = null;
+              await muat();
+            } catch (err) {
+              UI.toast('Gagal menghapus lembar: ' + err.message, 'err');
+            }
+          };
+        }
+
+        // CRUD: Tambah Pemeriksaan Baru ke Lembar Pasien
+        const btnTambahPx = kanan.querySelector('#btnTambahPxSky');
+        if (btnTambahPx) {
+          btnTambahPx.onclick = async () => {
+            const existingLabIds = new Set((p.hasil || []).map(h => h.lab_id));
+            const opsiLab = master.filter(m => m.aktif !== false && !existingLabIds.has(m.id));
+
+            if (!opsiLab.length) {
+              UI.toast('Semua parameter pemeriksaan master sudah ada pada lembar ini.', 'info');
+              return;
+            }
+
+            const htmlModal = `
+              <div style="font-size:13px; line-height:1.5;">
+                <div style="margin-bottom:8px; color:var(--ink-600);">Pilih parameter pemeriksaan laboratorium yang ingin ditambahkan ke lembar pasien <b>${UI.esc(p.pasien.nama)}</b>:</div>
+                <div style="margin-bottom:10px;">
+                  <input type="text" id="cariPxBaru" placeholder="Ketik nama atau kode pemeriksaan..." style="width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                </div>
+                <div style="max-height:260px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:4px;" id="daftarPxBaru">
+                  ${opsiLab.map(m => `
+                    <label style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f3f4f6; cursor:pointer;" class="item-px-pilihan" data-teks="${UI.esc((m.kode||'') + ' ' + (m.nama||'')).toLowerCase()}">
+                      <input type="radio" name="px_pilih" value="${m.id}">
+                      <div>
+                        <span style="font-weight:600; color:#1a73e8;">${UI.esc(m.kode||'-')}</span> - <b>${UI.esc(m.nama)}</b>
+                        ${m.satuan ? `<span style="color:#6b7280; font-size:11px; margin-left:6px;">(${UI.esc(m.satuan)})</span>` : ''}
+                      </div>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+
+            await UI.modal({
+              judul: 'Tambah Pemeriksaan Laboratorium',
+              isi: htmlModal,
+              tombol: [
+                { teks: 'Batal', nilai: null },
+                {
+                  teks: 'Tambahkan ke Lembar',
+                  nilai: true,
+                  kelas: 'btn-primary',
+                  aksi: async (modalEl) => {
+                    const terpilih = modalEl.querySelector('input[name="px_pilih"]:checked');
+                    if (!terpilih) {
+                      UI.toast('Pilih salah satu pemeriksaan terlebih dahulu.', 'warn');
+                      return false;
+                    }
+                    const labId = terpilih.value;
+                    try {
+                      await DB.labTambahItem(p.id, labId);
+                      UI.toast('Pemeriksaan berhasil ditambahkan.');
+                      await bukaHasil(p.id);
+                      return true;
+                    } catch (err) {
+                      UI.toast('Gagal menambahkan: ' + err.message, 'err');
+                      return false;
+                    }
+                  }
+                }
+              ]
+            });
+
+            setTimeout(() => {
+              const inpCari = document.getElementById('cariPxBaru');
+              const box = document.getElementById('daftarPxBaru');
+              if (inpCari && box) {
+                inpCari.focus();
+                inpCari.addEventListener('input', () => {
+                  const q = inpCari.value.trim().toLowerCase();
+                  box.querySelectorAll('.item-px-pilihan').forEach(el => {
+                    el.style.display = !q || el.dataset.teks.includes(q) ? 'flex' : 'none';
+                  });
+                });
+              }
+            }, 100);
+          };
+        }
+
         const btnBK = kanan.querySelector('#btnBukaKunci');
         if (btnBK) btnBK.onclick = async () => {
-          const alasan = prompt('Alasan membuka kunci:');
+          const alasan = await modalAlasan('Buka Kunci Lembar Hasil',
+            'Alasan koreksi wajib diisi dan akan dicatat permanen pada riwayat rekam medis lembar ini.');
           if (!alasan) return;
           try {
             await DB.labBukaKunci(p.id, alasan);
-            UI.toast('Kunci dibuka.');
+            UI.toast('Kunci lembar berhasil dibuka untuk koreksi.');
             await muat();
             await bukaHasil(p.id);
           } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }

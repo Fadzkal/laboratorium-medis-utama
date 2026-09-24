@@ -136,6 +136,45 @@ const UI = (() => {
     }) === true;
   }
 
+  /* Verifikasi bertingkat 2 langkah sebelum penghapusan data krusial */
+  async function konfirmasiGanda({ judul, pesan1, pesan2, tombolLanjut = 'Lanjutkan Hapus', tombolFinal = 'Ya, Hapus Sekarang' }) {
+    const step1 = await modal({
+      judul: judul || 'Konfirmasi Penghapusan',
+      isi: `
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <div style="color:var(--warn-600, #d97706); flex-shrink:0;">${ikon('peringatan', 26)}</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px; font-size:13px;">Peringatan Awal (Tahap 1 dari 2)</div>
+            <p style="margin:0; font-size:13px; color:var(--ink-600, #4b5563); line-height:1.4;">${esc(pesan1)}</p>
+          </div>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false },
+        { teks: tombolLanjut, nilai: true, kelas: 'btn-secondary' }
+      ]
+    });
+    if (!step1) return false;
+
+    const step2 = await modal({
+      judul: 'Verifikasi Akhir (Tahap 2 dari 2)',
+      isi: `
+        <div style="display:flex; gap:12px; align-items:flex-start; background:#fef2f2; border:1px solid #fecaca; padding:12px; border-radius:6px;">
+          <div style="color:#dc2626; flex-shrink:0;">${ikon('peringatan', 28)}</div>
+          <div>
+            <div style="font-weight:700; color:#b91c1c; margin-bottom:4px; font-size:13px;">PERINGATAN TERAKHIR - PERIKSA KEMBALI</div>
+            <p style="margin:0; font-size:13px; color:#7f1d1d; line-height:1.4;">${esc(pesan2 || 'Tindakan ini permanen dan data yang dihapus TIDAK DAPAT DIKEMBALIKAN. Apakah Anda benar-benar yakin ingin menghapus data ini sekarang?')}</p>
+          </div>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false },
+        { teks: tombolFinal, nilai: true, kelas: 'btn-danger' }
+      ]
+    });
+    return step2 === true;
+  }
+
   /* ---------- Format tanggal & angka ----------------------------------- */
   const BULAN = ['Januari','Februari','Maret','April','Mei','Juni',
                  'Juli','Agustus','September','Oktober','November','Desember'];
@@ -344,7 +383,7 @@ const UI = (() => {
     return n < a.min || n > a.max;
   }
 
-  return { esc, toast, modal, tutupModal, konfirmasi, tglIndo, tglPendek, jam, hariIni,
+  return { esc, toast, modal, tutupModal, konfirmasi, konfirmasiGanda, tglIndo, tglPendek, jam, hariIni,
            bulanIni, geserBulan, labelBulan,
            umur, umurTeks, rupiah, uang: rupiah, formatRibuan, terbilang, inisial, badgeStatus, badgeBayar, ikon,
            kosong, memuat, nilaiForm, isiForm, tunda, vitalTidakNormal, HARI, BULAN };

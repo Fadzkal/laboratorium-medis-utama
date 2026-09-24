@@ -2545,6 +2545,39 @@ const DB = (() => {
     const lp = LAB_PERMINTAAN.find(x => x.id === id);
     lp.status = 'BATAL'; lp.alasan_batal = alasan;
   }
+  async function labTambahItem(permintaanId, labId) {
+    const ref = REF_LAB.find(r => r.id === labId);
+    if (!ref) throw new Error('Pemeriksaan master tidak ditemukan.');
+    const existing = LAB_HASIL.filter(h => h.permintaan_id === permintaanId);
+    const nextUrut = existing.length + 1;
+    const newItem = {
+      id: 'demo-h-' + Math.random().toString(36).substr(2, 9),
+      permintaan_id: permintaanId,
+      lab_id: labId,
+      nama: ref.nama,
+      satuan: ref.satuan,
+      nilai_angka: null,
+      nilai_teks: null,
+      tanda: 'BELUM',
+      urutan: nextUrut,
+      ref: ref
+    };
+    LAB_HASIL.push(newItem);
+    return salin(newItem);
+  }
+  async function labHapusItem(id) {
+    const idx = LAB_HASIL.findIndex(h => h.id === id);
+    if (idx !== -1) LAB_HASIL.splice(idx, 1);
+    return true;
+  }
+  async function labHapusPermintaan(id) {
+    const idx = LAB_PERMINTAAN.findIndex(p => p.id === id);
+    if (idx !== -1) LAB_PERMINTAAN.splice(idx, 1);
+    for (let i = LAB_HASIL.length - 1; i >= 0; i--) {
+      if (LAB_HASIL[i].permintaan_id === id) LAB_HASIL.splice(i, 1);
+    }
+    return true;
+  }
   async function labTren(pasienId, labId) {
     await tunggu(30);
     return LAB_HASIL
@@ -3576,6 +3609,7 @@ const DB = (() => {
            refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan,
            labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
            simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
+           labTambahItem, labHapusItem, labHapusPermintaan,
            labTren, labBelumSelesai, labFisikAmbil, labFisikSimpan,
            labAnamnesaAmbil, labAnamnesaSimpan,
            penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,
