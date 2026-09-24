@@ -305,7 +305,61 @@ const Migrasi = (() => {
     return list.join(',');
   }
 
-  const TEMPLAT_HEADER_1 = 'DATA INPUTAN PELAYANAN PROLANIS,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
+  let xlsxSiap = null;
+  function muatSheetJS() {
+    if (typeof XLSX !== 'undefined' && XLSX.utils && XLSX.write) return Promise.resolve();
+    if (xlsxSiap) return xlsxSiap;
+    xlsxSiap = new Promise((ok, gagal) => {
+      // 1. Prioritas pustaka lokal pendukung style dan kotak-kotak tabel (xlsx-js-style)
+      const s = document.createElement('script');
+      s.src = 'js/xlsx-js-style.bundle.js';
+      s.onload = ok;
+      s.onerror = () => {
+        // 2. Fallback CDN jsdelivr
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+        s2.onload = ok;
+        s2.onerror = () => {
+          // 3. Fallback CDN cdnjs
+          const s3 = document.createElement('script');
+          s3.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s3.onload = ok;
+          s3.onerror = () => gagal(new Error('Gagal memuat pustaka Excel (SheetJS).'));
+          document.head.appendChild(s3);
+        };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }).catch(e => { xlsxSiap = null; throw e; });
+    return xlsxSiap;
+  }
+
+  function csvPecahBaris(line) {
+    const res = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (c === ',' && !inQuotes) {
+        res.push(cur);
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    res.push(cur);
+    while (res.length < 42) res.push('');
+    return res;
+  }
+
+  const TEMPLAT_HEADER_1 = 'DATA INPUTAN PELAYANAN PROLANIS,,,,,,,,,,,,,,,,,,,Pasien hadir ke Faskes dalam kondisi tidak puasa dengan indikasi Hiperglikemi/Hipoglikemi,,,,,,,,,,,,,,,,,,,,,,';
   const TEMPLAT_HEADER_2 = '(TGL 1 SEPTEMBER 2026 - 30 SEPTEMBER 2026),,,,,,skrining dm,,,,,,,,GLUKOSA BELUM FIX,,,,,,,,,,,,,,,,,,,,,,,,,,,';
   const TEMPLAT_HEADER_3 = ',,,,,,DIABETES MELITUS,,,,,,,"( KUTAWIS, KEJOBONG, PMI, BUKATEJA PENYESUAIAN )",,,,,,,,,,,,,,,,,,,,,,,,,,,,';
   const TEMPLAT_HEADER_4 = 'KET :,,,,,,HIPERTENSI,,,( TANDA UNTUK YANG KLAIM GDS),,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,';
@@ -355,7 +409,7 @@ const Migrasi = (() => {
       const namaPeserta = pas.nama_pasien || pas.nama || item.nama_pasien || '';
       const noBpjs = formatNoBpjs(pas.no_bpjs || item.no_bpjs || '');
       const alamat = pas.alamat || '-';
-      const fktp = pas.fktp || 'Klinik Griya Medica';
+      let fktp = pas.fktp || item.fktp || 'Klinik Griya Medica';
 
       const tglRaw = item.tgl_pelayanan || item.tanggal || new Date().toISOString().slice(0, 10);
       const tglFormatted = formatTglSpreadsheet(tglRaw);
@@ -387,13 +441,28 @@ const Migrasi = (() => {
       }
 
       // Tanda vital
-      const tensi = item.tensi || (item.sistolik && item.diastolik ? `${item.sistolik}/${item.diastolik}` : '120/80');
-      const tb = item.tinggi_badan || '';
-      const bb = item.berat_badan || '';
-      const lp = item.lingkar_perut || '';
-      const rr = item.rr || '20';
-      const hr = item.hr || '80';
+      let tensi = item.tensi || (item.sistolik && item.diastolik ? `${item.sistolik}/${item.diastolik}` : '120/80');
+      let tb = item.tinggi_badan || '';
+      let bb = item.berat_badan || '';
+      let lp = item.lingkar_perut || '';
+      let rr = item.rr || '20';
+      let hr = item.hr || '80';
       const suhu = item.suhu ? formatDesimal(item.suhu) : '36,0';
+
+      // Jika data dari kronisImporEksporKesesuaian (titipan portal), lengkapi dengan ekstrakLab
+      const ekstrak = (item.baris || item.lab_rme) ? ekstrakLab(item.baris, item.lab_rme) : null;
+      if (ekstrak) {
+        if ((!fktp || fktp === 'Klinik Griya Medica') && ekstrak.fktp) fktp = ekstrak.fktp;
+        if (!item.tensi && ekstrak.tensi) tensi = ekstrak.tensi;
+        if (!tb && ekstrak.tb) tb = ekstrak.tb;
+        if (!bb && ekstrak.bb) bb = ekstrak.bb;
+        if (!lp && ekstrak.lp) lp = ekstrak.lp;
+        if ((!rr || rr === '20') && ekstrak.rr) rr = ekstrak.rr;
+        if ((!hr || hr === '80') && ekstrak.hr) hr = ekstrak.hr;
+        for (const k of ['cho', 'tg', 'hdl', 'ldl', 'ur', 'cre', 'mau', 'hba1c', 'gdp', 'gdpp', 'gds']) {
+          if (!lab[k] && ekstrak[k]) lab[k] = ekstrak[k];
+        }
+      }
 
       const diagInfo = tentukanKeluhanDiagnosa(item.diagnosa_icd || item.diagnosis_teks, lab);
       const nonKapitasi = hitungPelayananNonKapitasi(lab);
@@ -408,10 +477,28 @@ const Migrasi = (() => {
         } catch (_) {}
       }
 
+      // Hitung harga pemeriksaan sesuai tarif paket atau per tes:
+      // Kimia Darah paket (CHO, TG, HDL, LDL, UR, CRE, MAU) = Rp380.000
+      // HbA1c = Rp160.000
+      // Gula Darah (GDP / GDPP / GDS) = Rp20.000 per tes
+      let hargaPemeriksaan = '';
+      if (item.total_biaya) {
+        hargaPemeriksaan = `Rp${Number(item.total_biaya).toLocaleString('id-ID')}`;
+      } else {
+        let totalTarif = 0;
+        const hasKimia = !!(lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau);
+        const hasHba1c = !!lab.hba1c;
+        const countGula = (lab.gdp ? 1 : 0) + (lab.gdpp ? 1 : 0) + (lab.gds ? 1 : 0);
+        if (hasKimia) totalTarif += 380000;
+        if (hasHba1c) totalTarif += 160000;
+        if (countGula > 0) totalTarif += (countGula * 20000);
+        if (totalTarif > 0) hargaPemeriksaan = `Rp${totalTarif.toLocaleString('id-ID')}`;
+      }
+
       const barisCol = [
         String(noUrut++),                             // 0: NO
         tglFormatted,                                 // 1: TGL PLY
-        tglFormatted,                                 // 2: TGL ENTRI
+        '',                                           // 2: TGL ENTRI (selalu dikosongkan untuk diisi manual)
         noBpjs,                                       // 3: NO BPJS
         namaPeserta,                                  // 4: NAMA PESERTA
         alamat,                                       // 5: ALAMAT
@@ -433,24 +520,24 @@ const Migrasi = (() => {
         lab.gdp,                                      // 21: GDP
         lab.gdpp,                                     // 22: GDPP
         lab.gds,                                      // 23: GDS
-        '',                                           // 24: Harga Pemeriksaan
-        'FALSE',                                      // 25: Flag
-        'Baru',                                       // 26: PENDAFTARAN
-        'Promotif Preventif',                         // 27: PERAWATAN
+        hargaPemeriksaan,                             // 24: Harga Pemeriksaan
+        'TRUE',                                       // 25: Kolom Z (selalu TRUE)
+        'Baru',                                       // 26: PENDAFTARAN (selalu Baru)
+        'Promotif Preventif',                         // 27: PERAWATAN (selalu Promotif Preventif)
         item.keluhan || diagInfo.keluhan,             // 28: KELUHAN
-        jamKunj,                                      // 29: JAM KUNJUNGAN
+        '07:00',                                      // 29: JAM KUNJUNGAN (selalu 07:00)
         item.anamnesa || diagInfo.anamnesa,           // 30: ANAMNESA
-        'TIDAK',                                      // 31: MAKANAN
-        'TIDAK',                                      // 32: UDARA
-        'TIDAK',                                      // 33: OBAT
-        item.terapi_obat || 'TIDAK',                  // 34: TERAPI OBAT
-        item.terapi_non_obat || 'TIDAK',              // 35: TERAPI NON OBAT
-        'TIDAK',                                      // 36: BMHP
+        'TIDAK',                                      // 31: MAKANAN (selalu TIDAK)
+        'TIDAK',                                      // 32: UDARA (selalu TIDAK)
+        'TIDAK',                                      // 33: OBAT (selalu TIDAK)
+        'TIDAK',                                      // 34: TERAPI OBAT (selalu TIDAK)
+        'TIDAK',                                      // 35: TERAPI NON OBAT (selalu TIDAK)
+        'TIDAK',                                      // 36: BMHP (selalu TIDAK)
         diagInfo.diagnosa,                            // 37: DIAGNOSA
-        suhu,                                         // 38: SUHU
-        item.dokter_nama || 'DEDE KURNIASIH',         // 39: TENAGA MEDIS
+        '36,0',                                       // 38: SUHU (selalu 36,0)
+        'DEDE KURNIASIH',                             // 39: TENAGA MEDIS (selalu DEDE KURNIASIH)
         nonKapitasi,                                  // 40: PELAYANAN NON KAPITASI
-        item.status_pulang || 'BEROBAT JALAN'         // 41: STATUS PULANG
+        'BEROBAT JALAN'                               // 41: STATUS PULANG (selalu BEROBAT JALAN)
       ];
 
       barisColList.push(barisCol);
@@ -517,7 +604,7 @@ const Migrasi = (() => {
       tombol: [
         { teks: 'Batal', nilai: null },
         {
-          html: `${UI.ikon('unduh', 14)} Ekspor Excel (CSV)`,
+          html: `${UI.ikon('unduh', 14)} Ekspor Spreadsheet (Excel)`,
           kelas: 'btn-secondary',
           aksi: async (modalEl) => {
             const param = ambilParamPeriode(modalEl);
@@ -602,9 +689,11 @@ const Migrasi = (() => {
       const { barisColList, opsi } = hasil;
       const labelRentang = opsi.labelPeriode || `${opsi.tglMulai} s/d ${opsi.tglSelesai}`;
 
+      const headerBaris2 = `(TGL ${labelRentang.toUpperCase()}),,,,,,skrining dm,,,,,,,,GLUKOSA BELUM FIX,,,,,,,,,,,,,,,,,,,,,,,,,,,`;
+
       const barisTeks = [
         TEMPLAT_HEADER_1,
-        `(TGL ${labelRentang.toUpperCase()}),,,,,,skrining dm,,,,,,,,GLUKOSA BELUM FIX,,,,,,,,,,,,,,,,,,,,,,,,,,,`,
+        headerBaris2,
         TEMPLAT_HEADER_3,
         TEMPLAT_HEADER_4,
         TEMPLAT_HEADER_5,
@@ -618,8 +707,249 @@ const Migrasi = (() => {
       }
 
       const hasilCsv = barisTeks.join('\r\n');
-      const namaBerkas = `pelayanan_prolanis_${opsi.tglMulai}_sd_${opsi.tglSelesai}.csv`;
-      unduhTeks(namaBerkas, hasilCsv);
+      const namaBasis = `pelayanan_prolanis_${opsi.tglMulai}_sd_${opsi.tglSelesai}`;
+
+      // Coba ekspor berkas asli .xlsx jika SheetJS / xlsx-js-style tersedia
+      let berhasilXlsx = false;
+      try {
+        await muatSheetJS();
+        if (typeof XLSX !== 'undefined') {
+          const aoa = [
+            csvPecahBaris(TEMPLAT_HEADER_1),
+            csvPecahBaris(headerBaris2),
+            csvPecahBaris(TEMPLAT_HEADER_3),
+            csvPecahBaris(TEMPLAT_HEADER_4),
+            csvPecahBaris(TEMPLAT_HEADER_5),
+            csvPecahBaris(TEMPLAT_HEADER_6),
+            csvPecahBaris(TEMPLAT_KOLOM_1),
+            csvPecahBaris(TEMPLAT_KOLOM_2),
+            ...barisColList
+          ];
+
+          const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+          // 1. PENGGABUNGAN SEL (MERGES) PERSIS GOOGLE SPREADSHEET
+          const merges = [
+            // Header Informasi Atas
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },   // A1:E1 "DATA INPUTAN PELAYANAN PROLANIS"
+            { s: { r: 0, c: 19 }, e: { r: 0, c: 28 } }, // T1:AC1 "Pasien hadir ke Faskes..."
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },   // A2:E2 "(TGL ...)"
+            { s: { r: 1, c: 8 }, e: { r: 1, c: 17 } },  // I2:R2 "GLUKOSA BELUM FIX"
+            { s: { r: 2, c: 8 }, e: { r: 2, c: 17 } },  // I3:R3 "( KUTAWIS, KEJOBONG, PMI, BUKATEJA PENYESUAIAN )"
+            { s: { r: 3, c: 8 }, e: { r: 3, c: 17 } },  // I4:R4 "( TANDA UNTUK YANG KLAIM GDS)"
+            
+            // Penggabungan Horizontal Header Kolom (Baris ke-7 / index r: 6)
+            { s: { r: 6, c: 13 }, e: { r: 6, c: 19 } }, // N7:T7 "PELAYANAN KIMIA DARAH" (7 kolom: CHO..MAU)
+            { s: { r: 6, c: 21 }, e: { r: 6, c: 23 } }, // V7:X7 "PELAYANAN GULA DARAH" (3 kolom: GDP..GDS)
+            { s: { r: 6, c: 31 }, e: { r: 6, c: 33 } }  // AF7:AH7 "RIWAYAT ALERGI" (3 kolom: MAKANAN..OBAT)
+          ];
+
+          // Penggabungan Vertikal (Baris 7 ke 8 / index r: 6 ke r: 7) untuk kolom-kolom tunggal
+          const singleCols = [
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, // NO s/d HR
+            20,                                        // HBA1C
+            24, 25, 26, 27, 28, 29, 30,                // Harga Pemeriksaan s/d ANAMNESA
+            34, 35, 36, 37, 38, 39, 40, 41             // TERAPI OBAT s/d STATUS PULANG
+          ];
+          for (const cIdx of singleCols) {
+            merges.push({ s: { r: 6, c: cIdx }, e: { r: 7, c: cIdx } });
+          }
+          ws['!merges'] = merges;
+
+          // 2. PENGATURAN LEBAR KOLOM (COLS)
+          ws['!cols'] = [
+            { wch: 5 },   // 0: NO
+            { wch: 16 },  // 1: TGL PLY
+            { wch: 14 },  // 2: TGL ENTRI
+            { wch: 16 },  // 3: NO BPJS
+            { wch: 22 },  // 4: NAMA PESERTA
+            { wch: 26 },  // 5: ALAMAT
+            { wch: 22 },  // 6: FKTP
+            { wch: 10 },  // 7: TENSI
+            { wch: 6 },   // 8: TB
+            { wch: 6 },   // 9: BB
+            { wch: 6 },   // 10: LP
+            { wch: 6 },   // 11: RR
+            { wch: 6 },   // 12: HR
+            { wch: 8 },   // 13: CHO
+            { wch: 8 },   // 14: TG
+            { wch: 8 },   // 15: HDL
+            { wch: 8 },   // 16: LDL
+            { wch: 8 },   // 17: UR
+            { wch: 8 },   // 18: CRE
+            { wch: 8 },   // 19: MAU
+            { wch: 9 },   // 20: HBA1C
+            { wch: 8 },   // 21: GDP
+            { wch: 8 },   // 22: GDPP
+            { wch: 8 },   // 23: GDS
+            { wch: 15 },  // 24: Harga Pemeriksaan
+            { wch: 8 },   // 25: Kolom Z
+            { wch: 12 },  // 26: PENDAFTARAN
+            { wch: 18 },  // 27: PERAWATAN
+            { wch: 18 },  // 28: KELUHAN
+            { wch: 14 },  // 29: JAM KUNJUNGAN
+            { wch: 18 },  // 30: ANAMNESA
+            { wch: 10 },  // 31: MAKANAN
+            { wch: 10 },  // 32: UDARA
+            { wch: 10 },  // 33: OBAT
+            { wch: 12 },  // 34: TERAPI OBAT
+            { wch: 14 },  // 35: TERAPI NON OBAT
+            { wch: 10 },  // 36: BMHP
+            { wch: 10 },  // 37: DIAGNOSA
+            { wch: 8 },   // 38: SUHU
+            { wch: 18 },  // 39: TENAGA MEDIS
+            { wch: 25 },  // 40: PELAYANAN NON KAPITASI
+            { wch: 16 }   // 41: STATUS PULANG
+          ];
+
+          // 3. GARIS BATAS KOTAK SOLID (THIN BORDER) DI SEMUA SEL
+          const borderKotak = {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          };
+
+          // Format Header Kolom Baris 7 & 8 (Warna Putih Bersih dengan Garis Kotak Solid)
+          const styleHeaderKolom = {
+            fill: { fgColor: { rgb: 'FFFFFF' } },
+            font: { bold: true, sz: 9, name: 'Calibri', color: { rgb: '000000' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: borderKotak
+          };
+
+          const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:AP8');
+
+          for (let R = 6; R <= 7; ++R) {
+            for (let C = 0; C <= 41; ++C) {
+              const addr = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+              ws[addr].s = styleHeaderKolom;
+            }
+          }
+
+          // Format Kotak Informasi Legend (Baris 1 s/d 5)
+          // H2 (HIPERTENSI) -> Salmon #F4CCCC
+          const h2Addr = XLSX.utils.encode_cell({ r: 1, c: 7 });
+          if (ws[h2Addr]) {
+            ws[h2Addr].s = {
+              fill: { fgColor: { rgb: 'F4CCCC' } },
+              font: { bold: true, sz: 9, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+          // I2..R2 (GLUKOSA BELUM FIX) -> Cyan #00FFFF
+          for (let c = 8; c <= 17; c++) {
+            const addr = XLSX.utils.encode_cell({ r: 1, c });
+            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+            ws[addr].s = {
+              fill: { fgColor: { rgb: '00FFFF' } },
+              font: { bold: true, sz: 9, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+          // H3 (skrining dm)
+          const h3Addr = XLSX.utils.encode_cell({ r: 2, c: 7 });
+          if (ws[h3Addr]) {
+            ws[h3Addr].s = {
+              font: { sz: 9, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+          // I3..R3 (KUTAWIS, KEJOBONG...) -> Cyan #00FFFF
+          for (let c = 8; c <= 17; c++) {
+            const addr = XLSX.utils.encode_cell({ r: 2, c });
+            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+            ws[addr].s = {
+              fill: { fgColor: { rgb: '00FFFF' } },
+              font: { sz: 8, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+          // H4 (DIABETES MELITUS)
+          const h4Addr = XLSX.utils.encode_cell({ r: 3, c: 7 });
+          if (ws[h4Addr]) {
+            ws[h4Addr].s = {
+              font: { sz: 9, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+          // I4..R4 (TANDA UNTUK YANG KLAIM GDS) -> Salmon #F4CCCC
+          for (let c = 8; c <= 17; c++) {
+            const addr = XLSX.utils.encode_cell({ r: 3, c });
+            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+            ws[addr].s = {
+              fill: { fgColor: { rgb: 'F4CCCC' } },
+              font: { bold: true, sz: 8, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              border: borderKotak
+            };
+          }
+
+          // Judul Utama A1 & Subjudul A2
+          if (ws['A1']) {
+            ws['A1'].s = {
+              font: { bold: true, sz: 11, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          if (ws['A2']) {
+            ws['A2'].s = {
+              font: { bold: true, sz: 10, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          if (ws['T1']) {
+            ws['T1'].s = {
+              font: { bold: true, sz: 8.5, name: 'Calibri', color: { rgb: '333333' } },
+              alignment: { vertical: 'center' }
+            };
+          }
+
+          // 4. BERI BORDER KOTAK SOLID PADA SEMUA BARIS DATA (Warna Putih Bersih / Polos)
+          for (let R = 8; R <= range.e.r; ++R) {
+            for (let C = 0; C <= 41; ++C) {
+              const addr = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+
+              // Kolom NO BPJS (C === 3) wajib string teks agar 0 di depan tidak hilang
+              if (C === 3) {
+                ws[addr].t = 's';
+              }
+
+              const isLeft = (C === 4 || C === 5 || C === 6 || C === 28 || C === 30 || C === 39 || C === 40);
+              const isRight = (C === 24);
+
+              ws[addr].s = {
+                fill: { fgColor: { rgb: 'FFFFFF' } }, // Putih bersih polos
+                font: { sz: 9, name: 'Calibri', color: { rgb: '000000' } },
+                alignment: {
+                  horizontal: isRight ? 'right' : (isLeft ? 'left' : 'center'),
+                  vertical: 'center'
+                },
+                border: borderKotak
+              };
+            }
+          }
+
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Pelayanan Prolanis');
+          XLSX.writeFile(wb, `${namaBasis}.xlsx`);
+          berhasilXlsx = true;
+        }
+      } catch (errXlsx) {
+        console.warn('SheetJS error, menggunakan unduhan CSV:', errXlsx);
+      }
+
+      if (!berhasilXlsx) {
+        unduhTeks(`${namaBasis}.csv`, hasilCsv);
+      }
+
       UI.toast(`Berhasil mengekspor ${barisColList.length} baris data pelayanan Prolanis (${labelRentang}).`, 'ok', 5000);
     } catch (e) {
       UI.toast('Gagal mengekspor data: ' + (e.message || e), 'err', 6000);
@@ -650,7 +980,7 @@ const Migrasi = (() => {
   <meta charset="UTF-8">
   <title>Data Inputan Pelayanan Prolanis</title>
   <style>
-    @page { size: A4 landscape; margin: 8mm 6mm; }
+    @page { size: A4 landscape; margin: 4mm 3mm; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none !important; }
@@ -658,33 +988,16 @@ const Migrasi = (() => {
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 8px;
-      color: #111;
+      font-size: 6.5px;
+      color: #000;
       margin: 0;
-      padding: 10px;
-    }
-    .header-box {
-      text-align: center;
-      margin-bottom: 12px;
-      border-bottom: 2px solid #333;
-      padding-bottom: 8px;
-    }
-    .header-box h1 {
-      margin: 0 0 4px;
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-    }
-    .header-box p {
-      margin: 2px 0;
-      font-size: 9px;
-      color: #555;
+      padding: 6px;
     }
     .toolbar {
       background: #f1f5f9;
       padding: 8px 12px;
       border-radius: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -701,32 +1014,70 @@ const Migrasi = (() => {
       cursor: pointer;
     }
     .toolbar button:hover { background: #115e59; }
+    .legend-grid {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 6px;
+    }
+    .title-col { text-align: left; }
+    .main-title { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; }
+    .sub-title { font-size: 9px; font-weight: bold; color: #222; margin-top: 2px; }
+    .box-col { display: flex; flex-direction: column; gap: 2px; }
+    .box-row { display: flex; gap: 4px; align-items: stretch; }
+    .cell-box {
+      border: 1px solid #000;
+      padding: 1.5px 6px;
+      font-size: 7px;
+      text-align: center;
+      background: #fff;
+      white-space: nowrap;
+    }
+    .bg-salmon { background: #f4cccc !important; font-weight: bold; }
+    .bg-cyan { background: #00ffff !important; font-weight: bold; }
+    .note-col { text-align: right; font-size: 7.5px; color: #222; max-width: 320px; }
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: auto;
+      font-size: 6px;
     }
     th, td {
-      border: 1px solid #94a3b8;
-      padding: 3px 4px;
-      font-size: 7.5px;
-      line-height: 1.2;
+      border: 1px solid #000000;
+      padding: 2px 2px;
+      line-height: 1.15;
     }
     th {
-      background: #f8fafc;
-      color: #0f172a;
+      background: #ffffff;
+      color: #000000;
       font-weight: bold;
       text-align: center;
+      vertical-align: middle;
+      font-size: 6.5px;
     }
     th.group-header {
-      background: #e2e8f0;
-      font-size: 8px;
+      background: #ffffff;
+      font-size: 6.5px;
+    }
+    tbody tr td {
+      background: #ffffff;
+      color: #000000;
+      vertical-align: middle;
+    }
+    tbody tr:nth-child(even) td {
+      background: #ffffff;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .mono { font-family: monospace; }
     .nowrap { white-space: nowrap; }
-    tr:nth-child(even) td { background: #fdfdfd; }
   </style>
 </head>
 <body>
@@ -738,83 +1089,139 @@ const Migrasi = (() => {
     </div>
   </div>
 
-  <div class="header-box">
-    <h1>DATA INPUTAN PELAYANAN PROLANIS</h1>
-    <p>Periode: <b>${labelRentang}</b> · Laboratorium Medis Utama · Tanggal Cetak: ${tglSekarang}</p>
+  <div class="legend-grid">
+    <div class="title-col">
+      <div class="main-title">DATA INPUTAN PELAYANAN PROLANIS</div>
+      <div class="sub-title">(TGL ${labelRentang.toUpperCase()})</div>
+    </div>
+    <div class="box-col">
+      <div class="box-row">
+        <span class="cell-box bg-salmon">HIPERTENSI</span>
+        <span class="cell-box bg-cyan" style="flex:1;">GLUKOSA BELUM FIX</span>
+      </div>
+      <div class="box-row">
+        <span class="cell-box">skrining dm</span>
+        <span class="cell-box bg-cyan" style="flex:1;">( KUTAWIS, KEJOBONG, PMI, BUKATEJA PENYESUAIAN )</span>
+      </div>
+      <div class="box-row">
+        <span class="cell-box">DIABETES MELITUS</span>
+        <span class="cell-box bg-salmon" style="flex:1;">( TANDA UNTUK YANG KLAIM GDS)</span>
+      </div>
+    </div>
+    <div class="note-col">
+      <b>Pasien hadir ke Faskes dalam kondisi tidak puasa dengan indikasi Hiperglikemi/Hipoglikemi</b>
+      <div style="margin-top: 3px; font-size: 7px; color: #444;">
+        <b>KET :</b> TGL ENTRI : TANGGAL INPUT DI PCARE
+      </div>
+      <div style="margin-top: 2px; font-size: 7px; color: #666;">
+        Laboratorium Medis Utama &bull; Dicetak: ${tglSekarang}
+      </div>
+    </div>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th rowspan="2">NO</th>
-        <th rowspan="2">TGL PLY</th>
-        <th rowspan="2">NO BPJS</th>
-        <th rowspan="2">NAMA PESERTA</th>
-        <th rowspan="2">ALAMAT</th>
-        <th rowspan="2">FKTP</th>
-        <th rowspan="2">TENSI</th>
-        <th rowspan="2">TB</th>
-        <th rowspan="2">BB</th>
-        <th rowspan="2">LP</th>
-        <th rowspan="2">RR</th>
-        <th rowspan="2">HR</th>
-        <th colspan="7" class="group-header">PELAYANAN KIMIA DARAH</th>
-        <th rowspan="2">HBA1C</th>
-        <th colspan="3" class="group-header">PELAYANAN GULA DARAH</th>
-        <th rowspan="2">KELUHAN</th>
-        <th rowspan="2">DIAGNOSA</th>
-        <th rowspan="2">SUHU</th>
-        <th rowspan="2">PELAYANAN NON KAPITASI</th>
-        <th rowspan="2">STATUS</th>
-      </tr>
-      <tr>
-        <th>CHO</th>
-        <th>TG</th>
-        <th>HDL</th>
-        <th>LDL</th>
-        <th>UR</th>
-        <th>CRE</th>
-        <th>MAU</th>
-        <th>GDP</th>
-        <th>GDPP</th>
-        <th>GDS</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${dataRows.map(b => `
+  <div class="table-container">
+    <table>
+      <thead>
         <tr>
-          <td class="text-center">${b[0]}</td>
-          <td class="nowrap">${b[1]}</td>
-          <td class="mono nowrap">${b[3]}</td>
-          <td><b>${b[4]}</b></td>
-          <td>${b[5]}</td>
-          <td>${b[6]}</td>
-          <td class="text-center nowrap">${b[7]}</td>
-          <td class="text-center">${b[8]}</td>
-          <td class="text-center">${b[9]}</td>
-          <td class="text-center">${b[10]}</td>
-          <td class="text-center">${b[11]}</td>
-          <td class="text-center">${b[12]}</td>
-          <td class="text-center">${b[13]}</td>
-          <td class="text-center">${b[14]}</td>
-          <td class="text-center">${b[15]}</td>
-          <td class="text-center">${b[16]}</td>
-          <td class="text-center">${b[17]}</td>
-          <td class="text-center">${b[18]}</td>
-          <td class="text-center">${b[19]}</td>
-          <td class="text-center"><b>${b[20]}</b></td>
-          <td class="text-center">${b[21]}</td>
-          <td class="text-center">${b[22]}</td>
-          <td class="text-center">${b[23]}</td>
-          <td>${b[28]}</td>
-          <td class="text-center mono">${b[37]}</td>
-          <td class="text-center">${b[38]}</td>
-          <td class="nowrap">${b[40]}</td>
-          <td class="text-center nowrap">${b[41]}</td>
+          <th rowspan="2">NO</th>
+          <th rowspan="2">TGL PLY</th>
+          <th rowspan="2">TGL ENTRI</th>
+          <th rowspan="2">NO BPJS</th>
+          <th rowspan="2">NAMA PESERTA</th>
+          <th rowspan="2">ALAMAT</th>
+          <th rowspan="2">FKTP</th>
+          <th rowspan="2">TENSI</th>
+          <th rowspan="2">TB</th>
+          <th rowspan="2">BB</th>
+          <th rowspan="2">LP</th>
+          <th rowspan="2">RR</th>
+          <th rowspan="2">HR</th>
+          <th colspan="7" class="group-header">PELAYANAN KIMIA DARAH</th>
+          <th rowspan="2">HBA1C</th>
+          <th colspan="3" class="group-header">PELAYANAN GULA DARAH</th>
+          <th rowspan="2">Harga Pemeriksaan</th>
+          <th rowspan="2">Z</th>
+          <th rowspan="2">PENDAFTARAN</th>
+          <th rowspan="2">PERAWATAN</th>
+          <th rowspan="2">KELUHAN</th>
+          <th rowspan="2">JAM KUNJUNGAN</th>
+          <th rowspan="2">ANAMNESA</th>
+          <th colspan="3" class="group-header">RIWAYAT ALERGI</th>
+          <th rowspan="2">TERAPI OBAT</th>
+          <th rowspan="2">TERAPI NON OBAT</th>
+          <th rowspan="2">BMHP</th>
+          <th rowspan="2">DIAGNOSA</th>
+          <th rowspan="2">SUHU</th>
+          <th rowspan="2">TENAGA MEDIS</th>
+          <th rowspan="2">PELAYANAN NON KAPITASI</th>
+          <th rowspan="2">STATUS PULANG</th>
         </tr>
-      `).join('')}
-    </tbody>
-  </table>
+        <tr>
+          <th>CHO</th>
+          <th>TG</th>
+          <th>HDL</th>
+          <th>LDL</th>
+          <th>UR</th>
+          <th>CRE</th>
+          <th>MAU</th>
+          <th>GDP</th>
+          <th>GDPP</th>
+          <th>GDS</th>
+          <th>MAKANAN</th>
+          <th>UDARA</th>
+          <th>OBAT</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${dataRows.map(b => `
+          <tr>
+            <td class="text-center">${b[0]}</td>
+            <td class="nowrap">${b[1]}</td>
+            <td class="text-center">${b[2]}</td>
+            <td class="mono nowrap">${b[3]}</td>
+            <td><b>${b[4]}</b></td>
+            <td>${b[5]}</td>
+            <td>${b[6]}</td>
+            <td class="text-center nowrap">${b[7]}</td>
+            <td class="text-center">${b[8]}</td>
+            <td class="text-center">${b[9]}</td>
+            <td class="text-center">${b[10]}</td>
+            <td class="text-center">${b[11]}</td>
+            <td class="text-center">${b[12]}</td>
+            <td class="text-center">${b[13]}</td>
+            <td class="text-center">${b[14]}</td>
+            <td class="text-center">${b[15]}</td>
+            <td class="text-center">${b[16]}</td>
+            <td class="text-center">${b[17]}</td>
+            <td class="text-center">${b[18]}</td>
+            <td class="text-center">${b[19]}</td>
+            <td class="text-center"><b>${b[20]}</b></td>
+            <td class="text-center">${b[21]}</td>
+            <td class="text-center">${b[22]}</td>
+            <td class="text-center">${b[23]}</td>
+            <td class="text-right nowrap">${b[24] || '—'}</td>
+            <td class="text-center">${b[25]}</td>
+            <td class="text-center">${b[26]}</td>
+            <td class="text-center">${b[27]}</td>
+            <td>${b[28]}</td>
+            <td class="text-center">${b[29]}</td>
+            <td>${b[30]}</td>
+            <td class="text-center">${b[31]}</td>
+            <td class="text-center">${b[32]}</td>
+            <td class="text-center">${b[33]}</td>
+            <td class="text-center">${b[34]}</td>
+            <td class="text-center">${b[35]}</td>
+            <td class="text-center">${b[36]}</td>
+            <td class="text-center mono">${b[37]}</td>
+            <td class="text-center">${b[38]}</td>
+            <td class="nowrap">${b[39]}</td>
+            <td class="nowrap">${b[40]}</td>
+            <td class="text-center nowrap">${b[41]}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>`;
 
