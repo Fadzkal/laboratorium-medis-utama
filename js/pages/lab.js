@@ -2316,6 +2316,9 @@ const Lab = (() => {
     dari: null, sampai: null,
     cari: '', status: '',
     instansi: '', optInstansi: '',
+    bayar: '', optBayar: '',
+    px: '', optPx: '',
+    noLab: '',
     terpilih: null,
     formatCetak: 'Format 3(M3)',
     daftar: [],
@@ -2374,16 +2377,24 @@ const Lab = (() => {
               <input type="text" id="hsCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;">
-                <option>Pembayaran(Semua)</option>
-                <option>Lunas</option>
-                <option>Belum Lunas</option>
+              <select class="f-sel" id="hsOptBayar" style="width:130px;">
+                <option value="">Pembayaran(Semua)</option>
+                <option value="Lunas" ${skylabState.optBayar==='Lunas'?'selected':''}>Lunas</option>
+                <option value="Belum Lunas" ${skylabState.optBayar==='Belum Lunas'?'selected':''}>Belum Lunas</option>
+                <option value="UMUM" ${skylabState.optBayar==='UMUM'?'selected':''}>Umum</option>
+                <option value="BPJS" ${skylabState.optBayar==='BPJS'?'selected':''}>BPJS</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="hsBayar" class="f-inp" placeholder="Ketik status / bayar..." value="${UI.esc(skylabState.bayar||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Px</option></select>
-              <input type="text" class="f-inp" disabled>
+              <select class="f-sel" id="hsOptPx" style="width:130px;">
+                <option value="">Semua Px</option>
+                <option value="Hematologi" ${skylabState.optPx==='Hematologi'?'selected':''}>Hematologi</option>
+                <option value="Kimia Klinik" ${skylabState.optPx==='Kimia Klinik'?'selected':''}>Kimia Klinik</option>
+                <option value="Urin" ${skylabState.optPx==='Urin'?'selected':''}>Urin</option>
+                <option value="Imunologi" ${skylabState.optPx==='Imunologi'?'selected':''}>Imunologi</option>
+              </select>
+              <input type="text" id="hsPx" class="f-inp" placeholder="Ketik nama Px..." value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="hsStatus" style="width:130px;">
@@ -2391,7 +2402,7 @@ const Lab = (() => {
                 <option value="SELESAI" ${skylabState.status==='SELESAI'?'selected':''}>Selesai</option>
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="hsNoLab" class="f-inp" placeholder="Ketik No Lab..." value="${UI.esc(skylabState.noLab||'')}">
               <button id="hsBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
@@ -2412,19 +2423,83 @@ const Lab = (() => {
       daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
+
+        // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
+        if (data.length > 0 && (skylabState.px || skylabState.optPx)) {
+          const pIds = data.map(d => d.id);
+          try {
+            const { data: hList } = await DB.sb.from('lab_hasil')
+              .select('permintaan_id, ref:lab_id(nama,kode,kelompok)')
+              .in('permintaan_id', pIds);
+            if (hList) {
+              const mapPx = {};
+              hList.forEach(h => {
+                if (!mapPx[h.permintaan_id]) mapPx[h.permintaan_id] = [];
+                if (h.ref?.nama) mapPx[h.permintaan_id].push(h.ref.nama.toLowerCase());
+                if (h.ref?.kode) mapPx[h.permintaan_id].push(h.ref.kode.toLowerCase());
+                if (h.ref?.kelompok) mapPx[h.permintaan_id].push(h.ref.kelompok.toLowerCase());
+              });
+              data.forEach(d => {
+                d.daftar_px = mapPx[d.id] || [];
+              });
+            }
+          } catch(e) {
+            console.warn('Gagal memuat item px untuk filter:', e);
+          }
+        }
+
         let cariIns = skylabState.instansi || '';
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
         if (cariIns) {
           const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins));
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
         }
+
         if (skylabState.cari) {
           const k = skylabState.cari.toLowerCase();
           data = data.filter(d => 
             (d.nama_pasien||'').toLowerCase().includes(k) || 
             (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.no_rm||'').toLowerCase().includes(k) ||
             (d.nama_dokter||'').toLowerCase().includes(k)
           );
+        }
+
+        // Filter Pembayaran
+        if (skylabState.optBayar) {
+          const ob = skylabState.optBayar.toLowerCase();
+          if (ob === 'lunas') {
+            data = data.filter(d => d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI');
+          } else if (ob === 'belum lunas') {
+            data = data.filter(d => d.status_bayar !== 'LUNAS' && d.lunas !== true && d.status !== 'SELESAI');
+          } else {
+            data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+          }
+        }
+        if (skylabState.bayar) {
+          const kb = skylabState.bayar.toLowerCase().trim();
+          data = data.filter(d => 
+            (d.cara_bayar||'').toLowerCase().includes(kb) ||
+            (d.status_bayar||'').toLowerCase().includes(kb) ||
+            (kb === 'lunas' && (d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI')) ||
+            (kb.includes('belum') && d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI')
+          );
+        }
+
+        // Filter Px (Pemeriksaan)
+        if (skylabState.optPx) {
+          const opx = skylabState.optPx.toLowerCase();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(opx)));
+        }
+        if (skylabState.px) {
+          const kpx = skylabState.px.toLowerCase().trim();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
+        }
+
+        // Filter No Lab spesifik
+        if (skylabState.noLab) {
+          const knl = skylabState.noLab.toLowerCase().trim();
+          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
         }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
@@ -3148,22 +3223,25 @@ const Lab = (() => {
     bind('hsDari', 'dari');
     bind('hsStatus', 'status');
     bind('hsOptInstansi', 'optInstansi');
-    const cariEl = w.querySelector('#hsCari');
-    if (cariEl) {
-      let debounce;
-      cariEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.cari = e.target.value; muat(); }, 400);
-      });
-    }
-    const instansiEl = w.querySelector('#hsInstansi');
-    if (instansiEl) {
-      let debounce;
-      instansiEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.instansi = e.target.value; muat(); }, 400);
-      });
-    }
+    bind('hsOptBayar', 'optBayar');
+    bind('hsOptPx', 'optPx');
+
+    const pasangInputDebounce = (id, prop) => {
+      const el = w.querySelector('#' + id);
+      if (el) {
+        let debounce;
+        el.addEventListener('input', e => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
+        });
+      }
+    };
+
+    pasangInputDebounce('hsCari', 'cari');
+    pasangInputDebounce('hsInstansi', 'instansi');
+    pasangInputDebounce('hsBayar', 'bayar');
+    pasangInputDebounce('hsPx', 'px');
+    pasangInputDebounce('hsNoLab', 'noLab');
     const btnRefresh = w.querySelector('#hsBtnRefresh');
     if (btnRefresh) btnRefresh.onclick = muat;
 
@@ -3202,16 +3280,22 @@ const Lab = (() => {
               <input type="text" id="fsCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;">
-                <option>Pembayaran(Semua)</option>
-                <option>Lunas</option>
-                <option>Belum Lunas</option>
+              <select class="f-sel" id="fsOptBayar" style="width:130px;">
+                <option value="">Pembayaran(Semua)</option>
+                <option value="Lunas" ${skylabState.optBayar==='Lunas'?'selected':''}>Lunas</option>
+                <option value="Belum Lunas" ${skylabState.optBayar==='Belum Lunas'?'selected':''}>Belum Lunas</option>
+                <option value="UMUM" ${skylabState.optBayar==='UMUM'?'selected':''}>Umum</option>
+                <option value="BPJS" ${skylabState.optBayar==='BPJS'?'selected':''}>BPJS</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="fsBayar" class="f-inp" placeholder="Ketik status / bayar..." value="${UI.esc(skylabState.bayar||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Px</option></select>
-              <input type="text" class="f-inp" disabled>
+              <select class="f-sel" id="fsOptPx" style="width:130px;">
+                <option value="">Semua Px</option>
+                <option value="Tanda Vital" ${skylabState.optPx==='Tanda Vital'?'selected':''}>Tanda Vital</option>
+                <option value="BMI" ${skylabState.optPx==='BMI'?'selected':''}>BMI</option>
+              </select>
+              <input type="text" id="fsPx" class="f-inp" placeholder="Ketik fisik..." value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="fsStatus" style="width:130px;">
@@ -3219,7 +3303,7 @@ const Lab = (() => {
                 <option value="SELESAI" ${skylabState.status==='SELESAI'?'selected':''}>Selesai</option>
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="fsNoLab" class="f-inp" placeholder="Ketik No Lab..." value="${UI.esc(skylabState.noLab||'')}">
               <button id="fsBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
@@ -3244,15 +3328,34 @@ const Lab = (() => {
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
         if (cariIns) {
           const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins));
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
         }
         if (skylabState.cari) {
           const k = skylabState.cari.toLowerCase();
           data = data.filter(d => 
             (d.nama_pasien||'').toLowerCase().includes(k) || 
             (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.no_rm||'').toLowerCase().includes(k) ||
             (d.nama_dokter||'').toLowerCase().includes(k)
           );
+        }
+
+        // Filter Pembayaran
+        if (skylabState.optBayar) {
+          const ob = skylabState.optBayar.toLowerCase();
+          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
+          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
+          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+        }
+        if (skylabState.bayar) {
+          const kb = skylabState.bayar.toLowerCase().trim();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
+        }
+
+        // Filter No Lab
+        if (skylabState.noLab) {
+          const knl = skylabState.noLab.toLowerCase().trim();
+          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
         }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
@@ -3512,22 +3615,25 @@ const Lab = (() => {
     bindF('fsDari', 'dari');
     bindF('fsStatus', 'status');
     bindF('fsOptInstansi', 'optInstansi');
-    const cariEl = w.querySelector('#fsCari');
-    if (cariEl) {
-      let debounce;
-      cariEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.cari = e.target.value; muat(); }, 400);
-      });
-    }
-    const instansiEl = w.querySelector('#fsInstansi');
-    if (instansiEl) {
-      let debounce;
-      instansiEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.instansi = e.target.value; muat(); }, 400);
-      });
-    }
+    bindF('fsOptBayar', 'optBayar');
+    bindF('fsOptPx', 'optPx');
+
+    const pasangInputDebounceF = (id, prop) => {
+      const el = w.querySelector('#' + id);
+      if (el) {
+        let debounce;
+        el.addEventListener('input', e => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
+        });
+      }
+    };
+
+    pasangInputDebounceF('fsCari', 'cari');
+    pasangInputDebounceF('fsInstansi', 'instansi');
+    pasangInputDebounceF('fsBayar', 'bayar');
+    pasangInputDebounceF('fsPx', 'px');
+    pasangInputDebounceF('fsNoLab', 'noLab');
     const btnRefresh = w.querySelector('#fsBtnRefresh');
     if (btnRefresh) btnRefresh.onclick = muat;
 
@@ -3566,16 +3672,24 @@ const Lab = (() => {
               <input type="text" id="asCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;">
-                <option>Pembayaran(Semua)</option>
-                <option>Lunas</option>
-                <option>Belum Lunas</option>
+              <select class="f-sel" id="asOptBayar" style="width:130px;">
+                <option value="">Pembayaran(Semua)</option>
+                <option value="Lunas" ${skylabState.optBayar==='Lunas'?'selected':''}>Lunas</option>
+                <option value="Belum Lunas" ${skylabState.optBayar==='Belum Lunas'?'selected':''}>Belum Lunas</option>
+                <option value="UMUM" ${skylabState.optBayar==='UMUM'?'selected':''}>Umum</option>
+                <option value="BPJS" ${skylabState.optBayar==='BPJS'?'selected':''}>BPJS</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="asBayar" class="f-inp" placeholder="Ketik status / bayar..." value="${UI.esc(skylabState.bayar||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Px</option></select>
-              <input type="text" class="f-inp" disabled>
+              <select class="f-sel" id="asOptPx" style="width:130px;">
+                <option value="">Semua Px</option>
+                <option value="Keluhan" ${skylabState.optPx==='Keluhan'?'selected':''}>Keluhan Saat Ini</option>
+                <option value="RPD" ${skylabState.optPx==='RPD'?'selected':''}>RPD</option>
+                <option value="RPK" ${skylabState.optPx==='RPK'?'selected':''}>RPK</option>
+                <option value="Kebiasaan" ${skylabState.optPx==='Kebiasaan'?'selected':''}>Kebiasaan</option>
+              </select>
+              <input type="text" id="asPx" class="f-inp" placeholder="Ketik anamnesa..." value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="asStatus" style="width:130px;">
@@ -3583,7 +3697,7 @@ const Lab = (() => {
                 <option value="SELESAI" ${skylabState.status==='SELESAI'?'selected':''}>Selesai</option>
                 <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
               </select>
-              <input type="text" class="f-inp" disabled>
+              <input type="text" id="asNoLab" class="f-inp" placeholder="Ketik No Lab..." value="${UI.esc(skylabState.noLab||'')}">
               <button id="asBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
             </div>
           </div>
@@ -3608,15 +3722,34 @@ const Lab = (() => {
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
         if (cariIns) {
           const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins));
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
         }
         if (skylabState.cari) {
           const k = skylabState.cari.toLowerCase();
           data = data.filter(d => 
             (d.nama_pasien||'').toLowerCase().includes(k) || 
             (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.no_rm||'').toLowerCase().includes(k) ||
             (d.nama_dokter||'').toLowerCase().includes(k)
           );
+        }
+
+        // Filter Pembayaran
+        if (skylabState.optBayar) {
+          const ob = skylabState.optBayar.toLowerCase();
+          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
+          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
+          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+        }
+        if (skylabState.bayar) {
+          const kb = skylabState.bayar.toLowerCase().trim();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
+        }
+
+        // Filter No Lab
+        if (skylabState.noLab) {
+          const knl = skylabState.noLab.toLowerCase().trim();
+          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
         }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
@@ -3861,22 +3994,25 @@ const Lab = (() => {
     bindA('asDari', 'dari');
     bindA('asStatus', 'status');
     bindA('asOptInstansi', 'optInstansi');
-    const cariEl = w.querySelector('#asCari');
-    if (cariEl) {
-      let debounce;
-      cariEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.cari = e.target.value; muat(); }, 400);
-      });
-    }
-    const instansiEl = w.querySelector('#asInstansi');
-    if (instansiEl) {
-      let debounce;
-      instansiEl.addEventListener('input', e => {
-        clearTimeout(debounce);
-        debounce = setTimeout(() => { skylabState.instansi = e.target.value; muat(); }, 400);
-      });
-    }
+    bindA('asOptBayar', 'optBayar');
+    bindA('asOptPx', 'optPx');
+
+    const pasangInputDebounceA = (id, prop) => {
+      const el = w.querySelector('#' + id);
+      if (el) {
+        let debounce;
+        el.addEventListener('input', e => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
+        });
+      }
+    };
+
+    pasangInputDebounceA('asCari', 'cari');
+    pasangInputDebounceA('asInstansi', 'instansi');
+    pasangInputDebounceA('asBayar', 'bayar');
+    pasangInputDebounceA('asPx', 'px');
+    pasangInputDebounceA('asNoLab', 'noLab');
     const btnRefresh = w.querySelector('#asBtnRefresh');
     if (btnRefresh) btnRefresh.onclick = muat;
 
