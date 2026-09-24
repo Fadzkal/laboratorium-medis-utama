@@ -91,7 +91,7 @@ const Pengaturan = (() => {
             ${UI.esc(labelPeran)}
           </div>
           <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:12px; color:#64748B; text-align:left;">
-            <div style="margin-bottom:6px;"><b>Email Login:</b> <span class="mono text-xs" id="profilEmailTampil" style="color:#0F172A; font-weight:600;">${UI.esc(saya?.email || '-')}</span></div>
+            <div style="margin-bottom:6px;"><b>Username / Login:</b> <span class="mono text-xs" id="profilEmailTampil" style="color:#0F172A; font-weight:600;">${UI.esc(saya?.username || (saya?.email && !saya.email.endsWith('@labutama.id') ? saya.email : saya?.email?.split('@')[0]) || '-')}</span></div>
             <div style="margin-bottom:6px;"><b>Hak Akses:</b> <span style="color:#0F766E; font-weight:600;">${UI.esc(saya?.peran || 'karyawan')}</span></div>
             <div><b>Status Akun:</b> <span style="color:#16A34A; font-weight:600;">Aktif</span></div>
           </div>
@@ -102,7 +102,7 @@ const Pengaturan = (() => {
           <div class="card-head">
             <div>
               <h2>Pengaturan Profil &amp; Kredensial</h2>
-              <div class="sub">Perbarui nama lengkap, alamat email masuk, dan kata sandi akun Anda</div>
+              <div class="sub">Perbarui nama lengkap, username atau email masuk, dan kata sandi akun Anda</div>
             </div>
           </div>
           <div class="card-body">
@@ -113,9 +113,9 @@ const Pengaturan = (() => {
               </div>
 
               <div class="field">
-                <label style="font-weight:600;">Email Login (Akun Masuk) <span class="req">*</span></label>
-                <input type="email" id="inpProfilEmail" value="${UI.esc(saya?.email || '')}" required class="w-full mono">
-                <div class="hint text-xs text-muted mt-1">Email ini digunakan untuk login ke sistem web RME.</div>
+                <label style="font-weight:600;">Username / Email Login <span class="req">*</span></label>
+                <input type="text" id="inpProfilEmail" value="${UI.esc(saya?.username || (saya?.email && !saya.email.endsWith('@labutama.id') ? saya.email : saya?.email?.split('@')[0]) || '')}" required class="w-full mono" placeholder="Contoh: testing atau nama@klinik.id">
+                <div class="hint text-xs text-muted mt-1">Anda bebas menggunakan username (contoh: tes, admin, analis1) atau alamat email.</div>
               </div>
 
               <div class="field">
@@ -163,8 +163,8 @@ const Pengaturan = (() => {
         UI.toast('Nama lengkap minimal 2 karakter.', 'err');
         return;
       }
-      if (!email || !email.includes('@')) {
-        UI.toast('Format email tidak valid.', 'err');
+      if (!email || email.length < 3) {
+        UI.toast('Username atau email login minimal 3 karakter.', 'err');
         return;
       }
       if (passBaru) {
@@ -183,15 +183,17 @@ const Pengaturan = (() => {
       btn.textContent = 'Menyimpan...';
 
       try {
-        await DB.ubahProfilSaya({
+        const res = await DB.ubahProfilSaya({
           nama,
           email,
           password: passBaru || null
         });
 
         // Perbarui tampilan kartu
+        const usernameHasil = res?.username || (email.includes('@') && email.endsWith('@labutama.id') ? email.split('@')[0] : email);
         w.querySelector('#profilNamaTampil').textContent = nama;
-        w.querySelector('#profilEmailTampil').textContent = email;
+        w.querySelector('#profilEmailTampil').textContent = usernameHasil;
+        w.querySelector('#inpProfilEmail').value = usernameHasil;
         w.querySelector('#profilAvatarBox').textContent = UI.inisial(nama);
         w.querySelector('#inpProfilSandiBaru').value = '';
         w.querySelector('#inpProfilKonfirmasiSandi').value = '';
@@ -400,7 +402,7 @@ const Pengaturan = (() => {
               <thead>
                 <tr>
                   <th>Nama</th>
-                  <th>Email Login</th>
+                  <th>Username / Login</th>
                   <th>Peran</th>
                   <th>Jenis Dokter</th>
                   <th>No. SIP / SIPA</th>
@@ -428,13 +430,15 @@ const Pengaturan = (() => {
         return;
       }
 
-      tbody.innerHTML = list.map(p => `
+      tbody.innerHTML = list.map(p => {
+        const loginTampil = p.username || (p.email && !p.email.endsWith('@labutama.id') ? p.email : p.email?.split('@')[0]) || p.email || '—';
+        return `
         <tr>
           <td>
             <input type="text" data-nama="${p.id}" value="${UI.esc(p.nama)}" class="ctl-sm" style="font-weight:600; min-width:140px;">
           </td>
           <td>
-            <span class="mono" style="font-size:12px; color:#0F172A; font-weight:500;">${UI.esc(p.email || '—')}</span>
+            <span class="mono" style="font-size:12px; color:#0F172A; font-weight:500;">${UI.esc(loginTampil)}</span>
           </td>
           <td>
             <select data-peran="${p.id}" class="ctl-sm" style="font-weight:600;">
@@ -475,7 +479,8 @@ const Pengaturan = (() => {
             ` : ''}
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       tbody.querySelectorAll('[data-nama]').forEach(inp => inp.addEventListener('change', async () => {
         const val = inp.value.trim();
@@ -520,9 +525,9 @@ const Pengaturan = (() => {
               <input type="text" id="editModalNama" value="${UI.esc(item.nama || '')}" class="ctl-sm w-full" style="padding:7px 10px;" required>
             </div>
             <div class="field">
-              <label style="font-weight:600;">Email Login (Akun Masuk) *</label>
-              <input type="email" id="editModalEmail" value="${UI.esc(item.email || '')}" class="ctl-sm w-full mono" style="padding:7px 10px;" required>
-              <div class="hint text-xs text-muted mt-1">Gunakan format email resmi (misal: nama@labmedis.id).</div>
+              <label style="font-weight:600;">Username / Email Login (Akun Masuk) *</label>
+              <input type="text" id="editModalEmail" value="${UI.esc(item.username || (item.email && !item.email.endsWith('@labutama.id') ? item.email : item.email?.split('@')[0]) || item.email || '')}" class="ctl-sm w-full mono" style="padding:7px 10px;" required>
+              <div class="hint text-xs text-muted mt-1">Bebas menggunakan username singkat (misal: kasir1, analis2) atau alamat email.</div>
             </div>
             <div class="field">
               <label style="font-weight:600;">Kata Sandi Baru</label>
@@ -549,8 +554,8 @@ const Pengaturan = (() => {
                   UI.toast('Nama lengkap minimal 2 karakter.', 'err');
                   return false;
                 }
-                if (!emailBaru || !emailBaru.includes('@')) {
-                  UI.toast('Format email tidak valid.', 'err');
+                if (!emailBaru || emailBaru.length < 3) {
+                  UI.toast('Username atau email login minimal 3 karakter.', 'err');
                   return false;
                 }
                 if (passBaru && passBaru.length < 6) {
@@ -559,7 +564,7 @@ const Pengaturan = (() => {
                 }
 
                 try {
-                  await DB.adminUbahPengguna({
+                  const res = await DB.adminUbahPengguna({
                     id: item.id,
                     nama: namaBaru,
                     email: emailBaru,
@@ -567,7 +572,8 @@ const Pengaturan = (() => {
                   });
 
                   item.nama = namaBaru;
-                  item.email = emailBaru;
+                  item.username = res?.username || (emailBaru.includes('@') ? emailBaru.split('@')[0] : emailBaru);
+                  item.email = res?.email || emailBaru;
                   UI.toast('Data akun & kredensial berhasil disimpan.', 'ok');
                   renderBaris(filterList());
                   return true;
@@ -628,8 +634,9 @@ const Pengaturan = (() => {
             <input type="text" id="tbNama" placeholder="Nama lengkap pegawai" required style="width:100%; padding:6px 8px;">
           </div>
           <div class="field">
-            <label>Email Login *</label>
-            <input type="email" id="tbEmail" placeholder="nama@klinik.id" required style="width:100%; padding:6px 8px;">
+            <label>Username / Email Login *</label>
+            <input type="text" id="tbEmail" placeholder="Contoh: kasir1 atau nama@klinik.id" required style="width:100%; padding:6px 8px;">
+            <div class="hint text-xs text-muted mt-1">Bebas menggunakan username singkat (misal: kasir1, analis2) atau alamat email.</div>
           </div>
           <div class="field">
             <label>Kata Sandi * (min. 6 karakter)</label>
@@ -685,7 +692,11 @@ const Pengaturan = (() => {
               const no_sip = m.querySelector('#tbSip')?.value.trim() || null;
 
               if (!nama || !email || !password) {
-                UI.toast('Nama, email, dan kata sandi wajib diisi.', 'err');
+                UI.toast('Nama, username/email, dan kata sandi wajib diisi.', 'err');
+                return false;
+              }
+              if (email.length < 3) {
+                UI.toast('Username atau email minimal 3 karakter.', 'err');
                 return false;
               }
               if (password.length < 6) {

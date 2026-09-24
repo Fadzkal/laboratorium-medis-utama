@@ -23,9 +23,9 @@
 
     <form id="formMasuk" novalidate>
       <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="username"
-               placeholder="nama@klinik.id" required>
+        <label for="email">Username atau Email</label>
+        <input type="text" id="email" name="email" autocomplete="username"
+               placeholder="Username atau email" required>
       </div>
       <div class="field">
         <label for="sandi">Kata sandi</label>
@@ -74,13 +74,13 @@
 
   document.getElementById('formMasuk').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('email').value.trim();
+    const loginId = document.getElementById('email').value.trim();
     const sandi = document.getElementById('sandi').value;
-    if (!email || !sandi) { tampilkanPesan('Email dan kata sandi wajib diisi.'); return; }
+    if (!loginId || !sandi) { tampilkanPesan('Username/email dan kata sandi wajib diisi.'); return; }
 
     btn.disabled = true; btn.textContent = 'Memeriksa…'; pesan.innerHTML = '';
     try {
-      await DB.masuk(email, sandi);
+      await DB.masuk(loginId, sandi);
       const profil = await DB.saya(true);
       if (!profil) throw new Error('Akun Anda belum terdaftar sebagai pegawai klinik. Hubungi admin.');
       if (!profil.aktif) throw new Error('Akun Anda dinonaktifkan. Hubungi admin klinik.');

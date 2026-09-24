@@ -14,8 +14,27 @@ const DB = (() => {
   let _faskes = null;
 
   /* --------------------------- Autentikasi ---------------------------- */
-  async function masuk(email, sandi) {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: sandi });
+  async function masuk(identifier, sandi) {
+    let target = (identifier || '').trim();
+    if (!target) throw new Error('Username atau email wajib diisi.');
+
+    // Jika pengguna memasukkan username tanpa domain '@'
+    if (!target.includes('@')) {
+      try {
+        const { data: emailDariDb, error: rpcErr } = await sb.rpc('ambil_email_login', {
+          p_identifier: target
+        });
+        if (!rpcErr && emailDariDb && emailDariDb.includes('@')) {
+          target = emailDariDb;
+        } else {
+          target = target.toLowerCase() + '@labutama.id';
+        }
+      } catch (e) {
+        target = target.toLowerCase() + '@labutama.id';
+      }
+    }
+
+    const { data, error } = await sb.auth.signInWithPassword({ email: target, password: sandi });
     if (error) throw error;
     return data;
   }
@@ -29,7 +48,8 @@ const DB = (() => {
     const { data, error } = await sb.from('pegawai')
       .select('*, poli:poli_default(id,nama,kode)').eq('id', s.user.id).single();
     if (error) throw error;
-    _saya = { ...data, email: s.user.email };
+    const usernameDefault = data?.username || s.user.user_metadata?.username || (s.user.email ? s.user.email.split('@')[0] : '');
+    _saya = { ...data, username: usernameDefault, email: s.user.email };
     return _saya;
   }
 
@@ -120,7 +140,8 @@ const DB = (() => {
     if (error) throw error;
     if (_saya) {
       _saya.nama = payload.nama;
-      _saya.email = payload.email;
+      _saya.username = data?.username || (payload.email.includes('@') ? payload.email.split('@')[0] : payload.email);
+      _saya.email = data?.email || payload.email;
     }
     return data;
   }
