@@ -967,9 +967,30 @@ const Surat = (() => {
        digambar ulang setiap kali saringan berubah, dan pemasang di sana
        akan menumpuk satu pendengar tiap penggambaran — satu klik akhirnya
        membuka modal yang sama beberapa kali. */
-    w.querySelector('#tabelSurat').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-buka]'); if (!b) return;
-      bukaSurat(b.dataset.buka);
+    w.querySelector('#tabelSurat').addEventListener('click', async (e) => {
+      const bBuka = e.target.closest('[data-buka]');
+      if (bBuka) { bukaSurat(bBuka.dataset.buka); return; }
+
+      const bHapus = e.target.closest('[data-hapus]');
+      if (bHapus) {
+        const suratId = bHapus.dataset.hapus;
+        const nomorSurat = bHapus.dataset.nomor || '';
+        const yakin = await UI.konfirmasiGanda({
+          judul: 'Hapus Riwayat Surat',
+          pesan1: `Apakah Anda yakin ingin menghapus surat nomor ${nomorSurat} dari sistem? Tindakan ini tidak dapat dibatalkan.`,
+          pesan2: `PERINGATAN TERAKHIR: Surat nomor ${nomorSurat} akan dihapus secara permanen dari database. Data yang sudah dihapus TIDAK DAPAT DIKEMBALIKAN. Lanjutkan?`,
+          tombolLanjut: 'Lanjutkan Hapus',
+          tombolFinal: 'Ya, Hapus Sekarang'
+        });
+        if (!yakin) return;
+        try {
+          await DB.suratHapus(suratId);
+          UI.toast('Surat berhasil dihapus.');
+          await muat();
+        } catch (err) {
+          UI.toast('Gagal menghapus surat: ' + (err.message || err), 'err');
+        }
+      }
     });
 
     await muat();
@@ -981,6 +1002,7 @@ const Surat = (() => {
         'Tidak ada surat pada rentang tanggal dan saringan ini.');
       return;
     }
+    const isMaster = App.siapa()?.peran === 'master';
     t.innerHTML = `<div class="table-wrap"><table class="tbl">
       <thead><tr>
         <th>Nomor surat</th><th>Tanggal</th><th>Jenis</th><th>Pasien</th>
@@ -993,11 +1015,12 @@ const Surat = (() => {
         <td>${UI.esc(s.jenis_nama)}</td>
         <td><b>${UI.esc(s.nama_pasien)}</b><br>
           <span class="muted text-xs">No. RM ${UI.esc(s.no_rm)}</span></td>
-        <td class="muted">${UI.esc(s.perihal || '—')}</td>
-        <td class="muted">${UI.esc(s.nama_pembuat || '—')}
-          ${s.jml_cetak ? `<br><span class="text-xs">${s.jml_cetak}× dicetak</span>` : ''}</td>
+        <td class="muted">${UI.esc(s.perihal || '\u2014')}</td>
+        <td class="muted">${UI.esc(s.nama_pembuat || '\u2014')}
+          ${s.jml_cetak ? `<br><span class="text-xs">${s.jml_cetak}\u00d7 dicetak</span>` : ''}</td>
         <td class="no-print text-right">
-          <button class="btn btn-ghost btn-sm" data-buka="${s.id}">Buka</button></td>
+          <button class="btn btn-ghost btn-sm" data-buka="${s.id}">Buka</button>${isMaster ? `
+          <button class="btn btn-ghost btn-sm" data-hapus="${s.id}" data-nomor="${UI.esc(s.nomor_surat)}" style="color:var(--danger-600,#dc2626);">Hapus</button>` : ''}</td>
       </tr>`).join('')}</tbody></table></div>`;
   }
 

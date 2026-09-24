@@ -2262,6 +2262,11 @@ const DB = (() => {
     if (error) throw error; return data;
   }
 
+  async function suratHapus(id) {
+    const { error } = await sb.from('surat').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   async function suratCatatCetak(id) {
     const { error } = await sb.rpc('surat_catat_cetak', { p_id: id });
     if (error) throw error;
@@ -3887,7 +3892,7 @@ const DB = (() => {
     resepPengaturan, simpanResepPengaturan,
     suratNomorBerikutnya, suratNomorTerpakai,
     buatSurat, ubahSurat, surat, daftarSurat, suratKunjungan, suratPasien,
-    suratBatalkan, suratCatatCetak,
+    suratBatalkan, suratHapus, suratCatatCetak,
     antreanHariIni, antreanKuota, antreanAmbilLoket, antreanPanggil,
     antreanCheckin, antreanMulaiLayan, antreanLewat, antreanBatal, antreanUbah,
     antreanPanggilanHariIni, langgananAntrean,

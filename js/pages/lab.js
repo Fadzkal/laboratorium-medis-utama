@@ -962,7 +962,7 @@ const Lab = (() => {
       .kop-bpjs { display: flex; align-items: center; gap: 12px; flex: 1; }
       .kop-bpjs img { height: 42px; width: auto; object-fit: contain; }
       .kop-center { flex: 1.5; text-align: center; }
-      .kop-center img { height: 46px; width: auto; margin-bottom: 2px; }
+      .kop-center img { height: 50px; width: auto; object-fit: contain; }
       .kop-center .brand-title { color: #15803d; font-weight: 800; font-size: 20px; letter-spacing: 1.5px; margin: 0; line-height: 1.1; }
       .kop-center .brand-sub { color: #6b21a8; font-size: 9.5px; font-style: italic; font-weight: 600; }
       .kop-right { flex: 1.2; text-align: right; font-size: 10px; color: #333; line-height: 1.3; }
@@ -1086,13 +1086,8 @@ const Lab = (() => {
     }
     return `
       <div class="kop-wrapper">
-        <div class="kop-bpjs">
-          <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
-        </div>
-        <div class="kop-center">
-          <img src="${logoUrl}" onerror="this.style.display='none'">
-          <div class="brand-title">UTAMA</div>
-          <div class="brand-sub">Kepuasan Anda Prioritas Kami</div>
+        <div style="display:flex; align-items:center; gap:12px; flex:1;">
+          <img src="${logoUrl}" style="height:50px; width:auto; object-fit:contain;" onerror="this.style.display='none'">
         </div>
         <div class="kop-right">
           <b>Laboratorium Medis UTAMA</b><br>
@@ -1287,7 +1282,7 @@ const Lab = (() => {
         .kop-bpjs { display: flex; align-items: center; gap: 12px; flex: 1; }
         .kop-bpjs img { height: 42px; width: auto; object-fit: contain; }
         .kop-center { flex: 1.5; text-align: center; }
-        .kop-center img { height: 46px; width: auto; margin-bottom: 2px; }
+        .kop-center img { height: 50px; width: auto; object-fit: contain; }
         .kop-center .brand-title { color: #15803d; font-weight: 800; font-size: 20px; letter-spacing: 1.5px; margin: 0; line-height: 1.1; }
         .kop-center .brand-sub { color: #6b21a8; font-size: 9.5px; font-style: italic; font-weight: 600; }
         .kop-right { flex: 1.2; text-align: right; font-size: 10px; color: #333; line-height: 1.3; }
@@ -1410,13 +1405,8 @@ const Lab = (() => {
       // Default & Standard: Format 3(M3), Format 5(F4), Format 4(M4), Format 2(M2)
       tulis(`
         <div class="kop-wrapper">
-          <div class="kop-bpjs">
-            <img src="${bpjsLogoUrl}" onerror="this.style.display='none'">
-          </div>
-          <div class="kop-center">
-            <img src="${logoUrl}" onerror="this.style.display='none'">
-            <div class="brand-title">UTAMA</div>
-            <div class="brand-sub">Kepuasan Anda Prioritas Kami</div>
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <img src="${logoUrl}" style="height:50px; width:auto; object-fit:contain;" onerror="this.style.display='none'">
           </div>
           <div class="kop-right">
             <b>Laboratorium Medis UTAMA</b><br>

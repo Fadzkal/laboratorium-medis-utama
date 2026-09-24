@@ -122,7 +122,7 @@ const SuratCetak = (() => {
     .lembar-lab .header-bpjs { flex: 1; text-align: left; }
     .lembar-lab .header-bpjs img { height: 42px; width: auto; }
     .lembar-lab .header-logo { flex: 1; text-align: center; }
-    .lembar-lab .header-logo img { width: 48px; height: auto; }
+    .lembar-lab .header-logo img { height: 50px; width: auto; object-fit: contain; }
     .lembar-lab .header-logo .brand { color: #16a34a; font-weight: 700; font-size: 18px; margin-top: -3px; letter-spacing: 1px; }
     .lembar-lab .header-logo .motto { color: #9333ea; font-size: 9px; font-style: italic; margin-top: -3px; }
     .lembar-lab .header-text { flex: 1.2; text-align: left; font-size: 10.5px; padding-left: 14px; }
@@ -251,8 +251,6 @@ const SuratCetak = (() => {
           </div>
           <div class="header-logo">
             <img src="${urlLogo}" alt="UTAMA" onerror="this.src='logo.png'">
-            <div class="brand">UTAMA</div>
-            <div class="motto">Kepuasan Anda Prioritas Kami</div>
           </div>
           <div class="header-text">
             <b>Laboratorium Medis UTAMA</b><br>
@@ -266,8 +264,6 @@ const SuratCetak = (() => {
         <div class="header-lab">
           <div class="header-logo" style="text-align: left; flex: 0.8;">
             <img src="${urlLogo}" alt="UTAMA" onerror="this.src='logo.png'">
-            <div class="brand">UTAMA</div>
-            <div class="motto">Kepuasan Anda Prioritas Kami</div>
           </div>
           <div class="header-text" style="flex: 1.5; padding-left: 10px;">
             <b>Laboratorium Medis UTAMA</b><br>

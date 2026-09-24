@@ -2867,6 +2867,12 @@ const DB = (() => {
     s.dibatalkan_oleh = PROFIL.id; s.dibatalkan_pada = new Date().toISOString();
     return lengkapiSurat(s);
   }
+  async function suratHapus(id) {
+    await tunggu(50);
+    const idx = SURAT.findIndex(x => x.id === id);
+    if (idx === -1) throw new Error('Surat tidak ditemukan.');
+    SURAT.splice(idx, 1);
+  }
   async function suratCatatCetak(id) {
     const s = SURAT.find(x => x.id === id);
     if (s) { s.jml_cetak = (s.jml_cetak || 0) + 1; s.cetak_terakhir = new Date().toISOString(); }
@@ -3632,7 +3638,7 @@ const DB = (() => {
            resepPengaturan, simpanResepPengaturan,
            suratNomorBerikutnya, suratNomorTerpakai,
            buatSurat, ubahSurat, surat, daftarSurat, suratKunjungan, suratPasien,
-           suratBatalkan, suratCatatCetak,
+           suratBatalkan, suratHapus, suratCatatCetak,
            antreanHariIni, antreanKuota, antreanAmbilLoket, antreanPanggil,
            antreanCheckin, antreanMulaiLayan, antreanLewat, antreanBatal, antreanUbah,
            antreanPanggilanHariIni, langgananAntrean,
