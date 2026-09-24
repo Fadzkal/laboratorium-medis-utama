@@ -271,13 +271,19 @@ const Migrasi = (() => {
     return res;
   }
 
-  function tentukanKeluhanDiagnosa(diagnosaTeks, lab) {
-    const t = (diagnosaTeks || lab.diagnosa || '').toLowerCase();
-    const hasHba1c = !!lab.hba1c;
-    const hasGula = !!(lab.gdp || lab.gdpp || lab.gds);
-    const hasKimiaOnly = !!(lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau) && !hasHba1c && !hasGula;
+  function tentukanKeluhanDiagnosa(diagnosaTeks, lab, tensiStr) {
+    const t = String(diagnosaTeks || (lab && lab.diagnosa) || '').toLowerCase();
+    const hasHba1c = !!(lab && lab.hba1c);
+    const hasGula = !!(lab && (lab.gdp || lab.gdpp || lab.gds));
+    const hasKimiaOnly = !!(lab && (lab.cho || lab.tg || lab.hdl || lab.ldl || lab.ur || lab.cre || lab.mau)) && !hasHba1c && !hasGula;
 
-    if ((t.includes('hipertensi') || t.includes('hpt') || hasKimiaOnly) && !t.includes('dm') && !t.includes('diabetes') && !hasHba1c && !hasGula) {
+    let sistolik = 0;
+    if (tensiStr) {
+      const parts = String(tensiStr).split('/');
+      sistolik = parseInt(parts[0], 10) || 0;
+    }
+
+    if ((t.includes('hipertensi') || t.includes('hpt') || t.includes('i10') || hasKimiaOnly || (sistolik >= 140 && !hasHba1c && !hasGula)) && !t.includes('dm') && !t.includes('diabetes') && !hasHba1c && !hasGula) {
       return {
         keluhan: 'HIPERTENSI',
         anamnesa: 'HIPERTENSI',
@@ -464,7 +470,7 @@ const Migrasi = (() => {
         }
       }
 
-      const diagInfo = tentukanKeluhanDiagnosa(item.diagnosa_icd || item.diagnosis_teks, lab);
+      const diagInfo = tentukanKeluhanDiagnosa(item.diagnosa_icd || item.diagnosis_teks || item.keluhan || item.anamnesa, lab, tensi);
       const nonKapitasi = hitungPelayananNonKapitasi(lab);
 
       let jamKunj = '08:00';
@@ -524,9 +530,9 @@ const Migrasi = (() => {
         'TRUE',                                       // 25: Kolom Z (selalu TRUE)
         'Baru',                                       // 26: PENDAFTARAN (selalu Baru)
         'Promotif Preventif',                         // 27: PERAWATAN (selalu Promotif Preventif)
-        item.keluhan || diagInfo.keluhan,             // 28: KELUHAN
+        diagInfo.keluhan,                             // 28: KELUHAN (hanya HIPERTENSI atau DIABETES MELITUS)
         '07:00',                                      // 29: JAM KUNJUNGAN (selalu 07:00)
-        item.anamnesa || diagInfo.anamnesa,           // 30: ANAMNESA
+        diagInfo.anamnesa,                            // 30: ANAMNESA (hanya HIPERTENSI atau DIABETES MELITUS)
         'TIDAK',                                      // 31: MAKANAN (selalu TIDAK)
         'TIDAK',                                      // 32: UDARA (selalu TIDAK)
         'TIDAK',                                      // 33: OBAT (selalu TIDAK)
