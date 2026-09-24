@@ -248,8 +248,8 @@ const App = (() => {
           const data = await res.json();
           if (data && data.status === 'ONLINE') {
             box.innerHTML = `
-              <div class="badge-bridge-online" title="Mindray BS-240 & Sysmex XP-100 aktif di komputer ini">
-                ${UI.ikon('centang', 12)} LIS Bridge: Terhubung
+              <div class="badge-bridge-online" title="Server LIS aktif di PC ini mendengarkan Mindray BS-240 (Port 7118) dan Sysmex XP-100 (Port 8000)">
+                ${UI.ikon('centang', 12)} LIS Bridge: Standby (Siaga Terima Data)
               </div>
             `;
             sedangCek = false;
@@ -258,10 +258,10 @@ const App = (() => {
         }
       } catch (_) {}
 
-      // Tampilkan tombol Hubungkan Alat jika offline
+      // Tampilkan tombol Hubungkan / Nyalakan LIS Bridge jika server lokal belum aktif
       box.innerHTML = `
-        <button id="btnHubungkanBridge" class="btn-bridge-offline" title="Klik untuk mengaktifkan LIS Bridge di komputer ini">
-          ${UI.ikon('stetoskop', 12)} Hubungkan Alat
+        <button id="btnHubungkanBridge" class="btn-bridge-offline" title="Server LIS belum aktif di komputer ini. Klik untuk mengaktifkan">
+          ${UI.ikon('stetoskop', 12)} Nyalakan LIS Bridge
         </button>
       `;
 
