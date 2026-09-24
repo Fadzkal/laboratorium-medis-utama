@@ -315,10 +315,10 @@ const BarcodePrinter = (() => {
     }).join('');
 
     const bodyHeightPrint = labels.length <= 1 ? `${tggiMm}mm !important` : 'auto !important';
-    const labelW = lbarMm >= 40 ? 38 : (lbarMm - 2);
-    const labelH = tggiMm >= 30 ? 27 : (tggiMm - 2);
+    const labelW = lbarMm;
+    const labelH = tggiMm >= 30 ? 28 : (tggiMm - 2);
     const marginV = ((tggiMm - labelH) / 2).toFixed(1);
-    const bcWrapH = tggiMm <= 20 ? '9.5mm' : '14.5mm';
+    const bcWrapH = tggiMm <= 20 ? '9.5mm' : '14mm';
 
     const doc = iframe.contentWindow.document;
     doc.open();
@@ -368,8 +368,8 @@ const BarcodePrinter = (() => {
             width: ${labelW}mm !important;
             height: ${labelH}mm !important;
             max-height: ${labelH}mm !important;
-            margin: ${marginV}mm auto !important;
-            padding: 1mm 1.5mm !important;
+            margin: ${marginV}mm 0 !important;
+            padding: 1mm 2mm 1mm 3.5mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -388,15 +388,15 @@ const BarcodePrinter = (() => {
             break-after: avoid;
           }
           .col-id {
-            width: 3.2mm;
-            min-width: 3.2mm;
+            width: 3.5mm;
+            min-width: 3.5mm;
             height: ${labelH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 6.8pt;
+            font-size: 6.5pt;
             font-weight: 700;
             letter-spacing: 0.2px;
             white-space: nowrap;
@@ -405,18 +405,19 @@ const BarcodePrinter = (() => {
           }
           .col-center {
             flex: 1;
+            width: 27.5mm;
+            max-width: 28mm;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0 0.5mm;
+            padding: 0;
             overflow: hidden;
-            width: 100%;
           }
           .barcode-wrap {
-            width: 28.5mm;
-            max-width: 28.5mm;
+            width: 100%;
+            max-width: 27.5mm;
             height: ${bcWrapH};
             display: flex;
             align-items: center;
@@ -428,59 +429,60 @@ const BarcodePrinter = (() => {
             width: 100%;
             height: 100%;
             display: block;
+            margin: 0 auto;
           }
           .patient-name {
-            margin-top: 0.6mm;
-            font-size: 6.8pt;
-            font-weight: bold;
-            line-height: 1.2;
+            margin-top: 0.5mm;
+            font-size: 6.5pt;
+            font-weight: 700;
+            line-height: 1.15;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 28.5mm;
+            max-width: 27.5mm;
             letter-spacing: -0.1px;
             color: #000;
           }
           .patient-sub {
-            margin-top: 0.5mm;
-            font-size: 6.5pt;
-            font-weight: bold;
+            margin-top: 0.3mm;
+            font-size: 6.2pt;
+            font-weight: 700;
             line-height: 1.1;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 28.5mm;
+            max-width: 27.5mm;
             letter-spacing: -0.1px;
             color: #000;
           }
           .single-test-name {
             font-size: 5.5pt;
-            font-weight: bold;
+            font-weight: 700;
             color: #000;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             text-align: center;
-            max-width: 28.5mm;
+            max-width: 27.5mm;
             line-height: 1.0;
-            margin-top: 0.3mm;
+            margin-top: 0.2mm;
           }
           .col-dept {
-            width: 3.8mm;
-            min-width: 3.8mm;
+            width: 3.5mm;
+            min-width: 3.5mm;
             height: ${labelH - 2}mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7.5pt;
-            font-weight: 800;
-            letter-spacing: 0.3px;
+            font-size: 7pt;
+            font-weight: 700;
+            letter-spacing: 0.2px;
             white-space: nowrap;
             text-align: center;
             color: #000;
