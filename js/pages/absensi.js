@@ -294,8 +294,8 @@ const Absensi = (() => {
 
   function renderKerangka() {
     const isMaster = saya?.peran === 'master';
-    const namaTampil = isMaster ? 'DEDE KURNIASIH' : (saya?.nama || 'Karyawan');
-    const inisialTampil = isMaster ? 'DK' : UI.inisial(namaTampil);
+    const namaTampil = saya?.nama || (isMaster ? 'Master' : 'Karyawan');
+    const inisialTampil = UI.inisial(namaTampil) || (isMaster ? 'M' : 'K');
 
     w.innerHTML = `
       <div class="mb-20 flex items-center justify-between flex-wrap gap-14">

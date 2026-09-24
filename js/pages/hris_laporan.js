@@ -212,6 +212,9 @@ const HrisLaporan = (() => {
      1. MODE MASTER: PANEL KENDALI PIMPINAN (DEDE KURNIASIH)
      ===================================================================== */
   async function renderMasterView(el, saya) {
+    const namaPimpinan = saya?.nama || 'PIMPINAN';
+    const inisialPimpinan = UI.inisial(namaPimpinan) || 'P';
+
     w.innerHTML = `
       <div class="mb-20 flex items-center justify-between flex-wrap gap-16">
         <div style="max-width: 600px;">
@@ -219,7 +222,7 @@ const HrisLaporan = (() => {
             Kinerja & Bonus Karyawan
           </h1>
           <p class="text-muted mb-0" style="font-size: 13.5px; line-height: 1.4;">
-            Panel kendali pimpinan (Dede Kurniasih): rekapitulasi kehadiran staf, evaluasi kinerja, penetapan nominal bonus, dan cetak slip resmi.
+            Panel kendali pimpinan: rekapitulasi kehadiran staf, evaluasi kinerja, penetapan nominal bonus, dan cetak slip resmi.
           </p>
         </div>
         
@@ -247,14 +250,14 @@ const HrisLaporan = (() => {
         <div class="flex items-center justify-between flex-wrap gap-16">
           <div class="flex items-center gap-14">
             <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.18); border: 2px solid rgba(255,255,255,0.4); display: grid; place-items: center; font-size: 18px; font-weight: 800; color: #fff; letter-spacing: 0.5px; flex-shrink: 0;">
-              DK
+              ${inisialPimpinan}
             </div>
             <div>
               <div style="font-size: 11.5px; color: #C6E6E1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px;">
                 Kepala Laboratorium (Pemilik)
               </div>
               <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.2px; margin-top: 1px; color: #FFFFFF;">
-                DEDE KURNIASIH
+                ${UI.esc(namaPimpinan)}
               </div>
               <div class="flex items-center gap-8 mt-4">
                 <span class="badge" style="background: var(--warn-700); color: #fff; text-transform: uppercase; font-size: 10.5px; font-weight: 700; padding: 3px 8px;">

@@ -198,10 +198,10 @@ const App = (() => {
     document.getElementById('brandTeks').innerHTML =
       `${UI.esc(nama.replace(/^Klinik (Pratama )?/i, ''))}<small>Rekam Medis</small>`;
     document.getElementById('brandMark').textContent = CONFIG.SINGKATAN;
-    const namaUser = profil.peran === 'master' ? 'Dede Kurniasih' : profil.nama;
+    const namaUser = profil.nama || (profil.peran === 'master' ? 'Master' : 'Pegawai');
     document.getElementById('userNama').textContent = namaUser;
-    document.getElementById('userPeran').textContent = profil.peran === 'master' ? 'Pimpinan / Pemilik' : profil.peran;
-    document.getElementById('userAvatar').textContent = profil.peran === 'master' ? 'DK' : UI.inisial(namaUser);
+    document.getElementById('userPeran').textContent = profil.peran === 'master' ? 'Master / Pimpinan' : profil.peran;
+    document.getElementById('userAvatar').textContent = UI.inisial(namaUser) || (profil.peran === 'master' ? 'M' : 'P');
     document.getElementById('tanggalHariIni').textContent = UI.tglIndo(new Date(), true);
     document.getElementById('btnKeluar').innerHTML = UI.ikon('keluar', 16);
     document.getElementById('btnMenu').innerHTML = UI.ikon('antrian', 18);

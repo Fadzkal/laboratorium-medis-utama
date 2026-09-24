@@ -30,12 +30,6 @@ const DB = (() => {
       .select('*, poli:poli_default(id,nama,kode)').eq('id', s.user.id).single();
     if (error) throw error;
     _saya = { ...data, email: s.user.email };
-    if (_saya.peran === 'master') {
-      _saya.nama = 'DEDE KURNIASIH';
-      if (data.nama !== 'DEDE KURNIASIH') {
-        sb.from('pegawai').update({ nama: 'DEDE KURNIASIH' }).eq('id', s.user.id).then(() => {}).catch(() => {});
-      }
-    }
     return _saya;
   }
 
