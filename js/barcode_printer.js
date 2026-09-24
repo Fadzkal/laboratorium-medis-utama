@@ -150,25 +150,51 @@ const BarcodePrinter = (() => {
   }
 
   /**
-   * Format sapaan dan nama pasien untuk label tabung: Tn. / Ny. / An. + Nama + (L/P)
+   * Format teks umur pasien
+   */
+  function hitungUmurTeks(pasien) {
+    if (pasien?.umur) return `${pasien.umur} th`;
+    if (pasien?.tanggal_lahir) {
+      const ms = Date.now() - new Date(pasien.tanggal_lahir);
+      if (!isNaN(ms) && ms > 0) {
+        const th = Math.floor(ms / 3.15576e10);
+        return `${th} th`;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Format sapaan, nama, jenis kelamin dan usia pasien untuk label tabung:
+   * Contoh: Ny. ENDANG SUPRIYATI (P/54 th) atau Tn. DANU PRASETYO (L/28 th)
    */
   function formatNamaLabel(pasien) {
-    let nama = (pasien.nama || '').trim();
-    const jk = (pasien.jenis_kelamin || '').toUpperCase();
+    let nama = (pasien?.nama || '').trim();
+    const jk = (pasien?.jenis_kelamin || '').toUpperCase();
     const isL = jk.startsWith('L') || jk === 'PRIA' || jk === 'M';
     const isP = jk.startsWith('P') || jk === 'WANITA' || jk === 'F';
-    const jkStr = isL ? '(L)' : isP ? '(P)' : '';
+    const jkKode = isL ? 'L' : isP ? 'P' : '';
+    const umurStr = hitungUmurTeks(pasien);
+
+    let infoTambahan = '';
+    if (jkKode && umurStr) {
+      infoTambahan = ` (${jkKode}/${umurStr})`;
+    } else if (jkKode) {
+      infoTambahan = ` (${jkKode})`;
+    } else if (umurStr) {
+      infoTambahan = ` (${umurStr})`;
+    }
 
     const hasTitle = /^(Tn\.|Ny\.|Nn\.|An\.|Sdr\.|Sdri\.|By\.|dr\.|drg\.)\s+/i.test(nama);
     if (!hasTitle) {
-      const umur = pasien.tanggal_lahir ? Math.floor((Date.now() - new Date(pasien.tanggal_lahir)) / 3.15576e10) : 30;
+      const uNum = parseInt(umurStr, 10) || 30;
       let sapaan = 'Tn.';
-      if (umur < 12) sapaan = 'An.';
+      if (uNum < 12) sapaan = 'An.';
       else if (isP) sapaan = 'Ny.';
       else sapaan = 'Tn.';
       nama = `${sapaan} ${nama}`;
     }
-    return `${nama}${jkStr ? jkStr : ''}`;
+    return `${nama}${infoTambahan}`;
   }
 
   /**
@@ -210,13 +236,15 @@ const BarcodePrinter = (() => {
 
   /**
    * Cetak label langsung melalui driver Windows menggunakan iframe terisolasi
+   * Dioptimalkan khusus printer thermal label Blueprint ECO 80 (40x30 mm)
    */
   function cetakWindows(labels, opsi = {}) {
-    const ukuran = opsi.ukuran || localStorage.getItem('lab_barcode_paper_size') || '50x20';
-    let [lbarMm, tggiMm] = [50, 20];
-    if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
-    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
+    const ukuran = opsi.ukuran || localStorage.getItem('lab_barcode_paper_size') || '40x30';
+    let [lbarMm, tggiMm] = [40, 30];
+    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
+    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
     else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
+    else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
 
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
@@ -253,58 +281,123 @@ const BarcodePrinter = (() => {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Cetak Label Barcode Tabung</title>
+        <title>Label Barcode</title>
         <style>
-          @page { size: ${lbarMm}mm ${tggiMm}mm; margin: 0mm !important; }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
+          @page {
+            size: ${lbarMm}mm ${tggiMm}mm portrait;
+            margin: 0 !important;
+          }
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
           html, body {
-            width: ${lbarMm}mm; height: ${tggiMm}mm;
-            margin: 0; padding: 0;
-            background: #fff; color: #000;
+            width: ${lbarMm}mm;
+            height: ${tggiMm}mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff;
+            color: #000;
             font-family: 'JetBrains Mono', Consolas, Arial, sans-serif;
             overflow: hidden;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .label-tube {
-            width: ${lbarMm}mm; height: ${tggiMm}mm;
-            display: flex; flex-direction: row; align-items: center; justify-content: space-between;
-            padding: 1.2mm 1.5mm; overflow: hidden;
-            page-break-after: always; break-after: page;
+            width: ${lbarMm}mm;
+            height: ${tggiMm - 0.6}mm;
+            max-height: ${tggiMm - 0.6}mm;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8mm 1mm;
+            overflow: hidden;
+            box-sizing: border-box;
+          }
+          .label-tube:not(:last-child) {
+            page-break-after: always;
+            break-after: page;
+          }
+          .label-tube:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
           }
           .col-id {
-            width: 4.8mm; height: ${tggiMm - 2.5}mm;
-            display: flex; align-items: center; justify-content: center;
-            writing-mode: vertical-rl; transform: rotate(180deg);
-            font-size: 7pt; font-weight: 700; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+            width: 4.2mm;
+            height: ${tggiMm - 3}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 6.8pt;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-align: center;
           }
           .col-center {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 0 1.2mm; overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 0.8mm;
+            overflow: hidden;
           }
           .barcode-wrap {
-            width: 100%; max-width: ${lbarMm - 12}mm;
+            width: 100%;
+            max-width: ${lbarMm - 10}mm;
             height: ${tggiMm <= 22 ? '10mm' : '13mm'};
-            display: flex; align-items: center; justify-content: center; overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
           }
           .barcode-wrap svg {
-            width: 100%; height: 100%; display: block;
+            width: 100%;
+            height: 100%;
+            display: block;
           }
           .patient-name {
-            margin-top: 0.6mm; font-size: ${tggiMm <= 22 ? '6.8pt' : '7.5pt'}; font-weight: 700;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            text-align: center; max-width: ${lbarMm - 12}mm; letter-spacing: -0.2px; line-height: 1.15;
+            margin-top: 0.5mm;
+            font-size: 6.2pt;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            max-width: ${lbarMm - 10}mm;
+            letter-spacing: -0.2px;
+            line-height: 1.1;
           }
           .single-test-name {
-            font-size: 6pt; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden;
-            text-overflow: ellipsis; text-align: center; max-width: ${lbarMm - 12}mm; line-height: 1.1;
+            font-size: 5.5pt;
+            font-weight: 700;
+            color: #000;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            max-width: ${lbarMm - 10}mm;
+            line-height: 1.0;
             margin-top: 0.2mm;
           }
           .col-dept {
-            width: 5.2mm; height: ${tggiMm - 2.5}mm;
-            display: flex; align-items: center; justify-content: center;
-            writing-mode: vertical-rl; transform: rotate(180deg);
-            font-size: 7.2pt; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap; text-align: center;
+            width: 4.5mm;
+            height: ${tggiMm - 3}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 7pt;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            text-align: center;
           }
         </style>
       </head>
@@ -323,6 +416,61 @@ const BarcodePrinter = (() => {
         console.error('Gagal mencetak label barcode via driver Windows:', e);
       }
     }, 200);
+  }
+
+  /**
+   * Cetak otomatis langsung tanpa pop-up modal (Khusus Blueprint ECO 80 - 40x30 mm)
+   * Otomatis membagi label sesuai jenis pemeriksaan yang ada:
+   * Contoh: Darah Lengkap + Kimia + Urin -> langsung keluar 3 label (HEMATOLOGI, KIMIA, URIN)
+   */
+  async function cetakOtomatis(p, opsi = {}) {
+    if (!p) {
+      UI.toast('Data pemeriksaan laboratorium tidak ditemukan.', 'err');
+      return;
+    }
+
+    let hasilList = p.hasil || [];
+    if (!hasilList.length && p.id && typeof DB !== 'undefined' && DB.sb) {
+      try {
+        const { data: h } = await DB.sb.from('lab_hasil')
+          .select('*, ref:lab_id(id,kode,nama,kelompok,barcode)')
+          .eq('permintaan_id', p.id);
+        if (h && h.length) hasilList = h;
+      } catch (err) {
+        console.warn('Gagal memuat rincian hasil untuk barcode:', err);
+      }
+    }
+
+    const pasien = p.pasien || {};
+    const tgl = p.diminta_pada || p.tanggal || null;
+    const noLab = p.no_lab || '';
+    const idStandar = formatNoLabStandar(noLab, tgl);
+    const namaPasien = formatNamaLabel(pasien);
+
+    // Kelompokkan per alat medis / tabung
+    const itemPerAlat = kelompokkanItemPerAlat(hasilList);
+    const URUTAN_ALAT = ['SYSMEX', 'MINDRAY', 'ARKRAY', 'URIN', 'SEROLOGI'];
+    const alatAktifList = URUTAN_ALAT.filter(k => (itemPerAlat[k] || []).length > 0);
+
+    // Jika belum ada tes terdeteksi, cetak 1 label default
+    const listTabung = alatAktifList.length ? alatAktifList : ['MINDRAY'];
+
+    const labels = [];
+    listTabung.forEach(k => {
+      const info = ALAT_MEDIS[k] || ALAT_MEDIS.MINDRAY;
+      labels.push({
+        idBarcode: idStandar,
+        namaPasien: namaPasien,
+        labelKanan: info.bahasaMedis,
+        subInfo: ''
+      });
+    });
+
+    // Preset cetak Blueprint ECO 80 (40x30 mm)
+    cetakWindows(labels, { ukuran: '40x30', ...opsi });
+
+    const namaTabung = listTabung.map(k => ALAT_MEDIS[k]?.bahasaMedis || k).join(', ');
+    UI.toast(`Mencetak ${labels.length} label tabung (${namaTabung}) ke Blueprint ECO 80...`, 'ok');
   }
 
   /**
@@ -707,6 +855,7 @@ const BarcodePrinter = (() => {
     formatNamaLabel,
     kelompokkanItemPerAlat,
     cetakWindows,
+    cetakOtomatis,
     bukaModal
   };
 })();

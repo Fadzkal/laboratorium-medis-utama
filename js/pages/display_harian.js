@@ -553,10 +553,14 @@ const DisplayHarian = (() => {
           </div>
         `;
 
-        // Tombol Print Barcode — buka dialog cetak label tabung spesimen 1D Code 128 (Per Alat / Per Paket)
-        kanan.querySelector('#btnBarcode').onclick = () => {
+        // Tombol Print Barcode — langsung cetak otomatis ke Blueprint ECO 80 tanpa pop-up dialog
+        kanan.querySelector('#btnBarcode').onclick = (e) => {
           if (typeof BarcodePrinter !== 'undefined') {
-            BarcodePrinter.bukaModal(p);
+            if (e && e.shiftKey) {
+              BarcodePrinter.bukaModal(p);
+            } else {
+              BarcodePrinter.cetakOtomatis(p);
+            }
           } else {
             modalCetakBarcodeTabung(p);
           }
@@ -645,22 +649,35 @@ const DisplayHarian = (() => {
   }
 
   function formatNamaLabel(pasien) {
-    let nama = (pasien.nama || '').trim();
-    const jk = (pasien.jenis_kelamin || '').toUpperCase();
+    let nama = (pasien?.nama || '').trim();
+    const jk = (pasien?.jenis_kelamin || '').toUpperCase();
     const isL = jk.startsWith('L') || jk === 'PRIA' || jk === 'M';
     const isP = jk.startsWith('P') || jk === 'WANITA' || jk === 'F';
-    const jkStr = isL ? '(L)' : isP ? '(P)' : '';
+    const jkKode = isL ? 'L' : isP ? 'P' : '';
+
+    let umurStr = '';
+    if (pasien?.umur) {
+      umurStr = `${pasien.umur} th`;
+    } else if (pasien?.tanggal_lahir) {
+      const ms = Date.now() - new Date(pasien.tanggal_lahir);
+      if (!isNaN(ms) && ms > 0) umurStr = `${Math.floor(ms / 3.15576e10)} th`;
+    }
+
+    let infoTambahan = '';
+    if (jkKode && umurStr) infoTambahan = ` (${jkKode}/${umurStr})`;
+    else if (jkKode) infoTambahan = ` (${jkKode})`;
+    else if (umurStr) infoTambahan = ` (${umurStr})`;
 
     const hasTitle = /^(Tn\.|Ny\.|Nn\.|An\.|Sdr\.|Sdri\.|By\.|dr\.|drg\.)\s+/i.test(nama);
     if (!hasTitle) {
-      const umur = pasien.tanggal_lahir ? Math.floor((Date.now() - new Date(pasien.tanggal_lahir)) / 3.15576e10) : 30;
+      const uNum = parseInt(umurStr, 10) || 30;
       let sapaan = 'Tn.';
-      if (umur < 12) sapaan = 'An.';
+      if (uNum < 12) sapaan = 'An.';
       else if (isP) sapaan = 'Ny.';
       else sapaan = 'Tn.';
       nama = `${sapaan} ${nama}`;
     }
-    return `${nama}${jkStr ? jkStr : ''}`;
+    return `${nama}${infoTambahan}`;
   }
 
   function formatNoLabStandar(rawNoLab, tglStr) {
@@ -710,9 +727,10 @@ const DisplayHarian = (() => {
     return Array.from(tabung);
   }
 
-  function cetakLabelTabung(labels, ukuran = '50x20') {
-    let [lbarMm, tggiMm] = [50, 20];
-    if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
+  function cetakLabelTabung(labels, ukuran = '40x30') {
+    let [lbarMm, tggiMm] = [40, 30];
+    if (ukuran === '50x20') [lbarMm, tggiMm] = [50, 20];
+    else if (ukuran === '50x25') [lbarMm, tggiMm] = [50, 25];
     else if (ukuran === '40x20') [lbarMm, tggiMm] = [40, 20];
     else if (ukuran === '40x30') [lbarMm, tggiMm] = [40, 30];
 
@@ -748,13 +766,16 @@ const DisplayHarian = (() => {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Cetak Label Barcode Tabung</title>
+        <title>Label Barcode</title>
         <style>
-          @page { size: ${lbarMm}mm ${tggiMm}mm; margin: 0mm !important; }
+          @page {
+            size: ${lbarMm}mm ${tggiMm}mm portrait;
+            margin: 0 !important;
+          }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           html, body {
             width: ${lbarMm}mm; height: ${tggiMm}mm;
-            margin: 0; padding: 0;
+            margin: 0 !important; padding: 0 !important;
             background: #fff; color: #000;
             font-family: 'JetBrains Mono', Consolas, Arial, sans-serif;
             overflow: hidden;
@@ -762,10 +783,17 @@ const DisplayHarian = (() => {
             print-color-adjust: exact;
           }
           .label-tube {
-            width: ${lbarMm}mm; height: ${tggiMm}mm;
+            width: ${lbarMm}mm; height: ${tggiMm - 0.6}mm;
+            max-height: ${tggiMm - 0.6}mm;
             display: flex; flex-direction: row; align-items: center; justify-content: space-between;
-            padding: 1.2mm 1.5mm; overflow: hidden;
+            padding: 0.8mm 1mm; overflow: hidden;
+            box-sizing: border-box;
+          }
+          .label-tube:not(:last-child) {
             page-break-after: always; break-after: page;
+          }
+          .label-tube:last-child {
+            page-break-after: avoid; break-after: avoid;
           }
           .col-id {
             width: 4.8mm; height: ${tggiMm - 2.5}mm;

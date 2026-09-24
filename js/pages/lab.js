@@ -3181,9 +3181,13 @@ const Lab = (() => {
         };
 
         const btnBarcodeLab = kanan.querySelector('#btnBarcodeLabSky');
-        if (btnBarcodeLab) btnBarcodeLab.onclick = () => {
+        if (btnBarcodeLab) btnBarcodeLab.onclick = (e) => {
           if (typeof BarcodePrinter !== 'undefined') {
-            BarcodePrinter.bukaModal(p);
+            if (e && e.shiftKey) {
+              BarcodePrinter.bukaModal(p);
+            } else {
+              BarcodePrinter.cetakOtomatis(p);
+            }
           } else {
             UI.toast('Modul BarcodePrinter belum siap.', 'warn');
           }
