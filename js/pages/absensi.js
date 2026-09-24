@@ -476,6 +476,19 @@ const Absensi = (() => {
       };
       dataAbsenShift1 = absen1;
       dataAbsenShift2 = absen2;
+
+      // Cek apakah ada jadwal shift khusus yang ditentukan Pimpinan atau sudah check-in
+      if (!isMaster) {
+        if (absen2 && (absen2.waktu_masuk || absen2.status === 'BELUM' || absen2.keterangan?.includes('Pimpinan'))) {
+          if (!absen1?.waktu_masuk) {
+            shiftDipilih = 2;
+          }
+        } else if (absen1 && (absen1.waktu_masuk || absen1.status === 'BELUM' || absen1.keterangan?.includes('Pimpinan'))) {
+          if (!absen2?.waktu_masuk) {
+            shiftDipilih = 1;
+          }
+        }
+      }
       absenHariIni = shiftDipilih === 2 ? absen2 : absen1;
       riwayatAbsen = riwayat || [];
       daftarIzinSayaList = izinSaya || [];
@@ -961,10 +974,15 @@ const Absensi = (() => {
       </div>
     `;
 
-    if (!absenHariIni) {
+    if (!absenHariIni || !absenHariIni.waktu_masuk || absenHariIni.status === 'BELUM') {
       // Belum absen masuk pada shift yang dipilih
       p.innerHTML = `
         ${htmlToggleShift}
+        ${absenHariIni?.keterangan?.includes('Pimpinan') ? `
+          <div style="font-size: 11.5px; color: #0F8B7E; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 6px; padding: 4px 8px; margin-bottom: 10px; font-weight: 600;">
+            Jadwal Shift Hari Ini Ditentukan oleh Pimpinan
+          </div>
+        ` : ''}
         <div style="font-size: 13px; color: var(--ink-600); margin-bottom: 2px;">Status Presensi:</div>
         <div style="margin-bottom: 8px;">
           <span class="badge ${targetShift.badgeClass}" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700;">
@@ -1476,7 +1494,7 @@ const Absensi = (() => {
      ===================================================================== */
   async function renderTabMonitoring(container) {
     let teksCari = '';
-    let filterPeran = '';
+    let filterStatus = '';
     let filterShift = '';
     let markerStafMap = {};
 
@@ -1564,29 +1582,26 @@ const Absensi = (() => {
           </div>
         </div>
 
-        <!-- Filter Pencarian, Shift & Peran Staf -->
+        <!-- Filter Pencarian, Shift & Status Kehadiran Karyawan -->
         <div class="p-16 border-bottom flex items-center justify-between flex-wrap gap-12" style="background: #ffffff; padding: 16px 24px; margin-top: 20px;">
           <div class="flex items-center gap-10 flex-wrap" style="flex: 1;">
-            <input type="search" id="cariStafMonitoring" placeholder="Cari nama staf / peran..." 
+            <input type="search" id="cariStafMonitoring" placeholder="Cari nama karyawan..." 
                    class="ctl-sm" style="max-width: 240px; height: 36px; border-radius: 8px; padding: 0 12px;">
             <select id="filterShiftMonitoring" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
               <option value="">Semua Shift (1 & 2)</option>
               <option value="1">Shift 1 (Pagi)</option>
               <option value="2">Shift 2 (Siang)</option>
             </select>
-            <select id="filterPeranMonitoring" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
-              <option value="">Semua Peran Staf</option>
-              <option value="karyawan">Karyawan</option>
-              <option value="dokter">Dokter</option>
-              <option value="perawat">Perawat</option>
-              <option value="analis">Analis Lab</option>
-              <option value="apoteker">Apoteker / Farmasi</option>
-              <option value="kasir">Kasir</option>
-              <option value="admin">Admin</option>
+            <select id="filterStatusMonitoring" class="ctl-sm" style="height: 36px; border-radius: 8px; padding: 0 12px;">
+              <option value="">Semua Status Kehadiran</option>
+              <option value="BEKERJA">Sedang Bekerja</option>
+              <option value="SELESAI">Selesai Pulang</option>
+              <option value="BELUM">Belum Hadir</option>
+              <option value="IZIN">Izin / Cuti</option>
             </select>
           </div>
           <div class="text-xs text-muted" id="labelHitungStaf" style="font-weight: 600;">
-            Memuat daftar staf...
+            Memuat daftar karyawan...
           </div>
         </div>
 
@@ -1627,7 +1642,7 @@ const Absensi = (() => {
 
         container.querySelector('#rekapStatMonitoring').innerHTML = `
           <div class="absensi-stat-card">
-            <div class="text-xs text-muted">Total Staf</div>
+            <div class="text-xs text-muted">Total Karyawan</div>
             <div style="font-size:22px; font-weight:800; color:#0F172A;">${total}</div>
           </div>
           <div class="absensi-stat-card stat-ok">
@@ -1787,11 +1802,16 @@ const Absensi = (() => {
       if (!wrap) return;
 
       const q = (teksCari || '').trim().toLowerCase();
-      const p = (filterPeran || '').trim().toLowerCase();
+      const st = (filterStatus || '').trim().toUpperCase();
 
       const filtered = monitoringList.filter(m => {
         if (filterShift && String(m.shift || 1) !== filterShift) return false;
-        if (p && (m.peran || '').toLowerCase() !== p) return false;
+        if (st) {
+          if (st === 'BEKERJA' && (m.status !== 'HADIR' || !m.waktu_masuk || m.waktu_keluar)) return false;
+          if (st === 'SELESAI' && (m.status !== 'HADIR' || !m.waktu_keluar)) return false;
+          if (st === 'BELUM' && m.status !== 'BELUM') return false;
+          if (st === 'IZIN' && !['CUTI', 'IZIN', 'SAKIT', 'DINAS_LUAR'].includes(m.status)) return false;
+        }
         if (q) {
           const matchNama = (m.nama || '').toLowerCase().includes(q);
           const matchPeran = (m.peran || '').toLowerCase().includes(q);
@@ -1802,18 +1822,18 @@ const Absensi = (() => {
       });
 
       if (labelHitung) {
-        labelHitung.textContent = `Menampilkan ${filtered.length} dari ${monitoringList.length} catatan staf aktif`;
+        labelHitung.textContent = `Menampilkan ${filtered.length} dari ${monitoringList.length} catatan karyawan aktif`;
       }
 
       if (!filtered.length) {
-        wrap.innerHTML = `<div class="empty text-center p-24 text-muted" style="border: 1px dashed #CBD5E1; border-radius: 12px; background: #F8FAFC;">Tidak ada staf yang cocok dengan kriteria pencarian.</div>`;
+        wrap.innerHTML = `<div class="empty text-center p-24 text-muted" style="border: 1px dashed #CBD5E1; border-radius: 12px; background: #F8FAFC;">Tidak ada karyawan yang cocok dengan kriteria pencarian.</div>`;
         return;
       }
 
       wrap.innerHTML = `
         <div class="absensi-table-wrap"><table class="tbl w-full">
           <thead><tr>
-            <th>NAMA PEGAWAI</th>
+            <th>NAMA KARYAWAN</th>
             <th>PERAN</th>
             <th>SHIFT</th>
             <th>STATUS</th>
@@ -1872,9 +1892,18 @@ const Absensi = (() => {
                   <td><b style="color: #0F172A;">${UI.esc(m.nama)}</b></td>
                   <td><span class="badge" style="background:#F1F5F9; color:#475569; text-transform:uppercase; font-size:11px; font-weight:700;">${UI.esc(m.peran)}</span></td>
                   <td>
-                    <span class="badge ${m.shift === 2 ? 'b-dokter' : 'b-selesai'}" style="font-size:11px; padding:3px 8px; font-weight:700;">
-                      Shift ${m.shift || 1}
-                    </span>
+                    ${(!m.waktu_masuk || m.status === 'BELUM') ? `
+                      <select class="ctl-sm select-shift-karyawan" data-pegawai-id="${m.pegawai_id}" data-nama="${UI.esc(m.nama)}"
+                              title="Pimpinan dapat menentukan Shift 1 atau Shift 2"
+                              style="height: 28px; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; cursor: pointer; background: ${m.shift === 2 ? '#FAF5FF' : '#F0FDF4'}; color: ${m.shift === 2 ? '#6B21A8' : '#0F8B7E'}; border: 1.5px solid ${m.shift === 2 ? '#D8B4FE' : '#BBF7D0'};">
+                        <option value="1" ${m.shift !== 2 ? 'selected' : ''}>Shift 1 (Pagi)</option>
+                        <option value="2" ${m.shift === 2 ? 'selected' : ''}>Shift 2 (Siang)</option>
+                      </select>
+                    ` : `
+                      <span class="badge ${m.shift === 2 ? 'b-dokter' : 'b-selesai'}" style="font-size:11px; padding:3px 8px; font-weight:700;">
+                        Shift ${m.shift || 1}
+                      </span>
+                    `}
                   </td>
                   <td>
                     <span class="badge ${m.status === 'HADIR' ? (m.waktu_keluar ? 'b-selesai' : 'b-kajian') : (m.status === 'BELUM' ? 'b-danger' : 'b-menunggu')}" style="font-size:11px; padding: 4px 8px;">
@@ -1921,6 +1950,24 @@ const Absensi = (() => {
           }
         });
       });
+
+      // Event listener Master ubah shift karyawan langsung
+      wrap.querySelectorAll('.select-shift-karyawan').forEach(sel => {
+        sel.addEventListener('change', async (e) => {
+          const pegawaiId = sel.dataset.pegawaiId;
+          const nama = sel.dataset.nama || 'Karyawan';
+          const shiftBaru = parseInt(e.target.value, 10);
+          sel.disabled = true;
+          try {
+            await DB.tetapkanShiftKaryawan(pegawaiId, tanggalMonitoring, shiftBaru);
+            UI.toast(`Jadwal ${nama} berhasil diatur ke Shift ${shiftBaru}.`, 'ok');
+            await muatMonitoring();
+          } catch (err) {
+            UI.toast('Gagal menetapkan shift: ' + err.message, 'err');
+            sel.disabled = false;
+          }
+        });
+      });
     };
 
     container.querySelector('#cariStafMonitoring')?.addEventListener('input', (e) => {
@@ -1933,8 +1980,8 @@ const Absensi = (() => {
       renderTabelMonitoring();
     });
 
-    container.querySelector('#filterPeranMonitoring')?.addEventListener('change', (e) => {
-      filterPeran = e.target.value;
+    container.querySelector('#filterStatusMonitoring')?.addEventListener('change', (e) => {
+      filterStatus = e.target.value;
       renderTabelMonitoring();
     });
 

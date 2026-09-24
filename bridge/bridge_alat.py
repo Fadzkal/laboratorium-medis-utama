@@ -536,6 +536,24 @@ def api_worker():
         logger.error(f"Gagal menjalankan Local API pada port {PORT_LOCAL_API}: {e}")
 
 
+def start_bridge_threads():
+    """Menjalankan seluruh listener alat dan local API dalam background thread"""
+    t_mindray = threading.Thread(target=mindray_worker, daemon=True, name="MindrayListener")
+    t_mindray.start()
+
+    t_sysmex = threading.Thread(target=sysmex_worker, daemon=True, name="SysmexListener")
+    t_sysmex.start()
+
+    t_api = threading.Thread(target=api_worker, daemon=True, name="LocalApiServer")
+    t_api.start()
+
+    return {
+        "mindray": t_mindray,
+        "sysmex": t_sysmex,
+        "api": t_api
+    }
+
+
 # ===========================================================================
 # 5. ENTRY POINT UTAMA
 # ===========================================================================
@@ -548,17 +566,7 @@ def main():
     print(f"  Local REST API (Browser)  : Port {PORT_LOCAL_API}")
     print("=" * 70)
 
-    # Jalankan listener Mindray
-    t_mindray = threading.Thread(target=mindray_worker, daemon=True, name="MindrayListener")
-    t_mindray.start()
-
-    # Jalankan listener Sysmex
-    t_sysmex = threading.Thread(target=sysmex_worker, daemon=True, name="SysmexListener")
-    t_sysmex.start()
-
-    # Jalankan local API
-    t_api = threading.Thread(target=api_worker, daemon=True, name="LocalApiServer")
-    t_api.start()
+    start_bridge_threads()
 
     try:
         while True:

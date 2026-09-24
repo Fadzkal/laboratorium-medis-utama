@@ -3237,10 +3237,18 @@ const DB = (() => {
 
   async function absensiHariIni(shift = null) {
     const hari = UI.hariIni();
-    if (shift) {
+    let shiftCari = shift;
+    if (!shiftCari && _saya?.id) {
+      try {
+        const stored = localStorage.getItem(`jadwal_shift_${hari}_${_saya.id}`);
+        if (stored) shiftCari = parseInt(stored, 10);
+      } catch (e) {}
+    }
+
+    if (shiftCari) {
       try {
         const { data, error } = await sb.from('pegawai_absensi').select('*')
-          .eq('pegawai_id', _saya?.id).eq('tanggal', hari).eq('shift', parseInt(shift, 10))
+          .eq('pegawai_id', _saya?.id).eq('tanggal', hari).eq('shift', parseInt(shiftCari, 10))
           .order('created_at', { ascending: false }).limit(1).maybeSingle();
         if (!error && data) return data;
       } catch (e) {}
@@ -3266,6 +3274,22 @@ const DB = (() => {
       lat_masuk: meta.lat || null,
       lng_masuk: meta.lng || null
     };
+
+    // 0. Cek apakah ada jadwal shift awal dari Master (belum ada waktu_masuk)
+    try {
+      const { data: recJadwal } = await sb.from('pegawai_absensi')
+        .select('id, shift, waktu_masuk')
+        .eq('pegawai_id', _saya?.id)
+        .eq('tanggal', hari)
+        .is('waktu_masuk', null)
+        .maybeSingle();
+
+      if (recJadwal) {
+        const { data, error } = await sb.from('pegawai_absensi').update(payloadLengkap)
+          .eq('id', recJadwal.id).select().single();
+        if (!error && data) return data;
+      }
+    } catch (e) {}
 
     try {
       const { data, error } = await sb.from('pegawai_absensi').insert(payloadLengkap).select().single();
@@ -3350,15 +3374,20 @@ const DB = (() => {
     });
 
     // Master bebas absensi (pemilik lab/pimpinan faskes).
-    // Peran 'dokter' adalah data master dokter rujukan/pengirim lab (bukan staf harian).
-    // Yang wajib absensi adalah staf operasional lab (karyawan, analis, perawat, kasir, admin).
+    // Sesuai SOP sistem: HANYA staf dengan peran 'karyawan' yang masuk dalam daftar & pemantauan absensi.
+    // Peran lain (admin loket, kasir, apoteker, perawat, dokter rujukan) tidak dimasukkan dalam absensi harian.
     const hasil = [];
     (semuaPegawai || []).forEach(p => {
       if (!p.aktif) return;
-      if (p.peran === 'master') return;
-      if (p.peran === 'dokter') return;
+      if (p.peran !== 'karyawan') return;
 
       const listAbsen = absensiPerPegawai.get(p.id);
+      let shiftFallback = 1;
+      try {
+        const stored = localStorage.getItem(`jadwal_shift_${tgl}_${p.id}`);
+        if (stored) shiftFallback = parseInt(stored, 10);
+      } catch (e) {}
+
       if (listAbsen && listAbsen.length > 0) {
         listAbsen.forEach(a => {
           hasil.push({
@@ -3366,7 +3395,7 @@ const DB = (() => {
             nama: p.nama,
             peran: p.peran,
             tanggal: tgl,
-            shift: a.shift || 1,
+            shift: a.shift || shiftFallback,
             absensi_id: a.id || null,
             waktu_masuk: a.waktu_masuk || null,
             waktu_keluar: a.waktu_keluar || null,
@@ -3386,7 +3415,7 @@ const DB = (() => {
           nama: p.nama,
           peran: p.peran,
           tanggal: tgl,
-          shift: 1,
+          shift: shiftFallback,
           absensi_id: null,
           waktu_masuk: null,
           waktu_keluar: null,
@@ -3403,6 +3432,59 @@ const DB = (() => {
     });
 
     return hasil;
+  }
+
+  /* --- Penetapan Shift Karyawan oleh Master --- */
+  async function tetapkanShiftKaryawan(pegawaiId, tanggal, shiftNomor) {
+    const tgl = tanggal || UI.hariIni();
+    const shiftVal = parseInt(shiftNomor, 10) || 1;
+
+    // Simpan selalu ke localStorage sebagai cache sinkron instan
+    try {
+      localStorage.setItem(`jadwal_shift_${tgl}_${pegawaiId}`, String(shiftVal));
+    } catch (e) {}
+
+    // Coba simpan ke database via RPC tetapkan_shift_karyawan jika ada
+    try {
+      const { data, error } = await sb.rpc('tetapkan_shift_karyawan', {
+        p_pegawai_id: pegawaiId,
+        p_tanggal: tgl,
+        p_shift: shiftVal
+      });
+      if (!error && data?.ok) return data;
+    } catch (e) {}
+
+    // Coba simpan langsung ke tabel pegawai_absensi jika RPC belum aktif
+    try {
+      const { data: recAda } = await sb.from('pegawai_absensi')
+        .select('id, status, waktu_masuk')
+        .eq('pegawai_id', pegawaiId)
+        .eq('tanggal', tgl)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recAda) {
+        const { data, error } = await sb.from('pegawai_absensi').update({
+          shift: shiftVal,
+          keterangan: 'Shift dijadwalkan oleh Pimpinan'
+        }).eq('id', recAda.id).select().single();
+        if (!error && data) return data;
+      } else {
+        const { data, error } = await sb.from('pegawai_absensi').insert({
+          pegawai_id: pegawaiId,
+          tanggal: tgl,
+          shift: shiftVal,
+          status: 'BELUM',
+          keterangan: 'Shift dijadwalkan oleh Pimpinan'
+        }).select().single();
+        if (!error && data) return data;
+      }
+    } catch (e) {
+      console.warn('tetapkanShiftKaryawan direct error:', e);
+    }
+
+    return { ok: true, shift: shiftVal };
   }
 
   /* --- Pengajuan Cuti / Izin / Sakit (Tanpa Foto) --- */
@@ -3758,7 +3840,7 @@ const DB = (() => {
     laporanKaryawanAktivitas,
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
-    daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni,
+    daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni, tetapkanShiftKaryawan,
     pengaturanJamKerja, simpanPengaturanJamKerja,
     pengaturanInsentifAktivitas, simpanPengaturanInsentifAktivitas,
     daftarIzinSaya, ajukanIzin, batalkanIzin, daftarSemuaIzin, setujuiIzin, tolakIzin,
