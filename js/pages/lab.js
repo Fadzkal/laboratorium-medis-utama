@@ -1085,15 +1085,21 @@ const Lab = (() => {
       `;
     }
     return `
-      <div class="kop-wrapper">
-        <div style="display:flex; align-items:center; gap:12px; flex:1;">
-          <img src="${logoUrl}" style="height:50px; width:auto; object-fit:contain;" onerror="this.style.display='none'">
+      <div class="kop-wrapper" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #000;">
+        <!-- Kolom 1: Penyeimbang kiri kosong -->
+        <div></div>
+
+        <!-- Kolom 2: Logo Utama persis di tengah -->
+        <div style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
+          <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" alt="Logo Utama" onerror="this.style.display='none'">
         </div>
-        <div class="kop-right">
-          <b>Laboratorium Medis UTAMA</b><br>
-          Jl. DI Panjaitan No. 94, Purbalingga<br>
-          Telp. 0281-6580099 / 08121482308<br>
-          Email : laboratoriumutama@yahoo.com
+
+        <!-- Kolom 3: Alamat di pojok kanan -->
+        <div class="kop-right" style="text-align: right; line-height: 1.35; font-size: 8.5pt;">
+          <div style="font-weight: 700; font-size: 9.5pt; color: #000;">Laboratorium Medis UTAMA</div>
+          <div style="color: #333;">Jl. DI Panjaitan No. 94, Purbalingga</div>
+          <div style="color: #333;">Telp. 0281-6580099 / 08121482308</div>
+          <div style="color: #333;">Email : laboratoriumutama@yahoo.com</div>
         </div>
       </div>
     `;
@@ -1404,15 +1410,21 @@ const Lab = (() => {
     } else {
       // Default & Standard: Format 3(M3), Format 5(F4), Format 4(M4), Format 2(M2)
       tulis(`
-        <div class="kop-wrapper">
-          <div style="display:flex; align-items:center; gap:12px; flex:1;">
-            <img src="${logoUrl}" style="height:50px; width:auto; object-fit:contain;" onerror="this.style.display='none'">
+        <div class="kop-wrapper" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #000;">
+          <!-- Kolom 1: Penyeimbang kiri kosong -->
+          <div></div>
+
+          <!-- Kolom 2: Logo Utama persis di tengah -->
+          <div style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
+            <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" alt="Logo Utama" onerror="this.style.display='none'">
           </div>
-          <div class="kop-right">
-            <b>Laboratorium Medis UTAMA</b><br>
-            Jl. DI Panjaitan No. 94, Purbalingga<br>
-            Telp. 0281-6580099 / 08121482308<br>
-            Email : laboratoriumutama@yahoo.com
+
+          <!-- Kolom 3: Alamat di pojok kanan -->
+          <div class="kop-right" style="text-align: right; line-height: 1.35; font-size: 8.5pt;">
+            <div style="font-weight: 700; font-size: 9.5pt; color: #000;">Laboratorium Medis UTAMA</div>
+            <div style="color: #333;">Jl. DI Panjaitan No. 94, Purbalingga</div>
+            <div style="color: #333;">Telp. 0281-6580099 / 08121482308</div>
+            <div style="color: #333;">Email : laboratoriumutama@yahoo.com</div>
           </div>
         </div>
       `);
