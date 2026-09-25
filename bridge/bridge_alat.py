@@ -20,7 +20,7 @@ import csv
 import json
 import logging
 from datetime import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 # Pastikan folder bridge ada di path
@@ -93,7 +93,7 @@ def catat_ke_csv(sample_id: str, nama_pasien: str, alat: str, hasil_list: list):
         logger.error(f"Gagal mencatat ke CSV log: {e}")
 
 
-def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: list):
+def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: list, raw_msg: str = "", metadata: dict = None):
     """Menyimpan ke buffer memori dan file JSON untuk respon instan browser"""
     waktu_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     entry = {
@@ -101,7 +101,9 @@ def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: lis
         "nama_pasien": nama_pasien,
         "alat": alat,
         "waktu": waktu_str,
-        "hasil": hasil_list
+        "hasil": hasil_list,
+        "raw_hl7": raw_msg or "",
+        "metadata": metadata or {}
     }
     # Simpan di memori
     BUFFER_HASIL[str(sample_id)] = entry
@@ -115,7 +117,7 @@ def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: lis
 
     try:
         with open(JSON_BUFFER_FILE, "w", encoding="utf-8") as f:
-            json.dump(BUFFER_RIWAYAT[:20], f, indent=2)
+            json.dump(BUFFER_RIWAYAT[:30], f, indent=2)
     except Exception as e:
         logger.error(f"Gagal memperbarui file buffer JSON: {e}")
 
@@ -148,6 +150,10 @@ def parse_hl7_message(raw_text: str):
     results = []
     sample_id = ""
     patient_name = ""
+    patient_id = ""
+    gender = ""
+    age = ""
+    order_date = ""
     msh_raw = ""
 
     for segment in raw_text.strip().split("\r"):
@@ -158,40 +164,99 @@ def parse_hl7_message(raw_text: str):
 
         if seg_type == "MSH":
             msh_raw = segment
+            if len(fields) > 7 and fields[7]:
+                order_date = fields[7]
 
-        elif seg_type == "PID" and len(fields) > 2:
-            # PID-2 atau PID-3 biasanya berisi nomor barcode tabung / sample ID
-            sample_id = fields[2] if fields[2] else (fields[3] if len(fields) > 3 else "")
-            if len(fields) > 5:
+        elif seg_type == "PID":
+            # PID-2 atau PID-3: sample ID / patient ID (No RM)
+            if len(fields) > 3 and fields[3]:
+                patient_id = fields[3].strip()
+            if len(fields) > 2 and fields[2] and not sample_id:
+                sample_id = fields[2].strip()
+            if len(fields) > 5 and fields[5]:
                 patient_name = fields[5].replace("^", " ").strip()
+            if len(fields) > 7 and fields[7]:
+                age = fields[7].strip()
+            if len(fields) > 8 and fields[8]:
+                gender = fields[8].strip()
 
-        elif seg_type == "OBR" and len(fields) > 3:
+        elif seg_type == "OBR":
             # Jika PID tidak berisi sample ID, cek OBR-2 atau OBR-3 (Placer/Filler Order Number)
-            if not sample_id or sample_id == "":
-                sample_id = fields[2] if fields[2] else (fields[3] if len(fields) > 3 else "")
+            obr_sid = fields[3] if len(fields) > 3 and fields[3] else (fields[2] if len(fields) > 2 else "")
+            if obr_sid:
+                sample_id = obr_sid.strip()
+            if len(fields) > 7 and fields[7]:
+                order_date = fields[7].strip()
 
         elif seg_type == "OBX" and len(fields) > 5:
-            # OBX-4: Kode tes (misal: "GLU-S" atau "Glucose (GOD-POD Method)")
-            # OBX-5: Nilai hasil
-            # OBX-6: Satuan
-            # OBX-8: Flag (N = normal, H/L = abnormal)
-            test_info = fields[3] if len(fields) > 3 else (fields[4] if len(fields) > 4 else "")
-            # Ambil nama kode dari komponen pertama jika formatnya kode^nama
-            test_name = test_info.split("^")[0] if "^" in test_info else test_info
-            
+            # Pada Mindray BS-240, nama tes bisa berada di fields[4] jika fields[3] kosong,
+            # atau berbentuk kode^nama di fields[3]
+            f3 = fields[3].strip() if len(fields) > 3 else ""
+            f4 = fields[4].strip() if len(fields) > 4 else ""
+            test_info = f3 if f3 else f4
+
+            test_code = test_info.split("^")[0].strip() if "^" in test_info else test_info.strip()
+            test_desc = test_info.split("^")[1].strip() if ("^" in test_info and len(test_info.split("^")) > 1) else test_info.strip()
+
+            # Normalisasi nama tes panjang ke kode standar jika test_code adalah deskripsi
+            test_code_upper = test_code.upper()
+            if "GLUCOSE" in test_code_upper or "GLUKOSA" in test_code_upper:
+                derived_code = "GLU"
+            elif "TRIGLYCERIDE" in test_code_upper or "TRIGLISERIDA" in test_code_upper:
+                derived_code = "TG"
+            elif "HDL" in test_code_upper:
+                derived_code = "HDL-C"
+            elif "LDL" in test_code_upper:
+                derived_code = "LDL-C"
+            elif "TOTAL CHOLESTEROL" in test_code_upper or "CHOLESTEROL" in test_code_upper or "KOLESTEROL" in test_code_upper:
+                derived_code = "TC"
+            elif "CREATININE" in test_code_upper or "KREATININ" in test_code_upper:
+                derived_code = "CREA-S"
+            elif "UREA" in test_code_upper or "UREUM" in test_code_upper:
+                derived_code = "UREA"
+            elif "URIC ACID" in test_code_upper or "ASAM URAT" in test_code_upper:
+                derived_code = "UA"
+            elif "ALANINE" in test_code_upper or "SGPT" in test_code_upper or "ALT" in test_code_upper:
+                derived_code = "ALT"
+            elif "ASPARTATE" in test_code_upper or "SGOT" in test_code_upper or "AST" in test_code_upper:
+                derived_code = "AST"
+            elif "ALBUMIN" in test_code_upper:
+                derived_code = "ALB"
+            elif "TOTAL PROTEIN" in test_code_upper:
+                derived_code = "TP"
+            elif "BILIRUBIN" in test_code_upper:
+                derived_code = "TBIL"
+            elif "ALKALINE PHOSPHATASE" in test_code_upper or "ALP" in test_code_upper:
+                derived_code = "ALP"
+            elif "GAMMA" in test_code_upper or "GGT" in test_code_upper:
+                derived_code = "GGT"
+            else:
+                derived_code = test_code
+
             value = fields[5] if len(fields) > 5 else ""
             unit = fields[6] if len(fields) > 6 else ""
+            ref_range = fields[7] if len(fields) > 7 else ""
             flag = fields[8] if len(fields) > 8 else ""
+            if not flag or flag in ("", "-"):
+                flag = "N"
 
-            if test_name and value:
+            if (derived_code or test_info) and value:
                 results.append({
-                    "test_name": test_name.strip(),
+                    "test_name": derived_code or test_code,
+                    "test_desc": test_desc or test_info,
                     "value": value.strip(),
                     "unit": unit.strip(),
+                    "ref_range": ref_range.strip(),
                     "flag": flag.strip()
                 })
 
-    return sample_id, patient_name, results, msh_raw
+    meta = {
+        "patient_id": patient_id,
+        "gender": gender,
+        "age": age,
+        "order_date": order_date
+    }
+    return sample_id, patient_name, results, msh_raw, meta
 
 
 def mindray_worker():
@@ -229,7 +294,7 @@ def mindray_worker():
                     buffer = buffer[end_idx + len(END_BLOCK):]
 
                     logger.info("Menerima paket HL7 dari Mindray BS-240.")
-                    sample_id, patient_name, results, msh_raw = parse_hl7_message(raw_msg)
+                    sample_id, patient_name, results, msh_raw, meta = parse_hl7_message(raw_msg)
                     logger.info(f"Sample ID: {sample_id}, Pasien: {patient_name}, Parameter: {len(results)}")
 
                     # Kirim respon ACK ke Mindray
@@ -240,7 +305,7 @@ def mindray_worker():
                     if sample_id and results:
                         # 1. Catat ke log lokal
                         catat_ke_csv(sample_id, patient_name, "Mindray BS-240", results)
-                        perbarui_buffer(sample_id, patient_name, "Mindray BS-240", results)
+                        perbarui_buffer(sample_id, patient_name, "Mindray BS-240", results, raw_msg=raw_msg, metadata=meta)
                         STATUS_LISTENER["mindray"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
                         # 2. Kirim ke Database (Supabase / MySQL)
@@ -392,14 +457,21 @@ def sysmex_worker():
 # ===========================================================================
 class LocalApiHandler(BaseHTTPRequestHandler):
     def _send_json(self, data: dict, status_code: int = 200):
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        # CORS penuh agar halaman web klinik bisa mengakses API lokal
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        try:
+            payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            # CORS penuh agar halaman web klinik bisa mengakses API lokal
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
+        except Exception as eSend:
+            logger.error(f"Error kirim JSON response: {eSend}")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -415,11 +487,16 @@ class LocalApiHandler(BaseHTTPRequestHandler):
 
         # 1. Health check status
         if path == "/api/status" or path == "/":
+            total_tests = sum(len(x.get("hasil", [])) for x in BUFFER_RIWAYAT)
+            last_time = BUFFER_RIWAYAT[0].get("waktu", "-") if BUFFER_RIWAYAT else "-"
             self._send_json({
                 "status": "ONLINE",
                 "waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "listener": STATUS_LISTENER,
-                "total_buffer": len(BUFFER_HASIL)
+                "total_buffer": len(BUFFER_RIWAYAT),
+                "total_samples": len(BUFFER_RIWAYAT),
+                "total_tests": total_tests,
+                "last_sample_time": last_time
             })
             return
 
@@ -474,7 +551,7 @@ class LocalApiHandler(BaseHTTPRequestHandler):
         if path == "/api/terakhir":
             self._send_json({
                 "sukses": True,
-                "data": BUFFER_RIWAYAT[:20]
+                "data": BUFFER_RIWAYAT[:30]
             })
             return
 
@@ -483,6 +560,19 @@ class LocalApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # Endpoint bersihkan riwayat buffer
+        if path == "/api/clear" or path == "/api/reset":
+            BUFFER_HASIL.clear()
+            BUFFER_RIWAYAT.clear()
+            try:
+                if os.path.exists(JSON_BUFFER_FILE):
+                    with open(JSON_BUFFER_FILE, "w", encoding="utf-8") as f:
+                        f.write("[]")
+            except Exception:
+                pass
+            self._send_json({"sukses": True, "pesan": "Buffer riwayat berhasil dibersihkan"})
+            return
 
         # Endpoint simulasi untuk pengujian tanpa mesin fisik
         if path == "/api/simulasi":
@@ -495,13 +585,38 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 nama_pasien = payload.get("nama_pasien", "Pasien Uji Coba")
                 alat = payload.get("alat", "Mindray BS-240")
                 hasil = payload.get("hasil", [])
+                metadata = payload.get("metadata", {})
+                raw_hl7 = payload.get("raw_hl7", "")
 
                 if not hasil:
                     self._send_json({"sukses": False, "pesan": "Daftar hasil tidak boleh kosong"}, 400)
                     return
 
+                if not raw_hl7:
+                    now_hl7 = datetime.now().strftime("%Y%m%d%H%M%S")
+                    if alat == "Sysmex XP-100":
+                        lines = [
+                            f"H|\\^&|||Sysmex XP-100|||||||P|1394-97|{now_hl7}",
+                            f"P|1||{sample_id}||{nama_pasien.replace(' ', '^')}|||U",
+                            f"O|1|{sample_id}||^^^||||||||||||||||||||F"
+                        ]
+                        for idx_h, h in enumerate(hasil, start=1):
+                            lines.append(f"R|{idx_h}|^^^{h.get('test_name','')}|{h.get('value','')}|{h.get('unit','')}|{h.get('ref_range','')}|{h.get('flag','')}")
+                        lines.append("L|1|N")
+                        raw_hl7 = "\r\n".join(lines)
+                    else:
+                        lines = [
+                            f"MSH|^~\\&|BS-240|MINDRAY|||{now_hl7}||ORU^R01|{int(time.time())}|P|2.3.1",
+                            f"PID|1||{metadata.get('patient_id', sample_id)}||{nama_pasien.replace(' ', '^')}||{metadata.get('age', '19850101')}|{metadata.get('gender', 'M')}",
+                            f"OBR|1||{sample_id}|CHEMISTRY||{now_hl7}"
+                        ]
+                        for idx_h, h in enumerate(hasil, start=1):
+                            t_desc = h.get('test_desc', h.get('test_name', ''))
+                            lines.append(f"OBX|{idx_h}|NM|{h.get('test_name','')}^{t_desc}^LN||{h.get('value','')}|{h.get('unit','')}|{h.get('ref_range','')}|{h.get('flag','N')}|||F")
+                        raw_hl7 = "\r\n".join(lines)
+
                 catat_ke_csv(sample_id, nama_pasien, alat, hasil)
-                perbarui_buffer(sample_id, nama_pasien, alat, hasil)
+                perbarui_buffer(sample_id, nama_pasien, alat, hasil, raw_msg=raw_hl7, metadata=metadata)
 
                 # Sync ke database
                 adapter = get_adapter()
@@ -527,7 +642,7 @@ class LocalApiHandler(BaseHTTPRequestHandler):
 def api_worker():
     """Thread server HTTP API lokal"""
     try:
-        httpd = HTTPServer((HOST_LOCAL_API, PORT_LOCAL_API), LocalApiHandler)
+        httpd = ThreadingHTTPServer((HOST_LOCAL_API, PORT_LOCAL_API), LocalApiHandler)
         STATUS_LISTENER["api"]["status"] = "AKTIF"
         logger.info(f"Local REST API AKTIF mendengarkan pada http://{HOST_LOCAL_API}:{PORT_LOCAL_API}")
         httpd.serve_forever()

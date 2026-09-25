@@ -268,7 +268,7 @@ const App = (() => {
       sedangCek = true;
       try {
         const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 1500);
+        const tid = setTimeout(() => ctrl.abort(), 3500);
         const res = await fetch('http://127.0.0.1:7119/api/status', {
           method: 'GET',
           signal: ctrl.signal
@@ -282,11 +282,12 @@ const App = (() => {
                 ${UI.ikon('centang', 12)} LIS Bridge: Standby (Siaga Terima Data)
               </div>
             `;
-            sedangCek = false;
             return;
           }
         }
-      } catch (_) {}
+      } catch (_) {} finally {
+        sedangCek = false;
+      }
 
       // Tampilkan tombol Hubungkan / Nyalakan LIS Bridge jika server lokal belum aktif
       box.innerHTML = `

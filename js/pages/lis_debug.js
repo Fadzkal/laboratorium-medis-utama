@@ -1,5 +1,5 @@
 /* =====================================================================
-   LIS & INTEGRASI ALAT — Modul Diagnostik, Troubleshooting, & Monitoring
+   LIS & INTEGRASI ALAT — Modul Diagnostik, Troubleshooting, & Live Monitoring
    Alat Laboratorium Medis (Mindray BS-240 & Sysmex XP-100)
    Khusus Role Master
    ===================================================================== */
@@ -9,10 +9,11 @@ const LisDebug = (() => {
   // Endpoint REST API LIS Bridge lokal di komputer laboratorium
   const BRIDGE_HOST = 'http://127.0.0.1:7119';
 
-  // Kamus alias kode alat (sebagai fallback bila Lab.MAP_KODE_ALAT belum dimuat)
+  // Kamus alias kode alat untuk pemetaan otomatis ke master data klinik (ref_lab)
   const FALLBACK_MAP_KODE_ALAT = {
     'GLU-S': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa', 'GDS', 'GDP'],
     'GLU': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa'],
+    'GLU-G': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa'],
     'GLUCOSE': ['Glukosa Darah Sewaktu', 'Glukosa Darah Puasa', 'Glukosa Darah 2 Jam PP', 'Glukosa'],
     'TC': ['Cholesterol Total', 'Kolesterol Total'],
     'CHOL': ['Cholesterol Total', 'Kolesterol Total'],
@@ -32,6 +33,7 @@ const LisDebug = (() => {
     'ALT': ['SGPT', 'SGPT (ALT)'],
     'SGPT': ['SGPT', 'SGPT (ALT)'],
     'ALB': ['Albumin'],
+    'ALB II': ['Albumin'],
     'ALBUMIN': ['Albumin'],
     'TP': ['Total Protein', 'Protein Total'],
     'TBIL': ['Bilirubin Total', 'Total Bilirubin'],
@@ -40,6 +42,7 @@ const LisDebug = (() => {
     'D-BIL': ['Bilirubin Direk', 'Direct Bilirubin'],
     'ALP': ['Alkali Fosfatase', 'Alkaline Phosphatase'],
     'GGT': ['Gamma GT', 'GGT'],
+    'I3-GT': ['Gamma GT', 'GGT'],
     'CK': ['Creatine Kinase', 'CK'],
     'CK-MB': ['CK-MB', 'CKMB'],
     'AMY': ['Amilase', 'Amylase'],
@@ -80,11 +83,15 @@ const LisDebug = (() => {
 
   // State internal
   let statusBridge = null;
+  let daftarSampel = [];
+  let sampelTerpilih = null;
+  let filterKata = '';
+  let filterAlat = '';
+  let rawBuka = false;
   let daftarLog = [];
-  let bufferTerakhir = [];
   let refLabMaster = [];
-  let hasilInspeksiAktif = null;
   let timerPolling = null;
+  let autoRefreshAktif = true;
 
   // Mendapatkan peta kamus kode alat
   function ambilMapKode() {
@@ -98,13 +105,13 @@ const LisDebug = (() => {
     const d = new Date();
     const waktu = d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0');
     daftarLog.unshift({ waktu, tipe, pesan, payload });
-    if (daftarLog.length > 100) daftarLog.pop();
+    if (daftarLog.length > 120) daftarLog.pop();
 
     const wadahConsole = document.getElementById('wadahLogConsole');
     if (wadahConsole) renderLogConsole(wadahConsole);
   }
 
-  // Membersihkan log
+  // Membersihkan log aktivitas
   function bersihkanLog() {
     daftarLog = [];
     const wadahConsole = document.getElementById('wadahLogConsole');
@@ -112,19 +119,35 @@ const LisDebug = (() => {
     UI.toast('Riwayat log berhasil dibersihkan.', 'ok');
   }
 
-  // Memeriksa status listener bridge lokal
-  async function periksaStatusListener() {
+  // Salin log ke clipboard
+  function salinLog() {
+    if (!daftarLog.length) {
+      UI.toast('Tidak ada log untuk disalin.', 'info');
+      return;
+    }
+    const teks = daftarLog.map(x => `[${x.waktu}] [${x.tipe}] ${x.pesan}${x.payload ? ' ' + JSON.stringify(x.payload) : ''}`).join('\n');
+    navigator.clipboard.writeText(teks).then(() => {
+      UI.toast('Log berhasil disalin ke clipboard.', 'ok');
+    }).catch(() => {
+      UI.toast('Gagal menyalin log ke clipboard.', 'err');
+    });
+  }
+
+  // Memeriksa status listener bridge lokal dan mengambil sampel buffer
+  async function periksaStatusListener(senyap = false) {
     const btnCek = document.getElementById('btnCekListener');
-    if (btnCek) {
+    if (btnCek && !senyap) {
       btnCek.disabled = true;
-      btnCek.innerHTML = `${UI.ikon('ulang', 15)} Memeriksa...`;
+      btnCek.innerHTML = `${UI.ikon('ulang', 14)} Memeriksa...`;
     }
 
-    tambahLog('INFO', 'Melakukan ping ke LIS Bridge Service (http://127.0.0.1:7119/api/status)...');
+    if (!senyap) {
+      tambahLog('INFO', `Melakukan ping ke LIS Bridge (${BRIDGE_HOST}/api/status)...`);
+    }
 
     try {
       const c = new AbortController();
-      const tid = setTimeout(() => c.abort(), 2500);
+      const tid = setTimeout(() => c.abort(), 6000);
       const res = await fetch(`${BRIDGE_HOST}/api/status`, {
         method: 'GET',
         signal: c.signal
@@ -134,336 +157,228 @@ const LisDebug = (() => {
       if (res.ok) {
         const j = await res.json();
         statusBridge = j;
-        tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port 7118, Sysmex: Port 8000, Total Buffer: ${j.total_buffer || 0}`, j);
-        UI.toast('LIS Bridge terhubung dan aktif.', 'ok');
+        if (!senyap) {
+          tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port 7118, Sysmex: Port 8000, Total Buffer: ${j.total_buffer || 0}`, j);
+          UI.toast('LIS Bridge terhubung dan aktif.', 'ok');
+        }
       } else {
         statusBridge = { status: 'OFFLINE', error: `HTTP ${res.status}: ${res.statusText}` };
-        tambahLog('WARN', `LIS Bridge merespons kode HTTP ${res.status}`);
-        UI.toast(`LIS Bridge merespons error ${res.status}`, 'warn');
+        if (!senyap) {
+          tambahLog('WARN', `LIS Bridge merespons kode HTTP ${res.status}`);
+          UI.toast(`LIS Bridge merespons error ${res.status}`, 'warn');
+        }
       }
     } catch (err) {
       statusBridge = { status: 'OFFLINE', error: err.message || 'Koneksi ditolak / Service belum aktif' };
-      tambahLog('ERROR', `Gagal terhubung ke LIS Bridge pada 127.0.0.1:7119: ${err.message || 'Connection refused'}. Pastikan jalankan_bridge.bat aktif.`);
-      UI.toast('LIS Bridge lokal offline / tidak terjangkau.', 'err');
+      if (!senyap) {
+        tambahLog('ERROR', `Gagal terhubung ke LIS Bridge pada 127.0.0.1:7119: ${err.message || 'Connection refused'}. Pastikan jalankan_bridge.bat aktif.`);
+        UI.toast('LIS Bridge lokal offline / tidak terjangkau.', 'err');
+      }
     }
 
-    // Ambil juga 20 buffer terakhir jika bridge online
+    // Ambil daftar sampel terakhir jika bridge online
     if (statusBridge && statusBridge.status === 'ONLINE') {
       try {
         const resBuf = await fetch(`${BRIDGE_HOST}/api/terakhir`);
         if (resBuf.ok) {
           const jBuf = await resBuf.json();
-          bufferTerakhir = (jBuf && jBuf.data) ? jBuf.data : [];
-          tambahLog('INFO', `Berhasil memuat ${bufferTerakhir.length} rekaman riwayat buffer sampel dari bridge.`);
+          const daftarBaru = (jBuf && jBuf.data) ? jBuf.data : [];
+
+          // Deteksi sampel baru untuk auto-notifikasi
+          if (daftarSampel.length > 0 && daftarBaru.length > daftarSampel.length) {
+            const sidBaru = daftarBaru[0]?.sample_id;
+            tambahLog('SUCCESS', `Sampel baru diterima dari alat: #${sidBaru} (${daftarBaru[0]?.alat || 'Alat'})`);
+            UI.toast(`Data baru masuk dari alat: Sampel #${sidBaru}`, 'ok');
+          }
+
+          daftarSampel = daftarBaru;
+
+          // Jika belum ada sampel terpilih, pilih sampel pertama
+          if (!sampelTerpilih && daftarSampel.length > 0) {
+            sampelTerpilih = daftarSampel[0];
+          } else if (sampelTerpilih) {
+            // Update data sampel aktif jika ada data terbaru
+            const cocokan = daftarSampel.find(s => String(s.sample_id) === String(sampelTerpilih.sample_id));
+            if (cocokan) sampelTerpilih = cocokan;
+          }
         }
       } catch (_) {}
     }
 
     perbaruiUIStatus();
+    renderDaftarSampel();
+    renderDetailSampel();
 
     if (btnCek) {
       btnCek.disabled = false;
-      btnCek.innerHTML = `${UI.ikon('ulang', 15)} Cek Koneksi Listener`;
+      btnCek.innerHTML = `${UI.ikon('ulang', 14)} Cek Koneksi`;
     }
   }
 
-  // Memperbarui UI kartu status listener
+  // Memperbarui UI metrik & status kartu listener
   function perbaruiUIStatus() {
-    const boxMindray = document.getElementById('statusMindrayCard');
-    const boxSysmex = document.getElementById('statusSysmexCard');
-    const boxBridge = document.getElementById('statusBridgeCard');
-    const boxRiwayat = document.getElementById('wadahTabelBuffer');
-
     const isOnline = statusBridge && statusBridge.status === 'ONLINE';
     const listener = statusBridge?.listener || {};
     const mindrayInfo = listener.mindray || {};
     const sysmexInfo = listener.sysmex || {};
 
-    if (boxMindray) {
-      const isAktif = isOnline && mindrayInfo.status === 'AKTIF';
-      const badgeWarna = isAktif ? '#ecfdf5' : '#fef2f2';
-      const teksWarna = isAktif ? '#065f46' : '#991b1b';
-      const borderWarna = isAktif ? '#a7f3d0' : '#fecaca';
-      const statusTeks = isAktif ? 'ONLINE (Port 7118)' : (isOnline ? (mindrayInfo.status || 'OFFLINE') : 'OFFLINE');
-      const pesan = mindrayInfo.pesan_terakhir || (isOnline ? 'Standby menunggu transmisi MLLP' : 'Service bridge belum aktif');
+    const totalSampel = statusBridge?.total_samples || daftarSampel.length || 0;
+    const totalParameter = statusBridge?.total_tests || daftarSampel.reduce((acc, s) => acc + (Array.isArray(s.hasil) ? s.hasil.length : 0), 0);
+    const terakhirWaktu = statusBridge?.last_sample_time || (daftarSampel[0]?.waktu) || '-';
 
-      boxMindray.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div>
-            <div style="font-weight:700; font-size:14px; color:#0f172a;">Mindray BS-240</div>
-            <div style="font-size:11px; color:#64748b;">Kimia Darah &amp; Serologi</div>
-          </div>
-          <span class="badge" style="background:${badgeWarna}; color:${teksWarna}; border:1px solid ${borderWarna}; font-weight:700; font-size:11px;">
-            ${UI.esc(statusTeks)}
-          </span>
-        </div>
-        <div style="font-size:11px; color:#334155; line-height:1.4;">
-          <div><b>Protokol:</b> HL7 Standard v2.3.1 (MLLP)</div>
-          <div><b>Port TCP:</b> 7118 (Socket Server)</div>
-          <div style="margin-top:4px; font-size:10.5px; color:#64748b; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-            <b>Pesan:</b> ${UI.esc(pesan)}
-          </div>
-        </div>
-      `;
+    // Elemen Metrik
+    const elTotSampel = document.getElementById('statTotalSampel');
+    const elTotParam = document.getElementById('statTotalParameter');
+    const elTerakhir = document.getElementById('statTerakhirTerima');
+    const elAlatStatus = document.getElementById('statAlatTerkoneksi');
+
+    if (elTotSampel) elTotSampel.textContent = totalSampel;
+    if (elTotParam) elTotParam.textContent = totalParameter;
+    if (elTerakhir) elTerakhir.textContent = terakhirWaktu;
+    if (elAlatStatus) {
+      elAlatStatus.textContent = isOnline ? (mindrayInfo.status === 'AKTIF' ? 'Mindray BS-240 Siaga' : 'Bridge Siaga') : 'Bridge Offline';
     }
 
-    if (boxSysmex) {
-      const isAktif = isOnline && sysmexInfo.status === 'AKTIF';
-      const badgeWarna = isAktif ? '#ecfdf5' : '#fef2f2';
-      const teksWarna = isAktif ? '#065f46' : '#991b1b';
-      const borderWarna = isAktif ? '#a7f3d0' : '#fecaca';
-      const statusTeks = isAktif ? 'ONLINE (Port 8000)' : (isOnline ? (sysmexInfo.status || 'OFFLINE') : 'OFFLINE');
-      const pesan = sysmexInfo.pesan_terakhir || (isOnline ? 'Standby menunggu frame ASTM' : 'Service bridge belum aktif');
+    // Badge status di Header
+    const badgeMindray = document.getElementById('badgePortMindray');
+    const badgeSysmex = document.getElementById('badgePortSysmex');
+    const badgeBridge = document.getElementById('badgePortBridge');
 
-      boxSysmex.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div>
-            <div style="font-weight:700; font-size:14px; color:#0f172a;">Sysmex XP-100</div>
-            <div style="font-size:11px; color:#64748b;">Hematologi Lengkap</div>
-          </div>
-          <span class="badge" style="background:${badgeWarna}; color:${teksWarna}; border:1px solid ${borderWarna}; font-weight:700; font-size:11px;">
-            ${UI.esc(statusTeks)}
-          </span>
-        </div>
-        <div style="font-size:11px; color:#334155; line-height:1.4;">
-          <div><b>Protokol:</b> ASTM E1381 / E1394</div>
-          <div><b>Port TCP:</b> 8000 (Serial / LAN Bridge)</div>
-          <div style="margin-top:4px; font-size:10.5px; color:#64748b; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-            <b>Pesan:</b> ${UI.esc(pesan)}
-          </div>
-        </div>
-      `;
+    if (badgeMindray) {
+      const aktif = isOnline && mindrayInfo.status === 'AKTIF';
+      badgeMindray.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
+      badgeMindray.textContent = aktif ? 'Port 7118 (BS-240) Siap' : 'Port 7118 Offline';
     }
 
-    if (boxBridge) {
-      const badgeWarna = isOnline ? '#ecfdf5' : '#fef2f2';
-      const teksWarna = isOnline ? '#065f46' : '#991b1b';
-      const borderWarna = isOnline ? '#a7f3d0' : '#fecaca';
-      const statusTeks = isOnline ? 'ONLINE (Port 7119)' : 'OFFLINE';
-      const totalBuf = statusBridge?.total_buffer || 0;
-
-      boxBridge.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div>
-            <div style="font-weight:700; font-size:14px; color:#0f172a;">LIS Bridge Service</div>
-            <div style="font-size:11px; color:#64748b;">Local REST API Server</div>
-          </div>
-          <span class="badge" style="background:${badgeWarna}; color:${teksWarna}; border:1px solid ${borderWarna}; font-weight:700; font-size:11px;">
-            ${UI.esc(statusTeks)}
-          </span>
-        </div>
-        <div style="font-size:11px; color:#334155; line-height:1.4;">
-          <div><b>Host URL:</b> http://127.0.0.1:7119</div>
-          <div><b>Buffer Memori:</b> ${totalBuf} sampel aktif</div>
-          <div style="margin-top:4px; font-size:10.5px; color:${isOnline ? '#059669' : '#dc2626'}; font-weight:600;">
-            ${isOnline ? 'Siaga menerima tarikan data browser' : 'Jalankan bridge/jalankan_bridge.bat'}
-          </div>
-        </div>
-      `;
+    if (badgeSysmex) {
+      const aktif = isOnline && sysmexInfo.status === 'AKTIF';
+      badgeSysmex.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
+      badgeSysmex.textContent = aktif ? 'Port 8000 (Sysmex) Siap' : 'Port 8000 Offline';
     }
 
-    if (boxRiwayat) {
-      renderTabelBuffer(boxRiwayat);
+    if (badgeBridge) {
+      badgeBridge.className = `lis-badge-pill ${isOnline ? 'online' : 'offline'}`;
+      badgeBridge.textContent = isOnline ? 'REST API 7119 Online' : 'Bridge 7119 Offline';
     }
   }
 
-  // Melakukan penarikan data sampel dari bridge (manual test pull)
-  async function tarikDataSampel(sidKetik, alatPilihan) {
-    const sid = String(sidKetik || '').trim();
-    if (!sid) {
-      UI.toast('Masukkan Nomor Lab atau Barcode Sampel terlebih dahulu.', 'warn');
-      return;
-    }
-
-    const btnTarik = document.getElementById('btnTarikManual');
-    if (btnTarik) {
-      btnTarik.disabled = true;
-      btnTarik.innerHTML = `${UI.ikon('ulang', 15)} Menghubungi Alat...`;
-    }
-
-    tambahLog('INFO', `Memulai penarikan data sampel no_lab='${sid}' (Filter: ${alatPilihan || 'Semua'})...`);
-
-    // Bentuk variasi kunci pencarian yang sama persis dengan yang ada di lab.js
-    const daftarKunci = [sid];
-    if (/^\d{8}$/.test(sid)) {
-      daftarKunci.push(sid);
-    } else {
-      const m = sid.match(/LAB-(\d{2,4})-(\d+)/i);
-      if (m) {
-        const yy = m[1].slice(-2);
-        const mm = String(new Date().getMonth() + 1).padStart(2, '0');
-        const seq = m[2].padStart(4, '0');
-        daftarKunci.push(`${yy}${mm}${seq}`);
-        daftarKunci.push(seq);
-      }
-    }
-
-    let payloadDitemukan = null;
-    let kunciSukses = null;
-
-    for (const k of daftarKunci) {
-      try {
-        const c = new AbortController();
-        const tid = setTimeout(() => c.abort(), 2500);
-        const urlReq = `${BRIDGE_HOST}/api/hasil?no_lab=${encodeURIComponent(k)}`;
-        tambahLog('INFO', `Mencari endpoint: GET ${urlReq}`);
-
-        const r = await fetch(urlReq, { signal: c.signal });
-        clearTimeout(tid);
-
-        if (r.ok) {
-          const j = await r.json();
-          if (j.sukses && j.data) {
-            payloadDitemukan = j.data;
-            kunciSukses = k;
-            break;
-          }
-        }
-      } catch (errReq) {
-        tambahLog('WARN', `Lookup kunci '${k}' gagal: ${errReq.message || errReq}`);
-      }
-    }
-
-    if (payloadDitemukan && Array.isArray(payloadDitemukan.hasil)) {
-      const namaAlat = payloadDitemukan.alat || 'Alat Medis';
-      tambahLog('SUCCESS', `Data sampel '${kunciSukses}' berhasil ditarik dari ${namaAlat}! Total parameter: ${payloadDitemukan.hasil.length}`, payloadDitemukan);
-
-      hasilInspeksiAktif = payloadDitemukan;
-      renderHasilInspeksi();
-      UI.toast(`Berhasil menarik ${payloadDitemukan.hasil.length} parameter dari ${namaAlat}.`, 'ok');
-    } else {
-      tambahLog('WARN', `Data untuk barcode/nomor '${sid}' tidak ditemukan di buffer LIS Bridge.`);
-      UI.toast(`Belum ada data masuk dari alat untuk sampel: ${sid}`, 'warn');
-      hasilInspeksiAktif = null;
-      renderHasilInspeksi();
-    }
-
-    if (btnTarik) {
-      btnTarik.disabled = false;
-      btnTarik.innerHTML = `${UI.ikon('unduh', 15)} Tarik Data Sampel`;
-    }
-  }
-
-  // Mengambil sampel terbaru langsung dari bridge
-  async function ambilSampelTerbaru() {
-    try {
-      tambahLog('INFO', 'Mengambil sampel terbaru dari buffer bridge (GET /api/terbaru)...');
-      const r = await fetch(`${BRIDGE_HOST}/api/terbaru`);
-      if (r.ok) {
-        const j = await r.json();
-        if (j.sukses && j.data && j.data.sample_id) {
-          const inp = document.getElementById('inputNoLabDebug');
-          if (inp) inp.value = j.data.sample_id;
-          tambahLog('SUCCESS', `Sampel terbaru terdeteksi: ${j.data.sample_id} (${j.data.alat || 'Alat'})`);
-          hasilInspeksiAktif = j.data;
-          renderHasilInspeksi();
-          UI.toast(`Sampel terbaru #${j.data.sample_id} dimuat.`, 'ok');
-        } else {
-          tambahLog('WARN', 'Buffer bridge kosong atau belum ada sampel masuk hari ini.');
-          UI.toast('Buffer bridge masih kosong.', 'info');
-        }
-      }
-    } catch (e) {
-      tambahLog('ERROR', `Gagal mengambil sampel terbaru: ${e.message}`);
-      UI.toast('Gagal terhubung ke LIS Bridge.', 'err');
-    }
-  }
-
-  // Mengirim simulasi payload alat ke bridge (membantu pengujian tanpa alat fisik)
-  async function kirimSimulasiPayload(alat) {
-    const inp = document.getElementById('inputNoLabDebug');
-    const sid = (inp && inp.value.trim()) || ('2609' + String(Math.floor(1000 + Math.random() * 9000)));
-    if (inp) inp.value = sid;
-
-    let payload = null;
-    if (alat === 'Sysmex XP-100') {
-      payload = {
-        sample_id: sid,
-        nama_pasien: 'Pasien Uji Sysmex',
-        alat: 'Sysmex XP-100',
-        hasil: [
-          { test_name: 'WBC', value: '7.45', unit: '10^3/uL', flag: 'N' },
-          { test_name: 'RBC', value: '4.82', unit: '10^6/uL', flag: 'N' },
-          { test_name: 'HGB', value: '14.1', unit: 'g/dL', flag: 'N' },
-          { test_name: 'HCT', value: '42.3', unit: '%', flag: 'N' },
-          { test_name: 'PLT', value: '265', unit: '10^3/uL', flag: 'N' },
-          { test_name: 'MCV', value: '87.8', unit: 'fL', flag: 'N' },
-          { test_name: 'MCH', value: '29.3', unit: 'pg', flag: 'N' },
-          { test_name: 'MCHC', value: '33.3', unit: 'g/dL', flag: 'N' },
-          { test_name: 'LYM%', value: '32.1', unit: '%', flag: 'N' },
-          { test_name: 'NEUT%', value: '58.4', unit: '%', flag: 'N' }
-        ]
-      };
-    } else {
-      payload = {
-        sample_id: sid,
-        nama_pasien: 'Pasien Uji Mindray',
-        alat: 'Mindray BS-240',
-        hasil: [
-          { test_name: 'GLU-S', value: '112', unit: 'mg/dL', flag: 'N' },
-          { test_name: 'CHOL', value: '215', unit: 'mg/dL', flag: 'H' },
-          { test_name: 'TG', value: '160', unit: 'mg/dL', flag: 'H' },
-          { test_name: 'UA', value: '6.2', unit: 'mg/dL', flag: 'N' },
-          { test_name: 'CREA-S', value: '0.95', unit: 'mg/dL', flag: 'N' },
-          { test_name: 'SGOT', value: '24', unit: 'U/L', flag: 'N' },
-          { test_name: 'SGPT', value: '28', unit: 'U/L', flag: 'N' }
-        ]
-      };
-    }
-
-    tambahLog('INFO', `Mengirim simulasi paket data ${alat} untuk sample_id='${sid}' ke POST /api/simulasi...`, payload);
-
-    try {
-      const res = await fetch(`${BRIDGE_HOST}/api/simulasi`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        const j = await res.json();
-        tambahLog('SUCCESS', `Simulasi ${alat} sukses diproses oleh bridge. Data kini tersimpan di buffer!`, j);
-        UI.toast(`Simulasi paket ${alat} berhasil dikirim!`, 'ok');
-        // Langsung tampilkan inspeksi
-        hasilInspeksiAktif = payload;
-        renderHasilInspeksi();
-        // Segarkan status bridge
-        setTimeout(periksaStatusListener, 500);
-      } else {
-        tambahLog('WARN', `Simulasi ditolak oleh server bridge (HTTP ${res.status})`);
-        UI.toast(`Simulasi gagal: HTTP ${res.status}`, 'warn');
-      }
-    } catch (e) {
-      tambahLog('ERROR', `Gagal mengirim simulasi ke bridge: ${e.message}. Pastikan bridge berjalan.`);
-      UI.toast('Gagal terhubung ke LIS Bridge.', 'err');
-    }
-  }
-
-  // Merender tabel pemetaan parameter hasil ekstraksi
-  function renderHasilInspeksi() {
-    const wadah = document.getElementById('wadahHasilMapping');
+  // Merender daftar sampel di panel kiri
+  function renderDaftarSampel() {
+    const wadah = document.getElementById('wadahDaftarSampel');
+    const badgeCount = document.getElementById('badgeJumlahSampel');
     if (!wadah) return;
 
-    if (!hasilInspeksiAktif || !Array.isArray(hasilInspeksiAktif.hasil) || !hasilInspeksiAktif.hasil.length) {
+    let filtered = daftarSampel;
+    if (filterKata) {
+      const q = filterKata.toLowerCase();
+      filtered = filtered.filter(s =>
+        String(s.sample_id || '').toLowerCase().includes(q) ||
+        String(s.nama_pasien || '').toLowerCase().includes(q) ||
+        String(s.alat || '').toLowerCase().includes(q)
+      );
+    }
+    if (filterAlat) {
+      filtered = filtered.filter(s => String(s.alat || '').toLowerCase().includes(filterAlat.toLowerCase()));
+    }
+
+    if (badgeCount) badgeCount.textContent = filtered.length;
+
+    if (!filtered.length) {
       wadah.innerHTML = `
-        <div style="padding:28px 16px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px;">
-          <div style="margin-bottom:6px; color:#94a3b8;">${UI.ikon('cari', 32)}</div>
-          <div style="font-weight:600; font-size:13px; color:#475569;">Belum Ada Sampel yang Diinspeksi</div>
-          <div style="font-size:11.5px; margin-top:2px;">Ketik Nomor Lab/Barcode lalu klik "Tarik Data Sampel" atau gunakan tombol "Uji Simulasi".</div>
+        <div class="lis-empty-card">
+          <div style="color:#94a3b8; margin-bottom:8px;">${UI.ikon('cari', 36)}</div>
+          <div style="font-weight:700; color:#334155; font-size:13px;">Belum Ada Sampel Masuk</div>
+          <div style="font-size:11px; color:#64748b; margin-top:4px; max-width:280px; text-align:center;">
+            Pastikan kabel LAN terhubung ke BS-240 dan tekan "Connect" di layar alat, atau klik tombol simulasi di atas.
+          </div>
+          <div style="margin-top:12px; display:flex; gap:6px;">
+            <button class="btn btn-primary btn-sm" id="btnEmptySimBS240">
+              ${UI.ikon('plus', 13)} Simulasi BS-240
+            </button>
+          </div>
+        </div>
+      `;
+      const btnE = wadah.querySelector('#btnEmptySimBS240');
+      if (btnE) btnE.onclick = () => kirimSimulasiBS240();
+      return;
+    }
+
+    const html = filtered.map(s => {
+      const isAktif = sampelTerpilih && String(sampelTerpilih.sample_id) === String(s.sample_id);
+      const isMindray = (s.alat || '').toLowerCase().includes('mindray');
+      const jmlParam = Array.isArray(s.hasil) ? s.hasil.length : 0;
+      const alatClass = isMindray ? 'tag-mindray' : 'tag-sysmex';
+
+      return `
+        <div class="lis-sample-item ${isAktif ? 'aktif' : ''}" data-sid="${UI.esc(s.sample_id)}">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span class="lis-sample-id">${UI.esc(s.sample_id)}</span>
+            <span class="lis-sample-time">${UI.esc(s.waktu ? s.waktu.split(' ')[1] : '-')}</span>
+          </div>
+          <div style="font-weight:700; font-size:13px; color:#0f172a; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            ${UI.esc(s.nama_pasien || 'Pasien Tanpa Nama')}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+            <span class="lis-sample-tag ${alatClass}">${UI.esc(s.alat || 'Alat Medis')}</span>
+            <span style="color:#64748b; font-weight:600;">${jmlParam} Parameter</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    wadah.innerHTML = html;
+
+    wadah.querySelectorAll('.lis-sample-item').forEach(elItem => {
+      elItem.onclick = () => {
+        const sid = elItem.dataset.sid;
+        const target = daftarSampel.find(s => String(s.sample_id) === String(sid));
+        if (target) {
+          sampelTerpilih = target;
+          renderDaftarSampel();
+          renderDetailSampel();
+          tambahLog('INFO', `Inspeksi sampel #${target.sample_id} (${target.alat || 'Alat'}).`);
+        }
+      };
+    });
+  }
+
+  // Merender detail sampel terpilih di panel kanan
+  function renderDetailSampel() {
+    const wadah = document.getElementById('wadahDetailSampel');
+    if (!wadah) return;
+
+    if (!sampelTerpilih) {
+      wadah.innerHTML = `
+        <div class="lis-empty-card" style="height:100%;">
+          <div style="color:#94a3b8; margin-bottom:8px;">${UI.ikon('lab', 40)}</div>
+          <div style="font-weight:700; color:#334155; font-size:14px;">Pilih Sampel dari Panel Kiri</div>
+          <div style="font-size:11.5px; color:#64748b; margin-top:4px;">
+            Klik salah satu kartu sampel di sebelah kiri untuk melihat rincian pengujian dan status pemetaan master ref lab.
+          </div>
         </div>
       `;
       return;
     }
 
-    const d = hasilInspeksiAktif;
+    const s = sampelTerpilih;
+    const items = Array.isArray(s.hasil) ? s.hasil : [];
+    const meta = s.metadata || {};
     const mapKode = ambilMapKode();
-    const items = d.hasil;
 
-    let barisHtml = items.map((item, idx) => {
+    const noRm = meta.patient_id || s.sample_id || '-';
+    const gender = meta.gender === 'M' ? 'Laki-laki' : (meta.gender === 'F' ? 'Perempuan' : (meta.gender || '-'));
+    const age = meta.age ? (meta.age.length === 8 ? `${meta.age.slice(0, 4)}-${meta.age.slice(4, 6)}-${meta.age.slice(6, 8)}` : meta.age) : '-';
+
+    const barisTabel = items.map((item, idx) => {
       const rawCode = (item.test_name || '').toUpperCase().trim();
-      const rawVal = item.value;
-      const aliases = mapKode[rawCode] || [rawCode];
+      const rawDesc = item.test_desc || rawCode;
+      const rawVal = item.value || '';
+      const unit = item.unit || '-';
+      const refRangeAlat = item.ref_range || '-';
+      const flag = (item.flag || 'N').toUpperCase().trim();
 
       // Cari kesesuaian di refLabMaster
+      const aliases = mapKode[rawCode] || [rawCode];
       const matched = refLabMaster.find(r => {
         const rNama = (r.nama || '').trim().toLowerCase();
         const rKode = (r.kode || '').trim().toUpperCase();
@@ -473,80 +388,203 @@ const LisDebug = (() => {
       });
 
       const isMapped = !!matched;
-      const badgeStatus = isMapped
-        ? `<span class="badge" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;font-weight:700;">Terpetakan</span>`
-        : `<span class="badge" style="background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-weight:700;">Belum Terpetakan</span>`;
-
-      const namaRef = isMapped ? matched.nama : '<span style="color:#94a3b8;font-style:italic;">Tidak Ditemukan</span>';
+      const namaRef = isMapped ? matched.nama : '<span style="color:#94a3b8; font-style:italic;">Belum Ada</span>';
       const kelompokRef = isMapped ? (matched.kelompok || 'Umum') : '-';
-      const rujukanTeks = isMapped && Array.isArray(matched.rujukan) && matched.rujukan.length
+      const rujukanDb = isMapped && Array.isArray(matched.rujukan) && matched.rujukan.length
         ? matched.rujukan.map(x => `${x.jenis_kelamin || '*'}: ${x.nilai_min || '0'} - ${x.nilai_max || '0'} ${matched.satuan || ''}`).join('<br>')
-        : '-';
+        : (isMapped && matched.satuan ? matched.satuan : '-');
+
+      // Tentukan badge flag
+      let badgeFlag = `<span class="flag-badge flag-n">NORMAL</span>`;
+      if (flag === 'H' || flag === 'HIGH') badgeFlag = `<span class="flag-badge flag-h">HIGH</span>`;
+      else if (flag === 'L' || flag === 'LOW') badgeFlag = `<span class="flag-badge flag-l">LOW</span>`;
+      else if (flag === 'A' || flag === 'CRITICAL') badgeFlag = `<span class="flag-badge flag-c">CRITICAL</span>`;
 
       return `
         <tr>
-          <td style="text-align:center; font-weight:600;">${idx + 1}</td>
+          <td style="text-align:center; color:#64748b; font-weight:600;">${idx + 1}</td>
           <td>
-            <span class="mono" style="font-weight:700; color:#0f172a; font-size:12px;">${UI.esc(rawCode)}</span>
+            <div style="font-weight:700; color:#0f172a; font-size:12px;">${UI.esc(rawDesc)}</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#0284c7; font-weight:600;">${UI.esc(rawCode)}</div>
           </td>
+          <td style="text-align:right;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:800; color:#0d9488;">${UI.esc(rawVal)}</span>
+          </td>
+          <td><span style="color:#475569; font-size:11px;">${UI.esc(unit)}</span></td>
+          <td style="font-size:11px; color:#475569;">${UI.esc(refRangeAlat)}</td>
+          <td style="text-align:center;">${badgeFlag}</td>
           <td>
-            <span class="mono" style="font-weight:800; font-size:12.5px; color:#0f766e;">${UI.esc(rawVal)}</span>
+            <div style="font-weight:600; color:#0f172a; font-size:11.5px;">${namaRef}</div>
+            <div style="font-size:10.5px; color:#64748b;">${UI.esc(kelompokRef)}</div>
           </td>
-          <td>${UI.esc(item.unit || '-')}</td>
-          <td>
-            <span class="badge" style="background:#f1f5f9; color:#334155; font-size:10px;">${UI.esc(item.flag || 'NORMAL')}</span>
+          <td style="text-align:center;">
+            <span class="lis-map-badge ${isMapped ? 'mapped' : 'unmapped'}">
+              ${isMapped ? 'Terpetakan' : 'Belum'}
+            </span>
           </td>
-          <td>
-            <div style="font-weight:600; color:#0f172a;">${namaRef}</div>
-            <div style="font-size:10.5px; color:#64748b;">Kelompok: ${UI.esc(kelompokRef)}</div>
-          </td>
-          <td style="text-align:center;">${badgeStatus}</td>
-          <td style="font-size:10px; color:#475569;">${rujukanTeks}</td>
+          <td style="font-size:10.5px; color:#475569;">${rujukanDb}</td>
         </tr>
       `;
     }).join('');
 
+    const rawMsg = s.raw_hl7 || '';
+
     wadah.innerHTML = `
-      <div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-        <div>
-          <span style="font-size:13px; font-weight:700; color:#0f172a;">Hasil Sampel:</span>
-          <span class="mono" style="font-size:13px; font-weight:800; color:#0f766e; margin-left:4px;">${UI.esc(d.sample_id)}</span>
-          <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; margin-left:8px; font-weight:700;">
-            ${UI.esc(d.alat || 'Alat Medis')}
-          </span>
-          <span style="font-size:11px; color:#64748b; margin-left:8px;">Waktu: ${UI.esc(d.waktu || '-')}</span>
+      <!-- HEADER DETAIL -->
+      <div class="lis-detail-header">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="lis-badge-sample-lg">${UI.esc(s.sample_id)}</span>
+              <span class="lis-sample-tag ${s.alat?.includes('Sysmex') ? 'tag-sysmex' : 'tag-mindray'}" style="font-size:11px;">
+                ${UI.esc(s.alat || 'Mindray BS-240')}
+              </span>
+              <span style="font-size:11.5px; color:#64748b;">Diterima: ${UI.esc(s.waktu || '-')}</span>
+            </div>
+            <h2 style="margin:6px 0 0 0; font-size:18px; font-weight:800; color:#0f172a;">
+              ${UI.esc(s.nama_pasien || 'Pasien Uji')}
+            </h2>
+          </div>
+
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm" id="btnSalinJSON" title="Salin payload JSON ke clipboard">
+              ${UI.ikon('dokumen', 13)} JSON
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btnEksporCSV" title="Unduh hasil tes dalam format CSV">
+              ${UI.ikon('unduh', 13)} CSV
+            </button>
+            <button class="btn btn-primary btn-sm" id="btnBukaModulLab" title="Buka dan isi data ini di form pemeriksaan lab">
+              ${UI.ikon('periksa', 13)} Form Lab
+            </button>
+          </div>
         </div>
-        <div style="font-size:11.5px; color:#475569;">
-          Total Parameter: <b>${items.length}</b>
+
+        <!-- METADATA GRID -->
+        <div class="lis-meta-grid">
+          <div>
+            <span class="lbl">No. Rekam Medis / Ref:</span>
+            <span class="val font-mono">${UI.esc(noRm)}</span>
+          </div>
+          <div>
+            <span class="lbl">Jenis Kelamin:</span>
+            <span class="val">${UI.esc(gender)}</span>
+          </div>
+          <div>
+            <span class="lbl">Usia / Tgl Lahir:</span>
+            <span class="val">${UI.esc(age)}</span>
+          </div>
+          <div>
+            <span class="lbl">Total Parameter:</span>
+            <span class="val font-bold text-teal">${items.length} Parameter</span>
+          </div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="table" style="font-size:11px;">
+
+      <!-- TABEL PARAMETER HASIL -->
+      <div style="flex:1; overflow-y:auto; padding:10px 14px; background:#fff;">
+        <table class="table lis-table" style="font-size:11px; width:100%; border-collapse:collapse;">
           <thead>
             <tr>
-              <th style="width:40px; text-align:center;">No</th>
-              <th style="width:110px;">Kode Alat</th>
-              <th style="width:90px;">Nilai Hasil</th>
+              <th style="width:35px; text-align:center;">#</th>
+              <th>Parameter / Kode Alat</th>
+              <th style="width:90px; text-align:right;">Nilai Hasil</th>
               <th style="width:75px;">Satuan</th>
-              <th style="width:75px;">Flag</th>
-              <th>Parameter Ref Lab Sistem</th>
-              <th style="width:130px; text-align:center;">Status Mapping</th>
-              <th style="width:180px;">Nilai Rujukan DB</th>
+              <th style="width:90px;">Rujukan Alat</th>
+              <th style="width:80px; text-align:center;">Flag</th>
+              <th>Mapping Ref Lab</th>
+              <th style="width:95px; text-align:center;">Status</th>
+              <th style="width:140px;">Rujukan DB</th>
             </tr>
           </thead>
           <tbody>
-            ${barisHtml}
+            ${barisTabel || '<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Tidak ada parameter hasil dalam rekaman ini.</td></tr>'}
           </tbody>
         </table>
       </div>
+
+      <!-- RAW HL7 / ASTM VIEWER ACCORDION -->
+      <div class="lis-raw-section">
+        <button class="lis-raw-toggle" id="btnToggleRaw">
+          <span>${rawBuka ? 'Sembunyikan' : 'Lihat'} Data Mentah Transmisi Alat (Raw HL7 / ASTM)</span>
+          <span style="font-size:10px; color:#64748b;">${rawMsg ? `${rawMsg.length} bytes` : 'kosong'}</span>
+        </button>
+        <div class="lis-raw-content ${rawBuka ? 'buka' : ''}" id="boxRawContent">
+          <pre>${UI.esc(rawMsg || 'Tidak ada payload raw message tersimpan untuk sampel ini.')}</pre>
+        </div>
+      </div>
     `;
+
+    // Pasang tombol aksi detail
+    const btnRaw = wadah.querySelector('#btnToggleRaw');
+    if (btnRaw) {
+      btnRaw.onclick = () => {
+        rawBuka = !rawBuka;
+        const box = wadah.querySelector('#boxRawContent');
+        if (box) box.classList.toggle('buka', rawBuka);
+        btnRaw.querySelector('span').textContent = `${rawBuka ? 'Sembunyikan' : 'Lihat'} Data Mentah Transmisi Alat (Raw HL7 / ASTM)`;
+      };
+    }
+
+    const btnJson = wadah.querySelector('#btnSalinJSON');
+    if (btnJson) {
+      btnJson.onclick = () => {
+        navigator.clipboard.writeText(JSON.stringify(s, null, 2)).then(() => {
+          UI.toast('Payload JSON berhasil disalin ke clipboard.', 'ok');
+        });
+      };
+    }
+
+    const btnCsv = wadah.querySelector('#btnEksporCSV');
+    if (btnCsv) {
+      btnCsv.onclick = () => eksporCSVSampel(s);
+    }
+
+    const btnLab = wadah.querySelector('#btnBukaModulLab');
+    if (btnLab) {
+      btnLab.onclick = () => {
+        window.location.hash = `#lab?cari=${encodeURIComponent(s.sample_id)}`;
+        UI.toast(`Membuka modul lab untuk sampel #${s.sample_id}...`, 'info');
+      };
+    }
+  }
+
+  // Ekspor hasil sampel terpilih ke file CSV lokal
+  function eksporCSVSampel(sampel) {
+    if (!sampel || !Array.isArray(sampel.hasil)) return;
+    const baris = [
+      ['Sample_ID', 'Nama_Pasien', 'Alat', 'Waktu', 'Parameter', 'Kode', 'Nilai', 'Satuan', 'Flag', 'Ref_Range']
+    ];
+
+    sampel.hasil.forEach(h => {
+      baris.push([
+        sampel.sample_id,
+        sampel.nama_pasien || '',
+        sampel.alat || '',
+        sampel.waktu || '',
+        h.test_desc || h.test_name || '',
+        h.test_name || '',
+        h.value || '',
+        h.unit || '',
+        h.flag || '',
+        h.ref_range || ''
+      ]);
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + baris.map(e => e.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const link = document.createElement('a');
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', `hasil_alat_${sampel.sample_id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    UI.toast('Berkas CSV berhasil diunduh.', 'ok');
   }
 
   // Merender log terminal dark monospace console
   function renderLogConsole(el) {
     if (!el) return;
     if (!daftarLog.length) {
-      el.innerHTML = '<div style="color:#64748b; font-style:italic;">Belum ada riwayat aktivitas log. Klik "Cek Koneksi Listener" untuk memulai diagnosa.</div>';
+      el.innerHTML = '<div style="color:#64748b; font-style:italic;">Belum ada riwayat aktivitas log. Klik "Cek Koneksi" untuk memulai diagnosa.</div>';
       return;
     }
 
@@ -566,7 +604,7 @@ const LisDebug = (() => {
       }
 
       return `
-        <div style="margin-bottom:6px; line-height:1.45; word-break:break-all;">
+        <div style="margin-bottom:4px; line-height:1.45; word-break:break-all;">
           <span style="color:#64748b;">[${item.waktu}]</span>
           <span style="color:${warnaTipe}; font-weight:700; margin:0 4px;">[${item.tipe}]</span>
           <span>${UI.esc(item.pesan)}</span>
@@ -578,313 +616,464 @@ const LisDebug = (() => {
     el.innerHTML = html;
   }
 
-  // Merender tabel 10 buffer riwayat terakhir dari bridge
-  function renderTabelBuffer(el) {
-    if (!el) return;
-    if (!bufferTerakhir || !bufferTerakhir.length) {
-      el.innerHTML = '<div style="padding:14px; text-align:center; color:#64748b; font-size:11.5px;">Buffer memori bridge kosong atau server belum aktif.</div>';
-      return;
+  // Mengirim simulasi Mindray BS-240 lengkap ke bridge
+  async function kirimSimulasiBS240(customSid = '') {
+    const sid = customSid.trim() || ('2609' + String(Math.floor(1000 + Math.random() * 9000)));
+    const pasienNama = 'Tn. Budi Santoso (Uji BS-240)';
+
+    // Dataset realistis kimia darah Mindray BS-240
+    const payload = {
+      sample_id: sid,
+      nama_pasien: pasienNama,
+      alat: 'Mindray BS-240',
+      metadata: {
+        patient_id: 'RM-' + sid.slice(-4),
+        gender: 'M',
+        age: '19850714'
+      },
+      hasil: [
+        { test_name: 'GLU-S', test_desc: 'Glucose', value: (100 + Math.floor(Math.random() * 50)).toString(), unit: 'mg/dL', ref_range: '70-110', flag: 'N' },
+        { test_name: 'TC', test_desc: 'Cholesterol Total', value: (170 + Math.floor(Math.random() * 60)).toString(), unit: 'mg/dL', ref_range: '130-200', flag: 'H' },
+        { test_name: 'TG', test_desc: 'Triglycerides', value: (130 + Math.floor(Math.random() * 70)).toString(), unit: 'mg/dL', ref_range: '50-150', flag: 'N' },
+        { test_name: 'HDL-C', test_desc: 'HDL Cholesterol', value: '45.2', unit: 'mg/dL', ref_range: '>40', flag: 'N' },
+        { test_name: 'UA', test_desc: 'Uric Acid', value: '6.4', unit: 'mg/dL', ref_range: '3.4-7.0', flag: 'N' },
+        { test_name: 'UREA', test_desc: 'Urea', value: '26.8', unit: 'mg/dL', ref_range: '15-45', flag: 'N' },
+        { test_name: 'CREA-S', test_desc: 'Creatinine', value: '0.92', unit: 'mg/dL', ref_range: '0.6-1.2', flag: 'N' },
+        { test_name: 'ALT', test_desc: 'Alanine Aminotransferase (SGPT)', value: '32.0', unit: 'U/L', ref_range: '0-41', flag: 'N' },
+        { test_name: 'AST', test_desc: 'Aspartate Aminotransferase (SGOT)', value: '28.5', unit: 'U/L', ref_range: '0-38', flag: 'N' },
+        { test_name: 'ALP', test_desc: 'Alkaline Phosphatase', value: '92.4', unit: 'U/L', ref_range: '40-130', flag: 'N' },
+        { test_name: 'TP', test_desc: 'Total Protein', value: '7.4', unit: 'g/dL', ref_range: '6.4-8.3', flag: 'N' },
+        { test_name: 'ALB II', test_desc: 'Albumin', value: '4.5', unit: 'g/dL', ref_range: '3.5-5.2', flag: 'N' }
+      ]
+    };
+
+    tambahLog('INFO', `Mengirim paket simulasi Mindray BS-240 untuk Sample #${sid}...`, payload);
+
+    try {
+      const res = await fetch(`${BRIDGE_HOST}/api/simulasi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const j = await res.json();
+        tambahLog('SUCCESS', `Simulasi Mindray BS-240 sukses diterima oleh bridge! Total ${payload.hasil.length} parameter.`, j);
+        UI.toast(`Simulasi paket Mindray BS-240 #${sid} berhasil dikirim!`, 'ok');
+        await periksaStatusListener(true);
+      } else {
+        tambahLog('WARN', `Simulasi Mindray ditolak oleh bridge (HTTP ${res.status})`);
+        UI.toast(`Simulasi gagal: HTTP ${res.status}`, 'warn');
+      }
+    } catch (e) {
+      tambahLog('ERROR', `Gagal mengirim simulasi ke bridge: ${e.message}. Pastikan bridge aktif.`);
+      UI.toast('Gagal terhubung ke LIS Bridge.', 'err');
     }
+  }
 
-    const baris = bufferTerakhir.map((b, i) => {
-      const jmlHasil = Array.isArray(b.hasil) ? b.hasil.length : 0;
-      return `
-        <tr>
-          <td style="text-align:center;">${i + 1}</td>
-          <td><span class="mono" style="font-weight:700; color:#0f766e;">${UI.esc(b.sample_id)}</span></td>
-          <td>${UI.esc(b.alat || '-')}</td>
-          <td>${UI.esc(b.nama_pasien || '-')}</td>
-          <td>${UI.esc(b.waktu || '-')}</td>
-          <td style="text-align:center;">
-            <span class="badge" style="background:#f1f5f9; color:#0f172a; font-weight:700;">${jmlHasil} item</span>
-          </td>
-          <td style="text-align:center;">
-            <button class="btn btn-secondary btn-sm btn-inspeksi-buffer" data-sid="${UI.esc(b.sample_id)}" style="padding:2px 8px; font-size:11px;">
-              ${UI.ikon('cari', 13)} Inspeksi
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
+  // Mengirim simulasi Sysmex XP-100 ke bridge
+  async function kirimSimulasiSysmex(customSid = '') {
+    const sid = customSid.trim() || ('2609' + String(Math.floor(1000 + Math.random() * 9000)));
+    const pasienNama = 'Ny. Siti Rahayu (Uji Sysmex)';
 
-    el.innerHTML = `
-      <div class="table-wrap">
-        <table class="table" style="font-size:11px;">
-          <thead>
-            <tr>
-              <th style="width:35px; text-align:center;">No</th>
-              <th style="width:110px;">Sample ID</th>
-              <th>Alat Medis</th>
-              <th>Nama Pasien</th>
-              <th>Waktu Terima</th>
-              <th style="width:90px; text-align:center;">Parameter</th>
-              <th style="width:85px; text-align:center;">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${baris}
-          </tbody>
-        </table>
-      </div>
-    `;
+    const payload = {
+      sample_id: sid,
+      nama_pasien: pasienNama,
+      alat: 'Sysmex XP-100',
+      metadata: {
+        patient_id: 'RM-' + sid.slice(-4),
+        gender: 'F',
+        age: '19900820'
+      },
+      hasil: [
+        { test_name: 'WBC', test_desc: 'Leukosit', value: '7.85', unit: '10^3/uL', ref_range: '4.0-10.0', flag: 'N' },
+        { test_name: 'RBC', test_desc: 'Eritrosit', value: '4.65', unit: '10^6/uL', ref_range: '3.8-5.8', flag: 'N' },
+        { test_name: 'HGB', test_desc: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref_range: '12.0-16.0', flag: 'N' },
+        { test_name: 'HCT', test_desc: 'Hematokrit', value: '41.2', unit: '%', ref_range: '37.0-48.0', flag: 'N' },
+        { test_name: 'PLT', test_desc: 'Trombosit', value: '275', unit: '10^3/uL', ref_range: '150-450', flag: 'N' },
+        { test_name: 'MCV', test_desc: 'MCV', value: '88.6', unit: 'fL', ref_range: '80.0-97.0', flag: 'N' },
+        { test_name: 'MCH', test_desc: 'MCH', value: '29.7', unit: 'pg', ref_range: '27.0-32.0', flag: 'N' },
+        { test_name: 'MCHC', test_desc: 'MCHC', value: '33.5', unit: 'g/dL', ref_range: '32.0-36.0', flag: 'N' },
+        { test_name: 'LYM%', test_desc: 'Limfosit', value: '31.5', unit: '%', ref_range: '20.0-40.0', flag: 'N' },
+        { test_name: 'NEUT%', test_desc: 'Neutrofil', value: '59.2', unit: '%', ref_range: '50.0-70.0', flag: 'N' },
+        { test_name: 'MXD%', test_desc: 'Monosit/Lainnya', value: '9.3', unit: '%', ref_range: '3.0-14.0', flag: 'N' }
+      ]
+    };
 
-    el.querySelectorAll('.btn-inspeksi-buffer').forEach(btn => {
-      btn.onclick = () => {
-        const sid = btn.dataset.sid;
-        const target = bufferTerakhir.find(x => String(x.sample_id) === String(sid));
-        if (target) {
-          hasilInspeksiAktif = target;
-          const inp = document.getElementById('inputNoLabDebug');
-          if (inp) inp.value = target.sample_id;
-          renderHasilInspeksi();
-          tambahLog('INFO', `Menginspeksi buffer sampel '${sid}' (${target.alat}).`);
-          UI.toast(`Sampel #${sid} dimuat ke tabel inspeksi.`, 'ok');
-          const wadahInspeksi = document.getElementById('wadahHasilMapping');
-          if (wadahInspeksi) wadahInspeksi.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      };
+    tambahLog('INFO', `Mengirim paket simulasi Sysmex XP-100 untuk Sample #${sid}...`, payload);
+
+    try {
+      const res = await fetch(`${BRIDGE_HOST}/api/simulasi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const j = await res.json();
+        tambahLog('SUCCESS', `Simulasi Sysmex XP-100 sukses diproses bridge. Total ${payload.hasil.length} parameter.`, j);
+        UI.toast(`Simulasi paket Sysmex XP-100 #${sid} berhasil dikirim!`, 'ok');
+        await periksaStatusListener(true);
+      } else {
+        tambahLog('WARN', `Simulasi Sysmex ditolak (HTTP ${res.status})`);
+        UI.toast(`Simulasi gagal: HTTP ${res.status}`, 'warn');
+      }
+    } catch (e) {
+      tambahLog('ERROR', `Gagal mengirim simulasi ke bridge: ${e.message}`);
+      UI.toast('Gagal terhubung ke LIS Bridge.', 'err');
+    }
+  }
+
+  // Membersihkan buffer riwayat di bridge
+  async function bersihkanBufferBridge() {
+    if (!confirm('Bersihkan seluruh daftar riwayat sampel di memori bridge?')) return;
+
+    try {
+      const res = await fetch(`${BRIDGE_HOST}/api/clear`, { method: 'POST' });
+      if (res.ok) {
+        daftarSampel = [];
+        sampelTerpilih = null;
+        renderDaftarSampel();
+        renderDetailSampel();
+        perbaruiUIStatus();
+        tambahLog('INFO', 'Buffer riwayat sampel pada LIS Bridge berhasil di-reset.');
+        UI.toast('Riwayat sampel berhasil dibersihkan.', 'ok');
+      }
+    } catch (e) {
+      // Fallback lokal
+      daftarSampel = [];
+      sampelTerpilih = null;
+      renderDaftarSampel();
+      renderDetailSampel();
+      UI.toast('Buffer lokal dibersihkan.', 'info');
+    }
+  }
+
+  // Buka modal petunjuk konfigurasi Mindray BS-240
+  function bukaModalPanduanMindray() {
+    UI.modal({
+      judul: 'Panduan Setting Alat Mindray BS-240',
+      konten: `
+        <div style="font-size:12.5px; line-height:1.5; color:#334155;">
+          <p>Konfigurasi koneksi langsung dari komputer ke analyzer <b>Mindray BS-240</b> via kabel LAN Ethernet:</p>
+          <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:12px; margin-bottom:12px; font-family:'JetBrains Mono',monospace; font-size:11.5px;">
+            <div><b>IP Host PC (Laboratorium):</b> 198.100.100.82 (atau IP LAN PC)</div>
+            <div><b>Port Socket HL7:</b> 7118</div>
+            <div><b>Protokol Komunikasi:</b> HL7 Standard v2.3.1 (MLLP)</div>
+            <div><b>Mode Transmisi:</b> Real-time (Auto Send after analysis)</div>
+          </div>
+          <h4 style="margin:10px 0 4px 0; color:#0f172a; font-size:13px; font-weight:700;">Langkah Setting di Layar Sentuh BS-240:</h4>
+          <ol style="padding-left:20px; margin:0 0 14px 0;">
+            <li style="margin-bottom:4px;">Klik menu <b>Setup</b> &rarr; <b>System Setup</b> &rarr; <b>LIS</b>.</li>
+            <li style="margin-bottom:4px;">Pilih tab <b>Network Communication</b>.</li>
+            <li style="margin-bottom:4px;">Isi <b>Server IP</b> dengan alamat IP PC di atas, dan <b>Port</b> dengan <code>7118</code>.</li>
+            <li style="margin-bottom:4px;">Centang opsi <b>Real-time transmission</b> dan <b>Send sample result automatically</b>.</li>
+            <li style="margin-bottom:4px;">Klik tombol <b>Connect</b> / <b>Test Connection</b> hingga indikator LIS di sudut layar BS-240 berubah hijau.</li>
+          </ol>
+          <div class="banner info" style="margin:0;">
+            <b>Catatan Bridge:</b> Pastikan file <code>bridge/jalankan_bridge.bat</code> sudah aktif berjalan di komputer ini agar Port 7118 siap menerima transmisi data dari BS-240.
+          </div>
+        </div>
+      `,
+      tombol: [{ teks: 'Tutup', nilai: true, kelas: 'btn-secondary' }]
     });
   }
 
-  // Menyalin log ke clipboard
-  function salinLog() {
-    if (!daftarLog.length) {
-      UI.toast('Tidak ada log untuk disalin.', 'info');
-      return;
-    }
-    const teks = daftarLog.map(x => `[${x.waktu}] [${x.tipe}] ${x.pesan}${x.payload ? ' ' + JSON.stringify(x.payload) : ''}`).join('\n');
-    navigator.clipboard.writeText(teks).then(() => {
-      UI.toast('Log berhasil disalin ke clipboard.', 'ok');
-    }).catch(() => {
-      UI.toast('Gagal menyalin log.', 'err');
-    });
-  }
-
-  // Fungsi utama Render halaman
-  async function render(el, params) {
-    // Muat master ref_lab untuk pemetaan parameter
+  // Render halaman utama
+  async function render(el) {
+    // Ambil master ref_lab untuk pemetaan kode
     try {
       refLabMaster = await DB.refLab(true);
-    } catch (e) {
+    } catch (_) {
       refLabMaster = [];
     }
 
     el.innerHTML = `
-      <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-        <div>
-          <h1 style="margin:0; font-size:20px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-            ${UI.ikon('pengaturan', 22)} LIS &amp; Integrasi Alat Medis
-          </h1>
-          <div style="font-size:12px; color:#64748b; margin-top:2px;">
-            Diagnostic, troubleshooting, dan monitoring komunikasi data alat laboratorium (Mindray BS-240 &amp; Sysmex XP-100).
+      <style>
+        .lis-page-wrap { display: flex; flex-direction: column; gap: 14px; font-family: inherit; }
+        .lis-header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .lis-title { font-size: 19px; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px; }
+        .lis-subtitle { font-size: 12px; color: #64748b; margin-top: 2px; }
+        
+        .lis-badge-pill { padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; display: inline-flex; align-items: center; gap: 6px; }
+        .lis-badge-pill.online { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .lis-badge-pill.offline { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+        /* Stats Grid */
+        .lis-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .lis-stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .lis-stat-num { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.1; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+        .lis-stat-lbl { font-size: 11.5px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+        .lis-stat-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+
+        /* Dual Pane Workspace */
+        .lis-workspace { display: grid; grid-template-columns: 360px 1fr; gap: 14px; min-height: 600px; }
+        @media (max-width: 960px) { .lis-workspace { grid-template-columns: 1fr; } }
+
+        /* Pane Kiri */
+        .lis-left-pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .lis-pane-head { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #fafafa; display: flex; justify-content: space-between; align-items: center; }
+        .lis-pane-title { font-weight: 700; font-size: 13.5px; color: #0f172a; display: flex; align-items: center; gap: 6px; }
+        .lis-search-bar { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; background: #fff; display: flex; gap: 6px; }
+        .lis-sample-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 520px; }
+
+        .lis-sample-item { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; cursor: pointer; transition: all 0.15s ease; }
+        .lis-sample-item:hover { border-color: #0d9488; background: #f0fdfa; transform: translateY(-1px); }
+        .lis-sample-item.aktif { border-color: #0d9488; background: #f0fdfa; box-shadow: 0 0 0 1.5px #0d9488; }
+        .lis-sample-id { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 12.5px; color: #0f766e; }
+        .lis-sample-time { font-size: 10.5px; color: #94a3b8; font-family: monospace; }
+        .lis-sample-tag { padding: 2px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase; }
+        .tag-mindray { background: #ccfbf1; color: #0f766e; }
+        .tag-sysmex { background: #ede9fe; color: #6d28d9; }
+
+        /* Pane Kanan */
+        .lis-right-pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .lis-detail-header { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #fafafa; }
+        .lis-badge-sample-lg { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 15px; color: #0f766e; background: #ccfbf1; padding: 3px 8px; border-radius: 6px; }
+        .lis-meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11.5px; }
+        @media (max-width: 640px) { .lis-meta-grid { grid-template-columns: 1fr 1fr; } }
+        .lis-meta-grid .lbl { color: #64748b; font-size: 11px; display: block; margin-bottom: 2px; }
+        .lis-meta-grid .val { font-weight: 600; color: #0f172a; }
+
+        /* Tabel Rincian */
+        .lis-table thead th { background: #f8fafc; color: #475569; font-weight: 700; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 2; font-size: 10.5px; text-transform: uppercase; }
+        .lis-table tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .lis-table tbody tr:hover { background: #f8fafc; }
+
+        .flag-badge { padding: 2px 6px; font-size: 10px; font-weight: 800; border-radius: 4px; display: inline-block; font-family: 'JetBrains Mono', monospace; }
+        .flag-n { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .flag-h { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .flag-l { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+        .flag-c { background: #dc2626; color: #fff; }
+
+        .lis-map-badge { padding: 2px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; }
+        .lis-map-badge.mapped { background: #ecfdf5; color: #065f46; }
+        .lis-map-badge.unmapped { background: #fffbeb; color: #92400e; }
+
+        /* Raw Accordion */
+        .lis-raw-section { border-top: 1px solid #e2e8f0; background: #f8fafc; }
+        .lis-raw-toggle { width: 100%; padding: 8px 14px; background: transparent; border: none; font-size: 11.5px; font-weight: 600; color: #0f766e; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .lis-raw-content { display: none; padding: 10px 14px; background: #0b1120; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 11px; max-height: 180px; overflow-y: auto; }
+        .lis-raw-content.buka { display: block; }
+        .lis-raw-content pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #a5f3fc; }
+
+        /* Empty Card */
+        .lis-empty-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 20px; color: #94a3b8; height: 100%; box-sizing: border-box; }
+
+        /* Terminal Console Footer */
+        .lis-terminal-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .lis-terminal-head { background: #0f172a; color: #f8fafc; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; }
+        .lis-terminal-body { background: #0b1120; color: #f8fafc; font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 12px; height: 180px; overflow-y: auto; }
+      </style>
+
+      <div class="lis-page-wrap">
+        <!-- HEADER TOP -->
+        <div class="lis-header-bar">
+          <div>
+            <h1 class="lis-title">
+              ${UI.ikon('pengaturan', 22)} LIS &amp; Integrasi Alat Medis
+            </h1>
+            <div class="lis-subtitle">
+              Diagnostic, troubleshooting, dan monitoring komunikasi data alat laboratorium (Mindray BS-240 &amp; Sysmex XP-100).
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="lis-badge-pill offline" id="badgePortMindray">Port 7118 (BS-240)</span>
+            <span class="lis-badge-pill offline" id="badgePortSysmex">Port 8000 (Sysmex)</span>
+            <span class="lis-badge-pill offline" id="badgePortBridge">REST API 7119</span>
+            
+            <button class="btn btn-secondary btn-sm" id="btnSettingAlat" title="Petunjuk konfigurasi alat Mindray BS-240">
+              ${UI.ikon('pengaturan', 14)} Setting Alat
+            </button>
+            <button class="btn btn-primary btn-sm" id="btnCekListener">
+              ${UI.ikon('ulang', 14)} Cek Koneksi
+            </button>
           </div>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-secondary btn-sm" id="btnBukaBridgeBat" title="Panduan memulai server LIS bridge">
-            ${UI.ikon('info', 15)} Panduan Listener
-          </button>
-          <button class="btn btn-primary btn-sm" id="btnCekListener">
-            ${UI.ikon('ulang', 15)} Cek Koneksi Listener
-          </button>
-        </div>
-      </div>
 
-      <!-- KARTU INDIKATOR STATUS LISTENER (3 KOLOM) -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:18px;">
-        <div class="card" id="statusMindrayCard" style="margin:0; padding:16px;">
-          <div style="color:#64748b; font-size:12px;">Memuat status Mindray BS-240...</div>
-        </div>
-        <div class="card" id="statusSysmexCard" style="margin:0; padding:16px;">
-          <div style="color:#64748b; font-size:12px;">Memuat status Sysmex XP-100...</div>
-        </div>
-        <div class="card" id="statusBridgeCard" style="margin:0; padding:16px;">
-          <div style="color:#64748b; font-size:12px;">Memuat status LIS Bridge API...</div>
-        </div>
-      </div>
-
-      <!-- FORM PENGUJIAN PENARIKAN DATA -->
-      <div class="card" style="margin-bottom:18px;">
-        <div class="card-head">
-          <h2>Uji Coba Penarikan Data (Manual Pull / Test Fetch)</h2>
-          <div class="sub">Simulasi penarikan data hasil alat berdasarkan nomor barcode tabung sampel</div>
-        </div>
-        <div class="card-body">
-          <div style="display:grid; grid-template-columns:1.5fr 1fr auto auto; gap:12px; align-items:flex-end;">
-            <div class="field" style="margin:0;">
-              <label for="inputNoLabDebug" style="font-weight:600; font-size:12px; margin-bottom:4px; display:block;">
-                Nomor Lab / Barcode Sampel
-              </label>
-              <input type="text" id="inputNoLabDebug" class="input" placeholder="Contoh: 26090025 atau LAB-2609-0025" style="width:100%; font-family:'JetBrains Mono',monospace;">
+        <!-- STATS BAR METRIK -->
+        <div class="lis-stats-grid">
+          <div class="lis-stat-card">
+            <div>
+              <div class="lis-stat-lbl">Total Sampel Masuk</div>
+              <div class="lis-stat-num" id="statTotalSampel">0</div>
             </div>
-            <div class="field" style="margin:0;">
-              <label for="selectAlatDebug" style="font-weight:600; font-size:12px; margin-bottom:4px; display:block;">
-                Filter Alat Target
-              </label>
-              <select id="selectAlatDebug" class="input" style="width:100%;">
-                <option value="">Semua Alat (Auto-Detect)</option>
-                <option value="Mindray BS-240">Mindray BS-240 (Kimia Darah)</option>
-                <option value="Sysmex XP-100">Sysmex XP-100 (Hematologi)</option>
+            <div class="lis-stat-icon" style="background:#f0fdfa; color:#0d9488;">
+              ${UI.ikon('lab', 22)}
+            </div>
+          </div>
+
+          <div class="lis-stat-card">
+            <div>
+              <div class="lis-stat-lbl">Parameter Terdeteksi</div>
+              <div class="lis-stat-num" id="statTotalParameter">0</div>
+            </div>
+            <div class="lis-stat-icon" style="background:#eff6ff; color:#2563eb;">
+              ${UI.ikon('dokumen', 22)}
+            </div>
+          </div>
+
+          <div class="lis-stat-card">
+            <div>
+              <div class="lis-stat-lbl">Sampel Terakhir</div>
+              <div class="lis-stat-num" style="font-size:16px;" id="statTerakhirTerima">-</div>
+            </div>
+            <div class="lis-stat-icon" style="background:#ecfdf5; color:#059669;">
+              ${UI.ikon('ulang', 22)}
+            </div>
+          </div>
+
+          <div class="lis-stat-card">
+            <div>
+              <div class="lis-stat-lbl">Status Alat Terhubung</div>
+              <div class="lis-stat-num" style="font-size:14px; font-weight:700;" id="statAlatTerkoneksi">Menunggu BS-240</div>
+            </div>
+            <div class="lis-stat-icon" style="background:#fef3c7; color:#d97706;">
+              ${UI.ikon('info', 22)}
+            </div>
+          </div>
+        </div>
+
+        <!-- DUAL PANE WORKSPACE -->
+        <div class="lis-workspace">
+          <!-- PANEL KIRI: DAFTAR SAMPEL -->
+          <div class="lis-left-pane">
+            <div class="lis-pane-head">
+              <div class="lis-pane-title">
+                <span>Riwayat Sampel</span>
+                <span class="badge" id="badgeJumlahSampel" style="background:#e0f2fe; color:#0369a1; font-weight:800;">0</span>
+              </div>
+              <div style="display:flex; gap:4px;">
+                <button class="btn btn-ghost btn-sm" id="btnRefreshSampel" title="Segarkan daftar">
+                  ${UI.ikon('ulang', 13)}
+                </button>
+                <button class="btn btn-ghost btn-sm" id="btnResetBuffer" style="color:#ef4444;" title="Bersihkan riwayat memori">
+                  ${UI.ikon('hapus', 13)}
+                </button>
+              </div>
+            </div>
+
+            <!-- Toolbar Pencarian & Filter Cepat -->
+            <div class="lis-search-bar">
+              <input type="text" id="inpCariSampel" class="input" placeholder="Cari Sample ID, Pasien..." style="flex:1; font-size:11.5px; height:32px;">
+              <select id="selFilterAlat" class="input" style="width:115px; font-size:11px; height:32px;">
+                <option value="">Semua Alat</option>
+                <option value="Mindray">Mindray</option>
+                <option value="Sysmex">Sysmex</option>
               </select>
             </div>
-            <div>
-              <button class="btn btn-primary" id="btnTarikManual" style="height:38px; display:flex; align-items:center; gap:6px;">
-                ${UI.ikon('unduh', 15)} Tarik Data Sampel
+
+            <!-- Tombol Uji Simulasi Langsung -->
+            <div style="padding:6px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; gap:6px;">
+              <button class="btn btn-ghost btn-sm" id="btnSimBS240" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #99f6e4; background:#f0fdfa; color:#0f766e; font-weight:700;">
+                ${UI.ikon('plus', 12)} Simulasi BS-240
+              </button>
+              <button class="btn btn-ghost btn-sm" id="btnSimSysmex" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #ddd6fe; background:#faf5ff; color:#6d28d9; font-weight:700;">
+                ${UI.ikon('plus', 12)} Simulasi Sysmex
               </button>
             </div>
-            <div>
-              <button class="btn btn-secondary" id="btnAmbilTerbaru" style="height:38px; display:flex; align-items:center; gap:6px;" title="Ambil sampel paling terakhir masuk ke bridge">
-                ${UI.ikon('ulang', 15)} Sampel Terbaru
-              </button>
+
+            <!-- Kontainer Daftar Sampel -->
+            <div class="lis-sample-list" id="wadahDaftarSampel">
+              <div style="padding:20px; text-align:center; color:#94a3b8; font-size:12px;">Memuat sampel...</div>
             </div>
           </div>
 
-          <div style="margin-top:14px; padding-top:12px; border-top:1px dashed #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:11.5px; color:#64748b;">
-              Uji Simulasi Payload (Tanpa Alat Fisik):
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-ghost btn-sm" id="btnSimulasiMindray" style="color:#0369a1; border:1px solid #bae6fd; background:#f0f9ff;">
-                ${UI.ikon('plus', 13)} Simulasi Paket Mindray
-              </button>
-              <button class="btn btn-ghost btn-sm" id="btnSimulasiSysmex" style="color:#7e22ce; border:1px solid #e9d5ff; background:#faf5ff;">
-                ${UI.ikon('plus', 13)} Simulasi Paket Sysmex
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- HASIL EKSTRAKSI & PEMETAAN PARAMETER REF_LAB -->
-      <div class="card" style="margin-bottom:18px;">
-        <div class="card-head">
-          <h2>Hasil Ekstraksi &amp; Status Pemetaan Parameter Ref Lab</h2>
-          <div class="sub">Memeriksa apakah kode pemeriksaan dari alat berhasil dipetakan ke master data laboratorium</div>
-        </div>
-        <div class="card-body" id="wadahHasilMapping">
-          <!-- Diisi oleh renderHasilInspeksi() -->
-        </div>
-      </div>
-
-      <!-- DUA KOLOM: BUFFER RIWAYAT & LOG CONSOLE -->
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        
-        <!-- KOLOM KIRI: 10 SAMPEL TERAKHIR DI BUFFER BRIDGE -->
-        <div class="card" style="margin:0;">
-          <div class="card-head">
-            <h2>Riwayat Buffer Sampel (LIS Bridge)</h2>
-            <div class="sub">10 sampel terakhir yang diterima oleh listener lokal</div>
-          </div>
-          <div class="card-body tight" id="wadahTabelBuffer">
-            <div style="padding:14px; color:#64748b; font-size:11.5px;">Memuat buffer...</div>
+          <!-- PANEL KANAN: DETAIL PEMERIKSAAN & PEMETAAN -->
+          <div class="lis-right-pane" id="wadahDetailSampel">
+            <!-- Diisi oleh renderDetailSampel() -->
           </div>
         </div>
 
-        <!-- KOLOM KANAN: TROUBLESHOOTING LOG CONSOLE -->
-        <div class="card" style="margin:0;">
-          <div class="card-head" style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <h2>Log &amp; Raw Data Console</h2>
-              <div class="sub">Output pesan socket HL7/ASTM dan aktivitas API</div>
+        <!-- FOOTER: LOG & RAW DATA CONSOLE -->
+        <div class="lis-terminal-wrap">
+          <div class="lis-terminal-head">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px; color:#38bdf8;">
+                Terminal Socket &amp; System Log
+              </span>
+              <span style="font-size:10.5px; color:#94a3b8;">(Live monitoring komunikasi alat &amp; API)</span>
             </div>
             <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary btn-sm" id="btnSalinLog" style="padding:2px 8px; font-size:11px;">
+              <button class="btn btn-ghost btn-sm" id="btnSalinLogTerminal" style="color:#e2e8f0; font-size:11px; padding:2px 8px;">
                 ${UI.ikon('dokumen', 13)} Salin Log
               </button>
-              <button class="btn btn-secondary btn-sm" id="btnBersihkanLog" style="padding:2px 8px; font-size:11px;">
+              <button class="btn btn-ghost btn-sm" id="btnBersihLogTerminal" style="color:#f87171; font-size:11px; padding:2px 8px;">
                 ${UI.ikon('hapus', 13)} Bersihkan
               </button>
             </div>
           </div>
-          <div class="card-body" style="padding:10px;">
-            <div id="wadahLogConsole" style="background:#0f172a; color:#f8fafc; font-family:'JetBrains Mono',monospace; font-size:11px; padding:12px; border-radius:6px; height:320px; overflow-y:auto; box-sizing:border-box;">
-              <!-- Diisi oleh renderLogConsole() -->
-            </div>
+          <div class="lis-terminal-body" id="wadahLogConsole">
+            <!-- Diisi oleh renderLogConsole() -->
           </div>
         </div>
-
       </div>
     `;
 
     pasangKejadian(el);
-    renderHasilInspeksi();
-    renderLogConsole(document.getElementById('wadahLogConsole'));
+    renderLogConsole(el.querySelector('#wadahLogConsole'));
 
-    // Cek status otomatis saat pertama dibuka
-    periksaStatusListener();
+    // Cek koneksi & muat riwayat
+    await periksaStatusListener(false);
+
+    // Mulai polling otomatis tiap 2.8 detik untuk live listening
+    if (timerPolling) clearInterval(timerPolling);
+    timerPolling = setInterval(() => {
+      if (autoRefreshAktif) {
+        periksaStatusListener(true);
+      }
+    }, 2800);
   }
 
-  // Pasang event listener interaktif
+  // Pasang event handler
   function pasangKejadian(el) {
     const btnCek = el.querySelector('#btnCekListener');
-    if (btnCek) btnCek.onclick = () => periksaStatusListener();
+    if (btnCek) btnCek.onclick = () => periksaStatusListener(false);
 
-    const btnTarik = el.querySelector('#btnTarikManual');
-    if (btnTarik) {
-      btnTarik.onclick = () => {
-        const inp = el.querySelector('#inputNoLabDebug');
-        const sel = el.querySelector('#selectAlatDebug');
-        tarikDataSampel(inp?.value, sel?.value);
+    const btnSetting = el.querySelector('#btnSettingAlat');
+    if (btnSetting) btnSetting.onclick = () => bukaModalPanduanMindray();
+
+    const btnRefresh = el.querySelector('#btnRefreshSampel');
+    if (btnRefresh) btnRefresh.onclick = () => periksaStatusListener(false);
+
+    const btnReset = el.querySelector('#btnResetBuffer');
+    if (btnReset) btnReset.onclick = () => bersihkanBufferBridge();
+
+    const btnSimBS = el.querySelector('#btnSimBS240');
+    if (btnSimBS) btnSimBS.onclick = () => kirimSimulasiBS240();
+
+    const btnSimSys = el.querySelector('#btnSimSysmex');
+    if (btnSimSys) btnSimSys.onclick = () => kirimSimulasiSysmex();
+
+    const inpCari = el.querySelector('#inpCariSampel');
+    if (inpCari) {
+      inpCari.oninput = () => {
+        filterKata = inpCari.value.trim();
+        renderDaftarSampel();
       };
     }
 
-    const inpNoLab = el.querySelector('#inputNoLabDebug');
-    if (inpNoLab) {
-      inpNoLab.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const sel = el.querySelector('#selectAlatDebug');
-          tarikDataSampel(inpNoLab.value, sel?.value);
-        }
+    const selAlat = el.querySelector('#selFilterAlat');
+    if (selAlat) {
+      selAlat.onchange = () => {
+        filterAlat = selAlat.value;
+        renderDaftarSampel();
       };
     }
 
-    const btnTerbaru = el.querySelector('#btnAmbilTerbaru');
-    if (btnTerbaru) btnTerbaru.onclick = () => ambilSampelTerbaru();
-
-    const btnSimMindray = el.querySelector('#btnSimulasiMindray');
-    if (btnSimMindray) btnSimMindray.onclick = () => kirimSimulasiPayload('Mindray BS-240');
-
-    const btnSimSysmex = el.querySelector('#btnSimulasiSysmex');
-    if (btnSimSysmex) btnSimSysmex.onclick = () => kirimSimulasiPayload('Sysmex XP-100');
-
-    const btnBersih = el.querySelector('#btnBersihkanLog');
-    if (btnBersih) btnBersih.onclick = () => bersihkanLog();
-
-    const btnSalin = el.querySelector('#btnSalinLog');
+    const btnSalin = el.querySelector('#btnSalinLogTerminal');
     if (btnSalin) btnSalin.onclick = () => salinLog();
 
-    const btnPanduan = el.querySelector('#btnBukaBridgeBat');
-    if (btnPanduan) {
-      btnPanduan.onclick = () => {
-        UI.modal({
-          judul: 'Panduan Menjalankan LIS Bridge',
-          konten: `
-            <div style="font-size:12.5px; line-height:1.5; color:#334155;">
-              <p>LIS Bridge adalah daemon service Python di komputer laboratorium yang bertugas mendengarkan socket alat dan menyediakan REST API lokal untuk browser:</p>
-              <ol style="padding-left:20px; margin-bottom:14px;">
-                <li style="margin-bottom:6px;"><b>Mindray BS-240:</b> Menghubungkan kabel LAN ke PC dan mengirim data via HL7 MLLP ke <b>Port 7118</b>.</li>
-                <li style="margin-bottom:6px;"><b>Sysmex XP-100:</b> Mengirim data serial/LAN format ASTM ke <b>Port 8000</b>.</li>
-                <li style="margin-bottom:6px;"><b>Local REST API:</b> Browser klinik berkomunikasi ke <b>http://127.0.0.1:7119</b> untuk penarikan data instan.</li>
-              </ol>
-              <div class="banner info" style="margin-bottom:0;">
-                <div>
-                  <b>Cara Menjalankan:</b><br>
-                  Buka folder <code>bridge</code> di komputer laboratorium, lalu klik dua kali berkas <code>jalankan_bridge.bat</code>.<br>
-                  Untuk aktif otomatis saat Windows menyala, gunakan <code>pasang_otomatis_startup.bat</code>.
-                </div>
-              </div>
-            </div>
-          `,
-          tombol: [{ teks: 'Tutup', nilai: true, kelas: 'btn-secondary' }]
-        });
-      };
-    }
+    const btnBersih = el.querySelector('#btnBersihLogTerminal');
+    if (btnBersih) btnBersih.onclick = () => bersihkanLog();
   }
 
   return {
     render,
     periksaStatusListener,
-    tarikDataSampel,
+    kirimSimulasiBS240,
+    kirimSimulasiSysmex,
     bersihkanLog
   };
 })();

@@ -41,3 +41,25 @@ Waktu,Alat,Sample_ID,Nama_Pasien,Parameter,Nilai,Satuan,Flag
 2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,UA,5.8,mg/dL,N
 2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,CREA-S,0.95,mg/dL,N
 2026-09-24 00:43:27,Mindray BS-240,26,Fadzkaruffy,UREA,24.6,mg/dL,N
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,GLU-S,112,mg/dL,N
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,CHOL,215,mg/dL,H
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,TG,160,mg/dL,H
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,UA,6.2,mg/dL,N
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,CREA-S,0.95,mg/dL,N
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,SGOT,24,U/L,N
+2026-09-25 16:23:16,Mindray BS-240,26097273,Pasien Uji Mindray,SGPT,28,U/L,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,GLU,67.000609,mg/dL,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,TG,94.291985,mg/dL,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,HDL-C,29.358658,mg/dL,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,TC,190.716493,mg/dL,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,CREA-S,5.919087,mg/dL,N
+2026-09-25 16:39:56,Mindray BS-240,47,supini,UREA,108.978602,mg/dL,N
+2026-09-25 16:41:30,Mindray BS-240,46,sarwi,TC,113.616293,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,TG,416.721328,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,HDL-C,25.834781,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,TC,152.484554,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,CREA-S,0.654310,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,UREA,30.654466,mg/dL,N
+2026-09-25 16:43:18,Mindray BS-240,44,dasni,LDL-C,87.082436,mg/dL,N
+2026-09-25 16:43:36,Mindray BS-240,43,mahmudah,LDL-C,89.692734,mg/dL,N
+2026-09-25 16:46:18,Mindray BS-240,45,sartini,LDL-C,82.539459,mg/dL,N
