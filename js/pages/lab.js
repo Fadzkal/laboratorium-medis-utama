@@ -685,8 +685,97 @@ const Lab = (() => {
     if (ruj && ruj.teks && /[\d.,]+/.test(ruj.teks)) return true;
     if (h.satuan && h.satuan.trim() !== '') return true;
     const nm = (h.nama || '').toLowerCase();
+    const kd = (m && m.kode ? m.kode : (h.kode || '')).toUpperCase();
+    if (kd === 'K0335' || /hba\s*1\s*c|hba1c/i.test(nm)) return true;
     return /hematologi|kimia|leukosit|hemoglobin|trombosit|eritrosit|hematokrit|glukosa|kolesterol|trigliserida|asam\s*urat|ureum|creatinin|kreatinin|sgot|sgpt|mcv|mch|mchc|rdw|limfosit|monosit|neutrofil|segmen|batang|eosinofil|basofil|led|bilirubin|protein|albumin|kalsium|natrium|kalium|klorida|tensi|nadi|suhu|hb/i.test(nm);
   }
+
+  /* ------------------------------------------------------------------
+     Evaluasi nilai rujukan & penandaan abnormalitas (auto-flag tanda '*')
+     Mendukung nilai numerik, rentang normal, parser teks rujukan fleksibel,
+     serta penanganan khusus parameter HbA1c (Kode K0335).
+     ------------------------------------------------------------------ */
+  function cekAbnormal(h, ruj, nilaiKustom) {
+    if (!h) return false;
+    const m = (h && h.ref) || {};
+    const kode = String(m.kode || h.kode || '').trim().toUpperCase();
+    const nama = String(h.nama || m.nama || '').trim().toLowerCase();
+    const isHba1c = (kode === 'K0335' || /hba\s*1\s*c|hba1c/i.test(nama));
+
+    // Ambil nilai yang sedang dievaluasi (bisa nilai dari input langsung atau dari objek h)
+    let rawVal;
+    if (nilaiKustom !== undefined && nilaiKustom !== null) {
+      rawVal = String(nilaiKustom).trim();
+    } else if (h.nilai_angka !== null && h.nilai_angka !== undefined) {
+      rawVal = String(h.nilai_angka);
+    } else {
+      rawVal = String(h.nilai_teks || '').trim();
+    }
+
+    if (rawVal === '' || rawVal === '—' || rawVal === '-') return false;
+
+    // Normalisasi nilai input (konversi koma desimal ke titik, misal '7,2' -> 7.2)
+    const valClean = rawVal.replace(/,/g, '.');
+    const numVal = parseFloat(valClean);
+
+    // 1. Penanganan Khusus Parameter HbA1c (Kode K0335 atau nama pemeriksaan mengandung HbA1c)
+    if (isHba1c) {
+      if (!isNaN(numVal)) {
+        // Jika nilai numerik hasil > 6.5, otomatis tandai sebagai abnormal / bintang '*'
+        return numVal > 6.5;
+      }
+      return false;
+    }
+
+    // 2. Evaluasi Nilai Rujukan Umum
+    const r = ruj || {};
+    let bb = (r.batas_bawah != null && !isNaN(r.batas_bawah)) ? Number(r.batas_bawah) : null;
+    let ba = (r.batas_atas != null && !isNaN(r.batas_atas)) ? Number(r.batas_atas) : null;
+
+    if (bb === null && h.rujukan_bawah != null && !isNaN(h.rujukan_bawah)) bb = Number(h.rujukan_bawah);
+    if (ba === null && h.rujukan_atas != null && !isNaN(h.rujukan_atas)) ba = Number(h.rujukan_atas);
+
+    // Sempurnakan regex/parser teks nilai rujukan jika batas belum angka
+    const teksRuj = String(r.teks || h.rujukan_teks || (ruj && ruj.catatan) || '').trim();
+    if ((bb === null && ba === null) && teksRuj) {
+      // Parser fleksibel:
+      // a. Format "< [angka]" atau "<= [angka]" meski diikuti teks keterangan (misal: "< 6.5 : Baik")
+      const mKurang = teksRuj.match(/<=\s*([\d]+(?:[.,]\d+)?)|<\s*([\d]+(?:[.,]\d+)?)/);
+      // b. Format "> [angka]" atau ">= [angka]" meski diikuti keterangan (misal: "> 8 : Buruk")
+      const mLebih = teksRuj.match(/>=\s*([\d]+(?:[.,]\d+)?)|>\s*([\d]+(?:[.,]\d+)?)/);
+      // c. Format rentang "[angka] - [angka]"
+      const mRentang = teksRuj.match(/([\d]+(?:[.,]\d+)?)\s*(?:-|s\.?d\.?|sampai)\s*([\d]+(?:[.,]\d+)?)/i);
+
+      if (mKurang && (!mRentang || teksRuj.indexOf('<') < teksRuj.indexOf('-'))) {
+        const angkaStr = (mKurang[1] || mKurang[2]).replace(/,/g, '.');
+        ba = parseFloat(angkaStr);
+      } else if (mLebih && (!mRentang || teksRuj.indexOf('>') < teksRuj.indexOf('-'))) {
+        const angkaStr = (mLebih[1] || mLebih[2]).replace(/,/g, '.');
+        bb = parseFloat(angkaStr);
+      } else if (mRentang) {
+        bb = parseFloat(mRentang[1].replace(/,/g, '.'));
+        ba = parseFloat(mRentang[2].replace(/,/g, '.'));
+      }
+    }
+
+    // Jika nilai dapat dibaca sebagai angka numerik dan batas rujukan numerik tersedia
+    if (!isNaN(numVal)) {
+      if (bb !== null && !isNaN(bb) && numVal < bb) return true;
+      if (ba !== null && !isNaN(ba) && numVal > ba) return true;
+      if (bb !== null || ba !== null) return false;
+    }
+
+    // Fallback evaluasi teks/kategori via LabCore
+    const t = (nilaiKustom !== undefined && nilaiKustom !== null)
+      ? LabCore.tandai(m, r, !isNaN(numVal) ? numVal : null, rawVal)
+      : (h.tanda || LabCore.tandai(m, r, h.nilai_angka, h.nilai_teks));
+
+    return ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL', 'T', 'R', 'H', 'L', '*'].includes(t);
+  }
+
+  const evaluasiNilai = cekAbnormal;
+  const isAbnormal = cekAbnormal;
+  const hitungBintang = (h, ruj, nilai) => cekAbnormal(h, ruj, nilai) ? '*' : '';
 
   /* Satu baris pemeriksaan. Bentuk isiannya mengikuti jenis nilainya:
      angka pakai kotak teks (supaya koma desimal Indonesia bisa diketik
@@ -769,9 +858,14 @@ const Lab = (() => {
           if (inp.value !== valBersih) inp.value = valBersih;
         }
 
-        const tanda = harusAngka
-          ? LabCore.tandaAngka(LabCore.bacaNilai(inp.value, m.desimal), ruj)
-          : LabCore.tandai(m, ruj, null, inp.value);
+        let tanda;
+        if (cekAbnormal(h, ruj, inp.value)) {
+          tanda = 'TINGGI';
+        } else {
+          tanda = harusAngka
+            ? LabCore.tandaAngka(LabCore.bacaNilai(inp.value, m.desimal), ruj)
+            : LabCore.tandai(m, ruj, null, inp.value);
+        }
         const sel = el.querySelector(`[data-tanda="${id}"]`);
         if (sel) sel.innerHTML = lencanaTanda(tanda);
       });
@@ -1209,8 +1303,7 @@ const Lab = (() => {
     const isAbnormalItem = (h) => {
       const r = rujukanPakai[h.id];
       if (h.tanda && ['T', 'R', 'H', 'L', 'KRITIS_TINGGI', 'KRITIS_RENDAH', '*'].includes(h.tanda)) return true;
-      if (typeof isAbnormal === 'function') return isAbnormal(h, r);
-      return false;
+      return cekAbnormal(h, r);
     };
     
     const dicetakOleh = App.siapa()?.nama || 'Petugas Laboratorium';
@@ -1571,7 +1664,7 @@ const Lab = (() => {
                   <td class="mono text-muted">${UI.esc(m.kode || '')}</td>
                   <td><b>${UI.esc(h.nama)}</b></td>
                   <td class="r val-col ${abnormal ? 'abnormal' : ''}">${UI.esc(nilaiTeks(h))}</td>
-                  <td class="c abnormal">${abnormal ? '↑' : ''}</td>
+                  <td class="c abnormal">${abnormal ? '*' : ''}</td>
                   <td>${UI.esc(h.satuan || '')}</td>
                   <td class="mono">${UI.esc(rL)}</td>
                   <td class="mono">${UI.esc(rP)}</td>
@@ -2583,16 +2676,14 @@ const Lab = (() => {
         const tandaItem = (h, ruj) => {
           const m = h.ref || {};
           const harusAngka = cekHarusAngka(h, m, ruj);
+          if (cekAbnormal(h, ruj)) return 'TINGGI';
           if (harusAngka) {
             const n = h.nilai_angka !== null && h.nilai_angka !== undefined ? h.nilai_angka : LabCore.bacaNilai(h.nilai_teks, m.desimal);
             return LabCore.tandaAngka(n, ruj);
           }
           return LabCore.tandai(m, ruj, h.nilai_angka, h.nilai_teks);
         };
-        const isAbnormal = (h, ruj) => {
-          const t = tandaItem(h, ruj);
-          return ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
-        };
+        const isAbnormal = (h, ruj) => cekAbnormal(h, ruj);
 
         const catatan = p.catatan_klinis || '';
 
@@ -2696,7 +2787,7 @@ const Lab = (() => {
                         : `<input type="text" class="hasil-val" data-hid="${h.id}" data-angka="${harusAngka ? '1' : '0'}" data-jenis="${harusAngka ? 'ANGKA' : (m.jenis_nilai||'ANGKA')}" ${harusAngka ? 'inputmode="decimal" oninput="this.value = this.value.replace(/[^0-9.,\\-]/g, \'\')"' : ''} value="${UI.esc(val)}" placeholder="${harusAngka ? '0' : 'isi hasil...'}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;">`
                       }
                     </td>
-                    <td style="text-align:center; color:${abnormal?'#c00':'#333'};" data-star="${h.id}">${ abnormal ? '↑' : '' }</td>
+                    <td style="text-align:center; color:${abnormal?'#c00':'#333'}; font-weight:bold;" data-star="${h.id}">${ abnormal ? '*' : '' }</td>
                     <td><input type="text" class="ref-val" data-col="satuan" data-labid="${m.id}" value="${UI.esc(m.satuan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
                     <td>${UI.esc(rujStr(ruj))}</td>
                     <td><input type="text" class="ref-val" data-col="catatan_aktif" data-rid="${ruj?.id||''}" data-jk="${ruj?.jenis_kelamin||''}" data-labid="${m.id}" value="${UI.esc(ruj?.catatan||'')}" style="width:100%; border:none; outline:none; font-family:inherit; font-size:inherit; background:transparent;"></td>
@@ -2733,20 +2824,18 @@ const Lab = (() => {
             const ruj = rujukanPakai[hid];
             const harusAngka = inp.dataset.angka === '1';
 
-            if (harusAngka) {
-              inp.addEventListener('input', () => {
+            inp.addEventListener('input', () => {
+              if (harusAngka) {
                 const valBersih = inp.value.replace(/[^0-9.,\-]/g, '');
                 if (inp.value !== valBersih) inp.value = valBersih;
-                const n = LabCore.bacaNilai(inp.value, m.desimal);
-                const t = LabCore.tandaAngka(n, ruj);
-                const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
-                const starCell = kanan.querySelector(`td[data-star="${hid}"]`);
-                if (starCell) {
-                  starCell.innerHTML = ab ? '↑' : '';
-                  starCell.style.color = ab ? '#c00' : '#333';
-                }
-              });
-            }
+              }
+              const ab = cekAbnormal(h, ruj, inp.value);
+              const starCell = kanan.querySelector(`td[data-star="${hid}"]`);
+              if (starCell) {
+                starCell.innerHTML = ab ? '*' : '';
+                starCell.style.color = ab ? '#c00' : '#333';
+              }
+            });
 
             inp.addEventListener('change', async (e) => {
               const el = e.target;
@@ -2786,11 +2875,10 @@ const Lab = (() => {
                   h.nilai_teks = patch.nilai_teks !== undefined ? patch.nilai_teks : h.nilai_teks;
                 }
 
-                const t = tandaItem(h, ruj);
-                const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                const ab = cekAbnormal(h, ruj, v);
                 const starCell = kanan.querySelector(`td[data-star="${hid}"]`);
                 if (starCell) {
-                  starCell.innerHTML = ab ? '↑' : '';
+                  starCell.innerHTML = ab ? '*' : '';
                   starCell.style.color = ab ? '#c00' : '#333';
                 }
               } catch (err) {
@@ -2946,11 +3034,10 @@ const Lab = (() => {
                       terisi++;
 
                       const ruj = rujukanPakai[target.id];
-                      const t = tandaItem(target, ruj);
-                      const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                      const ab = cekAbnormal(target, ruj);
                       const starCell = kanan.querySelector(`td[data-star="${target.id}"]`);
                       if (starCell) {
-                        starCell.innerHTML = ab ? '↑' : '';
+                        starCell.innerHTML = ab ? '*' : '';
                         starCell.style.color = ab ? '#c00' : '#333';
                       }
                     }
@@ -2978,11 +3065,10 @@ const Lab = (() => {
                         setTimeout(() => { if (inp) inp.style.background = 'transparent'; }, 2000);
                         
                         const ruj = rujukanPakai[fh.id];
-                        const t = tandaItem(local, ruj);
-                        const ab = ['RENDAH', 'TINGGI', 'KRITIS_RENDAH', 'KRITIS_TINGGI', 'ABNORMAL'].includes(t);
+                        const ab = cekAbnormal(local, ruj);
                         const starCell = kanan.querySelector(`td[data-star="${fh.id}"]`);
                         if (starCell) {
-                          starCell.innerHTML = ab ? '↑' : '';
+                          starCell.innerHTML = ab ? '*' : '';
                           starCell.style.color = ab ? '#c00' : '#333';
                         }
                         terisi++;
