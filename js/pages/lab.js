@@ -35,13 +35,90 @@ const Lab = (() => {
     antrean: 'Antrean lab'
   };
 
+  function deteksiTabLab(lp) {
+    if (!lp) return 'hasil';
+    const hasil = lp.hasil || [];
+
+    // Sperma
+    const isSperma = hasil.some(h => {
+      const k = (h.ref?.kode || '').toUpperCase();
+      const n = (h.ref?.nama || '').toLowerCase();
+      const g = (h.ref?.kelompok || '').toLowerCase();
+      return k === 'S0102' || n.includes('sperma') || n.includes('semen') || g.includes('sperma');
+    });
+    if (isSperma) return 'sperma';
+
+    // Fisik
+    const isFisik = hasil.some(h => {
+      const k = (h.ref?.kode || '').toUpperCase();
+      const n = (h.ref?.nama || '').toLowerCase();
+      const g = (h.ref?.kelompok || '').toLowerCase();
+      return ['A0101', 'A0119', 'A0126'].includes(k) || n.includes('fisik') || g.includes('fisik');
+    });
+    if (isFisik) return 'fisik';
+
+    // Anamnesa
+    const isAnamnesa = hasil.some(h => {
+      const k = (h.ref?.kode || '').toUpperCase();
+      const n = (h.ref?.nama || '').toLowerCase();
+      const g = (h.ref?.kelompok || '').toLowerCase();
+      return k === 'AN0101' || n.includes('anamnes') || n.includes('mcu') || g.includes('anamnes');
+    });
+    if (isAnamnesa) return 'anamnesa';
+
+    return 'hasil';
+  }
+
   /* ================================================================== */
   /*  Kerangka                                                          */
   /* ================================================================== */
   async function render(el, param) {
-    if (param && param[0] === 'hasil' && param[1]) return await layarHasil(el, param[1]);
-    if (param && param[0] && TAB[param[0]]) tabAktif = param[0];
-    if (!TAB[tabAktif]) tabAktif = 'antrean';
+    let targetTab = null;
+    let targetId = null;
+
+    if (param && param.length > 0) {
+      if (TAB[param[0]]) {
+        targetTab = param[0];
+        targetId = param[1] || null;
+      } else {
+        targetId = param[0];
+      }
+    }
+
+    if (targetTab) {
+      tabAktif = targetTab;
+    }
+
+    if (targetId) {
+      try {
+        let lp = null;
+        if (DB.sb) {
+          const { data } = await DB.sb.from('lab_permintaan')
+            .select('id, tanggal, status, kunjungan_id, hasil:lab_hasil(ref:lab_id(kode,nama,kelompok))')
+            .or(`id.eq.${targetId},kunjungan_id.eq.${targetId}`)
+            .limit(1);
+          if (data && data.length > 0) lp = data[0];
+        }
+        if (lp) {
+          skylabState.terpilih = lp.id;
+          if (!targetTab) {
+            tabAktif = deteksiTabLab(lp);
+          }
+          if (lp.tanggal) {
+            if (!skylabState.dari || lp.tanggal < skylabState.dari) {
+              skylabState.dari = lp.tanggal;
+            }
+          }
+        } else {
+          skylabState.terpilih = targetId;
+        }
+      } catch (err) {
+        console.warn('Gagal resolve target lab id:', err);
+        skylabState.terpilih = targetId;
+      }
+    }
+
+    if (!TAB[tabAktif]) tabAktif = 'hasil';
 
     if (!master.length) master = await DB.refLab(true);
     if (!paket.length)  paket  = await DB.refLabPaket();
@@ -2654,7 +2731,8 @@ const Lab = (() => {
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
-          const pId = skylabState.terpilih && data.some(d => d.id === skylabState.terpilih) ? skylabState.terpilih : data[0].id;
+          const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
+          const pId = match ? match.id : data[0].id;
           bukaHasil(pId);
         }
       } catch(e) {
@@ -2674,7 +2752,7 @@ const Lab = (() => {
           ${data.map(d => {
             no++;
             const verified = d.status === 'SELESAI';
-            const aktif = skylabState.terpilih === d.id;
+            const aktif = skylabState.terpilih === d.id || skylabState.terpilih === d.kunjungan_id;
             return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
               <td>${no}</td>
               <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
@@ -3512,7 +3590,8 @@ const Lab = (() => {
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
-          const pId = skylabState.terpilih && data.some(d => d.id === skylabState.terpilih) ? skylabState.terpilih : data[0].id;
+          const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
+          const pId = match ? match.id : data[0].id;
           bukaFisik(pId);
         }
       } catch(e) {
@@ -3532,7 +3611,7 @@ const Lab = (() => {
           ${data.map(d => {
             no++;
             const verified = d.status === 'SELESAI';
-            const aktif = skylabState.terpilih === d.id;
+            const aktif = skylabState.terpilih === d.id || skylabState.terpilih === d.kunjungan_id;
             return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
               <td>${no}</td>
               <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
@@ -3911,7 +3990,8 @@ const Lab = (() => {
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
-          const pId = skylabState.terpilih && data.some(d => d.id === skylabState.terpilih) ? skylabState.terpilih : data[0].id;
+          const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
+          const pId = match ? match.id : data[0].id;
           bukaAnamnesa(pId);
         }
       } catch(e) {
@@ -3931,7 +4011,7 @@ const Lab = (() => {
           ${data.map(d => {
             no++;
             const verified = d.status === 'SELESAI';
-            const aktif = skylabState.terpilih === d.id;
+            const aktif = skylabState.terpilih === d.id || skylabState.terpilih === d.kunjungan_id;
             return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
               <td>${no}</td>
               <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
@@ -4309,7 +4389,8 @@ const Lab = (() => {
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
-          const pId = skylabState.terpilih && data.some(d => d.id === skylabState.terpilih) ? skylabState.terpilih : data[0].id;
+          const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
+          const pId = match ? match.id : data[0].id;
           bukaSperma(pId);
         }
       } catch(e) {
@@ -4329,7 +4410,7 @@ const Lab = (() => {
           ${data.map(d => {
             no++;
             const verified = d.status === 'SELESAI';
-            const aktif = skylabState.terpilih === d.id;
+            const aktif = skylabState.terpilih === d.id || skylabState.terpilih === d.kunjungan_id;
             return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
               <td>${no}</td>
               <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
