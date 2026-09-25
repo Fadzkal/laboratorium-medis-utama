@@ -342,36 +342,52 @@ def parse_astm_records(raw_frames: list):
     for line in raw_frames:
         if not line:
             continue
-        parts = line.split("|")
-        rtype = parts[0]
+        line_clean = line.strip("\r\n\x02\x03\x17")
+        parts = line_clean.split("|")
+        rtype = parts[0].strip()
+        # Jika rtype diawali digit frame (misal 1H, 2P, 3O, 4R)
+        if len(rtype) > 1 and rtype[0].isdigit():
+            rtype = rtype[1:]
 
-        if rtype == "P" and len(parts) > 3:
+        if rtype == "P" and len(parts) > 2:
             # Patient record: P|1||PatientID||LastName^FirstName
-            if not sample_id and parts[3]:
-                sample_id = parts[3].strip()
+            pid = parts[3].strip() if len(parts) > 3 and parts[3].strip() else (parts[2].strip() if len(parts) > 2 else "")
+            if not sample_id and pid:
+                sample_id = pid
             if len(parts) > 5 and parts[5]:
                 patient_name = parts[5].replace("^", " ").strip()
 
         elif rtype == "O" and len(parts) > 2:
             # Order record: O|1|SampleID||^^^TestList...
-            sid = parts[2].strip()
+            sid = parts[2].strip() if parts[2].strip() else (parts[3].strip() if len(parts) > 3 else "")
             if sid:
                 sample_id = sid
 
         elif rtype == "R" and len(parts) > 3:
             # Result record: R|1|^^^WBC|7.50|10*3/uL|...|N
-            test_raw = parts[2]
-            # test_raw biasanya berbentuk ^^^WBC atau WBC
-            test_code = test_raw.replace("^", "").strip()
+            test_raw = parts[2].strip()
+            raw_comps = [c.strip() for c in test_raw.split("^") if c.strip()]
+            test_code = ""
+            for comp in raw_comps:
+                if any(c.isalpha() for c in comp):
+                    test_code = comp
+                    break
+            if not test_code:
+                test_code = test_raw.replace("^", "").strip()
+
             value = parts[3].strip() if len(parts) > 3 else ""
             unit = parts[4].strip() if len(parts) > 4 else ""
+            ref_range = parts[5].strip() if len(parts) > 5 else ""
             flag = parts[6].strip() if len(parts) > 6 else ""
+            if not flag or flag in ("", "-"):
+                flag = "N"
 
             if test_code and value:
                 results.append({
                     "test_name": test_code,
                     "value": value,
                     "unit": unit,
+                    "ref_range": ref_range,
                     "flag": flag
                 })
 
@@ -400,44 +416,62 @@ def sysmex_worker():
             frames = []
 
             while True:
-                data = client.recv(1024)
+                data = client.recv(2048)
                 if not data:
                     break
 
-                # Handshake ASTM
-                if data == ENQ:
-                    client.sendall(ACK)
+                # Handshake ASTM ENQ
+                if ENQ in data:
+                    try:
+                        client.sendall(ACK)
+                    except Exception:
+                        pass
                     frames = []
                     continue
 
-                if data == EOT:
+                if EOT in data:
                     logger.info("Sesi ASTM Sysmex selesai (EOT). Mulai parsing data...")
-                    client.close()
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
                     break
 
                 # Data frame: STX ... ETX/ETB Checksum CR LF
-                if data.startswith(STX):
-                    # Balas ACK agar alat mengirim frame berikutnya
-                    client.sendall(ACK)
-                    # Ambil isi teks (buang STX di awal, buang nomor frame dan checksum di akhir)
+                if STX in data:
                     try:
-                        teks = data.decode("ascii", errors="replace")
-                        # Cari posisi pembatas
-                        cr_pos = teks.rfind("\r")
-                        if cr_pos != -1:
-                            content = teks[2:cr_pos]  # Lewati STX dan digit frame urutan
-                            frames.append(content)
-                    except Exception as eFrame:
-                        logger.error(f"Error ekstrak frame ASTM: {eFrame}")
+                        client.sendall(ACK)
+                    except Exception:
+                        pass
 
-            # Setelah EOT diterima, parse seluruh rekaman
+                    # Pecah jika ada beberapa frame STX dalam satu chunk TCP
+                    raw_chunks = data.split(STX)
+                    for chunk in raw_chunks:
+                        if not chunk:
+                            continue
+                        content_bytes = chunk
+                        for stop_byte in (ETX, ETB):
+                            if stop_byte in content_bytes:
+                                content_bytes = content_bytes.split(stop_byte)[0]
+                        try:
+                            line_str = content_bytes.decode("ascii", errors="replace").strip("\r\n")
+                            if line_str and line_str[0].isdigit():
+                                line_str = line_str[1:]
+                            if line_str:
+                                frames.append(line_str)
+                                logger.info(f"Frame ASTM Sysmex: {line_str}")
+                        except Exception as eFrame:
+                            logger.error(f"Error parse frame ASTM Sysmex: {eFrame}")
+
+            # Setelah EOT diterima atau socket selesai
             if frames:
+                raw_astm = "\r\n".join(frames)
                 sample_id, patient_name, results = parse_astm_records(frames)
                 logger.info(f"Sysmex Sample ID: {sample_id}, Pasien: {patient_name}, Parameter: {len(results)}")
 
                 if sample_id and results:
                     catat_ke_csv(sample_id, patient_name, "Sysmex XP-100", results)
-                    perbarui_buffer(sample_id, patient_name, "Sysmex XP-100", results)
+                    perbarui_buffer(sample_id, patient_name, "Sysmex XP-100", results, raw_msg=raw_astm)
                     STATUS_LISTENER["sysmex"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
                     try:

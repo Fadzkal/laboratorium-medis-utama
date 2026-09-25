@@ -1,197 +1,302 @@
 [
   {
-    "sample_id": "45",
-    "nama_pasien": "sartini",
-    "alat": "Mindray BS-240",
-    "waktu": "2026-09-25 16:46:18",
+    "sample_id": "^^       26090523^B",
+    "nama_pasien": "",
+    "alat": "Sysmex XP-100",
+    "waktu": "2026-09-25 17:15:45",
     "hasil": [
       {
-        "test_name": "LDL-C",
-        "test_desc": "LDL-Cholesterol",
-        "value": "82.539459",
-        "unit": "mg/dL",
-        "ref_range": "-",
+        "test_name": "WBC",
+        "value": "8.8",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RBC",
+        "value": "3.89",
+        "unit": "10*6/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "HGB",
+        "value": "11.1",
+        "unit": "g/dL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "HCT",
+        "value": "33.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCV",
+        "value": "87.1",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCH",
+        "value": "28.5",
+        "unit": "pg",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCHC",
+        "value": "32.7",
+        "unit": "g/dL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PLT",
+        "value": "336",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "LYM%",
+        "value": "30.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MXD%",
+        "value": "5.2",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "NEUT%",
+        "value": "63.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "LYM#",
+        "value": "2.7",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MXD#",
+        "value": "0.5",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "NEUT#",
+        "value": "5.6",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RDW-SD",
+        "value": "47.4",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RDW-CV",
+        "value": "14.1",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PDW",
+        "value": "11.2",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MPV",
+        "value": "9.2",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "P-LCR",
+        "value": "19.3",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PCT",
+        "value": "0.31",
+        "unit": "%",
+        "ref_range": "",
         "flag": "N"
       }
     ],
-    "raw_hl7": "MSH|^~\\&|||||20260925172516||ORU^R01|13|P|2.3.1||||0||ASCII|||\rPID|15|8kra|||sartini|||O|||||||||||||||||||||||\rOBR|15||45|^|N|20260925161351|20260925161343|20260925161343||2^10||||20260925161343|Serum|||||||||||||||||||||||||||||||||\rOBX|1|NM||LDL-Cholesterol|82.539459|mg/dL|-|N|||F||82.539459|20260925172516|||0|\r",
-    "metadata": {
-      "patient_id": "",
-      "gender": "O",
-      "age": "",
-      "order_date": "20260925161343"
-    }
+    "raw_hl7": "H|\\^&|||XP-100^00-14^^^^B2336^BS649542||||||||E1394-97\r\nP|1\r\nO|1||^^       26090523^B|^^^^WBC\\^^^^RBC\\^^^^HGB\\^^^^HCT\\^^^^MCV\\^^^^MCH\\^^^^MCHC\\^^^^PLT\\^^^^LYM%\\^^^^MXD%\\^^^^NEUT%\\^^^^LYM#\\^^^^MXD#\\^^^^NEUT#\\^^^^RDW-SD\\^^^^RDW-CV\\^^^^PDW\\^^^^MPV\\^^^^P-LCR\\^^^^PCT|||||||N||||||||||||||F\r\nR|1|^^^^WBC^1|  8.8|10*3/uL||N||||               ||20260925160814\r\nR|2|^^^^RBC^1| 3.89|10*6/uL||N||||               ||20260925160814\r\nR|3|^^^^HGB^1| 11.1|g/dL||N||||               ||20260925160814\r\nR|4|^^^^HCT^1| 33.9|%||N||||               ||20260925160814\r\nR|5|^^^^MCV^1| 87.1|fL||N||||               ||20260925160814\r\nR|6|^^^^MCH^1| 28.5|pg||N||||               ||20260925160814\r\nR|7|^^^^MCHC^1| 32.7|g/dL||N||||               ||20260925160814\r\nR|8|^^^^PLT^1|  336|10*3/uL||N||||               ||20260925160814\r\nR|9|^^^^LYM%^1| 30.9|%||N||||               ||20260925160814\r\nR|10|^^^^MXD%^1|  5.2|%||N||||               ||20260925160814\r\nR|11|^^^^NEUT%^1| 63.9|%||N||||               ||20260925160814\r\nR|12|^^^^LYM#^1|  2.7|10*3/uL||N||||               ||20260925160814\r\nR|13|^^^^MXD#^1|  0.5|10*3/uL||N||||               ||20260925160814\r\nR|14|^^^^NEUT#^1|  5.6|10*3/uL||N||||               ||20260925160814\r\nR|15|^^^^RDW-SD^1| 47.4|fL||N||||               ||20260925160814\r\nR|16|^^^^RDW-CV^1| 14.1|%||N||||               ||20260925160814\r\nR|17|^^^^PDW^1| 11.2|fL||N||||               ||20260925160814\r\nR|18|^^^^MPV^1|  9.2|fL||N||||               ||20260925160814\r\nR|19|^^^^P-LCR^1| 19.3|%||N||||               ||20260925160814\r\nR|20|^^^^PCT^1| 0.31|%||N||||               ||20260925160814\r\nL|1|N",
+    "metadata": {}
   },
   {
-    "sample_id": "43",
-    "nama_pasien": "mahmudah",
-    "alat": "Mindray BS-240",
-    "waktu": "2026-09-25 16:43:36",
+    "sample_id": "^^       26090523^B",
+    "nama_pasien": "",
+    "alat": "Sysmex XP-100",
+    "waktu": "2026-09-25 17:14:40",
     "hasil": [
       {
-        "test_name": "LDL-C",
-        "test_desc": "LDL-Cholesterol",
-        "value": "89.692734",
-        "unit": "mg/dL",
-        "ref_range": "-",
+        "test_name": "WBC",
+        "value": "8.8",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RBC",
+        "value": "3.89",
+        "unit": "10*6/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "HGB",
+        "value": "11.1",
+        "unit": "g/dL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "HCT",
+        "value": "33.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCV",
+        "value": "87.1",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCH",
+        "value": "28.5",
+        "unit": "pg",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MCHC",
+        "value": "32.7",
+        "unit": "g/dL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PLT",
+        "value": "336",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "LYM%",
+        "value": "30.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MXD%",
+        "value": "5.2",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "NEUT%",
+        "value": "63.9",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "LYM#",
+        "value": "2.7",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MXD#",
+        "value": "0.5",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "NEUT#",
+        "value": "5.6",
+        "unit": "10*3/uL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RDW-SD",
+        "value": "47.4",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "RDW-CV",
+        "value": "14.1",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PDW",
+        "value": "11.2",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "MPV",
+        "value": "9.2",
+        "unit": "fL",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "P-LCR",
+        "value": "19.3",
+        "unit": "%",
+        "ref_range": "",
+        "flag": "N"
+      },
+      {
+        "test_name": "PCT",
+        "value": "0.31",
+        "unit": "%",
+        "ref_range": "",
         "flag": "N"
       }
     ],
-    "raw_hl7": "MSH|^~\\&|||||20260925172234||ORU^R01|12|P|2.3.1||||0||ASCII|||\rPID|14|6kra|||mahmudah|||O|||||||||||||||||||||||\rOBR|14||43|^|N|20260925161334|20260925161322|20260925161322||2^8||||20260925161322|Serum|||||||||||||||||||||||||||||||||\rOBX|1|NM||LDL-Cholesterol|89.692734|mg/dL|-|N|||F||89.692734|20260925172234|||0|\r",
-    "metadata": {
-      "patient_id": "",
-      "gender": "O",
-      "age": "",
-      "order_date": "20260925161322"
-    }
-  },
-  {
-    "sample_id": "44",
-    "nama_pasien": "dasni",
-    "alat": "Mindray BS-240",
-    "waktu": "2026-09-25 16:43:18",
-    "hasil": [
-      {
-        "test_name": "TG",
-        "test_desc": "Triglycerides",
-        "value": "416.721328",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "HDL-C",
-        "test_desc": "HDL-Cholesterol",
-        "value": "25.834781",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "TC",
-        "test_desc": "Total Cholesterol",
-        "value": "152.484554",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "CREA-S",
-        "test_desc": "Creatinine (Sarcosine Oxidase Method)",
-        "value": "0.654310",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "UREA",
-        "test_desc": "Urea",
-        "value": "30.654466",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "LDL-C",
-        "test_desc": "LDL-Cholesterol",
-        "value": "87.082436",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      }
-    ],
-    "raw_hl7": "MSH|^~\\&|||||20260925172216||ORU^R01|11|P|2.3.1||||0||ASCII|||\rPID|13|7kra|||dasni|||O|||||||||||||||||||||||\rOBR|13||44|^|N|20260925161343|20260925161334|20260925161334||2^9||||20260925161334|Serum|||||||||||||||||||||||||||||||||\rOBX|1|NM||Triglycerides|416.721328|mg/dL|-|N|||F||416.721328|20260925165704|||0|\rOBX|2|NM||HDL-Cholesterol|25.834781|mg/dL|-|N|||F||25.834781|20260925165758|||0|\rOBX|3|NM||Total Cholesterol|152.484554|mg/dL|-|N|||F||152.484554|20260925165252|||0|\rOBX|4|NM||Creatinine (Sarcosine Oxidase Method)|0.654310|mg/dL|-|N|||F||0.654310|20260925165834|||0|\rOBX|5|NM||Urea|30.654466|mg/dL|-|N|||F||30.654466|20260925165404|||0|\rOBX|6|NM||LDL-Cholesterol|87.082436|mg/dL|-|N|||F||87.082436|20260925172216|||0|\r",
-    "metadata": {
-      "patient_id": "",
-      "gender": "O",
-      "age": "",
-      "order_date": "20260925161334"
-    }
-  },
-  {
-    "sample_id": "46",
-    "nama_pasien": "sarwi",
-    "alat": "Mindray BS-240",
-    "waktu": "2026-09-25 16:41:30",
-    "hasil": [
-      {
-        "test_name": "TC",
-        "test_desc": "Total Cholesterol",
-        "value": "113.616293",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      }
-    ],
-    "raw_hl7": "MSH|^~\\&|||||20260925172028||ORU^R01|10|P|2.3.1||||0||ASCII|||\rPID|12|9kra|||sarwi|||O|||||||||||||||||||||||\rOBR|12||46|^|N|20260925161359|20260925161351|20260925161351||2^11||||20260925161351|Serum|||||||||||||||||||||||||||||||||\rOBX|1|NM||Total Cholesterol|113.616293|mg/dL|-|N|||F||113.616293|20260925172028|||1|\r",
-    "metadata": {
-      "patient_id": "",
-      "gender": "O",
-      "age": "",
-      "order_date": "20260925161351"
-    }
-  },
-  {
-    "sample_id": "47",
-    "nama_pasien": "supini",
-    "alat": "Mindray BS-240",
-    "waktu": "2026-09-25 16:39:56",
-    "hasil": [
-      {
-        "test_name": "GLU",
-        "test_desc": "Glucose (GOD-POD Method)",
-        "value": "67.000609",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "TG",
-        "test_desc": "Triglycerides",
-        "value": "94.291985",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "HDL-C",
-        "test_desc": "HDL-Cholesterol",
-        "value": "29.358658",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "TC",
-        "test_desc": "Total Cholesterol",
-        "value": "190.716493",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "CREA-S",
-        "test_desc": "Creatinine (Sarcosine Oxidase Method)",
-        "value": "5.919087",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      },
-      {
-        "test_name": "UREA",
-        "test_desc": "Urea",
-        "value": "108.978602",
-        "unit": "mg/dL",
-        "ref_range": "-",
-        "flag": "N"
-      }
-    ],
-    "raw_hl7": "MSH|^~\\&|||||20260925171853||ORU^R01|9|P|2.3.1||||0||ASCII|||\rPID|11|10kra|||supini|||O|||||||||||||||||||||||\rOBR|11||47|^|N|20260925161407|20260925161359|20260925161359||2^12||||20260925161359|Serum|||||||||||||||||||||||||||||||||\rOBX|1|NM||Glucose (GOD-POD Method)|67.000609|mg/dL|-|N|||F||67.000609|20260925170416|||0|\rOBX|2|NM||Triglycerides|94.291985|mg/dL|-|N|||F||94.291985|20260925170358|||0|\rOBX|3|NM||HDL-Cholesterol|29.358658|mg/dL|-|N|||F||29.358658|20260925170528|||0|\rOBX|4|NM||Total Cholesterol|190.716493|mg/dL|-|N|||F||190.716493|20260925170040|||0|\rOBX|5|NM||Creatinine (Sarcosine Oxidase Method)|5.919087|mg/dL|-|N|||F||5.919087|20260925170622|||0|\rOBX|6|NM||Urea|108.978602|mg/dL|-|N|||F||108.978602|20260925170246|||0|\r",
-    "metadata": {
-      "patient_id": "",
-      "gender": "O",
-      "age": "",
-      "order_date": "20260925161359"
-    }
+    "raw_hl7": "H|\\^&|||XP-100^00-14^^^^B2336^BS649542||||||||E1394-97\r\nP|1\r\nO|1||^^       26090523^B|^^^^WBC\\^^^^RBC\\^^^^HGB\\^^^^HCT\\^^^^MCV\\^^^^MCH\\^^^^MCHC\\^^^^PLT\\^^^^LYM%\\^^^^MXD%\\^^^^NEUT%\\^^^^LYM#\\^^^^MXD#\\^^^^NEUT#\\^^^^RDW-SD\\^^^^RDW-CV\\^^^^PDW\\^^^^MPV\\^^^^P-LCR\\^^^^PCT|||||||N||||||||||||||F\r\nR|1|^^^^WBC^1|  8.8|10*3/uL||N||||               ||20260925160814\r\nR|2|^^^^RBC^1| 3.89|10*6/uL||N||||               ||20260925160814\r\nR|3|^^^^HGB^1| 11.1|g/dL||N||||               ||20260925160814\r\nR|4|^^^^HCT^1| 33.9|%||N||||               ||20260925160814\r\nR|5|^^^^MCV^1| 87.1|fL||N||||               ||20260925160814\r\nR|6|^^^^MCH^1| 28.5|pg||N||||               ||20260925160814\r\nR|7|^^^^MCHC^1| 32.7|g/dL||N||||               ||20260925160814\r\nR|8|^^^^PLT^1|  336|10*3/uL||N||||               ||20260925160814\r\nR|9|^^^^LYM%^1| 30.9|%||N||||               ||20260925160814\r\nR|10|^^^^MXD%^1|  5.2|%||N||||               ||20260925160814\r\nR|11|^^^^NEUT%^1| 63.9|%||N||||               ||20260925160814\r\nR|12|^^^^LYM#^1|  2.7|10*3/uL||N||||               ||20260925160814\r\nR|13|^^^^MXD#^1|  0.5|10*3/uL||N||||               ||20260925160814\r\nR|14|^^^^NEUT#^1|  5.6|10*3/uL||N||||               ||20260925160814\r\nR|15|^^^^RDW-SD^1| 47.4|fL||N||||               ||20260925160814\r\nR|16|^^^^RDW-CV^1| 14.1|%||N||||               ||20260925160814\r\nR|17|^^^^PDW^1| 11.2|fL||N||||               ||20260925160814\r\nR|18|^^^^MPV^1|  9.2|fL||N||||               ||20260925160814\r\nR|19|^^^^P-LCR^1| 19.3|%||N||||               ||20260925160814\r\nR|20|^^^^PCT^1| 0.31|%||N||||               ||20260925160814\r\nL|1|N",
+    "metadata": {}
   }
 ]
