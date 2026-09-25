@@ -4586,5 +4586,5 @@ const Lab = (() => {
     await cetakDokumen(htmlAnamnesa);
   }
 
-  return { render, modalBacaan, modalArsip, daftarPilihLab, lencanaTanda, lencanaStatus };
+  return { render, modalBacaan, modalArsip, daftarPilihLab, lencanaTanda, lencanaStatus, MAP_KODE_ALAT };
 })();

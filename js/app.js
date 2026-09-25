@@ -27,6 +27,7 @@ const App = (() => {
     { rute: '#/jadwal',      label: 'Antrean & Layar', ikon: 'jam',     kode: 'antrean_pengaturan' },
     { rute: '#/migrasi',     label: 'Migrasi Portal', ikon: 'unduh',    kode: 'menu_migrasi' },
     { rute: '#/pengaturan',  label: 'Pengaturan',    ikon: 'setelan',   kode: 'menu_pengaturan' },
+    { rute: '#/lis-debug',   label: 'LIS & Integrasi Alat', ikon: 'pengaturan', peran: 'master', khususMaster: true },
     { grup: 'Operasional' },
     { rute: '#/absensi',          label: 'Absensi',           ikon: 'jam',       peran: '*' },
     { rute: '#/hris',             label: 'Kinerja & Bonus Karyawan', ikon: 'laporan', kode: 'menu_hris' },
@@ -53,6 +54,10 @@ const App = (() => {
     'migrasi':     (p) => Migrasi.render(view(), p),
     'master':      (p) => Master.render(view(), p),
     'pengaturan':  (p) => Pengaturan.render(view(), p),
+    'lis-debug':   (p) => LisDebug.render(view(), p),
+    'lis_debug':   (p) => LisDebug.render(view(), p),
+    'integrasi-alat': (p) => LisDebug.render(view(), p),
+    'integrasi_alat': (p) => LisDebug.render(view(), p),
     'absensi':     (p) => Absensi.render(view(), p),
     'hris':        (p) => HrisLaporan.render(view(), p),
     'inkaso':      (p) => InkasoBarang.render(view(), p),
@@ -68,6 +73,10 @@ const App = (() => {
     tarif: 'Tarif & Tampilan Invoice',
     jadwal: 'Antrean & Layar Tunggu', migrasi: 'Migrasi Portal',
     master: 'Master Data', pengaturan: 'Pengaturan',
+    'lis-debug': 'LIS & Integrasi Alat Medis',
+    'lis_debug': 'LIS & Integrasi Alat Medis',
+    'integrasi-alat': 'LIS & Integrasi Alat Medis',
+    'integrasi_alat': 'LIS & Integrasi Alat Medis',
     absensi: 'Absensi Karyawan', hris: 'Kinerja & Bonus Karyawan', inkaso: 'Inkaso & Inventori',
     'display-harian': 'Display Harian'
   };
@@ -82,8 +91,11 @@ const App = (() => {
   function gambarMenu() {
     const nav = document.getElementById('nav');
     const rute = (location.hash || '#/beranda').split('/')[1] || 'beranda';
-    const terlihat = (m) => m.peran === '*'
-      || (Array.isArray(m.kode) ? m.kode.some(boleh) : boleh(m.kode));
+    const terlihat = (m) => {
+      if (m.khususMaster || m.peran === 'master') return profil?.peran === 'master';
+      return m.peran === '*'
+        || (Array.isArray(m.kode) ? m.kode.some(boleh) : boleh(m.kode));
+    };
     const bagian = [];
     MENU.forEach(m => {
       if (m.grup) { bagian.push({ grup: m.grup, isi: [] }); return; }
@@ -138,6 +150,13 @@ const App = (() => {
     document.title = judul + ' — ' + CONFIG.NAMA_KLINIK;
     document.getElementById('sidebar').classList.remove('open');
     gambarMenu();
+
+    if (['lis-debug', 'lis_debug', 'integrasi-alat', 'integrasi_alat'].includes(nama) && profil?.peran !== 'master') {
+      view().innerHTML = UI.kosong('Akses Dibatasi',
+        'Halaman LIS & Integrasi Alat khusus untuk pengguna dengan peran Master.',
+        '<a href="#/beranda" class="btn btn-primary">Kembali ke beranda</a>');
+      return;
+    }
 
     const fn = RUTE[nama];
     if (!fn) {
