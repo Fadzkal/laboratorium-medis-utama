@@ -996,7 +996,7 @@ const Master = (() => {
    *  itu peringatannya dipasang di atas layar, bukan di catatan kaki.
    * ================================================================ */
   const KELOMPOK_LAB = ['Hematologi', 'Kimia Klinik', 'Urinalisis', 'Imunoserologi',
-                        'Mikrobiologi', 'Feses', 'Lainnya'];
+                        'Mikrobiologi', 'Feses', 'Analisa Sperma', 'Lainnya'];
 
   async function tabLab(w) {
     w.innerHTML = `

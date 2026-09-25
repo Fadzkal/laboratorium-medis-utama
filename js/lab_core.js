@@ -470,8 +470,58 @@ const LabCore = (() => {
     return s;
   }
 
+  /* ------------------------------------------------------------------
+      Item Analisa Sperma & Evaluasi Semen
+      Sesuai Standar Laboratorium Medis Utama:
+        Urut 110     : Keterangan Klinik
+        Urut 120     : KETERANGAN SAMPEL (Header)
+        Urut 121-125 : Butir Sampel (Pemeriksaan Ke, Lama Menikah, dll)
+        Urut 200     : SEMEN (Header Makroskopis)
+        Urut 201-206 : Butir Makroskopis (Kelengkapan, Penampilan, Volume, dll)
+        Urut 220     : SPERMA (Header Mikroskopis)
+        Urut 221-232 : Butir Mikroskopis (Jumlah, Gerakan, Bentuk, Vitalitas, Aglutinasi)
+        Urut 250     : SEL-SEL LAIN (Header)
+        Urut 251-254 : Butir Sel Lain (Leukosit, Eritrosit, Bakteri, Debris)
+        Urut 270     : Komentar
+      ------------------------------------------------------------------ */
+  const REF_SPERMA = [
+    { baris: 1,  urutan: 110, parameter: 'Keterangan Klinik',           defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 2,  urutan: 120, parameter: 'KETERANGAN SAMPEL',          defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: true },
+    { baris: 3,  urutan: 121, parameter: 'Pemeriksaan Ke',             defaultHasil: '1',                  satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 4,  urutan: 122, parameter: 'Lama Menikah',               defaultHasil: '10 tahun',           satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 5,  urutan: 123, parameter: 'Lama Berpantang',            defaultHasil: '3 hari',             satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 6,  urutan: 124, parameter: 'Pengeluaran Jam',            defaultHasil: '10.58 WIB',          satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 7,  urutan: 125, parameter: 'Pemeriksaan Jam',            defaultHasil: '11.58 WIB',          satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false },
+    { baris: 8,  urutan: 200, parameter: 'SEMEN',                      defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: true },
+    { baris: 9,  urutan: 201, parameter: '1. Kelengkapan Sampel',      defaultHasil: 'Lengkap',            satuan: 'L/TL',    bawah: 'Lengkap',                           tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 10, urutan: 202, parameter: '2. Penampilan',              defaultHasil: 'Normal',             satuan: 'N/Abn',   bawah: 'Putih Mutiara / "Grey-Opalescent"', tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 11, urutan: 203, parameter: '3. Kekentalan',              defaultHasil: 'Normal',             satuan: 'N/Abn',   bawah: 'Tetesan Kecil (<2 cm)',             tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 12, urutan: 204, parameter: '4. Pencairan',               defaultHasil: 'Normal / 45 menit',  satuan: 'N/Abn',   bawah: '<60 Menit',                         tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 13, urutan: 205, parameter: '5. pH',                      defaultHasil: '8.5',                satuan: '',        bawah: '7,2 - 7,8',                         tengah: '',     atas: '',      flag: 2, isHeader: false, isNumber: true },
+    { baris: 14, urutan: 206, parameter: '6. Volume',                  defaultHasil: '4.1',                satuan: 'ml',      bawah: '1,5',                               tengah: '3,7',  atas: '6,8',   flag: 2, isHeader: false, isNumber: true },
+    { baris: 15, urutan: 220, parameter: 'SPERMA',                     defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: true },
+    { baris: 16, urutan: 221, parameter: '1. Jumlah Sperma',           defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 2, isHeader: true },
+    { baris: 17, urutan: 222, parameter: 'a. Konsentrasi',             defaultHasil: '134.0',              satuan: '10^6/ml',  bawah: '15,0',                              tengah: '73,0', atas: '213,0', flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 18, urutan: 223, parameter: 'b. Jumlah Total (Kons x Vol)', defaultHasil: '549.4',          satuan: '10^6/ejk', bawah: '39,0',                              tengah: '255,0',atas: '802,0', flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 19, urutan: 224, parameter: '2. Gerakan Sperma',          defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 2, isHeader: true },
+    { baris: 20, urutan: 225, parameter: 'a. Bergerak Progresif (PR)', defaultHasil: '35',                 satuan: '%',       bawah: '32,0',                              tengah: '55,0', atas: '72,0',  flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 21, urutan: 226, parameter: 'b. Bergerak Tidak Progresif(TP)', defaultHasil: '35',            satuan: '%',       bawah: '1,0',                               tengah: '5,0',  atas: '18,0',  flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 22, urutan: 227, parameter: 'c. Total Bergerak(PR+TP)',   defaultHasil: '70',                 satuan: '%',       bawah: '40,0',                              tengah: '61,0', atas: '78,0',  flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 23, urutan: 228, parameter: 'd. Tidak Bergerak(TG)',      defaultHasil: '30',                 satuan: '%',       bawah: '22,0',                              tengah: '39,0', atas: '59,0',  flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 24, urutan: 229, parameter: '3. Bentuk Sperma',           defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 2, isHeader: true },
+    { baris: 25, urutan: 230, parameter: 'a. Bentuk Normal',           defaultHasil: '10',                 satuan: '%',       bawah: '4,0',                               tengah: '15,0', atas: '44,0',  flag: 3, isHeader: false, isIndent: true, isNumber: true },
+    { baris: 26, urutan: 231, parameter: '4. Vitalitas Sperma',        defaultHasil: '59',                 satuan: '%',       bawah: '58,0',                              tengah: '79,0', atas: '91,0',  flag: 2, isHeader: false, isNumber: true },
+    { baris: 27, urutan: 232, parameter: '5. Aglutinasi Sperma',       defaultHasil: 'Negatif',            satuan: 'Neg/1-4', bawah: 'Negatif',                           tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 28, urutan: 250, parameter: 'SEL-SEL LAIN',               defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 2, isHeader: true },
+    { baris: 29, urutan: 251, parameter: '1. Leukosit',                defaultHasil: '1.75',               satuan: '10^6/ml', bawah: '10^6/ml',                           tengah: '',     atas: '',      flag: 1, isHeader: false, isNumber: true },
+    { baris: 30, urutan: 252, parameter: '2. Eritrosit',               defaultHasil: 'Negatif',            satuan: 'Neg/Pos', bawah: 'Negatif',                           tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 31, urutan: 253, parameter: '3. Bakteri',                 defaultHasil: 'Negatif',            satuan: 'Neg/Pos', bawah: 'Negatif',                           tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 32, urutan: 254, parameter: '4. Lain-lain/Debris',        defaultHasil: 'Negatif',            satuan: 'Neg/Pos', bawah: 'Negatif',                           tengah: '',     atas: '',      flag: 2, isHeader: false },
+    { baris: 33, urutan: 270, parameter: 'Komentar',                   defaultHasil: '',                   satuan: '',        bawah: '',                                  tengah: '',     atas: '',      flag: 1, isHeader: false }
+  ];
+
   const API = {
-    TANDA, JENIS_PENUNJANG, JENIS_LAMPIRAN, REF_FISIK, REF_ANAMNESA,
+    TANDA, JENIS_PENUNJANG, JENIS_LAMPIRAN, REF_FISIK, REF_ANAMNESA, REF_SPERMA,
     labelJenis, jenisPakaiGigi, labelLampiran,
     umurBulan, pilihRujukan, tandaAngka, tandaTeks, tandai,
     fmSql, teksRujukan, bacaNilai, formatNilai,

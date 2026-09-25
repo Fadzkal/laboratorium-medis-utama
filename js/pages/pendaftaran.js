@@ -443,11 +443,15 @@ const Pendaftaran = (() => {
     tbody.innerHTML = barisPemeriksaan.map((b, i) => `
       <tr data-baris="${i}">
         <td>${i + 1}</td>
-        <td class="td-px"><span class="text-muted" style="font-size:11px">${b.kode || ''}</span></td>
-        <td class="td-nama">
+        <td class="td-px" style="position:relative">
+          <input class="pdft-inp inp-px" type="text" data-idx="${i}"
+            value="${UI.esc(b.kode || '')}" placeholder=""
+            autocomplete="off" style="font-weight:600; font-size:12px;">
+        </td>
+        <td class="td-nama" style="position:relative">
           <div class="pdft-ac" style="position:relative">
             <input class="pdft-inp inp-nama" type="text" data-idx="${i}"
-              value="${UI.esc(b.nama)}" placeholder="Ketik nama pemeriksaan…"
+              value="${UI.esc(b.nama || '')}" placeholder="Ketik nama pemeriksaan…"
               autocomplete="off">
           </div>
         </td>
@@ -459,7 +463,7 @@ const Pendaftaran = (() => {
         <td class="td-net">${b.net ? b.net.toLocaleString('id-ID') : ''}</td>
         <td class="td-ket">
           <input class="pdft-inp inp-ket" type="text" data-idx="${i}"
-            value="${UI.esc(b.ket)}" placeholder="">
+            value="${UI.esc(b.ket || '')}" placeholder="">
         </td>
         <td style="text-align:center">
           <button class="btn-clr btn-hapus-baris" data-idx="${i}" title="Hapus baris">×</button>
@@ -471,77 +475,170 @@ const Pendaftaran = (() => {
   }
 
   /* ================================================================
-     EVENT LISTENER BARIS LAB (autocomplete nama, disc, ket)
+     EVENT LISTENER BARIS LAB (autocomplete PX & nama, disc, ket)
   ================================================================ */
   function pasangEventBarisLab(el) {
     const tbody = el.querySelector('#tbodyPemeriksaan');
     if (!tbody) return;
 
-    /* ---- Autocomplete nama pemeriksaan ---- */
-    tbody.querySelectorAll('.inp-nama').forEach(inp => {
-      let acList = null;
+    let activeAcDropdown = null;
+    let selectedAcIdx = -1;
 
-      inp.addEventListener('input', () => {
-        const idx  = +inp.dataset.idx;
-        const kata = inp.value.trim().toLowerCase();
+    function tutupAcGlobal() {
+      if (activeAcDropdown) {
+        activeAcDropdown.remove();
+        activeAcDropdown = null;
+        selectedAcIdx = -1;
+      }
+    }
 
-        tutupAc();
-        if (!kata) {
-          barisPemeriksaan[idx] = { labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: '' };
-          hitungUlang(el);
-          gambarBarisPemeriksaan(el);
-          return;
-        }
+    function bukaAutocomplete(inp, idx, kata) {
+      tutupAcGlobal();
+      if (!kata) {
+        barisPemeriksaan[idx] = { labId: null, kode: '', nama: '', harga: 0, disc: 0, net: 0, ket: '' };
+        hitungUlang(el);
+        gambarBarisPemeriksaan(el);
+        return;
+      }
 
-        const cocok = masterLab
-          .filter(m => m.nama.toLowerCase().includes(kata) || m.kode.toLowerCase().includes(kata))
-          .slice(0, 12);
+      const cocok = masterLab.filter(m => {
+        const k = (m.kode || '').toLowerCase();
+        const n = (m.nama || '').toLowerCase();
+        return k.includes(kata) || n.includes(kata);
+      }).slice(0, 15);
 
-        if (!cocok.length) return;
+      if (!cocok.length) return;
 
-        acList = document.createElement('div');
-        acList.className = 'pdft-ac-list';
-        acList.innerHTML = cocok.map(m => {
-          const hrg = tarifMap[m.kode] || m.harga || 0;
-          return `<div class="pdft-ac-item" data-id="${m.id}" data-kode="${UI.esc(m.kode)}"
-            data-nama="${UI.esc(m.nama)}" data-harga="${hrg}">
-            <b>${UI.esc(m.kode)}</b> ${UI.esc(m.nama)}
-            <span class="harga-hint"> — ${hrg ? 'Rp ' + hrg.toLocaleString('id-ID') : 'harga belum diset'}</span>
-          </div>`;
-        }).join('');
+      const acWrap = document.createElement('div');
+      acWrap.className = 'pdft-ac-list';
+      acWrap.style.cssText = 'position:absolute; top:100%; left:0; min-width:520px; max-height:240px; overflow-y:auto; background:#fff; border:1px solid #1565c0; border-radius:4px; z-index:9999; box-shadow:0 6px 18px rgba(0,0,0,.2); font-family:Arial,sans-serif;';
 
-        inp.parentElement.appendChild(acList);
+      const discBaris = rekananTerpilih?.disc || 0;
 
-        acList.querySelectorAll('.pdft-ac-item').forEach(item => {
-          item.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            const discBaris = rekananTerpilih?.disc || 0;
-            const harga     = +item.dataset.harga;
-            const net       = Math.round(harga * (1 - discBaris / 100));
-            barisPemeriksaan[idx] = {
-              labId: item.dataset.id,
-              kode:  item.dataset.kode,
-              nama:  item.dataset.nama,
-              harga,
-              disc:  discBaris,
-              net,
-              ket:   ''
-            };
-            tutupAc();
-            hitungUlang(el);
-            gambarBarisPemeriksaan(el);
-            // Fokus ke baris berikutnya
-            const semua = tbody.querySelectorAll('.inp-nama');
-            if (semua[idx + 1]) semua[idx + 1].focus();
-          });
+      acWrap.innerHTML = `
+        <table class="pdft-ac-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead>
+            <tr style="background:#f1f5f9; color:#334155; position:sticky; top:0; z-index:2; border-bottom:1px solid #cbd5e1;">
+              <th style="padding:6px 10px; text-align:left; width:90px;">Kode Px</th>
+              <th style="padding:6px 10px; text-align:left;">Nama Px</th>
+              <th style="padding:6px 10px; text-align:right; width:90px;">Harga</th>
+              <th style="padding:6px 10px; text-align:center; width:50px;">Disc</th>
+              <th style="padding:6px 10px; text-align:right; width:90px;">Nett</th>
+              <th style="padding:6px 10px; text-align:left; width:80px;">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cocok.map((m, mIdx) => {
+              const hrg = tarifMap[m.kode] || m.harga || 0;
+              const nett = Math.round(hrg * (1 - discBaris / 100));
+              return `
+                <tr class="pdft-ac-item clickable-ac-row" data-id="${m.id}" data-kode="${UI.esc(m.kode)}"
+                    data-nama="${UI.esc(m.nama)}" data-harga="${hrg}" data-midx="${mIdx}"
+                    style="cursor:pointer; border-bottom:1px solid #f0f0f0;">
+                  <td style="padding:6px 10px; font-weight:700; color:#1565C0;">${UI.esc(m.kode)}</td>
+                  <td style="padding:6px 10px; color:#111;">${UI.esc(m.nama)}</td>
+                  <td style="padding:6px 10px; text-align:right; color:#444;">${hrg ? hrg.toLocaleString('id-ID') : '0'}</td>
+                  <td style="padding:6px 10px; text-align:center; color:#666;">${discBaris}</td>
+                  <td style="padding:6px 10px; text-align:right; font-weight:600; color:#1b5e20;">${nett ? nett.toLocaleString('id-ID') : '0'}</td>
+                  <td style="padding:6px 10px; color:#888; font-size:11px;">${m.kelompok || 'null'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      inp.parentElement.appendChild(acWrap);
+      activeAcDropdown = acWrap;
+      selectedAcIdx = -1;
+
+      const items = acWrap.querySelectorAll('.clickable-ac-row');
+
+      function pilihItem(item) {
+        const hrg = +item.dataset.harga || 0;
+        const nett = Math.round(hrg * (1 - discBaris / 100));
+        barisPemeriksaan[idx] = {
+          labId: item.dataset.id,
+          kode:  item.dataset.kode,
+          nama:  item.dataset.nama,
+          harga: hrg,
+          disc:  discBaris,
+          net:   nett,
+          ket:   ''
+        };
+        tutupAcGlobal();
+        hitungUlang(el);
+        gambarBarisPemeriksaan(el);
+
+        // Pindah fokus ke input baris berikutnya
+        setTimeout(() => {
+          const barisLanjut = tbody.querySelectorAll('.inp-px');
+          if (barisLanjut[idx + 1]) {
+            barisLanjut[idx + 1].focus();
+          } else {
+            const namaLanjut = tbody.querySelectorAll('.inp-nama');
+            if (namaLanjut[idx + 1]) namaLanjut[idx + 1].focus();
+          }
+        }, 50);
+      }
+
+      items.forEach(item => {
+        item.addEventListener('mouseenter', () => {
+          items.forEach(i => i.style.background = '');
+          item.style.background = '#e3f2fd';
+        });
+        item.addEventListener('mouseleave', () => {
+          item.style.background = '';
+        });
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          pilihItem(item);
         });
       });
 
-      inp.addEventListener('blur', () => setTimeout(tutupAc, 150));
+      inp.onkeydown = (e) => {
+        if (!activeAcDropdown) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedAcIdx = Math.min(selectedAcIdx + 1, items.length - 1);
+          items.forEach((it, i) => it.style.background = (i === selectedAcIdx ? '#e3f2fd' : ''));
+          if (items[selectedAcIdx]) items[selectedAcIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedAcIdx = Math.max(selectedAcIdx - 1, 0);
+          items.forEach((it, i) => it.style.background = (i === selectedAcIdx ? '#e3f2fd' : ''));
+          if (items[selectedAcIdx]) items[selectedAcIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (selectedAcIdx >= 0 && items[selectedAcIdx]) {
+            pilihItem(items[selectedAcIdx]);
+          } else if (items.length > 0) {
+            pilihItem(items[0]);
+          }
+        } else if (e.key === 'Escape') {
+          tutupAcGlobal();
+        }
+      };
+    }
 
-      function tutupAc() {
-        if (acList) { acList.remove(); acList = null; }
-      }
+    /* ---- Event listener untuk input PX (Kode Px) ---- */
+    tbody.querySelectorAll('.inp-px').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx  = +inp.dataset.idx;
+        const kata = inp.value.trim().toLowerCase();
+        bukaAutocomplete(inp, idx, kata);
+      });
+      inp.addEventListener('blur', () => setTimeout(tutupAcGlobal, 200));
+    });
+
+    /* ---- Event listener untuk input NAMA PX ---- */
+    tbody.querySelectorAll('.inp-nama').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx  = +inp.dataset.idx;
+        const kata = inp.value.trim().toLowerCase();
+        bukaAutocomplete(inp, idx, kata);
+      });
+      inp.addEventListener('blur', () => setTimeout(tutupAcGlobal, 200));
     });
 
     /* ---- Disc per baris ---- */

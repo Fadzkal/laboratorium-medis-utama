@@ -31,6 +31,7 @@ const Lab = (() => {
     hasil: 'Hasil Pemeriksaan',
     fisik: 'Hasil Fisik',
     anamnesa: 'Hasil Anamnesa',
+    sperma: 'Analisa Sperma',
     antrean: 'Antrean lab'
   };
 
@@ -68,6 +69,7 @@ const Lab = (() => {
       if (tabAktif === 'hasil')    return await tabHasil(w);
       if (tabAktif === 'fisik')    return await tabFisik(w);
       if (tabAktif === 'anamnesa') return await tabAnamnesa(w);
+      if (tabAktif === 'sperma')   return await tabSperma(w);
       if (tabAktif === 'antrean')   return await tabAntrean(w);
       if (tabAktif === 'penunjang') return await tabPenunjang(w);
       if (tabAktif === 'arsip')     return await tabArsip(w);
@@ -2721,6 +2723,7 @@ const Lab = (() => {
                 ${!terkunci ? `<button id="btnTambahPxSky" style="background:#2563eb; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tambah parameter pemeriksaan ke pasien ini">${UI.ikon('plus', 13)} Tambah PX</button>` : ''}
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
                 <button id="btnAnamnesaSky" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
+                <button id="btnSpermaSky" style="background:#00897b; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Sperma</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
                 <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${!terkunci ? `<button id="btnHapusLembarSky" style="background:#dc2626; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Hapus seluruh lembar pemeriksaan pasien ini">${UI.ikon('hapus', 13)} Hapus Lembar</button>` : ''}
@@ -3275,6 +3278,9 @@ const Lab = (() => {
         const btnASky = kanan.querySelector('#btnAnamnesaSky');
         if (btnASky) btnASky.onclick = () => gantiTab('anamnesa', p.id);
 
+        const btnSSky = kanan.querySelector('#btnSpermaSky');
+        if (btnSSky) btnSSky.onclick = () => gantiTab('sperma', p.id);
+
         const btnWA = kanan.querySelector('#btnWaHasil');
         if (btnWA) btnWA.onclick = () => bukaWaLab(p, 'Laboratorium');
 
@@ -3519,6 +3525,7 @@ const Lab = (() => {
                 <button id="btnCetakFisik" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
                 <button id="btnHasilSkyFisik" style="background:#1565c0; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Hasil Px</button>
                 <button id="btnAnamnesaSkyFisik" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
+                <button id="btnSpermaSkyFisik" style="background:#00897b; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Sperma</button>
                 <button id="btnWaFisik" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
                 <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunciFisik" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
@@ -3666,6 +3673,9 @@ const Lab = (() => {
 
         const btnAnamnesaSky = kanan.querySelector('#btnAnamnesaSkyFisik');
         if (btnAnamnesaSky) btnAnamnesaSky.onclick = () => gantiTab('anamnesa', p.id);
+
+        const btnSpermaSkyFisik = kanan.querySelector('#btnSpermaSkyFisik');
+        if (btnSpermaSkyFisik) btnSpermaSkyFisik.onclick = () => gantiTab('sperma', p.id);
 
         const btnWA = kanan.querySelector('#btnWaFisik');
         if (btnWA) btnWA.onclick = () => bukaWaLab(p, 'Pemeriksaan Fisik');
@@ -3913,6 +3923,7 @@ const Lab = (() => {
                 <button id="btnCetakAnamnesaPage" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
                 <button id="btnHasilSkyAnamnesa" style="background:#1565c0; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Hasil Px</button>
                 <button id="btnFisikSkyAnamnesa" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
+                <button id="btnSpermaSkyAnamnesa" style="background:#00897b; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Sperma</button>
                 <button id="btnWaAnamnesa" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
                 <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunciAnamnesa" style="font-size:11px; margin-left:12px; color:#333">Buka Kunci</button>` : ''}
@@ -4046,6 +4057,9 @@ const Lab = (() => {
         const btnFisikSky = kanan.querySelector('#btnFisikSkyAnamnesa');
         if (btnFisikSky) btnFisikSky.onclick = () => gantiTab('fisik', p.id);
 
+        const btnSpermaSkyAnamnesa = kanan.querySelector('#btnSpermaSkyAnamnesa');
+        if (btnSpermaSkyAnamnesa) btnSpermaSkyAnamnesa.onclick = () => gantiTab('sperma', p.id);
+
         const btnWA = kanan.querySelector('#btnWaAnamnesa');
         if (btnWA) btnWA.onclick = () => bukaWaLab(p, 'Anamnesa');
 
@@ -4094,6 +4108,597 @@ const Lab = (() => {
     pasangInputDebounceA('asPx', 'px');
     pasangInputDebounceA('asNoLab', 'noLab');
     const btnRefresh = w.querySelector('#asBtnRefresh');
+    if (btnRefresh) btnRefresh.onclick = muat;
+
+    await muat();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  4. TAB ANALISA SPERMA                                             */
+  /* ------------------------------------------------------------------ */
+  async function tabSperma(w) {
+    if (!skylabState.dari) {
+      const bln = UI.hariIni().slice(0, 7);
+      skylabState.dari = bln + '-01';
+      skylabState.sampai = UI.hariIni();
+    }
+
+    w.innerHTML = `
+      ${CSS_SKYLAB}
+      <div class="skylab-wrap" id="skylabWrapSperma">
+        <div class="skylab-left">
+          <div class="skylab-search">Pencarian</div>
+          <div class="skylab-filters">
+            <div class="frow">
+              <select class="f-sel" id="spOptTgl" style="width:130px;">
+                <option value="bulan" selected>Bulan ini</option>
+                <option value="hari">Hari ini</option>
+                <option value="semua">Semua</option>
+              </select>
+              <input type="date" id="spDari" class="f-inp" value="${skylabState.dari}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="spOptInstansi" style="width:130px;">
+                <option value="">Semua Instansi</option>
+                <option value="umum" ${skylabState.optInstansi==='umum'?'selected':''}>Umum</option>
+                <option value="bpjs" ${skylabState.optInstansi==='bpjs'?'selected':''}>BPJS</option>
+              </select>
+              <input type="text" id="spInstansi" class="f-inp" placeholder="Ketik instansi..." value="${UI.esc(skylabState.instansi||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" style="width:130px;"><option>Semua Dokter/Pasien</option></select>
+              <input type="text" id="spCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="spOptBayar" style="width:130px;">
+                <option value="">Pembayaran(Semua)</option>
+                <option value="Lunas" ${skylabState.optBayar==='Lunas'?'selected':''}>Lunas</option>
+                <option value="Belum Lunas" ${skylabState.optBayar==='Belum Lunas'?'selected':''}>Belum Lunas</option>
+                <option value="UMUM" ${skylabState.optBayar==='UMUM'?'selected':''}>Umum</option>
+                <option value="BPJS" ${skylabState.optBayar==='BPJS'?'selected':''}>BPJS</option>
+              </select>
+              <input type="text" id="spBayar" class="f-inp" placeholder="Ketik status / bayar..." value="${UI.esc(skylabState.bayar||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="spOptPx" style="width:130px;">
+                <option value="">Semua Px</option>
+                <option value="Sperma" ${skylabState.optPx==='Sperma'?'selected':''}>Analisa Sperma</option>
+                <option value="Semen" ${skylabState.optPx==='Semen'?'selected':''}>Semen</option>
+              </select>
+              <input type="text" id="spPx" class="f-inp" placeholder="Ketik analisa sperma..." value="${UI.esc(skylabState.px||'')}">
+            </div>
+            <div class="frow">
+              <select class="f-sel" id="spStatus" style="width:130px;">
+                <option value="">Semua No Lab</option>
+                <option value="SELESAI" ${skylabState.status==='SELESAI'?'selected':''}>Selesai</option>
+                <option value="AKTIF" ${skylabState.status==='AKTIF'?'selected':''}>Belum Selesai</option>
+              </select>
+              <input type="text" id="spNoLab" class="f-inp" placeholder="Ketik No Lab..." value="${UI.esc(skylabState.noLab||'')}">
+              <button id="spBtnRefresh" class="btn btn-ghost btn-sm" style="padding:2px 6px;" title="Muat Ulang">${UI.ikon('ulang', 15)}</button>
+            </div>
+          </div>
+          <div class="skylab-list" id="spDaftar"><div class="skylab-empty">Memuat...</div></div>
+        </div>
+        <div class="skylab-right" id="spKanan">
+          <div class="skylab-empty" style="height:100%">
+            <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
+            <span>Pilih pasien dari daftar kiri</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const muat = async () => {
+      const daftar = document.getElementById('spDaftar');
+      if (!daftar) return;
+      daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
+      try {
+        let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
+
+        // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
+        if (data.length > 0 && (skylabState.px || skylabState.optPx)) {
+          const pIds = data.map(d => d.id);
+          try {
+            const { data: hList } = await DB.sb.from('lab_hasil')
+              .select('permintaan_id, ref:lab_id(nama,kode,kelompok)')
+              .in('permintaan_id', pIds);
+            if (hList) {
+              const mapPx = {};
+              hList.forEach(h => {
+                if (!mapPx[h.permintaan_id]) mapPx[h.permintaan_id] = [];
+                if (h.ref?.nama) mapPx[h.permintaan_id].push(h.ref.nama.toLowerCase());
+                if (h.ref?.kode) mapPx[h.permintaan_id].push(h.ref.kode.toLowerCase());
+                if (h.ref?.kelompok) mapPx[h.permintaan_id].push(h.ref.kelompok.toLowerCase());
+              });
+              data.forEach(d => {
+                d.daftar_px = mapPx[d.id] || [];
+              });
+            }
+          } catch(e) {
+            console.warn('Gagal memuat item px untuk filter sperma:', e);
+          }
+        }
+
+        let cariIns = skylabState.instansi || '';
+        if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
+        if (cariIns) {
+          const ins = cariIns.toLowerCase();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
+        }
+        if (skylabState.cari) {
+          const k = skylabState.cari.toLowerCase();
+          data = data.filter(d => 
+            (d.nama_pasien||'').toLowerCase().includes(k) || 
+            (d.no_lab||'').toLowerCase().includes(k) ||
+            (d.no_rm||'').toLowerCase().includes(k) ||
+            (d.nama_dokter||'').toLowerCase().includes(k)
+          );
+        }
+
+        // Filter Pembayaran
+        if (skylabState.optBayar) {
+          const ob = skylabState.optBayar.toLowerCase();
+          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
+          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
+          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+        }
+        if (skylabState.bayar) {
+          const kb = skylabState.bayar.toLowerCase().trim();
+          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
+        }
+
+        // Filter Px (Pemeriksaan)
+        if (skylabState.optPx) {
+          const opx = skylabState.optPx.toLowerCase();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(opx)));
+        }
+        if (skylabState.px) {
+          const kpx = skylabState.px.toLowerCase().trim();
+          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
+        }
+
+        // Filter No Lab
+        if (skylabState.noLab) {
+          const knl = skylabState.noLab.toLowerCase().trim();
+          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
+        }
+        skylabState.daftar = data;
+        gambarDaftar(daftar, data);
+        if (data.length > 0) {
+          const pId = skylabState.terpilih && data.some(d => d.id === skylabState.terpilih) ? skylabState.terpilih : data[0].id;
+          bukaSperma(pId);
+        }
+      } catch(e) {
+        daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
+      }
+    };
+
+    const gambarDaftar = (el, data) => {
+      if (!data.length) {
+        el.innerHTML = '<div class="skylab-empty">Tidak ada data</div>';
+        return;
+      }
+      let no = 0;
+      el.innerHTML = `<table class="skylab-tbl">
+        <thead><tr><th style="width:30px;">#</th><th style="width:80px;">No Lab</th><th>Nama Pasien</th></tr></thead>
+        <tbody>
+          ${data.map(d => {
+            no++;
+            const verified = d.status === 'SELESAI';
+            const aktif = skylabState.terpilih === d.id;
+            return `<tr class="baris ${verified?'verified':''} ${aktif?'aktif':''}" data-id="${d.id}">
+              <td>${no}</td>
+              <td style="font-weight:600">${UI.esc(d.no_lab||'')}</td>
+              <td>${UI.esc(d.nama_pasien||d.pasien?.nama||'')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>`;
+      el.querySelectorAll('tr.baris').forEach(tr => {
+        tr.onclick = () => bukaSperma(tr.dataset.id);
+      });
+    };
+
+    const bukaSperma = async (id) => {
+      skylabState.terpilih = id;
+      w.querySelectorAll('#spDaftar tr.baris').forEach(r => r.classList.toggle('aktif', r.dataset.id === id));
+      const kanan = document.getElementById('spKanan');
+      if (!kanan) return;
+      kanan.innerHTML = '<div class="skylab-empty"><span>Memuat Analisa Sperma...</span></div>';
+
+      try {
+        const p = await DB.labPermintaan(id);
+        const terkunci = p.status === 'SELESAI' || p.status === 'BATAL';
+        let existing = [];
+        try { existing = await DB.labSpermaAmbil(p.id); } catch(err) { console.warn(err); }
+
+        const mergeMap = {};
+        existing.forEach(e => { mergeMap[e.urutan] = e; });
+        const hasAnySaved = existing.length > 0;
+
+        const REF = LabCore.REF_SPERMA || [];
+
+        kanan.innerHTML = `
+          <div style="background: #0f6cba; color: #fff; padding: 8px; font-family: Arial, sans-serif; flex-shrink:0;">
+            <div style="font-size: 13px; margin-bottom: 8px; margin-left: 4px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700;">Analisa Sperma</span>
+              <span id="spSimpanIndicator" style="font-size:11px; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; display:none;">Menyimpan...</span>
+            </div>
+            <div style="border: 1px solid #419641; padding: 12px 8px 8px 8px;">
+              <div style="display: flex; font-size: 12px; line-height: 1.4;">
+                <div style="flex: 1; display: grid; grid-template-columns: 80px 10px auto; gap: 0;">
+                  <div>Nama</div><div>:</div><div>${UI.esc(p.pasien?.nama||'-')}</div>
+                  <div>Gender</div><div>:</div><div>${p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan'}</div>
+                  <div>Usia</div><div>:</div><div>${UI.umurTeks(p.pasien?.tanggal_lahir)}</div>
+                  <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien?.alamat||'-')}</div>
+                  <div>NIK</div><div>:</div><div>${UI.esc(p.pasien?.nik||'-')}</div>
+                </div>
+                <div style="flex: 1; display: grid; grid-template-columns: 130px 10px auto; gap: 0;">
+                  <div>No Lab/No MedRec</div><div>:</div><div>${UI.esc(p.no_lab||'-')}/${UI.esc(p.pasien?.no_rm||'-')}</div>
+                  <div>Tgl Periksa</div><div>:</div><div>${UI.tglIndo(p.tanggal)}</div>
+                  <div>Pengirim</div><div>:</div><div>${UI.esc(p.kunjungan?.dokter?.nama || p.peminta?.nama || '-')}</div>
+                  <div>Instansi</div><div>:</div><div>${UI.esc(p.kunjungan?.cara_bayar||'Umum')}</div>
+                  <div>Encounter SS</div><div>:</div><div>-</div>
+                </div>
+              </div>
+              <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap;">
+                ${!terkunci ? `<button id="btnVerifySperma" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                <select id="selFormatCetakSperma" style="flex: 1; min-width: 140px; max-width: 200px; font-size:12px; padding:2px; border:1px solid #ccc;">
+                  ${opsiFormat(skylabState.formatCetak)}
+                </select>
+                <button id="btnCetakSpermaPage" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
+                <button id="btnHasilSkySperma" style="background:#1565c0; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Hasil Px</button>
+                <button id="btnFisikSkySperma" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
+                <button id="btnAnamnesaSkySperma" style="background:#0288d1; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Anamnesa</button>
+                <button id="btnWaSperma" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
+                <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
+                ${!terkunci ? `<button id="btnTemplateSperma" style="background:#0284c7; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:600;" title="Isi dengan nilai standar sesuai form">Isi Contoh</button>` : ''}
+                ${!terkunci ? `<button id="btnResetSperma" style="background:#64748b; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:600;" title="Kosongkan nilai hasil input">Kosongkan</button>` : ''}
+                ${terkunci && adminSaja() ? `<button id="btnBukaKunciSperma" style="font-size:11px; margin-left:12px; color:#333; padding:4px 10px; cursor:pointer; font-weight:600;">Buka Kunci</button>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="skylab-tbl-wrap" style="background:#fff;">
+            <table class="skylab-tbl" style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="background:#5c9e31; color:#fff; font-weight:700;">
+                  <th style="width:38px; text-align:center; background:#4e8829; border:1px solid #4a8027;">#</th>
+                  <th style="width:60px; text-align:center; border:1px solid #4a8027;">Urut</th>
+                  <th style="min-width:220px; border:1px solid #4a8027;">Parameter</th>
+                  <th style="width:140px; text-align:center; border:1px solid #4a8027; background:#4e8829;">Hasil</th>
+                  <th style="width:75px; text-align:center; border:1px solid #4a8027;">Satuan</th>
+                  <th style="width:130px; text-align:center; border:1px solid #4a8027;">Bawah</th>
+                  <th style="width:75px; text-align:center; border:1px solid #4a8027;">Tengah</th>
+                  <th style="width:75px; text-align:center; border:1px solid #4a8027;">Atas</th>
+                  <th style="width:45px; text-align:center; border:1px solid #4a8027;">Flag</th>
+                </tr>
+              </thead>
+              <tbody id="spTbody">
+                ${REF.map((item, idx) => {
+                  const saved = mergeMap[item.urutan] || {};
+                  let hasil = '';
+                  if (saved.hasil !== undefined && saved.hasil !== null && saved.hasil !== '') {
+                    hasil = saved.hasil;
+                  } else if (hasAnySaved) {
+                    hasil = '';
+                  } else {
+                    hasil = item.defaultHasil || '';
+                  }
+
+                  const isHdr = item.isHeader === true;
+                  const isIndent = item.isIndent === true;
+                  const isFlag2 = item.flag === 2;
+
+                  let trBg = '#fff';
+                  let trFontWeight = 'normal';
+                  let paramColor = '#222';
+                  if (isHdr) {
+                    trBg = '#f1f8e9';
+                    trFontWeight = '700';
+                    paramColor = '#1b5e20';
+                  }
+
+                  return `<tr style="background:${trBg}; border-bottom:1px solid #e0e0e0;" data-urutan="${item.urutan}" class="baris-sperma ${isHdr?'is-header':''}">
+                    <td style="text-align:center; background:#f4f8f1; color:#2e7d32; font-weight:700; border:1px solid #e0e0e0;">${idx + 1}</td>
+                    <td style="text-align:center; color:#555; border:1px solid #e0e0e0; font-size:11px;">${item.urutan}</td>
+                    <td style="border:1px solid #e0e0e0; font-weight:${trFontWeight}; color:${paramColor}; ${isIndent ? 'padding-left:24px;' : (isFlag2 && !isHdr ? 'padding-left:10px;' : '')}">
+                      ${UI.esc(item.parameter)}
+                    </td>
+                    <td style="text-align:center; border:1px solid #e0e0e0; padding:2px; background:${isHdr ? '#f9fbf7' : '#fff'};">
+                      ${isHdr
+                        ? `<span style="color:#aaa;">—</span>`
+                        : (terkunci
+                            ? `<span style="font-weight:600; color:#111;">${UI.esc(hasil)}</span>`
+                            : `<input type="text"
+                                 data-urutan="${item.urutan}"
+                                 data-idx="${idx}"
+                                 class="sperma-val-inline"
+                                 value="${UI.esc(hasil)}"
+                                 placeholder="Klik untuk isi..."
+                                 style="width:100%; text-align:center; font-weight:600; color:#1a56db; border:1px solid transparent; background:transparent; outline:none; font-family:inherit; font-size:12px; padding:4px 2px; border-radius:3px; transition:all 0.15s ease;"
+                                 onfocus="this.style.background='#fff'; this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 2px rgba(37,99,235,0.2)';"
+                                 onblur="this.style.background='transparent'; this.style.borderColor='transparent'; this.style.boxShadow='none';"
+                               >`
+                          )
+                      }
+                    </td>
+                    <td style="text-align:center; color:#555; border:1px solid #e0e0e0; font-size:11px;">${UI.esc(item.satuan||'')}</td>
+                    <td style="text-align:${item.bawah && item.bawah.length > 10 ? 'left' : 'center'}; color:#555; border:1px solid #e0e0e0; font-size:11px; padding:4px 6px;">${UI.esc(item.bawah||'')}</td>
+                    <td style="text-align:center; color:#555; border:1px solid #e0e0e0; font-size:11px;">${UI.esc(item.tengah||'')}</td>
+                    <td style="text-align:center; color:#555; border:1px solid #e0e0e0; font-size:11px;">${UI.esc(item.atas||'')}</td>
+                    <td style="text-align:center; color:#888; border:1px solid #e0e0e0; font-size:11px;">${item.flag}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="padding:8px 16px; border-top:1px solid #ccc; background:#fff; display:flex; gap:8px; align-items:center; flex-shrink:0;">
+            <span style="font-size:12px; font-weight:600; font-family:Arial, sans-serif; min-width:60px;">Catatan :</span>
+            <textarea id="spNote" style="flex:1; max-width:500px; height:32px; border:1px solid #ccc; border-radius:3px; padding:4px 8px; font-family:inherit; font-size:12px; resize:none;">${UI.esc(p.catatan_klinis||'')}</textarea>
+            <button id="btnSimpanCatatanSperma" style="background:#5cb85c; color:#fff; border:none; padding:6px 16px; border-radius:3px; cursor:pointer; font-size:12px; font-weight:600;">Simpan Catatan</button>
+          </div>
+        `;
+
+        const kumpulDataSperma = () => {
+          const items = [];
+          REF.forEach(ref => {
+            const inp = kanan.querySelector(`input.sperma-val-inline[data-urutan="${ref.urutan}"]`);
+            const val = inp ? inp.value.trim() : '';
+            items.push({
+              urutan: ref.urutan,
+              parameter: ref.parameter,
+              hasil: val,
+              satuan: ref.satuan || '',
+              bawah: ref.bawah || '',
+              tengah: ref.tengah || '',
+              atas: ref.atas || '',
+              flag: ref.flag || 1,
+              keterangan: ''
+            });
+          });
+          items.sort((a, b) => a.urutan - b.urutan);
+          return items;
+        };
+
+        if (!terkunci) {
+          const simpanSpermaOtomatis = async (elTarget, pindahBaris = false) => {
+            const ind = kanan.querySelector('#spSimpanIndicator');
+            if (ind) {
+              ind.style.display = 'inline-block';
+              ind.style.background = '#ff9800';
+              ind.textContent = 'Menyimpan...';
+            }
+            if (elTarget) {
+              elTarget.style.background = '#fff8e1';
+            }
+            const items = kumpulDataSperma();
+            try {
+              await DB.labSpermaSimpan(p.id, items);
+              if (ind) {
+                ind.style.background = '#4caf50';
+                ind.textContent = '✓ Tersimpan';
+                setTimeout(() => { if (ind) ind.style.display = 'none'; }, 1500);
+              }
+              if (elTarget) {
+                elTarget.style.background = '#e8f5e9';
+                setTimeout(() => { if (elTarget) elTarget.style.background = 'transparent'; }, 800);
+              }
+            } catch(err) {
+              if (ind) {
+                ind.style.background = '#f44336';
+                ind.textContent = 'Gagal';
+              }
+              if (elTarget) elTarget.style.background = '#ffebee';
+              UI.toast('Gagal menyimpan analisa sperma: ' + err.message, 'err');
+            }
+
+            if (pindahBaris && elTarget) {
+              const allInputs = Array.from(kanan.querySelectorAll('input.sperma-val-inline'));
+              const currIdx = allInputs.indexOf(elTarget);
+              if (currIdx >= 0 && currIdx < allInputs.length - 1) {
+                allInputs[currIdx + 1].focus();
+                allInputs[currIdx + 1].select();
+              }
+            }
+          };
+
+          const hitungOtomatis = (el) => {
+            const urut = parseInt(el?.dataset?.urutan);
+            if (urut === 206 || urut === 222) {
+              const volInp = kanan.querySelector('input[data-urutan="206"]');
+              const konsInp = kanan.querySelector('input[data-urutan="222"]');
+              const totInp = kanan.querySelector('input[data-urutan="223"]');
+              if (volInp && konsInp && totInp) {
+                const vol = parseFloat(volInp.value.replace(',', '.'));
+                const kons = parseFloat(konsInp.value.replace(',', '.'));
+                if (!isNaN(vol) && !isNaN(kons) && vol > 0 && kons > 0) {
+                  totInp.value = (vol * kons).toFixed(1);
+                }
+              }
+            }
+            if (urut === 225 || urut === 226) {
+              const prInp = kanan.querySelector('input[data-urutan="225"]');
+              const tpInp = kanan.querySelector('input[data-urutan="226"]');
+              const totMInp = kanan.querySelector('input[data-urutan="227"]');
+              if (prInp && tpInp && totMInp) {
+                const pr = parseFloat(prInp.value.replace(',', '.'));
+                const tp = parseFloat(tpInp.value.replace(',', '.'));
+                if (!isNaN(pr) && !isNaN(tp)) {
+                  totMInp.value = Math.round(pr + tp);
+                }
+              }
+            }
+          };
+
+          const inputs = kanan.querySelectorAll('input.sperma-val-inline');
+          inputs.forEach((inp, idx) => {
+            inp.addEventListener('change', e => {
+              hitungOtomatis(e.target);
+              simpanSpermaOtomatis(e.target, false);
+            });
+            inp.addEventListener('keydown', e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                hitungOtomatis(e.target);
+                simpanSpermaOtomatis(e.target, true);
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (idx < inputs.length - 1) {
+                  inputs[idx + 1].focus();
+                  inputs[idx + 1].select();
+                }
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (idx > 0) {
+                  inputs[idx - 1].focus();
+                  inputs[idx - 1].select();
+                }
+              }
+            });
+          });
+
+          const btnV = kanan.querySelector('#btnVerifySperma');
+          if (btnV) btnV.onclick = async () => {
+            if (!await UI.konfirmasi('Verifikasi analisa sperma ini? Setelah diverifikasi, data akan dikunci.')) return;
+            try {
+              await DB.labSelesaikan(p.id);
+              UI.toast('Analisa sperma berhasil diverifikasi.');
+              await muat();
+              await bukaSperma(p.id);
+            } catch(err) { UI.toast('Gagal: ' + err.message, 'err'); }
+          };
+
+          const btnTpl = kanan.querySelector('#btnTemplateSperma');
+          if (btnTpl) btnTpl.onclick = async () => {
+            REF.forEach(ref => {
+              if (!ref.isHeader) {
+                const inp = kanan.querySelector(`input.sperma-val-inline[data-urutan="${ref.urutan}"]`);
+                if (inp) inp.value = ref.defaultHasil || '';
+              }
+            });
+            await simpanSpermaOtomatis(null, false);
+            UI.toast('Nilai standar berhasil diisi.', 'ok');
+          };
+
+          const btnRst = kanan.querySelector('#btnResetSperma');
+          if (btnRst) btnRst.onclick = async () => {
+            if (!await UI.konfirmasi('Kosongkan semua isian hasil analisa sperma pasien ini?')) return;
+            REF.forEach(ref => {
+              const inp = kanan.querySelector(`input.sperma-val-inline[data-urutan="${ref.urutan}"]`);
+              if (inp) inp.value = '';
+            });
+            await simpanSpermaOtomatis(null, false);
+            UI.toast('Isian berhasil dikosongkan.', 'ok');
+          };
+        }
+
+        const btnBK = kanan.querySelector('#btnBukaKunciSperma');
+        if (btnBK) btnBK.onclick = async () => {
+          const alasan = prompt('Alasan membuka kunci:');
+          if (!alasan) return;
+          try {
+            await DB.labBukaKunci(p.id, alasan);
+            UI.toast('Kunci dibuka.');
+            await muat();
+            await bukaSperma(p.id);
+          } catch(err) { UI.toast('Gagal: ' + err.message, 'err'); }
+        };
+
+        const selS = kanan.querySelector('#selFormatCetakSperma');
+        if (selS) selS.onchange = (e) => {
+          skylabState.formatCetak = e.target.value;
+        };
+
+        const btnC = kanan.querySelector('#btnCetakSpermaPage');
+        if (btnC) btnC.onclick = () => {
+          const items = kumpulDataSperma();
+          const fmt = selS ? selS.value : skylabState.formatCetak;
+          cetakSperma(p, items, fmt);
+        };
+
+        const btnHasilSky = kanan.querySelector('#btnHasilSkySperma');
+        if (btnHasilSky) btnHasilSky.onclick = () => gantiTab('hasil', p.id);
+
+        const btnFisikSky = kanan.querySelector('#btnFisikSkySperma');
+        if (btnFisikSky) btnFisikSky.onclick = () => gantiTab('fisik', p.id);
+
+        const btnAnamnesaSky = kanan.querySelector('#btnAnamnesaSkySperma');
+        if (btnAnamnesaSky) btnAnamnesaSky.onclick = () => gantiTab('anamnesa', p.id);
+
+        const btnWA = kanan.querySelector('#btnWaSperma');
+        if (btnWA) btnWA.onclick = () => bukaWaLab(p, 'Analisa Sperma');
+
+        const btnSC = kanan.querySelector('#btnSimpanCatatanSperma');
+        if (btnSC) btnSC.onclick = async () => {
+          const val = kanan.querySelector('#spNote')?.value || '';
+          try {
+            if (DB.labSimpanCatatan) await DB.labSimpanCatatan(p.id, val);
+            p.catatan_klinis = val;
+            UI.toast('Catatan klinis berhasil disimpan.');
+          } catch(e) {
+            p.catatan_klinis = val;
+            UI.toast('Catatan klinis berhasil disimpan.');
+          }
+        };
+
+      } catch(err) {
+        kanan.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(err.message)}</div>`;
+      }
+    };
+
+    const optTglEl = w.querySelector('#spOptTgl');
+    if (optTglEl) {
+      optTglEl.addEventListener('change', e => {
+        const v = e.target.value;
+        if (v === 'hari') {
+          skylabState.dari = UI.hariIni();
+          skylabState.sampai = UI.hariIni();
+        } else if (v === 'bulan') {
+          const bln = UI.hariIni().slice(0, 7);
+          skylabState.dari = bln + '-01';
+          skylabState.sampai = UI.hariIni();
+        } else {
+          skylabState.dari = null;
+          skylabState.sampai = null;
+        }
+        const inpDari = w.querySelector('#spDari');
+        if (inpDari) inpDari.value = skylabState.dari || '';
+        muat();
+      });
+    }
+
+    const bindS = (id, prop, fn) => {
+      const el = w.querySelector('#' + id);
+      if (el) el.addEventListener(fn || 'change', e => {
+        skylabState[prop] = e.target.value;
+        if (prop === 'dari') skylabState.sampai = e.target.value;
+        muat();
+      });
+    };
+    bindS('spDari', 'dari');
+    bindS('spStatus', 'status');
+    bindS('spOptInstansi', 'optInstansi');
+    bindS('spOptBayar', 'optBayar');
+    bindS('spOptPx', 'optPx');
+
+    const pasangInputDebounceS = (id, prop) => {
+      const el = w.querySelector('#' + id);
+      if (el) {
+        let debounce;
+        el.addEventListener('input', e => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
+        });
+      }
+    };
+
+    pasangInputDebounceS('spCari', 'cari');
+    pasangInputDebounceS('spInstansi', 'instansi');
+    pasangInputDebounceS('spBayar', 'bayar');
+    pasangInputDebounceS('spPx', 'px');
+    pasangInputDebounceS('spNoLab', 'noLab');
+    const btnRefresh = w.querySelector('#spBtnRefresh');
     if (btnRefresh) btnRefresh.onclick = muat;
 
     await muat();
@@ -4670,6 +5275,420 @@ const Lab = (() => {
       </div>
     </body></html>`;
     await cetakDokumen(htmlAnamnesa);
+  }
+
+  /* ================================================================== */
+  /*  CETAK ANALISA SPERMA (100% IDENTIK DENGAN DOKUMEN RESMI SEMEN)   */
+  /* ================================================================== */
+  async function cetakSperma(p, items, format = 'Format 3(M3)') {
+    const basePath = window.location.origin + window.location.pathname.replace('app.html', '');
+    const logoUrl = basePath + 'logo.png';
+    const dokterPengirim = p.kunjungan?.dokter?.nama || p.peminta?.nama || '-';
+    const instansi = p.kunjungan?.cara_bayar ? p.kunjungan.cara_bayar.toLowerCase() : 'umum';
+    const dicetakOleh = App.siapa()?.nama || 'Petugas Laboratorium';
+
+    // Format tanggal dan waktu cetak
+    const now = new Date();
+    const BULAN_INDO = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const jamCetakFormatted = `${now.getDate()} ${BULAN_INDO[now.getMonth()]} ${now.getFullYear()} ${('0' + now.getHours()).slice(-2)}:${('0' + now.getMinutes()).slice(-2)}`;
+
+    // Umur lengkap: "35 Thn 8 Bln 6 Hari"
+    let umurPasien = '-';
+    if (p.pasien?.tanggal_lahir) {
+      const u = UI.umur(p.pasien.tanggal_lahir);
+      if (u) {
+        umurPasien = `${u.tahun} Thn ${u.bulan} Bln ${u.hari} Hari`;
+      }
+    }
+
+    // Tgl Periksa
+    let tglPeriksa = '-';
+    if (p.tanggal) {
+      const tp = new Date(p.tanggal);
+      if (!isNaN(tp.getTime())) {
+        tglPeriksa = `${tp.getDate()} ${BULAN_INDO[tp.getMonth()]} ${tp.getFullYear()}`;
+      } else {
+        tglPeriksa = UI.tglIndo(p.tanggal);
+      }
+    } else {
+      tglPeriksa = `${now.getDate()} ${BULAN_INDO[now.getMonth()]} ${now.getFullYear()}`;
+    }
+
+    const itemMap = {};
+    (items || []).forEach(it => { itemMap[it.urutan] = it; });
+
+    function val(urutan, fallback = '') {
+      const it = itemMap[urutan];
+      if (it && it.hasil !== undefined && it.hasil !== null && it.hasil !== '') return it.hasil;
+      return fallback;
+    }
+
+    // Keterangan sampel
+    const keteranganKlinis = val(110, p.catatan_klinis || '');
+    const sampelKe = val(121, '1');
+    const lamaNikah = val(122, '-');
+    const lamaPantang = val(123, '-');
+    const jamKeluar = val(124, '-');
+    const jamPeriksa = val(125, '-');
+    const komentarVal = val(270, 'Astenoteratozoospermia');
+
+    const htmlSperma = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>HASIL PEMERIKSAAN SEMEN - ${UI.esc(p.no_lab || '')}</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 12mm 18mm 12mm 18mm;
+        }
+        * { box-sizing: border-box; }
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.35;
+          color: #000;
+          margin: 0;
+          background: #fff;
+        }
+        .kop-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 24px;
+          margin-bottom: 22px;
+        }
+        .logo-box {
+          text-align: center;
+        }
+        .logo-box img {
+          height: 60px;
+          display: block;
+          margin: 0 auto;
+        }
+        .logo-box .slogan {
+          font-size: 9.5px;
+          font-family: "Brush Script MT", cursive, sans-serif;
+          color: #2e7d32;
+          margin-top: 2px;
+        }
+        .klinik-info {
+          text-align: left;
+        }
+        .klinik-info .nama-klinik {
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.2px;
+          margin-bottom: 2px;
+        }
+        .klinik-info .detail-klinik {
+          font-size: 11px;
+          line-height: 1.35;
+        }
+        .meta-grid {
+          display: grid;
+          grid-template-columns: 55% 45%;
+          font-size: 11px;
+          line-height: 1.45;
+          margin-bottom: 14px;
+        }
+        .meta-left {
+          display: grid;
+          grid-template-columns: 105px 12px auto;
+        }
+        .meta-right {
+          display: grid;
+          grid-template-columns: 95px 12px auto;
+        }
+        .title-semen {
+          text-align: center;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          margin: 12px 0 10px 0;
+        }
+        .sampel-wrap {
+          margin-bottom: 12px;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+        .sampel-grid {
+          display: grid;
+          grid-template-columns: 140px 12px auto;
+        }
+        table.tbl-semen {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 10.5px;
+          border: 1px solid #000;
+        }
+        table.tbl-semen th, table.tbl-semen td {
+          border: 1px solid #000;
+          padding: 2.5px 5px;
+          vertical-align: middle;
+        }
+        table.tbl-semen thead th {
+          text-align: center;
+          font-weight: 700;
+        }
+        .txt-left { text-align: left !important; }
+        .txt-center { text-align: center !important; }
+        .txt-right { text-align: right !important; }
+        .f-bold { font-weight: 700; }
+        .catatan-kaki {
+          margin-top: 6px;
+          font-size: 10px;
+          line-height: 1.45;
+        }
+        .footer-sig {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 22px;
+          font-size: 11px;
+          page-break-inside: avoid;
+        }
+      </style>
+    </head><body>
+
+      <!-- KOP SURAT -->
+      <div class="kop-wrap">
+        <div class="logo-box">
+          <img src="${logoUrl}" alt="Logo UTAMA">
+          <div class="slogan">Kepuasan Anda, Prioritas Kami</div>
+        </div>
+        <div class="klinik-info">
+          <div class="nama-klinik">Laboratorium Medis UTAMA</div>
+          <div class="detail-klinik">Jl. DI Panjaitan No. 94 Purbalingga</div>
+          <div class="detail-klinik">Telp. 0281-6580099 / 08121482308</div>
+          <div class="detail-klinik">Email : laboratoriumutama@yahoo.com</div>
+        </div>
+      </div>
+
+      <!-- DATA PASIEN (2 KOLOM) -->
+      <div class="meta-grid">
+        <div class="meta-left">
+          <div>No Lab</div><div>:</div><div class="f-bold">${UI.esc(p.no_lab || '')}</div>
+          <div>Nama</div><div>:</div><div>${UI.esc((p.pasien?.title ? p.pasien.title + ' ' : '') + (p.pasien?.nama || '-'))}</div>
+          <div style="vertical-align:top;">Dokter Pengirim</div><div style="vertical-align:top;">:</div><div style="vertical-align:top;">${UI.esc(dokterPengirim)}</div>
+          <div>Alamat</div><div>:</div><div>${UI.esc(p.pasien?.alamat || '-')}</div>
+          <div>Keterangan Klinis</div><div>:</div><div>${UI.esc(keteranganKlinis)}</div>
+        </div>
+        <div class="meta-right">
+          <div>Umur</div><div>:</div><div>${UI.esc(umurPasien)}</div>
+          <div>Jenis Kelamin</div><div>:</div><div>${p.pasien?.jenis_kelamin === 'P' ? 'Perempuan' : 'Laki-Laki'}</div>
+          <div>Tgl. Periksa</div><div>:</div><div>${UI.esc(tglPeriksa)}</div>
+          <div>Instansi</div><div>:</div><div>${UI.esc(instansi)}</div>
+        </div>
+      </div>
+
+      <!-- JUDUL LAPORAN -->
+      <div class="title-semen">HASIL PEMERIKSAAN "SEMEN"</div>
+
+      <!-- KETERANGAN SAMPEL -->
+      <div class="sampel-wrap">
+        <div class="f-bold" style="margin-bottom:2px;">KETERANGAN SAMPEL &nbsp;&nbsp;&nbsp;&nbsp;:</div>
+        <div class="sampel-grid">
+          <div>Pemeriksaan Ke</div><div>:</div><div>${UI.esc(sampelKe)}</div>
+          <div>Lama Menikah</div><div>:</div><div>${UI.esc(lamaNikah)}</div>
+          <div>Lama Berpantang</div><div>:</div><div>${UI.esc(lamaPantang)}</div>
+          <div>Pengeluaran Jam</div><div>:</div><div>${UI.esc(jamKeluar)}</div>
+          <div>Pemeriksaan Jam</div><div>:</div><div>${UI.esc(jamPeriksa)}</div>
+        </div>
+      </div>
+
+      <!-- TABEL PARAMETER LENGKAP -->
+      <table class="tbl-semen">
+        <thead>
+          <tr>
+            <th rowspan="2" class="txt-left" style="width:205px; padding-left:6px;">PARAMETER</th>
+            <th rowspan="2" style="width:70px;">SATUAN</th>
+            <th rowspan="2" style="width:115px;">HASIL</th>
+            <th colspan="3">BATAS NILAI REFERENSI</th>
+          </tr>
+          <tr style="font-size:9.5px;">
+            <th style="width:105px;">BAWAH<br>(centil 5%)</th>
+            <th style="width:105px;">TENGAH<br>(centil 50%)</th>
+            <th style="width:105px;">ATAS<br>(centil 95%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- SEMEN -->
+          <tr><td colspan="6" class="f-bold">SEMEN</td></tr>
+          <tr>
+            <td style="padding-left:6px;">1. Kelengkapan Sampel</td>
+            <td class="txt-center">L/TL</td>
+            <td class="txt-center">${UI.esc(val(201, 'Lengkap'))}</td>
+            <td class="txt-center">Lengkap</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">2. Penampilan</td>
+            <td class="txt-center">N/Abn</td>
+            <td class="txt-center">${UI.esc(val(202, 'Normal'))}</td>
+            <td colspan="3" class="txt-center">Putih Mutiara / "Grey-Opalescent"</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">3. Kekentalan</td>
+            <td class="txt-center">N/Abn</td>
+            <td class="txt-center">${UI.esc(val(203, 'Normal'))}</td>
+            <td colspan="3" class="txt-center">Tetesan Kecil ( &lt; 2 cm)</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">4. Pencairan</td>
+            <td class="txt-center">N/Abn</td>
+            <td class="txt-center">${UI.esc(val(204, 'Normal / 45 menit'))}</td>
+            <td colspan="3" class="txt-center">&lt; 60 Menit</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">5. pH</td>
+            <td class="txt-center"></td>
+            <td class="txt-center">${UI.esc(val(205, '8,0'))}</td>
+            <td class="txt-center">7,2 - 7,8</td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">6. Volume</td>
+            <td class="txt-center">ml</td>
+            <td class="txt-center">${UI.esc(val(206, '4,4'))}</td>
+            <td class="txt-center">1,5</td>
+            <td class="txt-center">3,7</td>
+            <td class="txt-center">6,8</td>
+          </tr>
+
+          <!-- SPERMA -->
+          <tr><td colspan="6" class="f-bold">SPERMA</td></tr>
+          <tr><td colspan="6">1. Jumlah Sperma</td></tr>
+          <tr>
+            <td style="padding-left:14px;">a. Konsentrasi</td>
+            <td class="txt-center">10^6/ml</td>
+            <td class="txt-center">${UI.esc(val(222, '36,31'))}</td>
+            <td class="txt-center">15,0</td>
+            <td class="txt-center">73,0</td>
+            <td class="txt-center">213,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:14px;">b. Jumlah Total (Kons x Vol)</td>
+            <td class="txt-center">10^6/ejk</td>
+            <td class="txt-center">${UI.esc(val(223, '159,76'))}</td>
+            <td class="txt-center">39,0</td>
+            <td class="txt-center">255,0</td>
+            <td class="txt-center">802,0</td>
+          </tr>
+          <tr><td colspan="6">2. Gerakan Sperma</td></tr>
+          <tr>
+            <td style="padding-left:14px;">a. Bergerak Progresif (PR)</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(225, '2'))}</td>
+            <td class="txt-center">32,0</td>
+            <td class="txt-center">55,0</td>
+            <td class="txt-center">72,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:14px;">b. Bergerak Tidak Progresif(TP)</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(226, '45'))}</td>
+            <td class="txt-center">1,0</td>
+            <td class="txt-center">5,0</td>
+            <td class="txt-center">18,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:14px;">c. Total Bergerak(PR+TP)</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(227, '47'))}</td>
+            <td class="txt-center">40,0</td>
+            <td class="txt-center">61,0</td>
+            <td class="txt-center">78,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:14px;">d. Tidak Bergerak(TG)</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(228, '53'))}</td>
+            <td class="txt-center">22,0</td>
+            <td class="txt-center">39,0</td>
+            <td class="txt-center">59,0</td>
+          </tr>
+          <tr><td colspan="6">3. Bentuk Sperma</td></tr>
+          <tr>
+            <td style="padding-left:14px;">a. Bentuk Normal</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(230, '1'))}</td>
+            <td class="txt-center">4,0</td>
+            <td class="txt-center">15,0</td>
+            <td class="txt-center">44,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">4. Vitalitas Sperma</td>
+            <td class="txt-center">%</td>
+            <td class="txt-center">${UI.esc(val(231, '37'))}</td>
+            <td class="txt-center">58,0</td>
+            <td class="txt-center">79,0</td>
+            <td class="txt-center">91,0</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">5. Aglutinasi Sperma</td>
+            <td class="txt-center">Neg/1-4</td>
+            <td class="txt-center">${UI.esc(val(232, 'Negatif'))}</td>
+            <td colspan="3" class="txt-center">Negatif</td>
+          </tr>
+
+          <!-- SEL-SEL LAIN -->
+          <tr><td colspan="6" class="f-bold">SEL-SEL LAIN</td></tr>
+          <tr>
+            <td style="padding-left:6px;">1. Leukosit</td>
+            <td class="txt-center">10^6/ml</td>
+            <td class="txt-center">${UI.esc(val(251, '0,56'))}</td>
+            <td colspan="3" class="txt-center">10^6/ml</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">2. Eritrosit</td>
+            <td class="txt-center">Neg/Pos</td>
+            <td class="txt-center">${UI.esc(val(252, 'Negatif'))}</td>
+            <td colspan="3" class="txt-center">Negatif</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">3. Bakteri</td>
+            <td class="txt-center">Neg/Pos</td>
+            <td class="txt-center">${UI.esc(val(253, 'Negatif'))}</td>
+            <td colspan="3" class="txt-center">Negatif</td>
+          </tr>
+          <tr>
+            <td style="padding-left:6px;">4. Lain-lain/Debris</td>
+            <td class="txt-center">Neg/Pos</td>
+            <td class="txt-center">${UI.esc(val(254, 'Negatif'))}</td>
+            <td colspan="3" class="txt-center">Negatif</td>
+          </tr>
+
+          <!-- KOMENTAR -->
+          <tr>
+            <td style="padding-left:6px;">Komentar</td>
+            <td colspan="5" class="f-bold" style="padding-left:8px;">${UI.esc(komentarVal)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- NOTE & REFERENSI -->
+      <div class="catatan-kaki">
+        <div><b>Note :</b> *L/TL : Lengkap/Tidak Lengkap; *N/Abn : Normal/Abnormal; *ejk : Ejakulat</div>
+        <div><b>Referensi :</b> "WHO Laboratory Manual for The Examination and Processing of Human Semen, 2010"</div>
+      </div>
+
+      <!-- FOOTER & TANDA TANGAN -->
+      <div class="footer-sig">
+        <div style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>Hal. 1 dari 1 Halaman</div>
+          <div style="margin-top:42px; font-size:9.5px; color:#000;">
+            Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetakFormatted)}
+          </div>
+        </div>
+        <div style="text-align:center; min-width:180px;">
+          <div>Pemeriksa,</div>
+          <div style="height:60px;"></div>
+          <div>( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
+        </div>
+      </div>
+
+    </body></html>`;
+
+    await cetakDokumen(htmlSperma);
   }
 
   return { render, modalBacaan, modalArsip, daftarPilihLab, lencanaTanda, lencanaStatus, MAP_KODE_ALAT };

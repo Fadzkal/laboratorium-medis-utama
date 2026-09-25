@@ -2034,6 +2034,57 @@ const DB = (() => {
     });
     if (error) throw error;
   }
+
+  /* Analisa Sperma */
+  async function labSpermaAmbil(permintaanId) {
+    try {
+      const { data, error } = await sb.from('lab_sperma')
+        .select('*').eq('permintaan_id', permintaanId)
+        .order('urutan');
+      if (!error && data && data.length > 0) return data;
+    } catch(e) {
+      console.warn('lab_sperma dari database:', e);
+    }
+    try {
+      const lokal = localStorage.getItem('lab_sperma_' + permintaanId);
+      if (lokal) return JSON.parse(lokal);
+    } catch(e) {}
+    return [];
+  }
+
+  async function labSpermaSimpan(permintaanId, items) {
+    try {
+      localStorage.setItem('lab_sperma_' + permintaanId, JSON.stringify(items));
+    } catch(e) {}
+
+    // Coba simpan via RPC
+    try {
+      const { error: rpcErr } = await sb.rpc('lab_sperma_simpan', {
+        p_permintaan_id: permintaanId,
+        p_items: items
+      });
+      if (!rpcErr) return;
+    } catch(e) {}
+
+    // Coba upsert langsung ke tabel lab_sperma
+    try {
+      const rows = items.map(it => ({
+        permintaan_id: permintaanId,
+        urutan: it.urutan,
+        parameter: it.parameter || it.nama_item || '',
+        hasil: it.hasil != null ? String(it.hasil) : '',
+        satuan: it.satuan || '',
+        bawah: it.bawah || '',
+        tengah: it.tengah || '',
+        atas: it.atas || '',
+        flag: it.flag != null ? String(it.flag) : '1',
+        keterangan: it.keterangan || ''
+      }));
+      const { error } = await sb.from('lab_sperma').upsert(rows, { onConflict: 'permintaan_id,urutan' });
+      if (!error) return;
+    } catch(e) {}
+  }
+
   async function labSimpanCatatan(permintaanId, catatan) {
     const { error } = await sb.from('permintaan_lab').update({ catatan_klinis: catatan }).eq('id', permintaanId);
     if (error) throw error;
@@ -4080,7 +4131,8 @@ const DB = (() => {
     simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
     labTambahItem, labHapusItem, labHapusPermintaan,
     labTren, riwayatLabPasien, labBelumSelesai,
-    labFisikAmbil, labFisikSimpan, labAnamnesaAmbil, labAnamnesaSimpan, labSimpanCatatan,
+    labFisikAmbil, labFisikSimpan, labAnamnesaAmbil, labAnamnesaSimpan,
+    labSpermaAmbil, labSpermaSimpan, labSimpanCatatan,
     penunjangSimpan, penunjangPasien, penunjangKunjungan, gigiBerbacaan, hapusPenunjang,
     lampiranPasien, lampiranKunjungan, simpanLampiran, hapusLampiran,
     suratPengaturan, simpanSuratPengaturan, refJenisSurat,
