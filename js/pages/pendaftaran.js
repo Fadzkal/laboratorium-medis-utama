@@ -18,10 +18,19 @@ const Pendaftaran = (() => {
   const JUMLAH_BARIS = 50;
   let barisPemeriksaan = []; // array of { labId, kode, nama, harga, disc, net, ket }
 
+  /* ---- Scanner Barcode Global (Blueprint BP-LITE W2D) ---- */
+  let handlerScanGlobal = null;
+
   /* ================================================================
      RENDER UTAMA
   ================================================================ */
   async function render(el, param) {
+    // Bersihkan listener scanner lama saat render ulang
+    if (handlerScanGlobal) {
+      document.removeEventListener('keydown', handlerScanGlobal, true);
+      handlerScanGlobal = null;
+    }
+
     el.innerHTML = `<div class="p-16">${UI.memuat(3)}</div>`;
 
     try {
@@ -289,7 +298,7 @@ const Pendaftaran = (() => {
             <div class="frow frow-3">
               <div class="pdft-field">
                 <label>NRP / No. BPJS</label>
-                <input type="text" id="fNrp" placeholder="Opsional">
+                <input type="text" id="fNrp" placeholder="Scan kartu / 13 digit BPJS">
               </div>
               <div class="pdft-field">
                 <label>Bagian</label>
@@ -810,6 +819,117 @@ const Pendaftaran = (() => {
       }
     });
 
+    /* ---- Input Manual No. BPJS (Tekan Enter pada kolom NRP / No. BPJS) ---- */
+    const inpNrp = el.querySelector('#fNrp');
+    if (inpNrp) {
+      inpNrp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = inpNrp.value.trim();
+          const bpjsVal = ekstrakNomorBpjs(val);
+          if (bpjsVal) {
+            e.preventDefault();
+            e.stopPropagation();
+            prosesScanBpjs(bpjsVal, el);
+          }
+        }
+      });
+    }
+
+    /* ---- Global Barcode Scanner Listener (Blueprint BP-LITE W2D) ---- */
+    if (handlerScanGlobal) {
+      document.removeEventListener('keydown', handlerScanGlobal, true);
+      handlerScanGlobal = null;
+    }
+
+    let scanBuffer = '';
+    let scanTimestamps = [];
+    let lastKeyTime = 0;
+    const MAX_SCAN_INTERVAL = 65; // ms delay maksimal antar karakter scanner HID
+
+    handlerScanGlobal = (e) => {
+      // Abaikan jika halaman pendaftaran sudah tidak terhubung di DOM
+      if (!el || !el.isConnected) {
+        if (handlerScanGlobal) {
+          document.removeEventListener('keydown', handlerScanGlobal, true);
+          handlerScanGlobal = null;
+        }
+        return;
+      }
+
+      // Abaikan jika modal popup dialog sedang terbuka
+      if (document.querySelector('.modal-wrap, .ui-modal, .modal-backdrop')) {
+        return;
+      }
+
+      const now = Date.now();
+      const diff = now - lastKeyTime;
+
+      // Saat tombol Enter ditekan
+      if (e.key === 'Enter') {
+        const bpjsCandidate = ekstrakNomorBpjs(scanBuffer);
+        const totalChars = scanTimestamps.length;
+        // Scanner mengirim sedikitnya 12-13 karakter secara beruntun sangat cepat (< 50ms)
+        const isScanBurst = totalChars >= 12 && (now - scanTimestamps[0]) < 1000;
+
+        if (bpjsCandidate && (isScanBurst || scanBuffer.trim().length === 13)) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const finalBpjs = bpjsCandidate;
+          const bufferToClean = scanBuffer;
+
+          // Reset buffer
+          scanBuffer = '';
+          scanTimestamps = [];
+          lastKeyTime = 0;
+
+          // Bersihkan teks barcode yang sempat masuk ke input aktif selain fNrp
+          const active = document.activeElement;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            if (active.id !== 'fNrp') {
+              if (active.value.endsWith(bufferToClean)) {
+                active.value = active.value.slice(0, -bufferToClean.length).trim();
+              } else if (active.value === bufferToClean || active.value === finalBpjs) {
+                active.value = '';
+              }
+            }
+          }
+
+          // Jalankan pencarian pasien BPJS
+          prosesScanBpjs(finalBpjs, el);
+          return;
+        }
+
+        // Reset buffer jika bukan scan kartu BPJS
+        scanBuffer = '';
+        scanTimestamps = [];
+        lastKeyTime = 0;
+        return;
+      }
+
+      // Rekam tombol jika karakter tunggal
+      if (e.key && e.key.length === 1) {
+        // Jika jeda dari ketukan sebelumnya melebihi threshold scanner, reset buffer (karena ketikan manusia)
+        if (diff > MAX_SCAN_INTERVAL) {
+          scanBuffer = '';
+          scanTimestamps = [];
+        }
+
+        scanBuffer += e.key;
+        scanTimestamps.push(now);
+        lastKeyTime = now;
+
+        // Batasi panjang buffer agar tetap ringan
+        if (scanBuffer.length > 50) {
+          scanBuffer = scanBuffer.slice(-25);
+          scanTimestamps = scanTimestamps.slice(-25);
+        }
+      }
+    };
+
+    // Pasang listener di document pada fase capture (true) agar selalu tertangkap paling awal
+    document.addEventListener('keydown', handlerScanGlobal, true);
+
     /* ---- Tombol SAVE ---- */
     el.querySelector('#btnSave').addEventListener('click', () => daftarkanPasien(el));
 
@@ -849,6 +969,140 @@ const Pendaftaran = (() => {
       const inp = el.querySelector('#cariPasien');
       if (inp) inp.focus();
     });
+  }
+
+  /* ================================================================
+     EKSTRAK & PROSES AUTO-SCAN KARTU BPJS (BLUEPRINT BP-LITE W2D)
+  ================================================================ */
+  function ekstrakNomorBpjs(str) {
+    if (!str || typeof str !== 'string') return null;
+    const bersih = str.trim();
+    // Bersihkan karakter simbolik non-digit dan periksa panjangnya
+    const hanyaAngka = bersih.replace(/\D/g, '');
+    if (hanyaAngka.length === 13) {
+      return hanyaAngka;
+    }
+    return null;
+  }
+
+  async function prosesScanBpjs(nomorScan, el) {
+    if (!nomorScan) return;
+    const noBpjsClean = String(nomorScan).trim();
+
+    UI.toast('Mencari data pasien BPJS: ' + noBpjsClean + '...', 'info');
+
+    let dataPasien = null;
+
+    // 1. Cari exact match di Supabase via DB.sb jika tersedia
+    try {
+      if (DB.sb) {
+        const { data, error } = await DB.sb.from('pasien')
+          .select('*')
+          .eq('no_bpjs', noBpjsClean)
+          .eq('aktif', true)
+          .limit(1);
+        if (!error && data && data.length > 0) {
+          dataPasien = data[0];
+        }
+
+        // Coba juga jika nomor tersimpan di kolom nrp
+        if (!dataPasien) {
+          const { data: dNrp, error: eNrp } = await DB.sb.from('pasien')
+            .select('*')
+            .eq('nrp', noBpjsClean)
+            .eq('aktif', true)
+            .limit(1);
+          if (!eNrp && dNrp && dNrp.length > 0) {
+            dataPasien = dNrp[0];
+          }
+        }
+      }
+    } catch (errDb) {
+      console.warn('Query DB.sb pasien no_bpjs error:', errDb);
+    }
+
+    // 2. Fallback via DB.cariPasien
+    if (!dataPasien) {
+      try {
+        const list = await DB.cariPasien(noBpjsClean, 5);
+        if (list && list.length > 0) {
+          const exact = list.find(p => (p.no_bpjs || '').trim() === noBpjsClean || (p.nrp || '').trim() === noBpjsClean);
+          dataPasien = exact || list[0];
+          if (dataPasien && dataPasien.id && DB.pasien) {
+            try {
+              const detail = await DB.pasien(dataPasien.id);
+              if (detail) dataPasien = detail;
+            } catch (_) {}
+          }
+        }
+      } catch (errCari) {
+        console.error('Error saat cariPasien BPJS:', errCari);
+      }
+    }
+
+    if (dataPasien) {
+      // Kondisi 1 - Data Ditemukan (Pasien Lama)
+      pasienTerpilih = dataPasien;
+      isiFormPasien(el, dataPasien);
+
+      // Pastikan field no BPJS terisi nomor scan / no_bpjs
+      const fNrp = el.querySelector('#fNrp');
+      if (fNrp) {
+        fNrp.value = dataPasien.no_bpjs || dataPasien.nrp || noBpjsClean;
+      }
+
+      // Set jenis kunjungan / cara bayar otomatis ke "BPJS"
+      const jb = el.querySelector('#bJenisBayar');
+      if (jb) jb.value = 'BPJS';
+
+      const cb = el.querySelector('#filterBpjs');
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change'));
+      }
+
+      UI.toast('Pasien Ditemukan: ' + (dataPasien.nama || '') + ' (No RM: ' + (dataPasien.no_rm || '-') + ')', 'ok');
+      simpanDraftPendaftaran(el);
+
+      // Arahkan fokus ke pilihan dokter / pendaftaran kunjungan
+      setTimeout(() => {
+        const fDokter = el.querySelector('#fDokterNama');
+        if (fDokter) fDokter.focus();
+      }, 80);
+
+    } else {
+      // Kondisi 2 - Data Belum Ada (Pasien Baru)
+      pasienTerpilih = null;
+      resetFormPasien(el);
+
+      // Isi otomatis kolom input No. BPJS dengan nomor hasil scan tersebut
+      const fNrp = el.querySelector('#fNrp');
+      if (fNrp) {
+        fNrp.value = noBpjsClean;
+      }
+
+      // Set pilihan cara bayar otomatis ke "BPJS"
+      const jb = el.querySelector('#bJenisBayar');
+      if (jb) jb.value = 'BPJS';
+
+      const cb = el.querySelector('#filterBpjs');
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change'));
+      }
+
+      UI.toast('Pasien Baru / Belum Terdaftar', 'info');
+      simpanDraftPendaftaran(el);
+
+      // Arahkan fokus kursor langsung ke input field "Nama Pasien" agar resepsionis bisa langsung mengetik nama
+      setTimeout(() => {
+        const fNama = el.querySelector('#fNama');
+        if (fNama) {
+          fNama.focus();
+          fNama.select?.();
+        }
+      }, 80);
+    }
   }
 
   /* ================================================================
