@@ -2429,6 +2429,94 @@ const Lab = (() => {
     }
   }
 
+  /* ================================================================== */
+  /*  FILTER ANTREAN PER TAB SESUAI LAYANAN PEMERIKSAAN                 */
+  /* ================================================================== */
+  async function filterAntreanPerTab(data, tab) {
+    if (!data || !data.length) return [];
+    const pIds = data.map(d => d.id);
+
+    try {
+      // 1. Ambil detail pemeriksaan dari lab_hasil
+      const { data: hList } = await DB.sb.from('lab_hasil')
+        .select('permintaan_id, ref:lab_id(kode, nama, kelompok)')
+        .in('permintaan_id', pIds);
+
+      const mapItems = {};
+      (hList || []).forEach(h => {
+        if (!mapItems[h.permintaan_id]) mapItems[h.permintaan_id] = [];
+        if (h.ref) mapItems[h.permintaan_id].push({
+          kode: h.ref.kode || '',
+          nama: (h.ref.nama || '').toLowerCase(),
+          kelompok: (h.ref.kelompok || '').toLowerCase()
+        });
+      });
+
+      // 2. Ambil ID permintaan yang sudah tersimpan di tabel khusus
+      const [resSp, resFs, resAn] = await Promise.all([
+        DB.sb.from('lab_sperma').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] })),
+        DB.sb.from('lab_fisik').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] })),
+        DB.sb.from('lab_anamnesa').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] }))
+      ]);
+
+      const setSp = new Set((resSp?.data || []).map(x => x.permintaan_id));
+      const setFs = new Set((resFs?.data || []).map(x => x.permintaan_id));
+      const setAn = new Set((resAn?.data || []).map(x => x.permintaan_id));
+
+      return data.filter(d => {
+        const items = mapItems[d.id] || [];
+
+        // Simpan daftar_px untuk filter input teks pencarian Px
+        d.daftar_px = items.map(x => x.nama).concat(items.map(x => x.kode.toLowerCase())).concat(items.map(x => x.kelompok));
+
+        const isSperma = setSp.has(d.id) || !!localStorage.getItem('lab_sperma_' + d.id) || items.some(x => 
+          x.kode === 'S0102' || x.kelompok.includes('sperma') || x.nama.includes('sperma') || x.nama.includes('semen')
+        );
+
+        const isFisik = setFs.has(d.id) || items.some(x => 
+          ['A0101', 'A0119', 'A0126'].includes(x.kode) || x.nama.includes('fisik') || x.kelompok.includes('fisik')
+        );
+
+        const isAnamnesa = setAn.has(d.id) || items.some(x => 
+          x.kode === 'AN0101' || x.nama.includes('anamnes') || x.kelompok.includes('anamnes') || x.nama.includes('mcu') || x.nama.includes('check up')
+        );
+
+        // Jika tab sperma: hanya pasien yang punya permintaan atau rekaman sperma
+        if (tab === 'sperma') {
+          return isSperma;
+        }
+
+        // Jika tab fisik: hanya pasien yang punya pemeriksaan fisik
+        if (tab === 'fisik') {
+          return isFisik;
+        }
+
+        // Jika tab anamnesa: hanya pasien yang punya anamnesa
+        if (tab === 'anamnesa') {
+          return isAnamnesa;
+        }
+
+        // Jika tab hasil pemeriksaan reguler: 
+        // Pasien yang HANYA periksa sperma / fisik / anamnesa tanpa tes lab reguler tidak dimunculkan di tab hasil
+        if (tab === 'hasil') {
+          if (items.length === 0) return true;
+          const punyaTesReguler = items.some(x => 
+            !['S0102', 'A0101', 'A0119', 'A0126', 'AN0101'].includes(x.kode) && 
+            !x.kelompok.includes('sperma') && 
+            !x.nama.includes('fisik') && 
+            !x.nama.includes('anamnes')
+          );
+          return punyaTesReguler;
+        }
+
+        return true;
+      });
+    } catch(err) {
+      console.warn('Gagal filter antrean per tab:', err);
+      return data;
+    }
+  }
+
   /* ------------------------------------------------------------------ */
   /*  1. TAB HASIL PEMERIKSAAN                                          */
   /* ------------------------------------------------------------------ */
@@ -2508,30 +2596,7 @@ const Lab = (() => {
       daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
-
-        // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
-        if (data.length > 0 && (skylabState.px || skylabState.optPx)) {
-          const pIds = data.map(d => d.id);
-          try {
-            const { data: hList } = await DB.sb.from('lab_hasil')
-              .select('permintaan_id, ref:lab_id(nama,kode,kelompok)')
-              .in('permintaan_id', pIds);
-            if (hList) {
-              const mapPx = {};
-              hList.forEach(h => {
-                if (!mapPx[h.permintaan_id]) mapPx[h.permintaan_id] = [];
-                if (h.ref?.nama) mapPx[h.permintaan_id].push(h.ref.nama.toLowerCase());
-                if (h.ref?.kode) mapPx[h.permintaan_id].push(h.ref.kode.toLowerCase());
-                if (h.ref?.kelompok) mapPx[h.permintaan_id].push(h.ref.kelompok.toLowerCase());
-              });
-              data.forEach(d => {
-                d.daftar_px = mapPx[d.id] || [];
-              });
-            }
-          } catch(e) {
-            console.warn('Gagal memuat item px untuk filter:', e);
-          }
-        }
+        data = await filterAntreanPerTab(data, 'hasil');
 
         let cariIns = skylabState.instansi || '';
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
@@ -3410,6 +3475,7 @@ const Lab = (() => {
       daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
+        data = await filterAntreanPerTab(data, 'fisik');
         let cariIns = skylabState.instansi || '';
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
         if (cariIns) {
@@ -3808,6 +3874,7 @@ const Lab = (() => {
       daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
+        data = await filterAntreanPerTab(data, 'anamnesa');
         let cariIns = skylabState.instansi || '';
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
         if (cariIns) {
@@ -4194,30 +4261,7 @@ const Lab = (() => {
       daftar.innerHTML = '<div class="skylab-empty">Memuat...</div>';
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
-
-        // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
-        if (data.length > 0 && (skylabState.px || skylabState.optPx)) {
-          const pIds = data.map(d => d.id);
-          try {
-            const { data: hList } = await DB.sb.from('lab_hasil')
-              .select('permintaan_id, ref:lab_id(nama,kode,kelompok)')
-              .in('permintaan_id', pIds);
-            if (hList) {
-              const mapPx = {};
-              hList.forEach(h => {
-                if (!mapPx[h.permintaan_id]) mapPx[h.permintaan_id] = [];
-                if (h.ref?.nama) mapPx[h.permintaan_id].push(h.ref.nama.toLowerCase());
-                if (h.ref?.kode) mapPx[h.permintaan_id].push(h.ref.kode.toLowerCase());
-                if (h.ref?.kelompok) mapPx[h.permintaan_id].push(h.ref.kelompok.toLowerCase());
-              });
-              data.forEach(d => {
-                d.daftar_px = mapPx[d.id] || [];
-              });
-            }
-          } catch(e) {
-            console.warn('Gagal memuat item px untuk filter sperma:', e);
-          }
-        }
+        data = await filterAntreanPerTab(data, 'sperma');
 
         let cariIns = skylabState.instansi || '';
         if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
