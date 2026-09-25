@@ -593,7 +593,7 @@ const Laporan = (() => {
 
     gambarSnapshot(w.querySelector('#ovSnapshot'), data);
     gambarBanding(w.querySelector('#ovBanding'), data);
-    gambarHeatmap(w.querySelector('#ovHeatmap'), data);
+    await gambarKalenderJadwal(w.querySelector('#ovHeatmap'), data);
     await gambarJam(w.querySelector('#ovJam'), data);
     gambarDokter(w.querySelector('#ovDokter'), data);
 
@@ -763,74 +763,516 @@ const Laporan = (() => {
     });
   }
 
-  /* ---- D. Kalender heatmap bulanan ------------------------------------- */
-  const OV_HEAT_WARNA = ['#F1F5F9', '#D6F2EE', '#8FDCD1', '#16A394', '#085048'];
-  const OV_HEAT_TEKS  = ['#334155', '#334155', '#0F172A', '#FFFFFF', '#FFFFFF'];
+  /* ---- D. Kalender Jadwal (Google Calendar Style) ----------------------- */
+  let ovBulanJadwal = UI.bulanIni();
 
-  function gambarHeatmap(w, data) {
-    if (!data.monthKeys.includes(ovBulanHeatmap)) ovBulanHeatmap = data.monthKeys[data.monthKeys.length - 1];
-    const tanggalList = tanggalSebulan(ovBulanHeatmap);
-    const peta = LaporanCore.rekapPerHari(data.kunjungan);
+  async function gambarKalenderJadwal(w, data) {
+    if (!w) return;
+    if (data && data.monthKeys && !data.monthKeys.includes(ovBulanJadwal)) {
+      ovBulanJadwal = data.monthKeys[data.monthKeys.length - 1];
+    }
+    const [y, m] = ovBulanJadwal.split('-').map(Number);
+    const tanggalList = tanggalSebulan(ovBulanJadwal);
     const hari = UI.hariIni();
-    const ambil = (r) => ovMetrikHeatmap === 'umum' ? r.umum : ovMetrikHeatmap === 'gigi' ? r.gigi : r.total;
-    const nilai = tanggalList.map(t => ambil(peta.get(t) || LaporanCore.kunjunganKosong()));
-    const maks = Math.max(1, ...nilai);
-    const [y, m] = ovBulanHeatmap.split('-').map(Number);
     const offset = new Date(y, m - 1, 1).getDay();
 
-    const kelasAktif = (m2) => m2 === ovMetrikHeatmap ? 'btn-primary' : 'btn-secondary';
-    const hariBerjalan = tanggalList.filter(t => t <= hari).length;
-    const hariAktif = tanggalList.filter((t, i) => t <= hari && nilai[i] > 0).length;
-    const totalBulan = nilai.reduce((a, b) => a + b, 0);
-    let idxMaks = -1;
-    nilai.forEach((v, i) => { if (v > 0 && (idxMaks < 0 || v > nilai[idxMaks])) idxMaks = i; });
+    const isMaster = (typeof App !== 'undefined' && App.siapa?.()?.peran === 'master') ||
+                     (typeof Auth !== 'undefined' && Auth.pengguna?.peran === 'master');
+
+    // Tampilkan kerangka awal dengan pemuat
+    w.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <div class="flex-1">
+            <h2>Kalender Jadwal</h2>
+            <div class="sub">Jadwal operasional, shift, dan agenda laboratorium.</div>
+          </div>
+          <div class="flex items-center gap-8">
+            ${isMaster ? `<button class="btn btn-primary btn-sm" id="btnTambahJadwal">${UI.ikon('tambah', 14)} Tambah Jadwal</button>` : ''}
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" id="jdPrev">‹</button>
+              <input type="month" id="jdBulan" class="control-auto" value="${ovBulanJadwal}">
+              <button class="btn btn-secondary btn-sm" id="jdNext">›</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="p-16 text-center text-muted">${UI.memuat(2)}</div>
+        </div>
+      </div>
+    `;
+
+    // Ambil data jadwal dari DB
+    let listJadwal = [];
+    try {
+      listJadwal = await DB.jadwalMuatBulan(y, m);
+    } catch (err) {
+      console.error('Gagal memuat kalender_jadwal:', err);
+      listJadwal = [];
+    }
+
+    // Kelompokkan jadwal per tanggal
+    const mapJadwal = new Map();
+    listJadwal.forEach(j => {
+      if (!j.tanggal) return;
+      if (!mapJadwal.has(j.tanggal)) mapJadwal.set(j.tanggal, []);
+      mapJadwal.get(j.tanggal).push(j);
+    });
+
+    // Urutkan jadwal per hari berdasarkan jam_mulai
+    mapJadwal.forEach(arr => {
+      arr.sort((a, b) => (a.jam_mulai || '00:00').localeCompare(b.jam_mulai || '00:00'));
+    });
+
+    const totalJadwal = listJadwal.length;
+    const totalShift = listJadwal.filter(j => (j.kategori || '').toLowerCase().includes('shift')).length;
+    const totalMendatang = listJadwal.filter(j => j.tanggal >= hari).length;
 
     w.innerHTML = `
       <div class="card">
         <div class="card-head">
-          <div class="flex-1"><h2>Kalender Kunjungan</h2><div class="sub">Intensitas kunjungan per hari.</div></div>
-          <div class="btn-group mr-8">
-            <button class="btn btn-sm ${kelasAktif('total')}" data-m="total">Total</button>
-            <button class="btn btn-sm ${kelasAktif('umum')}" data-m="umum">Umum</button>
-            <button class="btn btn-sm ${kelasAktif('gigi')}" data-m="gigi">Gigi</button>
+          <div class="flex-1">
+            <h2>Kalender Jadwal</h2>
+            <div class="sub">Jadwal operasional, shift, dan agenda laboratorium.</div>
           </div>
-          <div class="btn-group">
-            <button class="btn btn-secondary btn-sm" id="hmPrev">‹</button>
-            <input type="month" id="hmBulan" class="control-auto" value="${ovBulanHeatmap}">
-            <button class="btn btn-secondary btn-sm" id="hmNext">›</button>
+          <div class="flex items-center gap-8">
+            ${isMaster ? `<button class="btn btn-primary btn-sm" id="btnTambahJadwal">${UI.ikon('tambah', 14)} Tambah Jadwal</button>` : ''}
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" id="jdPrev">‹</button>
+              <input type="month" id="jdBulan" class="control-auto" value="${ovBulanJadwal}">
+              <button class="btn btn-secondary btn-sm" id="jdNext">›</button>
+            </div>
           </div>
         </div>
         <div class="card-body">
-          <div class="heatmap-grid mb-4">
-            ${UI.HARI.map(h => `<div class="text-center text-muted text-xs">${h.slice(0, 3)}</div>`).join('')}
+          <!-- Header 7 Kolom Hari -->
+          <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-bottom:6px;">
+            ${['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((h, i) => `
+              <div style="text-align:center; font-size:12px; font-weight:700; color:${i === 0 ? '#ef4444' : '#64748b'}; padding:4px 0;">${h}</div>
+            `).join('')}
           </div>
-          <div class="heatmap-grid">
-            ${Array(offset).fill('<div></div>').join('')}
-            ${tanggalList.map((t, i) => {
-              if (t > hari) {
-                return `<div class="heat-cell heat-future">${i + 1}</div>`;
-              }
-              const level = nilai[i] === 0 ? 0 : Math.min(4, Math.ceil(nilai[i] / maks * 4));
-              return `<div title="${UI.tglIndo(t)}: ${nilai[i]}" class="heat-cell heat-${level}">${i + 1}</div>`;
+
+          <!-- Grid Tanggal Google Calendar Style -->
+          <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:6px;">
+            ${Array(offset).fill('<div style="background:#f8fafc; border:1px dashed #e2e8f0; border-radius:6px; min-height:95px; opacity:0.6;"></div>').join('')}
+            ${tanggalList.map((t, idx) => {
+              const hariKe = idx + 1;
+              const isHariIni = (t === hari);
+              const jadwalHari = mapJadwal.get(t) || [];
+              const dayOfWeek = (offset + idx) % 7;
+              const isMinggu = (dayOfWeek === 0);
+
+              return `
+                <div class="jd-cell" data-tgl="${t}" style="
+                  background: ${isHariIni ? '#eff6ff' : '#ffffff'};
+                  border: ${isHariIni ? '2px solid #3b82f6' : '1px solid #e2e8f0'};
+                  border-radius: 6px;
+                  min-height: 95px;
+                  padding: 5px;
+                  display: flex;
+                  flex-direction: column;
+                  box-sizing: border-box;
+                  transition: border-color 0.15s, box-shadow 0.15s;
+                  cursor: pointer;
+                ">
+                  <!-- Header Tanggal -->
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <span style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      ${isHariIni ? 'background:#2563eb; color:#ffffff; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;' : isMinggu ? 'color:#ef4444;' : 'color:#475569;'}
+                    ">${hariKe}</span>
+                    ${jadwalHari.length > 0 ? `
+                      <span style="font-size:10px; font-weight:700; color:#94a3b8;">${jadwalHari.length}</span>
+                    ` : ''}
+                  </div>
+
+                  <!-- Daftar Pill Badge Jadwal -->
+                  <div style="flex:1; display:flex; flex-direction:column; gap:2px; overflow:hidden;">
+                    ${jadwalHari.slice(0, 3).map(j => `
+                      <div class="jd-badge" data-jid="${j.id}" style="
+                        background: ${j.warna_tag || '#2563eb'};
+                        color: #ffffff;
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 2px 5px;
+                        border-radius: 3px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        cursor: pointer;
+                        line-height: 1.25;
+                      " title="${UI.esc((j.jam_mulai ? j.jam_mulai + ' ' : '') + j.judul + (j.pelaksana ? ' (' + j.pelaksana + ')' : ''))}">
+                        ${UI.esc(j.jam_mulai ? j.jam_mulai + ' ' : '')}${UI.esc(j.judul)}
+                      </div>
+                    `).join('')}
+                    ${jadwalHari.length > 3 ? `
+                      <div class="jd-more" data-tgl="${t}" style="
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #2563eb;
+                        cursor: pointer;
+                        padding: 1px 2px;
+                      ">+${jadwalHari.length - 3} lainnya</div>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
             }).join('')}
           </div>
+
+          <!-- Statistik Ringkas Jadwal -->
           <div class="grid grid-3 mt-16">
-            <div class="stat"><div class="lbl">Total bulan ini</div><div class="val tabular">${totalBulan}</div></div>
-            <div class="stat"><div class="lbl">Hari ada kunjungan</div>
-              <div class="val tabular">${hariAktif}/${hariBerjalan}</div></div>
-            <div class="stat"><div class="lbl">Tersibuk</div>
-              <div class="val tabular">${idxMaks >= 0 ? nilai[idxMaks] : '—'}</div>
-              <div class="hint">${idxMaks >= 0 ? UI.tglIndo(tanggalList[idxMaks]) : ''}</div></div>
+            <div class="stat">
+              <div class="lbl">Total Agenda Bulan Ini</div>
+              <div class="val tabular">${totalJadwal}</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Shift Terjadwal</div>
+              <div class="val tabular">${totalShift}</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Agenda Mendatang</div>
+              <div class="val tabular">${totalMendatang}</div>
+            </div>
           </div>
         </div>
-      </div>`;
+      </div>
+    `;
 
-    w.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
-      ovMetrikHeatmap = b.dataset.m; gambarHeatmap(w, data);
-    }));
-    w.querySelector('#hmPrev').addEventListener('click', () => { ovBulanHeatmap = UI.geserBulan(ovBulanHeatmap, -1); gambarHeatmap(w, data); });
-    w.querySelector('#hmNext').addEventListener('click', () => { ovBulanHeatmap = UI.geserBulan(ovBulanHeatmap, 1); gambarHeatmap(w, data); });
-    w.querySelector('#hmBulan').addEventListener('change', (e) => { ovBulanHeatmap = e.target.value; gambarHeatmap(w, data); });
+    // Pasang Event Listener Navigasi & Aksi
+    const segarkanJadwal = () => gambarKalenderJadwal(w, data);
+
+    w.querySelector('#jdPrev')?.addEventListener('click', () => {
+      ovBulanJadwal = UI.geserBulan(ovBulanJadwal, -1);
+      segarkanJadwal();
+    });
+    w.querySelector('#jdNext')?.addEventListener('click', () => {
+      ovBulanJadwal = UI.geserBulan(ovBulanJadwal, 1);
+      segarkanJadwal();
+    });
+    w.querySelector('#jdBulan')?.addEventListener('change', (e) => {
+      ovBulanJadwal = e.target.value;
+      segarkanJadwal();
+    });
+
+    if (isMaster) {
+      w.querySelector('#btnTambahJadwal')?.addEventListener('click', () => {
+        modalFormJadwal(null, hari, segarkanJadwal);
+      });
+    }
+
+    // Klik pada cell tanggal
+    w.querySelectorAll('.jd-cell').forEach(cell => {
+      cell.addEventListener('click', (e) => {
+        if (e.target.closest('.jd-badge') || e.target.closest('.jd-more')) return;
+        const tgl = cell.dataset.tgl;
+        const items = mapJadwal.get(tgl) || [];
+
+        if (isMaster) {
+          modalFormJadwal(null, tgl, segarkanJadwal);
+        } else {
+          if (items.length === 1) {
+            modalDetailJadwal(items[0]);
+          } else if (items.length > 1) {
+            modalDaftarJadwalTanggal(tgl, items, false, segarkanJadwal);
+          } else {
+            UI.toast('Tidak ada agenda jadwal pada tanggal ' + UI.tglIndo(tgl) + '.', 'info');
+          }
+        }
+      });
+    });
+
+    // Klik pada badge jadwal
+    w.querySelectorAll('.jd-badge').forEach(badge => {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const jid = badge.dataset.jid;
+        const j = listJadwal.find(x => String(x.id) === String(jid));
+        if (!j) return;
+        if (isMaster) {
+          modalFormJadwal(j, j.tanggal, segarkanJadwal);
+        } else {
+          modalDetailJadwal(j);
+        }
+      });
+    });
+
+    // Klik pada +X lainnya
+    w.querySelectorAll('.jd-more').forEach(more => {
+      more.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tgl = more.dataset.tgl;
+        const items = mapJadwal.get(tgl) || [];
+        modalDaftarJadwalTanggal(tgl, items, isMaster, segarkanJadwal);
+      });
+    });
+  }
+
+  // Alias agar tetap kompatibel jika ada pemanggilan gambarHeatmap
+  const gambarHeatmap = gambarKalenderJadwal;
+
+  /* ---- Modal Tambah / Edit Jadwal (Khusus Role Master) ----------------- */
+  async function modalFormJadwal(j, tglDefault, selesaiCb) {
+    const isEdit = !!(j && j.id);
+    const presetsWarna = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0d9488', '#475569'];
+    const warnaAwal = j?.warna_tag || '#2563eb';
+
+    await UI.modal({
+      judul: isEdit ? 'Edit Jadwal' : 'Tambah Jadwal Baru',
+      isi: `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Judul Agenda / Jadwal *</label>
+            <input type="text" id="mJdJudul" class="input" style="width:100%; box-sizing:border-box;" required placeholder="Contoh: Shift Pagi Lab / Maintenance BS-240" value="${UI.esc(j?.judul || '')}">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Tanggal *</label>
+              <input type="date" id="mJdTanggal" class="input" style="width:100%; box-sizing:border-box;" required value="${j?.tanggal || tglDefault || UI.hariIni()}">
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Kategori</label>
+              <select id="mJdKategori" class="input" style="width:100%; box-sizing:border-box;">
+                <option value="Shift Pagi"${j?.kategori === 'Shift Pagi' ? ' selected' : ''}>Shift Pagi</option>
+                <option value="Shift Siang"${j?.kategori === 'Shift Siang' ? ' selected' : ''}>Shift Siang</option>
+                <option value="Shift Malam"${j?.kategori === 'Shift Malam' ? ' selected' : ''}>Shift Malam</option>
+                <option value="Operasional Lab"${j?.kategori === 'Operasional Lab' ? ' selected' : ''}>Operasional Lab</option>
+                <option value="Maintenance Alat"${j?.kategori === 'Maintenance Alat' ? ' selected' : ''}>Maintenance Alat</option>
+                <option value="Kalibrasi & QC"${j?.kategori === 'Kalibrasi & QC' ? ' selected' : ''}>Kalibrasi & QC</option>
+                <option value="Sampling Lapangan"${j?.kategori === 'Sampling Lapangan' ? ' selected' : ''}>Sampling Lapangan</option>
+                <option value="Rapat & Briefing"${j?.kategori === 'Rapat & Briefing' ? ' selected' : ''}>Rapat & Briefing</option>
+                <option value="Lainnya"${j?.kategori === 'Lainnya' ? ' selected' : ''}>Lainnya</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Jam Mulai</label>
+              <input type="time" id="mJdMulai" class="input" style="width:100%; box-sizing:border-box;" value="${j?.jam_mulai || ''}">
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Jam Selesai</label>
+              <input type="time" id="mJdSelesai" class="input" style="width:100%; box-sizing:border-box;" value="${j?.jam_selesai || ''}">
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Warna Tag</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="color" id="mJdWarnaTag" value="${warnaAwal}" style="width:36px; height:32px; padding:0; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer;">
+              <div id="mJdPresets" style="display:flex; gap:6px;">
+                ${presetsWarna.map(c => `
+                  <span class="color-dot" data-col="${c}" style="width:24px; height:24px; border-radius:50%; background:${c}; cursor:pointer; display:inline-block; border:2px solid ${c === warnaAwal ? '#0f172a' : 'transparent'}; box-sizing:border-box;"></span>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Pelaksana / Petugas</label>
+            <input type="text" id="mJdPelaksana" class="input" style="width:100%; box-sizing:border-box;" placeholder="Nama petugas / analis yang bertugas..." value="${UI.esc(j?.pelaksana || '')}">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Keterangan</label>
+            <textarea id="mJdKeterangan" class="input" style="width:100%; box-sizing:border-box;" rows="2" placeholder="Catatan atau instruksi khusus...">${UI.esc(j?.keterangan || '')}</textarea>
+          </div>
+        </div>
+      `,
+      tombol: [
+        ...(isEdit ? [{
+          teks: 'Hapus Jadwal',
+          kelas: 'btn-danger',
+          aksi: async () => {
+            const yakin = await UI.konfirmasiGanda({
+              judul: 'Hapus Jadwal',
+              pesan1: `Apakah Anda yakin ingin menghapus jadwal "${j.judul}"? Tindakan ini tidak dapat dibatalkan.`,
+              pesan2: `PERINGATAN TERAKHIR: Jadwal "${j.judul}" pada tanggal ${UI.tglIndo(j.tanggal)} akan dihapus permanen dari sistem. Lanjutkan?`,
+              tombolLanjut: 'Lanjutkan Hapus',
+              tombolFinal: 'Ya, Hapus Sekarang'
+            });
+            if (!yakin) return false;
+            try {
+              await DB.jadwalHapus(j.id);
+              UI.toast('Jadwal berhasil dihapus.', 'ok');
+              if (selesaiCb) selesaiCb();
+            } catch (err) {
+              UI.toast('Gagal menghapus jadwal: ' + (err.message || err), 'err');
+              return false;
+            }
+          }
+        }] : []),
+        { teks: 'Batal', nilai: null },
+        {
+          teks: isEdit ? 'Simpan Perubahan' : 'Simpan Jadwal',
+          kelas: 'btn-primary',
+          aksi: async (badan) => {
+            const judul = badan.querySelector('#mJdJudul').value.trim();
+            const tanggal = badan.querySelector('#mJdTanggal').value;
+            const jam_mulai = badan.querySelector('#mJdMulai').value || null;
+            const jam_selesai = badan.querySelector('#mJdSelesai').value || null;
+            const kategori = badan.querySelector('#mJdKategori').value;
+            const warna_tag = badan.querySelector('#mJdWarnaTag').value || '#2563eb';
+            const pelaksana = badan.querySelector('#mJdPelaksana').value.trim() || null;
+            const keterangan = badan.querySelector('#mJdKeterangan').value.trim() || null;
+
+            if (!judul) {
+              UI.toast('Judul agenda jadwal wajib diisi.', 'err');
+              badan.querySelector('#mJdJudul')?.focus();
+              return false;
+            }
+            if (!tanggal) {
+              UI.toast('Tanggal wajib diisi.', 'err');
+              badan.querySelector('#mJdTanggal')?.focus();
+              return false;
+            }
+
+            const payload = {
+              judul,
+              tanggal,
+              waktu_mulai: jam_mulai,
+              waktu_selesai: jam_selesai,
+              jam_mulai,
+              jam_selesai,
+              kategori,
+              warna: warna_tag,
+              warna_tag,
+              dibuat_oleh: pelaksana,
+              pelaksana,
+              deskripsi: keterangan,
+              keterangan
+            };
+
+            try {
+              if (isEdit) {
+                await DB.jadwalUbah(j.id, payload);
+                UI.toast('Jadwal berhasil diperbarui.', 'ok');
+              } else {
+                await DB.jadwalTambah(payload);
+                UI.toast('Jadwal baru berhasil ditambahkan.', 'ok');
+              }
+              if (selesaiCb) selesaiCb();
+            } catch (err) {
+              UI.toast('Gagal menyimpan jadwal: ' + (err.message || err), 'err');
+              return false;
+            }
+          }
+        }
+      ],
+      siap: (badan) => {
+        badan.querySelectorAll('.color-dot').forEach(dot => {
+          dot.addEventListener('click', () => {
+            const col = dot.dataset.col;
+            badan.querySelector('#mJdWarnaTag').value = col;
+            badan.querySelectorAll('.color-dot').forEach(d => {
+              d.style.borderColor = (d.dataset.col === col) ? '#0f172a' : 'transparent';
+            });
+          });
+        });
+      }
+    });
+  }
+
+  /* ---- Modal Detail Jadwal (Read-Only untuk Non-Master) ----------------- */
+  async function modalDetailJadwal(j) {
+    await UI.modal({
+      judul: 'Detail Jadwal',
+      isi: `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <h3 style="margin:0 0 6px 0; font-size:16px; color:#1e293b;">${UI.esc(j.judul)}</h3>
+            <span style="display:inline-block; background:${j.warna_tag || '#2563eb'}; color:#ffffff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px;">
+              ${UI.esc(j.kategori || 'Agenda')}
+            </span>
+          </div>
+
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#64748b;">Tanggal</div>
+              <div style="font-size:13px; font-weight:700; color:#1e293b;">${UI.tglIndo(j.tanggal)}</div>
+            </div>
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#64748b;">Waktu / Jam</div>
+              <div style="font-size:13px; font-weight:700; color:#1e293b;">
+                ${j.jam_mulai ? j.jam_mulai + (j.jam_selesai ? ' – ' + j.jam_selesai : ' WIB') : 'Sepanjang Hari'}
+              </div>
+            </div>
+            <div style="grid-column: span 2;">
+              <div style="font-size:11px; font-weight:600; color:#64748b;">Pelaksana / Petugas</div>
+              <div style="font-size:13px; color:#1e293b;">${UI.esc(j.pelaksana || 'Semua Petugas')}</div>
+            </div>
+          </div>
+
+          ${j.keterangan ? `
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">Keterangan</div>
+              <div style="font-size:13px; color:#334155; line-height:1.5; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">
+                ${UI.esc(j.keterangan)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `,
+      tombol: [{ teks: 'Tutup', nilai: null }]
+    });
+  }
+
+  /* ---- Modal Daftar Jadwal Tanggal (List Popup) ------------------------- */
+  async function modalDaftarJadwalTanggal(t, list, isMaster, selesaiCb) {
+    await UI.modal({
+      judul: `Agenda Jadwal: ${UI.tglIndo(t)}`,
+      isi: `
+        <div style="display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto;">
+          ${list.map(j => `
+            <div class="item-jadwal-popup" data-jid="${j.id}" style="
+              background: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-left: 4px solid ${j.warna_tag || '#2563eb'};
+              border-radius: 4px;
+              padding: 8px 12px;
+              cursor: pointer;
+              transition: background 0.15s;
+            ">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b style="font-size:13px; color:#1e293b;">${UI.esc(j.judul)}</b>
+                <span style="font-size:11px; font-weight:600; color:#64748b;">
+                  ${j.jam_mulai ? j.jam_mulai + (j.jam_selesai ? '–' + j.jam_selesai : '') : 'Sepanjang Hari'}
+                </span>
+              </div>
+              <div style="display:flex; gap:8px; font-size:11px; color:#64748b; margin-top:4px;">
+                <span>Kategori: <b>${UI.esc(j.kategori || 'Agenda')}</b></span>
+                ${j.pelaksana ? `<span>• Pelaksana: <b>${UI.esc(j.pelaksana)}</b></span>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `,
+      tombol: [
+        ...(isMaster ? [{
+          teks: '+ Tambah Agenda Tanggal Ini',
+          kelas: 'btn-secondary',
+          aksi: async () => {
+            setTimeout(() => modalFormJadwal(null, t, selesaiCb), 80);
+          }
+        }] : []),
+        { teks: 'Tutup', nilai: null }
+      ],
+      siap: (badan, tutup) => {
+        badan.querySelectorAll('.item-jadwal-popup').forEach(row => {
+          row.addEventListener('click', () => {
+            tutup();
+            const jid = row.dataset.jid;
+            const j = list.find(x => String(x.id) === String(jid));
+            if (!j) return;
+            setTimeout(() => {
+              if (isMaster) {
+                modalFormJadwal(j, t, selesaiCb);
+              } else {
+                modalDetailJadwal(j);
+              }
+            }, 80);
+          });
+        });
+      }
+    });
   }
 
   /* ---- E. Pola jam kunjungan (Chart.js bar, per bulan) ----------------- */

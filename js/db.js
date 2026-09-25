@@ -3844,6 +3844,195 @@ const DB = (() => {
     if (error) throw error;
   }
 
+  /* ================= KALENDER JADWAL ================= */
+  async function jadwalMuatBulan(tahun, bulan) {
+    let thn, bln;
+    if (typeof tahun === 'string' && tahun.includes('-')) {
+      const sp = tahun.split('-');
+      thn = Number(sp[0]);
+      bln = Number(sp[1]);
+    } else {
+      thn = Number(tahun);
+      bln = Number(bulan);
+    }
+    const blnStr = String(bln).padStart(2, '0');
+    const jmlHari = new Date(thn, bln, 0).getDate();
+    const tglAwal = `${thn}-${blnStr}-01`;
+    const tglAkhir = `${thn}-${blnStr}-${String(jmlHari).padStart(2, '0')}`;
+
+    try {
+      const { data, error } = await sb.from('kalender_jadwal')
+        .select('*')
+        .gte('tanggal', tglAwal)
+        .lte('tanggal', tglAkhir)
+        .order('tanggal', { ascending: true })
+        .order('waktu_mulai', { ascending: true });
+      if (!error && Array.isArray(data)) {
+        const dinormalisasi = data.map(item => ({
+          ...item,
+          jam_mulai: item.jam_mulai || item.waktu_mulai,
+          jam_selesai: item.jam_selesai || item.waktu_selesai,
+          waktu_mulai: item.waktu_mulai || item.jam_mulai,
+          waktu_selesai: item.waktu_selesai || item.jam_selesai,
+          warna_tag: item.warna_tag || item.warna || '#0d9488',
+          warna: item.warna || item.warna_tag || '#0d9488',
+          pelaksana: item.pelaksana || item.dibuat_oleh,
+          dibuat_oleh: item.dibuat_oleh || item.pelaksana,
+          keterangan: item.keterangan || item.deskripsi,
+          deskripsi: item.deskripsi || item.keterangan
+        }));
+        try {
+          const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+          const lokalBulan = lokal.filter(j => j.tanggal >= tglAwal && j.tanggal <= tglAkhir);
+          const map = new Map();
+          dinormalisasi.forEach(item => map.set(String(item.id), item));
+          lokalBulan.forEach(item => {
+            if (!map.has(String(item.id))) {
+              map.set(String(item.id), {
+                ...item,
+                jam_mulai: item.jam_mulai || item.waktu_mulai,
+                jam_selesai: item.jam_selesai || item.waktu_selesai,
+                waktu_mulai: item.waktu_mulai || item.jam_mulai,
+                waktu_selesai: item.waktu_selesai || item.jam_selesai,
+                warna_tag: item.warna_tag || item.warna || '#0d9488',
+                warna: item.warna || item.warna_tag || '#0d9488',
+                pelaksana: item.pelaksana || item.dibuat_oleh,
+                dibuat_oleh: item.dibuat_oleh || item.pelaksana,
+                keterangan: item.keterangan || item.deskripsi,
+                deskripsi: item.deskripsi || item.keterangan
+              });
+            }
+          });
+          return Array.from(map.values()).sort((a, b) => (a.tanggal + (a.waktu_mulai || a.jam_mulai || '')).localeCompare(b.tanggal + (b.waktu_mulai || b.jam_mulai || '')));
+        } catch (_) {
+          return dinormalisasi;
+        }
+      }
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Fallback kalender_jadwal ke localStorage:', err);
+      try {
+        const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+        return lokal.filter(j => j.tanggal >= tglAwal && j.tanggal <= tglAkhir)
+          .map(item => ({
+            ...item,
+            jam_mulai: item.jam_mulai || item.waktu_mulai,
+            jam_selesai: item.jam_selesai || item.waktu_selesai,
+            waktu_mulai: item.waktu_mulai || item.jam_mulai,
+            waktu_selesai: item.waktu_selesai || item.jam_selesai,
+            warna_tag: item.warna_tag || item.warna || '#0d9488',
+            warna: item.warna || item.warna_tag || '#0d9488',
+            pelaksana: item.pelaksana || item.dibuat_oleh,
+            dibuat_oleh: item.dibuat_oleh || item.pelaksana,
+            keterangan: item.keterangan || item.deskripsi,
+            deskripsi: item.deskripsi || item.keterangan
+          }))
+          .sort((a, b) => (a.tanggal + (a.waktu_mulai || a.jam_mulai || '')).localeCompare(b.tanggal + (b.waktu_mulai || b.jam_mulai || '')));
+      } catch (_) {
+        return [];
+      }
+    }
+  }
+
+  async function jadwalTambah(payload) {
+    const rec = {
+      judul: payload.judul,
+      deskripsi: payload.deskripsi !== undefined ? payload.deskripsi : (payload.keterangan !== undefined ? payload.keterangan : null),
+      tanggal: payload.tanggal,
+      waktu_mulai: payload.waktu_mulai !== undefined ? payload.waktu_mulai : (payload.jam_mulai !== undefined ? payload.jam_mulai : null),
+      waktu_selesai: payload.waktu_selesai !== undefined ? payload.waktu_selesai : (payload.jam_selesai !== undefined ? payload.jam_selesai : null),
+      kategori: payload.kategori || 'Umum',
+      warna: payload.warna !== undefined ? payload.warna : (payload.warna_tag !== undefined ? payload.warna_tag : '#0d9488'),
+      dibuat_oleh: payload.dibuat_oleh !== undefined ? payload.dibuat_oleh : (payload.pelaksana !== undefined ? payload.pelaksana : null),
+      created_at: payload.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    try {
+      const { data, error } = await sb.from('kalender_jadwal').insert(rec).select().single();
+      if (!error && data) {
+        simpanCadanganLokalJadwal(data);
+        return data;
+      }
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Simpan kalender_jadwal fallback:', err);
+      const dataBaru = {
+        ...rec,
+        id: payload.id || 'lokal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
+      };
+      simpanCadanganLokalJadwal(dataBaru);
+      return dataBaru;
+    }
+  }
+
+  async function jadwalUbah(id, payload) {
+    const rec = {
+      ...payload,
+      deskripsi: payload.deskripsi !== undefined ? payload.deskripsi : (payload.keterangan !== undefined ? payload.keterangan : undefined),
+      waktu_mulai: payload.waktu_mulai !== undefined ? payload.waktu_mulai : (payload.jam_mulai !== undefined ? payload.jam_mulai : undefined),
+      waktu_selesai: payload.waktu_selesai !== undefined ? payload.waktu_selesai : (payload.jam_selesai !== undefined ? payload.jam_selesai : undefined),
+      warna: payload.warna !== undefined ? payload.warna : (payload.warna_tag !== undefined ? payload.warna_tag : undefined),
+      dibuat_oleh: payload.dibuat_oleh !== undefined ? payload.dibuat_oleh : (payload.pelaksana !== undefined ? payload.pelaksana : undefined),
+      updated_at: new Date().toISOString()
+    };
+    // Bersihkan nilai undefined
+    Object.keys(rec).forEach(key => rec[key] === undefined && delete rec[key]);
+
+    try {
+      const { data, error } = await sb.from('kalender_jadwal').update(rec).eq('id', id).select().single();
+      if (!error && data) {
+        updateCadanganLokalJadwal(id, data);
+        return data;
+      }
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Ubah kalender_jadwal fallback:', err);
+      updateCadanganLokalJadwal(id, { ...rec, id });
+      return { ...rec, id };
+    }
+  }
+
+  async function jadwalHapus(id) {
+    try {
+      const { error } = await sb.from('kalender_jadwal').delete().eq('id', id);
+      hapusCadanganLokalJadwal(id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('Hapus kalender_jadwal fallback:', err);
+      hapusCadanganLokalJadwal(id);
+      return true;
+    }
+  }
+
+  function simpanCadanganLokalJadwal(item) {
+    try {
+      const list = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      const idx = list.findIndex(x => String(x.id) === String(item.id));
+      if (idx >= 0) list[idx] = item;
+      else list.push(item);
+      localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(list));
+    } catch (_) {}
+  }
+
+  function updateCadanganLokalJadwal(id, item) {
+    try {
+      const list = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      const idx = list.findIndex(x => String(x.id) === String(id));
+      if (idx >= 0) list[idx] = { ...list[idx], ...item };
+      else list.push({ ...item, id });
+      localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(list));
+    } catch (_) {}
+  }
+
+  function hapusCadanganLokalJadwal(id) {
+    try {
+      const list = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      const baru = list.filter(x => String(x.id) !== String(id));
+      localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(baru));
+    } catch (_) {}
+  }
+
   return {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
@@ -3925,6 +4114,7 @@ const DB = (() => {
     inventoriDaftar, inventoriSimpan, inventoriMutasi, inventoriRiwayat, inventoriHapus,
     inventoriBatchDaftar, inventoriBatchSimpan, inventoriBatchHapus, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,
-    daftarRekanan, simpanRekanan, hapusRekanan
+    daftarRekanan, simpanRekanan, hapusRekanan,
+    jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus
   };
 })();

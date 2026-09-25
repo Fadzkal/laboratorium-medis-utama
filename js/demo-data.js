@@ -3595,6 +3595,128 @@ const DB = (() => {
     return DIAGNOSA_LAP.filter(d => d.tanggal >= dari && d.tanggal <= sampai);
   }
 
+  /* ================= KALENDER JADWAL (DEMO) ================= */
+  const DEMO_JADWAL = [
+    {
+      id: 'demo-1',
+      judul: 'Shift Pagi Lab & Sampling',
+      deskripsi: 'Petugas: Analis Medis Utama & Phlebotomist',
+      tanggal: UI.hariIni(),
+      waktu_mulai: '07:30',
+      waktu_selesai: '14:30',
+      kategori: 'Shift Pagi',
+      warna: '#16a34a',
+      dibuat_oleh: 'Master Lab'
+    },
+    {
+      id: 'demo-2',
+      judul: 'QC & Kalibrasi Sysmex XP-100',
+      deskripsi: 'Pemeriksaan kontrol hematologi 3 level',
+      tanggal: UI.hariIni(),
+      waktu_mulai: '08:00',
+      waktu_selesai: '09:00',
+      kategori: 'Kalibrasi & QC',
+      warna: '#9333ea',
+      dibuat_oleh: 'Master Lab'
+    },
+    {
+      id: 'demo-3',
+      judul: 'Maintenance Harian Mindray BS-240',
+      deskripsi: 'Pembersihan probe, cuvette wash, blank test',
+      tanggal: UI.hariIni(),
+      waktu_mulai: '16:00',
+      waktu_selesai: '17:00',
+      kategori: 'Maintenance Alat',
+      warna: '#d97706',
+      dibuat_oleh: 'Master Lab'
+    }
+  ];
+
+  async function jadwalMuatBulan(tahun, bulan) {
+    await tunggu(50);
+    let thn, bln;
+    if (typeof tahun === 'string' && tahun.includes('-')) {
+      const sp = tahun.split('-');
+      thn = Number(sp[0]); bln = Number(sp[1]);
+    } else {
+      thn = Number(tahun); bln = Number(bulan);
+    }
+    const blnStr = String(bln).padStart(2, '0');
+    const jmlHari = new Date(thn, bln, 0).getDate();
+    const tglAwal = `${thn}-${blnStr}-01`;
+    const tglAkhir = `${thn}-${blnStr}-${String(jmlHari).padStart(2, '0')}`;
+
+    try {
+      const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      if (!lokal.length) {
+        localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(DEMO_JADWAL));
+        return DEMO_JADWAL.filter(j => j.tanggal >= tglAwal && j.tanggal <= tglAkhir);
+      }
+      return lokal.filter(j => j.tanggal >= tglAwal && j.tanggal <= tglAkhir)
+        .sort((a, b) => (a.tanggal + (a.waktu_mulai || a.jam_mulai || '')).localeCompare(b.tanggal + (b.waktu_mulai || b.jam_mulai || '')));
+    } catch (_) {
+      return DEMO_JADWAL.filter(j => j.tanggal >= tglAwal && j.tanggal <= tglAkhir);
+    }
+  }
+
+  async function jadwalTambah(payload) {
+    await tunggu(60);
+    const id = 'jdw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const item = {
+      id,
+      judul: payload.judul,
+      deskripsi: payload.deskripsi || payload.keterangan || null,
+      tanggal: payload.tanggal,
+      waktu_mulai: payload.waktu_mulai || payload.jam_mulai || null,
+      waktu_selesai: payload.waktu_selesai || payload.jam_selesai || null,
+      kategori: payload.kategori || 'Umum',
+      warna: payload.warna || payload.warna_tag || '#0d9488',
+      dibuat_oleh: payload.dibuat_oleh || payload.pelaksana || 'Petugas Lab',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    try {
+      const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      lokal.push(item);
+      localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(lokal));
+    } catch (_) {}
+    return item;
+  }
+
+  async function jadwalUbah(id, payload) {
+    await tunggu(60);
+    let updated = null;
+    try {
+      const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      const idx = lokal.findIndex(x => String(x.id) === String(id));
+      if (idx >= 0) {
+        lokal[idx] = {
+          ...lokal[idx],
+          ...payload,
+          deskripsi: payload.deskripsi || payload.keterangan || lokal[idx].deskripsi,
+          waktu_mulai: payload.waktu_mulai || payload.jam_mulai || lokal[idx].waktu_mulai,
+          waktu_selesai: payload.waktu_selesai || payload.jam_selesai || lokal[idx].waktu_selesai,
+          warna: payload.warna || payload.warna_tag || lokal[idx].warna,
+          dibuat_oleh: payload.dibuat_oleh || payload.pelaksana || lokal[idx].dibuat_oleh,
+          updated_at: new Date().toISOString()
+        };
+        updated = lokal[idx];
+        localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(lokal));
+      }
+    } catch (_) {}
+    return updated || { id, ...payload };
+  }
+
+  async function jadwalHapus(id) {
+    await tunggu(60);
+    try {
+      const lokal = JSON.parse(localStorage.getItem('lmu_kalender_jadwal') || '[]');
+      const baru = lokal.filter(x => String(x.id) !== String(id));
+      localStorage.setItem('lmu_kalender_jadwal', JSON.stringify(baru));
+    } catch (_) {}
+    return true;
+  }
+
   return { sb, masuk, keluar, sesi, saya, bolehTulis, hakAksesSaya, faskes, simpanFaskes,
            daftarPoli, daftarDokter, daftarPegawai, cariIcd, cariObat, cariObatJual, daftarSigna,
            cariPasien, pasien, simpanPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
@@ -3657,5 +3779,6 @@ const DB = (() => {
            laporanRujukan, laporanKeuanganTagihan,
            laporanKeuanganPembayaran, laporanKaryawanAktivitas, laporanRegisterPoli, laporanTindakanUntukKunjungan,
            laporanDiagnosaPuskesmas,
+           jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus,
            gantiPeranDemo, peranDemoSekarang, PERAN_DEMO };
 })();
