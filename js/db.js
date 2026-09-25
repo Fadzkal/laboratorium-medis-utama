@@ -1908,9 +1908,10 @@ const DB = (() => {
     if (error) throw error; return data;
   }
   async function labAntrean(dari, sampai, status = null) {
-    let q = sb.from('v_lab_antrean').select('*')
-      .gte('tanggal', dari).lte('tanggal', sampai)
-      .order('tanggal', { ascending: false }).order('diminta_pada', { ascending: false });
+    let q = sb.from('v_lab_antrean').select('*');
+    if (dari) q = q.gte('tanggal', dari);
+    if (sampai) q = q.lte('tanggal', sampai);
+    q = q.order('tanggal', { ascending: false }).order('diminta_pada', { ascending: false });
     if (status) q = Array.isArray(status) ? q.in('status', status) : q.eq('status', status);
     const { data, error } = await q;
     if (error) throw error; return data;

@@ -109,6 +109,9 @@ const Lab = (() => {
               skylabState.dari = lp.tanggal;
             }
           }
+          if (!skylabState.sampai) {
+            skylabState.sampai = UI.hariIni();
+          }
         } else {
           skylabState.terpilih = targetId;
         }
@@ -2598,10 +2601,8 @@ const Lab = (() => {
   /*  1. TAB HASIL PEMERIKSAAN                                          */
   /* ------------------------------------------------------------------ */
   async function tabHasil(w) {
-    if (!skylabState.dari) {
-      skylabState.dari = UI.hariIni();
-      skylabState.sampai = UI.hariIni();
-    }
+    if (!skylabState.dari) skylabState.dari = UI.hariIni();
+    if (!skylabState.sampai) skylabState.sampai = UI.hariIni();
     if (!master.length) master = await DB.refLab(false);
 
     w.innerHTML = `
@@ -3481,10 +3482,8 @@ const Lab = (() => {
   /*  2. TAB HASIL FISIK                                                */
   /* ------------------------------------------------------------------ */
   async function tabFisik(w) {
-    if (!skylabState.dari) {
-      skylabState.dari = UI.hariIni();
-      skylabState.sampai = UI.hariIni();
-    }
+    if (!skylabState.dari) skylabState.dari = UI.hariIni();
+    if (!skylabState.sampai) skylabState.sampai = UI.hariIni();
 
     w.innerHTML = `
       ${CSS_SKYLAB}
@@ -3879,10 +3878,8 @@ const Lab = (() => {
   /*  3. TAB HASIL ANAMNESA                                             */
   /* ------------------------------------------------------------------ */
   async function tabAnamnesa(w) {
-    if (!skylabState.dari) {
-      skylabState.dari = UI.hariIni();
-      skylabState.sampai = UI.hariIni();
-    }
+    if (!skylabState.dari) skylabState.dari = UI.hariIni();
+    if (!skylabState.sampai) skylabState.sampai = UI.hariIni();
 
     w.innerHTML = `
       ${CSS_SKYLAB}
@@ -4267,8 +4264,8 @@ const Lab = (() => {
     if (!skylabState.dari) {
       const bln = UI.hariIni().slice(0, 7);
       skylabState.dari = bln + '-01';
-      skylabState.sampai = UI.hariIni();
     }
+    if (!skylabState.sampai) skylabState.sampai = UI.hariIni();
 
     w.innerHTML = `
       ${CSS_SKYLAB}
