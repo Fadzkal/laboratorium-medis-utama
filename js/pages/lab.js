@@ -2534,9 +2534,9 @@ const Lab = (() => {
 
       // 2. Ambil ID permintaan yang sudah tersimpan di tabel khusus
       const [resSp, resFs, resAn] = await Promise.all([
-        DB.sb.from('lab_sperma').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] })),
-        DB.sb.from('lab_fisik').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] })),
-        DB.sb.from('lab_anamnesa').select('permintaan_id').in('permintaan_id', pIds).catch(() => ({ data: [] }))
+        (async () => { try { return await DB.sb.from('lab_sperma').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
+        (async () => { try { return await DB.sb.from('lab_fisik').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
+        (async () => { try { return await DB.sb.from('lab_anamnesa').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })()
       ]);
 
       const setSp = new Set((resSp?.data || []).map(x => x.permintaan_id));
@@ -2577,16 +2577,22 @@ const Lab = (() => {
         }
 
         // Jika tab hasil pemeriksaan reguler: 
-        // Pasien yang HANYA periksa sperma / fisik / anamnesa tanpa tes lab reguler tidak dimunculkan di tab hasil
+        // Pasien yang periksa sperma / fisik / anamnesa tanpa tes lab reguler tidak boleh masuk ke tab hasil
         if (tab === 'hasil') {
-          if (items.length === 0) return true;
-          const punyaTesReguler = items.some(x => 
-            !['S0102', 'A0101', 'A0119', 'A0126', 'AN0101'].includes(x.kode) && 
-            !x.kelompok.includes('sperma') && 
-            !x.nama.includes('fisik') && 
-            !x.nama.includes('anamnes')
-          );
-          return punyaTesReguler;
+          if (isSperma || isFisik || isAnamnesa) {
+            const punyaTesReguler = items.some(x => 
+              !['S0102', 'A0101', 'A0119', 'A0126', 'AN0101'].includes(x.kode) && 
+              !x.kelompok.includes('sperma') && 
+              !x.nama.includes('sperma') && 
+              !x.nama.includes('semen') && 
+              !x.nama.includes('fisik') && 
+              !x.kelompok.includes('fisik') && 
+              !x.nama.includes('anamnes') && 
+              !x.kelompok.includes('anamnes')
+            );
+            return punyaTesReguler;
+          }
+          return true;
         }
 
         return true;
