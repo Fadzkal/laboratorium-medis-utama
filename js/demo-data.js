@@ -2105,6 +2105,12 @@ const DB = (() => {
     return { tagihan, item, bayar };
   }
 
+  async function kasirTagihanKunjungan(kunjunganId) {
+    await tunggu(30);
+    const t = TAGIHAN.find(x => x.kunjungan_id === kunjunganId);
+    return t ? tagihanLengkap(t) : null;
+  }
+
   async function kasirSusunDariKunjungan(kunjunganId) {
     await tunggu(140);
     const k = KUNJUNGAN.find(x => x.id === kunjunganId);
@@ -3743,7 +3749,7 @@ const DB = (() => {
            apotekImpor, obatUntukPencocokan,
            antreanFarmasi, resepUntukFarmasi, batchObat,
            kasirMenunggu, kasirDaftarTagihan, kasirTagihan, kasirItem, kasirPembayaran,
-           kasirLengkap, kasirSusunDariKunjungan, kasirCatatPembayaran,
+           kasirLengkap, kasirTagihanKunjungan, kasirSusunDariKunjungan, kasirCatatPembayaran,
            kasirHapusPembayaran, kasirHapusTagihan, kasirBuatTagihanBebas,
            kasirTambahItem, kasirUbahItem, kasirHapusItem, kasirJualObatBebas,
            daftarTarif, simpanTarif, kasirRekap,

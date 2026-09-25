@@ -1676,6 +1676,12 @@ const DB = (() => {
     if (error) throw error; return data;   // uuid tagihan
   }
 
+  async function kasirTagihanKunjungan(kunjunganId) {
+    const { data, error } = await sb.from('kasir_tagihan').select('*')
+      .eq('kunjungan_id', kunjunganId).maybeSingle();
+    if (error) throw error; return data;
+  }
+
   async function kasirCatatPembayaran(r) {
     const { data, error } = await sb.rpc('kasir_catat_pembayaran', {
       p_tagihan_id: r.tagihan_id, p_jumlah: r.jumlah,
@@ -4115,6 +4121,7 @@ const DB = (() => {
     inventoriBatchDaftar, inventoriBatchSimpan, inventoriBatchHapus, labResepDaftar, labResepSimpan, labResepHapus,
     statistikEksekutif,
     daftarRekanan, simpanRekanan, hapusRekanan,
-    jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus
+    jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus,
+    kasirTagihanKunjungan
   };
 })();

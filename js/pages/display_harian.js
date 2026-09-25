@@ -42,7 +42,26 @@ const DisplayHarian = (() => {
     return { dari, sampai };
   }
 
-  function fmt(n) { return n != null ? Number(n).toLocaleString('id-ID') : ''; }
+  function fmt(n) {
+    if (n == null || isNaN(n)) return '0';
+    return Number(n).toLocaleString('id-ID');
+  }
+
+  let cacheMasterTarifLab = null;
+  async function ambilMasterTarifLab() {
+    if (cacheMasterTarifLab) return cacheMasterTarifLab;
+    try {
+      if (typeof DB.daftarTarif === 'function') {
+        const list = await DB.daftarTarif({ jenis: 'LAB' });
+        cacheMasterTarifLab = list || [];
+      }
+    } catch(e) {
+      console.warn('Gagal memuat master tarif lab:', e);
+      cacheMasterTarifLab = [];
+    }
+    return cacheMasterTarifLab || [];
+  }
+
   function fmtTgl(s) {
     if (!s) return '';
     const d = new Date(s);
@@ -457,16 +476,53 @@ const DisplayHarian = (() => {
         const noLab    = p.no_lab || '-';
         const noMR     = pasien.no_rm || '-';
 
-        // Ambil tarif kasir (dari tagihan)
+        // Ambil tarif kasir & master tarif
+        const kunjId = kunjungan.id || p.kunjungan_id;
         let kasirItems = [];
+        let masterTarifLab = [];
         try {
-           const tagihanId = await DB.kasirSusunDariKunjungan(kunjungan.id);
-           const { item } = await DB.kasirLengkap(tagihanId);
-           kasirItems = item || [];
-        } catch(e) { console.warn('Gagal ambil data kasir:', e.message); }
+          const promises = [ambilMasterTarifLab()];
+          if (kunjId) {
+            promises.push((async () => {
+              let t = null;
+              if (typeof DB.kasirTagihanKunjungan === 'function') {
+                t = await DB.kasirTagihanKunjungan(kunjId);
+              }
+              if (!t && typeof DB.kasirSusunDariKunjungan === 'function') {
+                try {
+                  const tId = await DB.kasirSusunDariKunjungan(kunjId);
+                  if (tId) t = { id: tId };
+                } catch(errSusun) {}
+              }
+              if (t && t.id && typeof DB.kasirItem === 'function') {
+                return await DB.kasirItem(t.id);
+              }
+              return [];
+            })());
+          }
+
+          const [tarifList, items] = await Promise.all(promises);
+          masterTarifLab = tarifList || [];
+          kasirItems = items || [];
+
+          // Fallback cari tagihan jika kasirItems belum terisi
+          if (!kasirItems.length && pasien.id && typeof DB.kasirDaftarTagihan === 'function') {
+            try {
+              const listTagihan = await DB.kasirDaftarTagihan({ pasienId: pasien.id, batas: 10 });
+              if (listTagihan && listTagihan.length) {
+                const tCocok = listTagihan.find(t => (kunjId && t.kunjungan_id === kunjId)) || listTagihan[0];
+                if (tCocok && typeof DB.kasirItem === 'function') {
+                  kasirItems = (await DB.kasirItem(tCocok.id)) || [];
+                }
+              }
+            } catch(eTagihan) {}
+          }
+        } catch(e) {
+          console.warn('Gagal ambil data kasir / tarif:', e.message || e);
+        }
 
         const hasil    = p.hasil || [];
-        let totalBruto = 0, totalDisc = 0;
+        let totalBruto = 0, totalDisc = 0, totalNet = 0;
 
         kanan.innerHTML = `
           <!-- HEADER INFO PASIEN -->
@@ -516,14 +572,77 @@ const DisplayHarian = (() => {
               </thead>
               <tbody>
                 ${hasil.length ? hasil.map((h, i) => {
-                  const ref    = h.ref || {};
-                  const kItem  = kasirItems.find(x => x.sumber === 'LAB' && x.ref_id === ref.id);
-                  const bruto  = kItem ? (kItem.harga * kItem.qty) : 0;
-                  const disc   = kItem ? (bruto * (kItem.diskon_pct||0) / 100) : 0;
-                  const net    = bruto - disc;
+                  const ref   = h.ref || {};
+                  const kItem = kasirItems.find(x => {
+                    if (ref.id && x.ref_id === ref.id) return true;
+                    if (h.id && x.ref_id === h.id) return true;
+                    if (h.lab_id && x.ref_id === h.lab_id) return true;
+                    if (ref.kode && x.ref_kode && String(x.ref_kode).trim().toUpperCase() === String(ref.kode).trim().toUpperCase()) return true;
+                    if (ref.nama && x.nama) {
+                      const n1 = String(ref.nama).trim().toLowerCase();
+                      const n2 = String(x.nama).replace(/^Lab:\s*/i, '').trim().toLowerCase();
+                      if (n1 === n2 || n2.includes(n1) || n1.includes(n2)) return true;
+                    }
+                    return false;
+                  });
+
+                  // 1. Hitung Bruto
+                  let bruto = 0;
+                  if (kItem) {
+                    const hargaSatuan = (kItem.harga_satuan != null && !isNaN(kItem.harga_satuan))
+                      ? Number(kItem.harga_satuan)
+                      : ((kItem.harga != null && !isNaN(kItem.harga)) ? Number(kItem.harga) : 0);
+                    const qty = Number(kItem.qty) || 1;
+                    bruto = hargaSatuan * qty;
+                  }
+
+                  // Fallback ke detail hasil lab atau lookup master tarif lab
+                  if (!bruto) {
+                    if (h.harga != null && !isNaN(h.harga) && Number(h.harga) > 0) {
+                      bruto = Number(h.harga);
+                    } else if (ref.harga != null && !isNaN(ref.harga) && Number(ref.harga) > 0) {
+                      bruto = Number(ref.harga);
+                    } else if (masterTarifLab.length) {
+                      const t = masterTarifLab.find(m => {
+                        if (ref.kode && m.kode && String(m.kode).trim().toUpperCase() === String(ref.kode).trim().toUpperCase()) return true;
+                        if (ref.nama && m.nama && String(m.nama).trim().toLowerCase() === String(ref.nama).trim().toLowerCase()) return true;
+                        if (ref.id && m.id === ref.id) return true;
+                        return false;
+                      });
+                      if (t && t.tarif != null && !isNaN(t.tarif)) {
+                        bruto = Number(t.tarif);
+                      }
+                    }
+                  }
+
+                  // 2. Hitung Disc
+                  let disc = 0;
+                  if (kItem) {
+                    if (kItem.diskon_rp != null && !isNaN(kItem.diskon_rp) && Number(kItem.diskon_rp) > 0) {
+                      disc = Number(kItem.diskon_rp);
+                    } else if (kItem.diskon_pct != null && !isNaN(kItem.diskon_pct) && Number(kItem.diskon_pct) > 0) {
+                      disc = Math.round((bruto * Number(kItem.diskon_pct)) / 100);
+                    }
+                  }
+                  if (!disc) {
+                    if (h.disc_rp != null && !isNaN(h.disc_rp) && Number(h.disc_rp) > 0) {
+                      disc = Number(h.disc_rp);
+                    } else if (h.disc_pct != null && !isNaN(h.disc_pct) && Number(h.disc_pct) > 0) {
+                      disc = Math.round((bruto * Number(h.disc_pct)) / 100);
+                    } else if (h.disc != null && !isNaN(h.disc) && Number(h.disc) > 0) {
+                      disc = Math.round((bruto * Number(h.disc)) / 100);
+                    } else if (ref.disc != null && !isNaN(ref.disc) && Number(ref.disc) > 0) {
+                      disc = Math.round((bruto * Number(ref.disc)) / 100);
+                    }
+                  }
+
+                  // 3. Hitung Net: Net = Bruto - Disc
+                  const net = Math.max(0, bruto - disc);
                   
                   totalBruto += bruto;
-                  totalDisc += disc;
+                  totalDisc  += disc;
+                  totalNet   += net;
+
                   const tgl    = h.dibuat_pada || p.diminta_pada || null;
                   return `<tr>
                     <td style="text-align:center">${i + 1}</td>
@@ -545,7 +664,7 @@ const DisplayHarian = (() => {
                   <td colspan="3" style="text-align:right;font-weight:700">TOTAL</td>
                   <td class="ang">${fmt(totalBruto)}</td>
                   <td class="ang">${fmt(totalDisc)}</td>
-                  <td class="ang">${fmt(totalBruto - totalDisc)}</td>
+                  <td class="ang">${fmt(totalNet)}</td>
                   <td colspan="5"></td>
                 </tr>
               </tfoot>
