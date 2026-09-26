@@ -257,6 +257,61 @@ const BarcodePrinter = (() => {
 
   /**
    * Cetak label langsung melalui driver Windows menggunakan iframe terisolasi
+  /**
+   * Cetak label langsung via LIS Bridge lokal (Port 7119) tanpa pop-up dialog
+   * Jika LIS Bridge tidak aktif, beralih otomatis ke dialog print browser (Fallback)
+   */
+  async function cetakWindows(labels, opsi = {}) {
+    if (!labels || !labels.length) return;
+
+    // 1. Siapkan payload standar untuk LIS Bridge Direct Silent Printing
+    const payload = {
+      no_lab: labels[0]?.idBarcode || '',
+      nama_pasien: labels[0]?.namaPasien || '',
+      info_sub: labels[0]?.infoPasien || labels[0]?.infoBaris2 || '',
+      spesimen: labels.map(l => l.labelKanan || 'KIMIA'),
+      labels: labels.map(l => ({
+        no_lab: l.idBarcode,
+        nama_pasien: l.namaPasien,
+        info_sub: l.infoPasien || l.infoBaris2 || '',
+        spesimen: l.labelKanan || 'KIMIA',
+        sub_info: l.subInfo || ''
+      })),
+      printer_name: opsi.printer_name || localStorage.getItem('lab_thermal_printer_name') || ''
+    };
+
+    // 2. Coba cetak langsung via LIS Bridge lokal (Port 7119) tanpa pop-up browser
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+      const res = await fetch('http://127.0.0.1:7119/api/cetak-barcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'sukses') {
+          if (typeof UI !== 'undefined' && UI.toast) {
+            UI.toast('Mencetak label langsung ke Blueprint ECO 80...', 'ok');
+          }
+          return { direct: true }; // Sukses dicetak langsung, JANGAN panggil window.print()!
+        }
+      }
+      throw new Error('Respon status gagal dari LIS Bridge');
+    } catch (errBridge) {
+      console.warn('LIS Bridge tidak aktif / gagal mencetak langsung, beralih ke print dialog browser:', errBridge);
+      // Fallback: Gunakan iframe dan window.print() standar jika bridge mati
+      cetakFallbackBrowser(labels, opsi);
+      return { direct: false };
+    }
+  }
+
+  /**
+   * Fallback: Cetak label melalui driver Windows menggunakan iframe terisolasi
    * Dioptimalkan khusus printer thermal label Blueprint ECO 80 (40x30 mm)
    * Formula CSS Bebas Blank Page:
    * - @page { size: 40mm 30mm; margin: 0 !important; }
@@ -264,7 +319,7 @@ const BarcodePrinter = (() => {
    * - .label-tube { height: 27.5mm; max-height: 27.5mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
    * - page-break HANYA di antara label: :not(:last-child) { page-break-after: always; break-after: page; }
    */
-  function cetakWindows(labels, opsi = {}) {
+  function cetakFallbackBrowser(labels, opsi = {}) {
     let iframe = document.getElementById('print-iframe-tube-barcode');
     if (!iframe) {
       iframe = document.createElement('iframe');
@@ -550,10 +605,11 @@ const BarcodePrinter = (() => {
     });
 
     // Preset cetak Blueprint ECO 80 (40x30 mm)
-    cetakWindows(labels, { ukuran: '40x30', ...opsi });
-
-    const namaTabung = listTabung.map(k => ALAT_MEDIS[k]?.bahasaMedis || k).join(', ');
-    UI.toast(`Mencetak ${labels.length} label tabung (${namaTabung}) ke Blueprint ECO 80...`, 'ok');
+    const hasilCetak = await cetakWindows(labels, { ukuran: '40x30', ...opsi });
+    if (hasilCetak && !hasilCetak.direct) {
+      const namaTabung = listTabung.map(k => ALAT_MEDIS[k]?.bahasaMedis || k).join(', ');
+      UI.toast(`Membuka dialog print browser untuk ${labels.length} label tabung (${namaTabung})...`, 'info');
+    }
   }
 
   /**
@@ -912,7 +968,6 @@ const BarcodePrinter = (() => {
               }
             });
             cetakWindows(allLabels, { ukuran: ukuranAktif });
-            UI.toast(`Mencetak ${allLabels.length} label paket tabung...`, 'info');
             tutup(true);
           };
         }
@@ -940,8 +995,6 @@ const BarcodePrinter = (() => {
               });
             }
             cetakWindows(labels, { ukuran: ukuranAktif });
-            const ket = sub ? `${kanan} (${sub})` : kanan;
-            UI.toast(`Mencetak ${labels.length} label untuk ${ket}...`, 'info');
             return true;
           }
         }

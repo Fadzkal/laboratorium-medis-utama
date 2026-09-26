@@ -723,6 +723,311 @@ def wondfo_worker():
 
 
 # ===========================================================================
+# 4B. HELPER DIRECT SILENT PRINTING BARCODE KE BLUEPRINT ECO 80 / 80LABEL
+# ===========================================================================
+try:
+    import win32print
+    import win32ui
+    import win32con
+    from PIL import Image, ImageDraw, ImageFont, ImageWin
+    PYWIN32_PRINT_AVAILABLE = True
+except ImportError:
+    PYWIN32_PRINT_AVAILABLE = False
+
+CODE128_PATTERNS = [
+    '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+    '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+    '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+    '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+    '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+    '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+    '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+    '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+    '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+    '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+    '114131','311141','411131','211412','211214','211232','2331112'
+]
+
+def format_no_lab_standar(raw_no_lab):
+    """Format nomor barcode standar: YYMM + 4 digit nomor urut lab (contoh: 26090028)"""
+    if not raw_no_lab:
+        return "00000000"
+    import re
+    s = str(raw_no_lab).strip()
+    if re.match(r"^\d{8}$", s):
+        return s
+    m = re.match(r"LAB-(\d{2,4})-(\d+)", s, re.IGNORECASE)
+    if m:
+        yy = m.group(1)[-2:]
+        mm = datetime.now().strftime("%m")
+        seq = m.group(2).zfill(4)
+        return f"{yy}{mm}{seq}"
+    return s
+
+def encode_code128(text):
+    """Enkoder pola biner Code 128 (Subset C untuk angka genap, Subset B untuk alfanumerik)"""
+    text = str(text).strip()
+    if not text:
+        text = "00000000"
+    is_num = text.isdigit() and len(text) % 2 == 0
+    codes = []
+    if is_num:
+        codes.append(105)
+        for i in range(0, len(text), 2):
+            codes.append(int(text[i:i+2]))
+    else:
+        codes.append(104)
+        for ch in text:
+            codes.append(ord(ch) - 32)
+    check = codes[0]
+    for i, c in enumerate(codes[1:], 1):
+        check = (check + c * i) % 103
+    codes.append(check)
+    codes.append(106)
+    return "".join(CODE128_PATTERNS[c] for c in codes)
+
+def get_printer_font(size, bold=True):
+    """Mengambil font TrueType Windows (Arial Bold) atau fallback ke default"""
+    windir = os.environ.get("WINDIR", "C:\\Windows")
+    font_file = "arialbd.ttf" if bold else "arial.ttf"
+    path = os.path.join(windir, "Fonts", font_file)
+    if os.path.exists(path):
+        return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+def buat_image_label_barcode(no_lab, nama_pasien, info_sub, spesimen, sub_info=""):
+    """
+    Merender bitmap 1-bit crisp monochrome label stiker tabung 50mm x 30mm (384x224 px @ 203 DPI)
+    Tata letak:
+    - Kiri: no_lab tegak (rotasi 90 derajat)
+    - Kanan: spesimen tegak (rotasi 90 derajat, e.g. HEMATOLOGI / KIMIA)
+    - Tengah: Barcode 1D Code 128 + Nama Pasien + Gender/Umur + Tes Satuan
+    """
+    w_canvas = 384
+    h_canvas = 224
+    img = Image.new("RGB", (w_canvas, h_canvas), "white")
+    draw = ImageDraw.Draw(img)
+
+    id_standar = format_no_lab_standar(no_lab)
+
+    # 1. Kiri Vertikal: ID Barcode / No Lab
+    font_id = get_printer_font(18, bold=True)
+    bbox_id = draw.textbbox((0, 0), str(id_standar), font=font_id)
+    tw_id, th_id = bbox_id[2] - bbox_id[0] + 4, bbox_id[3] - bbox_id[1] + 4
+    img_id = Image.new("RGB", (tw_id, th_id), "white")
+    d_id = ImageDraw.Draw(img_id)
+    d_id.text((2, 2), str(id_standar), font=font_id, fill="black")
+    rot_id = img_id.rotate(90, expand=True)
+    y_id = max(0, (h_canvas - rot_id.height) // 2)
+    img.paste(rot_id, (4, y_id))
+
+    # 2. Kanan Vertikal: Departemen / Spesimen Medis
+    spesimen_str = str(spesimen or "KIMIA").upper().strip()
+    font_sp = get_printer_font(18, bold=True)
+    bbox_sp = draw.textbbox((0, 0), spesimen_str, font=font_sp)
+    tw_sp, th_sp = bbox_sp[2] - bbox_sp[0] + 4, bbox_sp[3] - bbox_sp[1] + 4
+    img_sp = Image.new("RGB", (tw_sp, th_sp), "white")
+    d_sp = ImageDraw.Draw(img_sp)
+    d_sp.text((2, 2), spesimen_str, font=font_sp, fill="black")
+    rot_sp = img_sp.rotate(90, expand=True)
+    y_sp = max(0, (h_canvas - rot_sp.height) // 2)
+    x_sp = max(0, w_canvas - rot_sp.width - 4)
+    img.paste(rot_sp, (x_sp, y_sp))
+
+    # 3. Tengah Atas: Barcode 1D Code 128
+    pattern = encode_code128(id_standar)
+    total_modules = sum(int(ch) for ch in pattern)
+    mod_w = 2 if total_modules * 3 > 280 else 3
+    bc_w = total_modules * mod_w
+    bc_h = 88 if not sub_info else 75
+    bc_x = 36 + (w_canvas - 36 - (w_canvas - x_sp) - bc_w) // 2
+    bc_y = 8
+
+    cur_x = bc_x
+    is_bar = True
+    for ch in pattern:
+        w_bar = int(ch) * mod_w
+        if is_bar:
+            draw.rectangle([cur_x, bc_y, cur_x + w_bar - 1, bc_y + bc_h], fill="black")
+        cur_x += w_bar
+        is_bar = not is_bar
+
+    # Batas horizontal area tengah
+    cx_min = 36
+    cx_max = x_sp
+    avail_w = max(10, cx_max - cx_min)
+
+    # 4. Tengah Tengah: Nama Pasien (Auto-fit & Truncate jika panjang)
+    font_nama = get_printer_font(20, bold=True)
+    nama_str = str(nama_pasien or "").strip()
+    bbox_n = draw.textbbox((0, 0), nama_str, font=font_nama)
+    if (bbox_n[2] - bbox_n[0]) > avail_w:
+        font_nama = get_printer_font(17, bold=True)
+        bbox_n = draw.textbbox((0, 0), nama_str, font=font_nama)
+        if (bbox_n[2] - bbox_n[0]) > avail_w:
+            while len(nama_str) > 4 and (draw.textbbox((0, 0), nama_str + "..", font=font_nama)[2] - draw.textbbox((0, 0), nama_str + "..", font=font_nama)[0]) > avail_w:
+                nama_str = nama_str[:-1]
+            nama_str = nama_str + ".."
+            bbox_n = draw.textbbox((0, 0), nama_str, font=font_nama)
+
+    nama_w = bbox_n[2] - bbox_n[0]
+    nama_x = cx_min + (avail_w - nama_w) // 2
+    nama_y = bc_y + bc_h + 8
+    draw.text((nama_x, nama_y), nama_str, font=font_nama, fill="black")
+
+    # 5. Tengah Bawah: Info Gender & Umur
+    sub_y = nama_y + 24
+    if info_sub:
+        font_sub = get_printer_font(17, bold=True)
+        sub_str = str(info_sub).strip()
+        bbox_sub = draw.textbbox((0, 0), sub_str, font=font_sub)
+        sub_w = bbox_sub[2] - bbox_sub[0]
+        sub_x = cx_min + (avail_w - sub_w) // 2
+        draw.text((sub_x, sub_y), sub_str, font=font_sub, fill="black")
+
+    # 6. Baris Tambahan Opsional: Nama Pemeriksaan Satuan
+    if sub_info:
+        font_test = get_printer_font(15, bold=True)
+        test_str = str(sub_info).strip()
+        bbox_t = draw.textbbox((0, 0), test_str, font=font_test)
+        test_w = bbox_t[2] - bbox_t[0]
+        test_x = cx_min + (avail_w - test_w) // 2
+        test_y = (sub_y + 22) if info_sub else sub_y
+        draw.text((test_x, test_y), test_str, font=font_test, fill="black")
+
+    return img
+
+def cari_printer_label(nama_preferensi=None):
+    """Mencari printer thermal Blueprint ECO 80 / 80Label di daftar printer Windows"""
+    try:
+        import win32print
+        semua_printer = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
+        if nama_preferensi:
+            for p in semua_printer:
+                if nama_preferensi.lower() in p.lower():
+                    return p
+        for p in semua_printer:
+            if "80label" in p.lower():
+                return p
+        for p in semua_printer:
+            if "blueprint" in p.lower():
+                return p
+        return win32print.GetDefaultPrinter()
+    except Exception as e:
+        logger.error(f"Error mencari printer label Windows: {e}")
+        return None
+
+def cetak_ke_printer_windows(images, printer_name=None):
+    """Mencetak langsung dokumen GDI ke driver Windows tanpa memunculkan dialog print"""
+    if not PYWIN32_PRINT_AVAILABLE:
+        raise RuntimeError("Modul pywin32 atau Pillow belum terpasang di Python LIS Bridge")
+    target_printer = cari_printer_label(printer_name)
+    if not target_printer:
+        raise RuntimeError("Printer label thermal tidak terdeteksi di Windows")
+
+    hDC = win32ui.CreateDC()
+    hDC.CreatePrinterDC(target_printer)
+    hDC.StartDoc("Stiker_Barcode_Lab")
+    try:
+        for img in images:
+            hDC.StartPage()
+            dib = ImageWin.Dib(img)
+            # Rata kiri pada lebar kertas fisik 50mm
+            dib.draw(hDC.GetHandleOutput(), (0, 0, img.width, img.height))
+            hDC.EndPage()
+    finally:
+        hDC.EndDoc()
+        hDC.DeleteDC()
+    return target_printer
+
+def cetak_ke_printer_socket(items, ip, port=9100):
+    """Mencetak langsung ke printer network thermal via RAW socket port 9100 (TSPL)"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(4.0)
+    s.connect((ip, int(port)))
+    try:
+        for it in items:
+            no_lab = format_no_lab_standar(it.get("no_lab", ""))
+            nama = str(it.get("nama_pasien", "")).replace('"', '')
+            sub = str(it.get("info_sub", "")).replace('"', '')
+            sp = str(it.get("spesimen", "KIMIA")).replace('"', '').upper()
+            sub_info = str(it.get("sub_info", "")).replace('"', '')
+
+            tspl_lines = [
+                "SIZE 50 mm, 30 mm",
+                "GAP 2 mm, 0 mm",
+                "DIRECTION 1",
+                "CLS",
+                f'TEXT 24,20,"2",90,1,1,"{no_lab}"',
+                f'BARCODE 60,15,"128",75,0,0,2,2,"{no_lab}"',
+                f'TEXT 60,95,"3",0,1,1,"{nama}"',
+                f'TEXT 60,125,"2",0,1,1,"{sub}"'
+            ]
+            if sub_info:
+                tspl_lines.append(f'TEXT 60,150,"2",0,1,1,"{sub_info}"')
+            tspl_lines.append(f'TEXT 365,20,"2",90,1,1,"{sp}"')
+            tspl_lines.append("PRINT 1,1\r\n")
+            cmd = "\r\n".join(tspl_lines)
+            s.sendall(cmd.encode("latin-1", errors="replace"))
+    finally:
+        s.close()
+    return f"{ip}:{port}"
+
+def cetak_barcode_thermal(payload):
+    """Orkestrator pencetakan label barcode thermal dari payload API"""
+    labels_req = payload.get("labels")
+    if not labels_req:
+        no_lab = payload.get("no_lab", "")
+        nama = payload.get("nama_pasien") or payload.get("nama", "")
+        sub = payload.get("info_sub") or payload.get("infoPasien") or payload.get("infoBaris2", "")
+        sp_raw = payload.get("spesimen", ["KIMIA"])
+        if isinstance(sp_raw, str):
+            sp_raw = [sp_raw]
+        elif not isinstance(sp_raw, list):
+            sp_raw = ["KIMIA"]
+        if not sp_raw:
+            sp_raw = ["KIMIA"]
+        labels_req = []
+        for sp in sp_raw:
+            labels_req.append({
+                "no_lab": no_lab,
+                "nama_pasien": nama,
+                "info_sub": sub,
+                "spesimen": sp,
+                "sub_info": payload.get("sub_info", "")
+            })
+
+    printer_ip = payload.get("printer_ip")
+    if printer_ip:
+        target = cetak_ke_printer_socket(labels_req, printer_ip, payload.get("printer_port", 9100))
+        return {
+            "sukses": True,
+            "pesan": "Label berhasil dicetak langsung",
+            "printer": target,
+            "total_label": len(labels_req)
+        }
+    else:
+        images = []
+        for it in labels_req:
+            img = buat_image_label_barcode(
+                no_lab=it.get("no_lab") or it.get("idBarcode") or "",
+                nama_pasien=it.get("nama_pasien") or it.get("namaPasien") or it.get("nama") or "",
+                info_sub=it.get("info_sub") or it.get("infoPasien") or it.get("infoBaris2") or "",
+                spesimen=it.get("spesimen") or it.get("labelKanan") or "KIMIA",
+                sub_info=it.get("sub_info") or it.get("subInfo") or ""
+            )
+            images.append(img)
+
+        target = cetak_ke_printer_windows(images, payload.get("printer_name"))
+        return {
+            "sukses": True,
+            "pesan": "Label berhasil dicetak langsung",
+            "printer": target,
+            "total_label": len(images)
+        }
+
+
+# ===========================================================================
 # 5. LOCAL REST API SERVER (PORT 7119)
 # ===========================================================================
 class LocalApiHandler(BaseHTTPRequestHandler):
@@ -935,6 +1240,32 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # Endpoint cetak langsung stiker barcode thermal (Blueprint ECO 80 / 80Label)
+        if path == "/api/cetak-barcode":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+
+                hasil_cetak = cetak_barcode_thermal(payload)
+                if hasil_cetak.get("sukses"):
+                    self._send_json({
+                        "status": "sukses",
+                        "pesan": hasil_cetak.get("pesan", "Label berhasil dicetak langsung"),
+                        "printer": hasil_cetak.get("printer"),
+                        "total_label": hasil_cetak.get("total_label", 1)
+                    })
+                else:
+                    self._send_json({
+                        "status": "error",
+                        "pesan": hasil_cetak.get("pesan", "Gagal mencetak label"),
+                        "detail": hasil_cetak.get("detail", "")
+                    }, 500)
+            except Exception as e:
+                logger.error(f"Error pada /api/cetak-barcode: {e}")
+                self._send_json({"status": "error", "pesan": str(e)}, 500)
             return
 
         self._send_json({"sukses": False, "pesan": "Endpoint tidak ditemukan"}, 404)

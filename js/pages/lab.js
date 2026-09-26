@@ -1071,8 +1071,31 @@ const Lab = (() => {
   /*  PEMBANTU TATA LETAK & PROSES CETAK DOKUMEN (9 FORMAT)            */
   /* ================================================================== */
 
-  /* Cetak dokumen langsung via iframe tersembunyi tanpa jendela pop-up pratinjau */
-  async function cetakDokumen(htmlContent) {
+  /* Membuka pratinjau dokumen di tab baru menyerupai lembar PDF */
+  async function cetakDokumen(htmlContent, meta = {}) {
+    let pop = meta.targetWindow;
+    if (!pop || pop.closed) {
+      try {
+        pop = window.open('', '_blank');
+      } catch (e) {
+        pop = null;
+      }
+    }
+
+    if (pop) {
+      pop.document.open();
+      pop.document.write(htmlContent);
+      pop.document.close();
+      if (meta.judul) {
+        pop.document.title = meta.judul;
+        setTimeout(() => {
+          try { pop.document.title = meta.judul; } catch (e) {}
+        }, 300);
+      }
+      return true;
+    }
+
+    // Fallback jika pop-up diblokir total oleh peramban
     const bingkai = document.createElement('iframe');
     bingkai.setAttribute('aria-hidden', 'true');
     bingkai.style.cssText = 'position:fixed;right:0;bottom:0;width:210mm;height:297mm;opacity:0;border:0;pointer-events:none;z-index:-1';
@@ -1098,21 +1121,6 @@ const Lab = (() => {
       throw new Error('Gagal menyiapkan lembar dokumen cetak.');
     }
 
-    // Tunggu gambar (kop, logo, barcode, QR) siap agar cetak tidak kosong
-    try {
-      const gambar = Array.from(w.document.images || []);
-      if (gambar.length) {
-        await Promise.race([
-          Promise.all(gambar.map(g => {
-            if (g.complete && g.naturalWidth) return Promise.resolve();
-            if (g.decode) return g.decode().catch(() => {});
-            return new Promise(r => { g.onload = r; g.onerror = r; });
-          })),
-          new Promise(r => setTimeout(r, 2000))
-        ]);
-      }
-    } catch (e) {}
-
     try { w.addEventListener('afterprint', bersihkan); } catch (e) {}
 
     try {
@@ -1120,14 +1128,6 @@ const Lab = (() => {
       w.print();
     } catch (e) {
       bersihkan();
-      // Fallback jika iframe diblokir peramban
-      const pop = window.open('', '_blank', 'width=880,height=1000');
-      if (pop) {
-        pop.document.open();
-        pop.document.write(htmlContent);
-        pop.document.close();
-        setTimeout(() => { pop.focus(); pop.print(); }, 800);
-      }
     }
     setTimeout(bersihkan, 60000);
     return true;
@@ -1137,9 +1137,93 @@ const Lab = (() => {
     return `
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
       * { box-sizing: border-box; }
-      body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0; padding: ${isM2 ? '15px' : '24px 30px'}; color: #000; line-height: 1.35; background: #fff; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #525659;
+        color: #000;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-size: 11px;
+        line-height: 1.35;
+      }
       .mono { font-family: 'JetBrains Mono', monospace; }
-      
+
+      /* Bilah Alat Preview (Top Action Bar) */
+      .preview-toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: #323639;
+        color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        z-index: 99999;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      .preview-toolbar .toolbar-left {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #f1f5f9;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .preview-toolbar .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .preview-toolbar button {
+        border: none;
+        padding: 6px 16px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .preview-toolbar .btn-print {
+        background: #0f766e;
+        color: #ffffff;
+      }
+      .preview-toolbar .btn-print:hover {
+        background: #115e59;
+      }
+      .preview-toolbar .btn-close {
+        background: #475569;
+        color: #ffffff;
+      }
+      .preview-toolbar .btn-close:hover {
+        background: #334155;
+      }
+
+      /* Kontainer Kertas Dokumen */
+      .preview-canvas {
+        padding-top: 64px;
+        padding-bottom: 48px;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      .document-sheet {
+        background: #ffffff;
+        color: #000000;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+        border-radius: 2px;
+        box-sizing: border-box;
+        padding: ${isM2 ? '15px' : '24px 30px'};
+        ${isM2 ? 'width: 210mm; min-height: 148mm;' : 
+          'width: 210mm; min-height: 297mm;'}
+      }
+
       /* HEADER STYLES */
       .kop-wrapper { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #000; margin-bottom: 14px; }
       .kop-bpjs { display: flex; align-items: center; gap: 12px; flex: 1; }
@@ -1196,9 +1280,30 @@ const Lab = (() => {
       .footer-note .disclaimer { max-width: 65%; line-height: 1.3; font-style: italic; }
 
       @media print {
-        body { padding: 0 !important; }
+        @page { ${pageSizeCss} }
+        .no-print, .preview-toolbar {
+          display: none !important;
+        }
+        html, body {
+          background: #ffffff !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+        }
+        .preview-canvas {
+          padding: 0 !important;
+          display: block !important;
+          min-height: auto !important;
+        }
+        .document-sheet {
+          margin: 0 !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          width: 100% !important;
+          min-height: auto !important;
+        }
       }
-      @page { ${pageSizeCss} }
     `;
   }
 
@@ -1369,6 +1474,18 @@ const Lab = (() => {
 
   /* ------------------------------------------------------------------ */
   async function cetakLembar(p, rujukanPakai, format = 'Format 3(M3)') {
+    // Buka tab baru sedini mungkin (langsung saat event klik pengguna) agar tidak diblokir pop-up blocker
+    let printWindow = null;
+    try {
+      printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`<!doctype html><html><head><title>Memuat Dokumen...</title><style>body{background:#525659;color:#f8fafc;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:13px;}</style></head><body><div>Menyiapkan pratinjau lembar hasil laboratorium...</div></body></html>`);
+        printWindow.document.close();
+      }
+    } catch (e) {
+      console.warn('Gagal membuka tab baru secara langsung:', e);
+    }
+
     const out = [];
     const tulis = (s) => out.push(s);
 
@@ -1380,6 +1497,10 @@ const Lab = (() => {
     if (!format || format === 'M3' || format === 'Standar' || format === 'Asli') {
       format = 'Format 3(M3)';
     }
+
+    const noDoc = (p.no_lab || p.no_medrec || p.pasien?.no_rm || 'LAB').replace(/\//g, '-');
+    const namaPasien = (p.nama || p.pasien?.nama || 'Pasien').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const docTitle = `Hasil_Lab_${noDoc}_${namaPasien}`;
 
     const nilaiTeks = (h) => {
       const m = h.ref || {};
@@ -1451,12 +1572,99 @@ const Lab = (() => {
     };
 
     tulis(`<!doctype html><html lang="${isEng ? 'en' : 'id'}"><head><meta charset="utf-8">
-      <title>${isEng ? 'Laboratory Examination Result' : 'Hasil Laboratorium'} ${UI.esc(p.no_lab)} - ${UI.esc(format)}</title>
+      <title>${docTitle}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 11px; margin: 0; padding: ${isM2 ? '15px' : '24px 30px'}; color: #000; line-height: 1.35; background: #fff; }
+        
+        /* PDF Viewer Styling */
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #525659;
+          color: #000;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          font-size: 11px;
+          line-height: 1.35;
+        }
         .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Bilah Alat Preview (Top Action Bar) */
+        .preview-toolbar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 48px;
+          background: #323639;
+          color: #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 20px;
+          z-index: 99999;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .preview-toolbar .toolbar-left {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #f1f5f9;
+          letter-spacing: 0.2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .preview-toolbar .toolbar-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .preview-toolbar button {
+          border: none;
+          padding: 6px 16px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .preview-toolbar .btn-print {
+          background: #0f766e;
+          color: #ffffff;
+        }
+        .preview-toolbar .btn-print:hover {
+          background: #115e59;
+        }
+        .preview-toolbar .btn-close {
+          background: #475569;
+          color: #ffffff;
+        }
+        .preview-toolbar .btn-close:hover {
+          background: #334155;
+        }
+
+        /* Kontainer Kertas Dokumen */
+        .preview-canvas {
+          padding-top: 64px;
+          padding-bottom: 48px;
+          display: flex;
+          justify-content: center;
+          min-height: 100vh;
+          box-sizing: border-box;
+        }
+        .document-sheet {
+          background: #ffffff;
+          color: #000000;
+          box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+          border-radius: 2px;
+          box-sizing: border-box;
+          padding: ${isM2 ? '15px' : '24px 30px'};
+          ${isM2 ? 'width: 210mm; min-height: 148mm;' : 
+            (isF4_1 || isF4_2) ? 'width: 215mm; min-height: 330mm;' : 
+            'width: 210mm; min-height: 297mm;'}
+        }
         
         /* HEADER STYLES */
         .kop-wrapper { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #000; margin-bottom: 14px; }
@@ -1514,12 +1722,44 @@ const Lab = (() => {
         .footer-note .disclaimer { max-width: 65%; line-height: 1.3; font-style: italic; }
 
         @media print {
-          body { padding: 0 !important; }
+          @page { ${pageSizeCss} }
+          .no-print, .preview-toolbar {
+            display: none !important;
+          }
+          html, body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+          }
+          .preview-canvas {
+            padding: 0 !important;
+            display: block !important;
+            min-height: auto !important;
+          }
+          .document-sheet {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            width: 100% !important;
+            min-height: auto !important;
+          }
         }
-        @page { ${pageSizeCss} }
       </style>
     </head>
     <body>
+      <div class="preview-toolbar no-print">
+        <div class="toolbar-left">
+          Pratinjau Hasil Pemeriksaan Laboratorium - ${UI.esc(format)}
+        </div>
+        <div class="toolbar-right">
+          <button type="button" class="btn-print" onclick="window.print()">Cetak Dokumen</button>
+          <button type="button" class="btn-close" onclick="window.close()">Tutup Halaman</button>
+        </div>
+      </div>
+      <div class="preview-canvas">
+        <div class="document-sheet">
     `);
 
     // 1. RENDER KOP HEADER
@@ -1904,8 +2144,23 @@ const Lab = (() => {
       </div>
     `);
 
-    tulis(`</body></html>`);
-    await cetakDokumen(out.join(''));
+    tulis(`
+        </div>
+      </div>
+    </body></html>`);
+
+    const fullHtml = out.join('');
+    if (printWindow && !printWindow.closed) {
+      printWindow.document.open();
+      printWindow.document.write(fullHtml);
+      printWindow.document.close();
+      printWindow.document.title = docTitle;
+      setTimeout(() => {
+        try { printWindow.document.title = docTitle; } catch (e) {}
+      }, 300);
+    } else {
+      await cetakDokumen(fullHtml, { judul: docTitle });
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -5148,67 +5403,78 @@ const Lab = (() => {
       <style>${cssCetakDokumen(pageSizeCss, isM2)}</style>
     </head>
     <body>
-
-      ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
-      ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
-
-      <div style="text-align:center; font-size:14px; font-weight:800; margin:14px 0 10px; letter-spacing:0.5px; text-transform:uppercase; color:#0f172a;">
-        ${judulLap}
-      </div>
-
-      <table class="tbl-hasil">
-        <thead>
-          <tr>
-            <th style="width:35px; text-align:center;">#</th>
-            <th>${isEng ? 'Examination Item' : 'Parameter / Item Pemeriksaan'}</th>
-            <th style="width:160px;">${isEng ? 'Result' : 'Hasil Pemeriksaan'}</th>
-            <th style="width:120px;">${isEng ? 'Unit' : 'Unit / Satuan'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
-
-      ${p.catatan_klinis ? `
-        <div style="margin-top:10px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:10px;">
-          <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
-        </div>
-      ` : ''}
-
-      <div class="sig-container">
-        <div class="sig-box">
-          <div class="role">${isEng ? 'Examined By:' : 'Pemeriksa,'}</div>
-          <div class="qr" style="height:68px; display:flex; align-items:center;">
-            <span style="font-size:10px; color:#64748b; font-style:italic;">Petugas Validasi</span>
-          </div>
-          <div class="name">${UI.esc(dicetakOleh)}</div>
-          <div class="time">${UI.esc(jamCetak)}</div>
-        </div>
-
-        <div class="sig-box" style="align-items:flex-end; text-align:right;">
-          <div class="role">${isEng ? 'Doctor In Charge:' : 'Dokter Penanggung Jawab,'}</div>
-          <div class="qr">
-            <img src="${qrUrl}" alt="QR Validasi">
-          </div>
-          <div class="name">dr. Minto Rahaju, Sp.PK</div>
-          <div class="time">SIP: 449.1/015/I/2021</div>
+      <div class="preview-toolbar no-print">
+        <div class="toolbar-left">Pratinjau Hasil Pemeriksaan Fisik - ${UI.esc(format)}</div>
+        <div class="toolbar-right">
+          <button class="btn-print" onclick="window.print()">Cetak Dokumen</button>
+          <button class="btn-close" onclick="window.close()">Tutup Halaman</button>
         </div>
       </div>
+      <div class="preview-canvas">
+        <div class="document-sheet">
+          ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
+          ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
 
-      <div class="footer-note">
-        <div class="disclaimer">
-          ${isEng 
-            ? 'This document is a valid electronic medical report issued by UTAMA Medical Laboratory Centre Purbalingga.' 
-            : 'Dokumen ini merupakan hasil pemeriksaan fisik resmi yang divalidasi secara elektronik oleh Laboratorium Medis UTAMA Purbalingga.'}
-        </div>
-        <div style="text-align:right;">
-          <div>Hal. 1 dari 1 Halaman</div>
-          <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
+          <div style="text-align:center; font-size:14px; font-weight:800; margin:14px 0 10px; letter-spacing:0.5px; text-transform:uppercase; color:#0f172a;">
+            ${judulLap}
+          </div>
+
+          <table class="tbl-hasil">
+            <thead>
+              <tr>
+                <th style="width:35px; text-align:center;">#</th>
+                <th>${isEng ? 'Examination Item' : 'Parameter / Item Pemeriksaan'}</th>
+                <th style="width:160px;">${isEng ? 'Result' : 'Hasil Pemeriksaan'}</th>
+                <th style="width:120px;">${isEng ? 'Unit' : 'Unit / Satuan'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          ${p.catatan_klinis ? `
+            <div style="margin-top:10px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:10px;">
+              <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
+            </div>
+          ` : ''}
+
+          <div class="sig-container">
+            <div class="sig-box">
+              <div class="role">${isEng ? 'Examined By:' : 'Pemeriksa,'}</div>
+              <div class="qr" style="height:68px; display:flex; align-items:center;">
+                <span style="font-size:10px; color:#64748b; font-style:italic;">Petugas Validasi</span>
+              </div>
+              <div class="name">${UI.esc(dicetakOleh)}</div>
+              <div class="time">${UI.esc(jamCetak)}</div>
+            </div>
+
+            <div class="sig-box" style="align-items:flex-end; text-align:right;">
+              <div class="role">${isEng ? 'Doctor In Charge:' : 'Dokter Penanggung Jawab,'}</div>
+              <div class="qr">
+                <img src="${qrUrl}" alt="QR Validasi">
+              </div>
+              <div class="name">dr. Minto Rahaju, Sp.PK</div>
+              <div class="time">SIP: 449.1/015/I/2021</div>
+            </div>
+          </div>
+
+          <div class="footer-note">
+            <div class="disclaimer">
+              ${isEng 
+                ? 'This document is a valid electronic medical report issued by UTAMA Medical Laboratory Centre Purbalingga.' 
+                : 'Dokumen ini merupakan hasil pemeriksaan fisik resmi yang divalidasi secara elektronik oleh Laboratorium Medis UTAMA Purbalingga.'}
+            </div>
+            <div style="text-align:right;">
+              <div>Hal. 1 dari 1 Halaman</div>
+              <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
+            </div>
+          </div>
         </div>
       </div>
     </body></html>`;
-    await cetakDokumen(htmlFisik);
+    const docTitleFisik = `Hasil_Fisik_${(p.no_lab || p.no_medrec || 'LAB').replace(/\//g, '-')}_${(p.nama || 'Pasien').replace(/[^a-zA-Z0-9_\-]/g, '_')}`;
+    await cetakDokumen(htmlFisik, { judul: docTitleFisik });
   }
 
   /* ================================================================== */
@@ -5433,98 +5699,109 @@ const Lab = (() => {
       <style>${cssCetakDokumen(pageSizeCss, isM2)}</style>
     </head>
     <body>
-
-      ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
-      ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
-
-      <div style="text-align:center; font-size:14px; font-weight:800; margin:14px 0 10px; letter-spacing:0.5px; text-transform:uppercase; color:#0f172a;">
-        ${judulLap}
-      </div>
-
-      <table class="tbl-hasil">
-        <thead>
-          <tr>
-            <th style="width:45px; text-align:center;">${isEng ? 'Code' : 'Urutan'}</th>
-            <th>${isEng ? 'Clinical Question / Category' : 'Daftar Pertanyaan / Kategori'}</th>
-            <th style="width:90px; text-align:center;">${isEng ? 'Answer' : 'Hasil'}</th>
-            <th>${isEng ? 'Notes / Remarks' : 'Keterangan'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="grp-row">
-            <td colspan="4" style="background:#e0f2fe; color:#0369a1; font-weight:800; padding:6px 8px;">
-              ${isEng ? '1. CHIEF COMPLAINT (CURRENT SYMPTOMS)' : '1. KELUHAN SAAT INI'}
-            </td>
-          </tr>
-          <tr>
-            <td style="text-align:center; color:#64748b;">1</td>
-            <td style="padding-left:14px; font-weight:500;">${isEng ? 'Current Health Symptoms / Complaints' : 'Keluhan kesehatan yang dirasakan saat ini'}</td>
-            <td style="text-align:center;">—</td>
-            <td style="font-weight:600; color:#0f172a;">${UI.esc(ket1)}</td>
-          </tr>
-
-          <tr class="grp-row">
-            <td colspan="4" style="background:#f1f8e9; color:#1b5e20; font-weight:800; padding:6px 8px;">
-              ${isEng ? '2. PAST MEDICAL HISTORY' : '2. RIWAYAT PENYAKIT DAHULU'}
-            </td>
-          </tr>
-          ${rpdRows}
-
-          <tr class="grp-row">
-            <td colspan="4" style="background:#fef3c7; color:#b45309; font-weight:800; padding:6px 8px;">
-              ${isEng ? '3. FAMILY MEDICAL HISTORY' : '3. RIWAYAT PENYAKIT KELUARGA'}
-            </td>
-          </tr>
-          ${rpkRows}
-
-          <tr class="grp-row">
-            <td colspan="4" style="background:#f3e8ff; color:#7e22ce; font-weight:800; padding:6px 8px;">
-              ${isEng ? '4. HABITS & LIFESTYLE' : '4. KEBIASAAN HIDUP'}
-            </td>
-          </tr>
-          ${kebiasaanRows}
-        </tbody>
-      </table>
-
-      ${p.catatan_klinis ? `
-        <div style="margin-top:10px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:10px;">
-          <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
-        </div>
-      ` : ''}
-
-      <div class="sig-container">
-        <div class="sig-box">
-          <div class="role">${isEng ? 'Interviewer / Officer:' : 'Pemeriksa Anamnesa,'}</div>
-          <div class="qr" style="height:68px; display:flex; align-items:center;">
-            <span style="font-size:10px; color:#64748b; font-style:italic;">Petugas Validasi</span>
-          </div>
-          <div class="name">${UI.esc(dicetakOleh)}</div>
-          <div class="time">${UI.esc(jamCetak)}</div>
-        </div>
-
-        <div class="sig-box" style="align-items:flex-end; text-align:right;">
-          <div class="role">${isEng ? 'Doctor In Charge:' : 'Dokter Penanggung Jawab,'}</div>
-          <div class="qr">
-            <img src="${qrUrl}" alt="QR Validasi">
-          </div>
-          <div class="name">dr. Minto Rahaju, Sp.PK</div>
-          <div class="time">SIP: 449.1/015/I/2021</div>
+      <div class="preview-toolbar no-print">
+        <div class="toolbar-left">Pratinjau Hasil Anamnesa Medis - ${UI.esc(format)}</div>
+        <div class="toolbar-right">
+          <button class="btn-print" onclick="window.print()">Cetak Dokumen</button>
+          <button class="btn-close" onclick="window.close()">Tutup Halaman</button>
         </div>
       </div>
+      <div class="preview-canvas">
+        <div class="document-sheet">
+          ${htmlKopCetak(format, p, logoUrl, bpjsLogoUrl)}
+          ${htmlPasienCardCetak(format, p, dokterPengirim, instansi)}
 
-      <div class="footer-note">
-        <div class="disclaimer">
-          ${isEng 
-            ? 'This anamnesis record is an official electronic clinical summary certified by UTAMA Medical Laboratory Centre Purbalingga.' 
-            : 'Dokumen ini merupakan hasil anamnesa medis resmi yang divalidasi secara elektronik oleh Laboratorium Medis UTAMA Purbalingga.'}
-        </div>
-        <div style="text-align:right;">
-          <div>Hal. 1 dari 1 Halaman</div>
-          <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
+          <div style="text-align:center; font-size:14px; font-weight:800; margin:14px 0 10px; letter-spacing:0.5px; text-transform:uppercase; color:#0f172a;">
+            ${judulLap}
+          </div>
+
+          <table class="tbl-hasil">
+            <thead>
+              <tr>
+                <th style="width:45px; text-align:center;">${isEng ? 'Code' : 'Urutan'}</th>
+                <th>${isEng ? 'Clinical Question / Category' : 'Daftar Pertanyaan / Kategori'}</th>
+                <th style="width:90px; text-align:center;">${isEng ? 'Answer' : 'Hasil'}</th>
+                <th>${isEng ? 'Notes / Remarks' : 'Keterangan'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="grp-row">
+                <td colspan="4" style="background:#e0f2fe; color:#0369a1; font-weight:800; padding:6px 8px;">
+                  ${isEng ? '1. CHIEF COMPLAINT (CURRENT SYMPTOMS)' : '1. KELUHAN SAAT INI'}
+                </td>
+              </tr>
+              <tr>
+                <td style="text-align:center; color:#64748b;">1</td>
+                <td style="padding-left:14px; font-weight:500;">${isEng ? 'Current Health Symptoms / Complaints' : 'Keluhan kesehatan yang dirasakan saat ini'}</td>
+                <td style="text-align:center;">—</td>
+                <td style="font-weight:600; color:#0f172a;">${UI.esc(ket1)}</td>
+              </tr>
+
+              <tr class="grp-row">
+                <td colspan="4" style="background:#f1f8e9; color:#1b5e20; font-weight:800; padding:6px 8px;">
+                  ${isEng ? '2. PAST MEDICAL HISTORY' : '2. RIWAYAT PENYAKIT DAHULU'}
+                </td>
+              </tr>
+              ${rpdRows}
+
+              <tr class="grp-row">
+                <td colspan="4" style="background:#fef3c7; color:#b45309; font-weight:800; padding:6px 8px;">
+                  ${isEng ? '3. FAMILY MEDICAL HISTORY' : '3. RIWAYAT PENYAKIT KELUARGA'}
+                </td>
+              </tr>
+              ${rpkRows}
+
+              <tr class="grp-row">
+                <td colspan="4" style="background:#f3e8ff; color:#7e22ce; font-weight:800; padding:6px 8px;">
+                  ${isEng ? '4. HABITS & LIFESTYLE' : '4. KEBIASAAN HIDUP'}
+                </td>
+              </tr>
+              ${kebiasaanRows}
+            </tbody>
+          </table>
+
+          ${p.catatan_klinis ? `
+            <div style="margin-top:10px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; font-size:10px;">
+              <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
+            </div>
+          ` : ''}
+
+          <div class="sig-container">
+            <div class="sig-box">
+              <div class="role">${isEng ? 'Interviewer / Officer:' : 'Pemeriksa Anamnesa,'}</div>
+              <div class="qr" style="height:68px; display:flex; align-items:center;">
+                <span style="font-size:10px; color:#64748b; font-style:italic;">Petugas Validasi</span>
+              </div>
+              <div class="name">${UI.esc(dicetakOleh)}</div>
+              <div class="time">${UI.esc(jamCetak)}</div>
+            </div>
+
+            <div class="sig-box" style="align-items:flex-end; text-align:right;">
+              <div class="role">${isEng ? 'Doctor In Charge:' : 'Dokter Penanggung Jawab,'}</div>
+              <div class="qr">
+                <img src="${qrUrl}" alt="QR Validasi">
+              </div>
+              <div class="name">dr. Minto Rahaju, Sp.PK</div>
+              <div class="time">SIP: 449.1/015/I/2021</div>
+            </div>
+          </div>
+
+          <div class="footer-note">
+            <div class="disclaimer">
+              ${isEng 
+                ? 'This anamnesis record is an official electronic clinical summary certified by UTAMA Medical Laboratory Centre Purbalingga.' 
+                : 'Dokumen ini merupakan hasil anamnesa medis resmi yang divalidasi secara elektronik oleh Laboratorium Medis UTAMA Purbalingga.'}
+            </div>
+            <div style="text-align:right;">
+              <div>Hal. 1 dari 1 Halaman</div>
+              <div>Printed By : ${UI.esc(dicetakOleh)} / ${UI.esc(jamCetak)}</div>
+            </div>
+          </div>
         </div>
       </div>
     </body></html>`;
-    await cetakDokumen(htmlAnamnesa);
+    const docTitleAnamnesa = `Hasil_Anamnesa_${(p.no_lab || p.no_medrec || 'LAB').replace(/\//g, '-')}_${(p.nama || 'Pasien').replace(/[^a-zA-Z0-9_\-]/g, '_')}`;
+    await cetakDokumen(htmlAnamnesa, { judul: docTitleAnamnesa });
   }
 
   /* ================================================================== */
