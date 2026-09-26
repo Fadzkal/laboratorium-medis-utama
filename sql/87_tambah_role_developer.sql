@@ -2,25 +2,17 @@
 -- Migrasi 87: Penambahan Role 'developer' & Akun IT MEDIS UTAMA
 -- Laboratorium Medis Utama
 -- ============================================================================
--- 1. Menambahkan nilai 'developer' ke enum peran_pegawai.
--- 2. Mendaftarkan akun khusus 'IT MEDIS UTAMA' dengan role developer.
--- 3. Memastikan akun Ibu Dede Kurniasih tetap berstatus role 'master' dengan nama resmi DEDE KURNIASIH.
--- 4. Memberikan hak akses penuh (Superadmin / Bypass) untuk role developer di RLS.
--- ============================================================================
 
--- 1. Tambahkan nilai enum 'developer' pada peran_pegawai jika belum ada
-ALTER TYPE public.peran_pegawai ADD VALUE IF NOT EXISTS 'developer';
-
--- 2. Pastikan ekstensi pgcrypto aktif
+-- 1. Pastikan ekstensi pgcrypto aktif
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
--- 3. Update / Pastikan Akun Pimpinan (Ibu Dede Kurniasih) tetap Master
+-- 2. Pastikan Akun Pimpinan (Ibu Dede Kurniasih) tetap Master
 UPDATE public.pegawai
    SET nama = 'DEDE KURNIASIH',
        peran = 'master'::public.peran_pegawai
  WHERE peran = 'master' OR lower(nama) LIKE '%dede%';
 
--- 4. Pendaftaran Akun Khusus Pengembang: IT MEDIS UTAMA
+-- 3. Pendaftaran Akun Khusus Pengembang: IT MEDIS UTAMA
 DO $$
 DECLARE
   v_uid uuid := 'a0000000-0000-0000-0000-000000000087'::uuid;
@@ -142,7 +134,6 @@ BEGIN
         aktif = true,
         updated_at = now();
 
-  -- Pastikan username tidak duplikat jika menggunakan baris lama
   UPDATE public.pegawai
      SET username = v_username,
          peran = 'developer'::public.peran_pegawai,
@@ -150,21 +141,17 @@ BEGIN
    WHERE id = v_uid;
 END $$;
 
--- 5. Perbarui fungsi pengecekan hak akses di database (Bypass untuk master dan developer)
+-- 4. Perbarui fungsi pengecekan hak akses di database (Bypass untuk master dan developer)
 CREATE OR REPLACE FUNCTION public.hak_akses_cek(p_kode text)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public AS $$
   SELECT public.peran_saya() IN ('master', 'developer')
-      OR (public.peran_saya() = 'karyawan' AND p_kode NOT IN ('menu_hris', 'hris_kelola', 'master', 'hak_akses'))
-      OR EXISTS (
-         SELECT 1 FROM public.hak_akses_peran
-         WHERE kode = p_kode AND peran = public.peran_saya() AND diizinkan
-      );
+      OR (public.peran_saya() = 'karyawan' AND p_kode NOT IN ('menu_hris', 'hris_kelola', 'master', 'hak_akses'));
 $$;
 
 GRANT EXECUTE ON FUNCTION public.hak_akses_cek(text) TO authenticated;
 
--- 6. Dukung role 'developer' pada helper tambah dan ubah pengguna
+-- 5. Dukung role 'developer' pada helper tambah dan ubah pengguna
 CREATE OR REPLACE FUNCTION public.admin_ubah_pengguna(
   p_id uuid,
   p_nama text,
