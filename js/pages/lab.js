@@ -1086,7 +1086,8 @@ const Lab = (() => {
     let listPegawai = [];
     try {
       if (typeof DB !== 'undefined' && DB.daftarPegawai) {
-        listPegawai = await DB.daftarPegawai().catch(() => []);
+        listPegawai = (await DB.daftarPegawai().catch(() => []))
+          .filter(x => x.peran !== 'developer' && !x.nama?.toUpperCase().includes('IT MEDIS UTAMA'));
       }
     } catch (_) {}
 

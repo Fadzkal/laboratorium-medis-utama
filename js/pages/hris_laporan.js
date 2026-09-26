@@ -360,7 +360,7 @@ const HrisLaporan = (() => {
         DB.pengaturanInsentifAktivitas ? DB.pengaturanInsentifAktivitas() : Promise.resolve(null)
       ]);
 
-      dataPegawai = (pegawaiList || []).map(p => {
+      dataPegawai = (pegawaiList || []).filter(p => p.peran !== 'developer' && !p.nama?.toUpperCase().includes('IT MEDIS UTAMA')).map(p => {
         const rek = DB.ambilRekeningPegawaiLokal ? DB.ambilRekeningPegawaiLokal(p.id) : null;
         const mk = DB.ambilMulaiKerjaPegawaiLokal ? DB.ambilMulaiKerjaPegawaiLokal(p.id) : null;
         return {

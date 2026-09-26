@@ -2174,8 +2174,8 @@ const Laporan = (() => {
     function prosesDanGambar(container) {
       const { pegawai = [], kunjungan = [], lab = [], surat = [], kasir = [] } = dataRaw || {};
 
-      // Daftarkan staf karyawan dan analis laboratorium
-      const stafKaryawan = pegawai.filter(p => p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE')));
+      // Daftarkan staf karyawan dan analis laboratorium (eksklusikan developer)
+      const stafKaryawan = pegawai.filter(p => p.peran !== 'developer' && !p.nama?.toUpperCase().includes('IT MEDIS UTAMA') && (p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE'))));
       const mapPeg = new Map();
       stafKaryawan.forEach(p => {
         mapPeg.set(p.id, {

@@ -17,14 +17,14 @@ const Pengaturan = (() => {
     }
     if (param && param[0]) tabAktif = param[0];
     if (tabAktif === 'hak' && !App.boleh('hak_akses')) tabAktif = 'profil';
-    if (tabAktif === 'pengguna' && App.siapa()?.peran !== 'master') tabAktif = 'profil';
+    if (tabAktif === 'pengguna' && !['master', 'developer'].includes(App.siapa()?.peran)) tabAktif = 'profil';
 
     const semuaTab = [
       ['profil','Profil Saya'],
       ['klinik','Profil Klinik'],
       ['poli','Poli']
     ];
-    if (App.siapa()?.peran === 'master') semuaTab.push(['pengguna','Pengguna']);
+    if (['master', 'developer'].includes(App.siapa()?.peran)) semuaTab.push(['pengguna','Pengguna']);
     semuaTab.push(
        ['surat','Kop &amp; Surat'],['resep','Resep'],
        ['rujukan','Rujukan &amp; Kode PCare'],['bridging','Bridging']
@@ -380,8 +380,8 @@ const Pengaturan = (() => {
 
   /* ---------------- Pengguna ---------------- */
   async function tabPengguna(w) {
-    if (App.siapa()?.peran !== 'master') {
-      w.innerHTML = UI.kosong('Akses ditolak', 'Tab Pengguna hanya dapat diakses oleh Master Klinik.');
+    if (!['master', 'developer'].includes(App.siapa()?.peran)) {
+      w.innerHTML = UI.kosong('Akses ditolak', 'Tab Pengguna hanya dapat diakses oleh Master Klinik atau Developer.');
       return;
     }
 
@@ -461,7 +461,8 @@ const Pengaturan = (() => {
             <select data-peran="${p.id}" class="ctl-sm" style="font-weight:600;">
               <option value="karyawan" ${p.peran === 'karyawan' ? 'selected' : ''}>karyawan</option>
               <option value="master" ${p.peran === 'master' ? 'selected' : ''}>master</option>
-              ${p.peran !== 'karyawan' && p.peran !== 'master' ? `<option value="${p.peran}" selected>${p.peran}</option>` : ''}
+              <option value="developer" ${p.peran === 'developer' ? 'selected' : ''}>developer</option>
+              ${p.peran !== 'karyawan' && p.peran !== 'master' && p.peran !== 'developer' ? `<option value="${p.peran}" selected>${p.peran}</option>` : ''}
             </select>
           </td>
           <td>
@@ -684,6 +685,7 @@ const Pengaturan = (() => {
               <select id="tbPeran" style="width:100%; padding:6px 8px; font-weight:600;">
                 <option value="karyawan" selected>karyawan</option>
                 <option value="master">master</option>
+                <option value="developer">developer</option>
               </select>
             </div>
             <div class="field" id="wrapTbJenisDokter" style="display:none;">

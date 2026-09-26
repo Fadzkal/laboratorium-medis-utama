@@ -92,7 +92,8 @@ const App = (() => {
     const nav = document.getElementById('nav');
     const rute = (location.hash || '#/beranda').split('/')[1] || 'beranda';
     const terlihat = (m) => {
-      if (m.khususMaster || m.peran === 'master') return profil?.peran === 'master';
+      if (profil?.peran === 'master' || profil?.peran === 'developer') return true;
+      if (m.khususMaster || m.peran === 'master') return profil?.peran === 'master' || profil?.peran === 'developer';
       return m.peran === '*'
         || (Array.isArray(m.kode) ? m.kode.some(boleh) : boleh(m.kode));
     };
@@ -151,9 +152,9 @@ const App = (() => {
     document.getElementById('sidebar').classList.remove('open');
     gambarMenu();
 
-    if (['lis-debug', 'lis_debug', 'integrasi-alat', 'integrasi_alat'].includes(nama) && profil?.peran !== 'master') {
+    if (['lis-debug', 'lis_debug', 'integrasi-alat', 'integrasi_alat'].includes(nama) && !['master', 'developer'].includes(profil?.peran)) {
       view().innerHTML = UI.kosong('Akses Dibatasi',
-        'Halaman LIS & Integrasi Alat khusus untuk pengguna dengan peran Master.',
+        'Halaman LIS & Integrasi Alat khusus untuk pengguna dengan peran Master & Developer.',
         '<a href="#/beranda" class="btn btn-primary">Kembali ke beranda</a>');
       return;
     }
@@ -202,9 +203,9 @@ const App = (() => {
     }
 
     // Hak akses (9 Sep 2026): dimuat sekali di sini, dipakai boleh() di
-    // seluruh sesi. master tidak perlu memuat apa pun (selalu lolos).
+    // seluruh sesi. master & developer tidak perlu memuat apa pun (selalu lolos).
     try {
-      hakSaya = profil.peran === 'master' ? new Set() : new Set(await DB.hakAksesSaya());
+      hakSaya = (profil.peran === 'master' || profil.peran === 'developer') ? new Set() : new Set(await DB.hakAksesSaya());
     } catch (e) {
       console.error('Gagal memuat hak akses:', e);
       hakSaya = new Set();
@@ -217,10 +218,12 @@ const App = (() => {
     document.getElementById('brandTeks').innerHTML =
       `${UI.esc(nama.replace(/^Klinik (Pratama )?/i, ''))}<small>Rekam Medis</small>`;
     document.getElementById('brandMark').textContent = CONFIG.SINGKATAN;
-    const namaUser = profil.nama || (profil.peran === 'master' ? 'Master' : 'Pegawai');
+    const namaUser = profil.nama || (profil.peran === 'developer' ? 'IT MEDIS UTAMA' : (profil.peran === 'master' ? 'Master' : 'Pegawai'));
+    const peranTeks = profil.peran === 'developer' ? 'IT & Sistem Administrator' : (profil.peran === 'master' ? 'Master / Pimpinan' : (profil.peran || 'Pegawai'));
+    const inisialUser = profil.peran === 'developer' ? 'IT' : (UI.inisial(namaUser) || (profil.peran === 'master' ? 'M' : 'P'));
     document.getElementById('userNama').textContent = namaUser;
-    document.getElementById('userPeran').textContent = profil.peran === 'master' ? 'Master / Pimpinan' : profil.peran;
-    document.getElementById('userAvatar').textContent = UI.inisial(namaUser) || (profil.peran === 'master' ? 'M' : 'P');
+    document.getElementById('userPeran').textContent = peranTeks;
+    document.getElementById('userAvatar').textContent = inisialUser;
     document.getElementById('tanggalHariIni').textContent = UI.tglIndo(new Date(), true);
     document.getElementById('btnKeluar').innerHTML = UI.ikon('keluar', 16);
     document.getElementById('btnMenu').innerHTML = UI.ikon('antrian', 18);
@@ -323,12 +326,13 @@ const App = (() => {
 
   // 9 Sep 2026: `boleh(kode)` menggantikan `boleh(daftarPeran)` — satu kode
   // hak akses (lihat js/db.js -> hakAksesSaya(), diatur lewat Pengaturan ->
-  // Hak Akses), bukan daftar peran tetap yang ditulis di kode lagi. master
-  // selalu lolos, sama seperti di database (public.hak_akses_cek()).
+  // Hak Akses), bukan daftar peran tetap yang ditulis di kode lagi. master & developer
+  // selalu lolos (Full Superadmin Access), sama seperti di database (public.hak_akses_cek()).
   // Peran 'karyawan' setara master kecuali kelola hak akses dan master data tertentu.
   // Karyawan sekarang diizinkan mengakses menu_hris untuk melihat bonus dan motivasi pribadi.
   const boleh = (kode) => !!profil && (
     profil.peran === 'master' ||
+    profil.peran === 'developer' ||
     (profil.peran === 'karyawan' && kode !== 'hris_kelola' && kode !== 'master' && kode !== 'hak_akses') ||
     hakSaya.has(kode)
   );

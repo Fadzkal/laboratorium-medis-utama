@@ -54,7 +54,7 @@ const DB = (() => {
   }
 
   const bolehTulis = (peranDiizinkan) =>
-    _saya && (peranDiizinkan.includes(_saya.peran) || _saya.peran === 'master');
+    _saya && (peranDiizinkan.includes(_saya.peran) || _saya.peran === 'master' || _saya.peran === 'developer');
 
   /* --------------------------- Profil klinik --------------------------- */
   async function faskes(paksaMuat = false) {
@@ -3201,7 +3201,7 @@ const DB = (() => {
      Pendaftaran, Verifikasi Lab, Pembuatan Surat, dan Kasir beserta timestamp jam lengkap. */
   async function laporanKaryawanAktivitas({ dari, sampai }) {
     const [pegawai, kunjungan, lab, surat, kasir] = await Promise.all([
-      sb.from('pegawai').select('id, nama, peran, aktif').or('peran.eq.karyawan,nama.ilike.%DEDE%').order('nama').then(r => r.data || []),
+      sb.from('pegawai').select('id, nama, peran, aktif').neq('peran', 'developer').or('peran.eq.karyawan,nama.ilike.%DEDE%').order('nama').then(r => (r.data || []).filter(x => x.peran !== 'developer' && !x.nama?.toUpperCase().includes('IT MEDIS UTAMA'))),
       ambilSemua(() =>
         sb.from('kunjungan')
           .select('id, no_kunjungan, tanggal, waktu_daftar, created_at, created_by, status, cara_bayar, pasien:pasien_id(id, no_rm, nama)')
@@ -3900,7 +3900,7 @@ const DB = (() => {
   /* --- KPI & Bonus Karyawan --- */
   async function daftarPegawaiStaff() {
     const list = await daftarPegawai();
-    return (list || []).filter(p => p.aktif && (p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE'))));
+    return (list || []).filter(p => p.aktif && p.peran !== 'developer' && !p.nama?.toUpperCase().includes('IT MEDIS UTAMA') && (p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE'))));
   }
 
   async function kpiDaftar(bulan, tahun) {
