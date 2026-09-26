@@ -178,6 +178,8 @@ const Pendaftaran = (() => {
         .pdft-bayar-field input, .pdft-bayar-field select { width: 100%; padding: 5px 7px; border: 1px solid #bdbdbd; border-radius: 4px; font-size: 13px; font-family: inherit; box-sizing: border-box; }
         .pdft-bayar-field input.readonly-val { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
         .pdft-bayar-field input.kembalian { background: #e3f2fd; color: #0d47a1; font-weight: 700; }
+        .pdft-bayar-field input#bNetti { background: #ffffff; color: #0f172a; font-weight: 700; border: 1.5px solid #0f766e; }
+        .pdft-bayar-field input#bNetti:focus { border-color: #0d9488; box-shadow: 0 0 0 2px rgba(15,118,110,0.18); outline: none; }
 
         /* ---- Tombol reset baris ---- */
         .btn-clr { background: none; border: none; color: #ccc; cursor: pointer; padding: 0 4px; font-size: 14px; }
@@ -380,7 +382,7 @@ const Pendaftaran = (() => {
             <div class="pdft-bayar-row">
               <div class="pdft-bayar-field">
                 <label>Disc All (%)</label>
-                <input type="number" id="bDiscPct" value="0" min="0" max="100">
+                <input type="number" id="bDiscPct" value="0" min="0" max="100" step="any">
               </div>
               <div class="pdft-bayar-field">
                 <label>Bayar Skrg</label>
@@ -390,7 +392,7 @@ const Pendaftaran = (() => {
             <div class="pdft-bayar-row">
               <div class="pdft-bayar-field">
                 <label>Netti</label>
-                <input type="number" id="bNetti" class="readonly-val" readonly value="0">
+                <input type="number" id="bNetti" value="0" min="0" step="any" placeholder="0">
               </div>
               <div class="pdft-bayar-field">
                 <label>Kurang Bayar</label>
@@ -674,32 +676,139 @@ const Pendaftaran = (() => {
   }
 
   /* ================================================================
-     HITUNG ULANG BRUTO / NETTO / BAYAR
+     HITUNG ULANG BRUTO / NETTO / BAYAR (REAKTIVITAS DUA ARAH)
   ================================================================ */
+  let isUpdatingBayar = false;
+
+  function ambilAngkaMurni(val) {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    let s = String(val).trim();
+    if (!s) return 0;
+    if (s.includes('.') && !s.includes(',')) {
+      if ((s.match(/\./g) || []).length > 1) {
+        s = s.replace(/\./g, '');
+      } else {
+        const parts = s.split('.');
+        if (parts[1] && parts[1].length === 3) s = parts.join('');
+      }
+    } else if (s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatPersenDisc(pct) {
+    if (pct <= 0 || isNaN(pct)) return 0;
+    if (pct >= 100) return 100;
+    const n = Math.round(pct * 100) / 100;
+    return Number(n.toFixed(2));
+  }
+
+  // Dipanggil saat item pemeriksaan berubah, paket dipilih, rekanan dipilih, atau form direset
   function hitungUlang(el) {
-    const bruto = barisPemeriksaan.reduce((s, b) => s + (b.harga || 0), 0);
-    const netto = barisPemeriksaan.reduce((s, b) => s + (b.net  || 0), 0);
+    if (isUpdatingBayar) return;
+    isUpdatingBayar = true;
+    try {
+      const bruto = barisPemeriksaan.reduce((s, b) => s + (b.harga || 0), 0);
+      const netto = barisPemeriksaan.reduce((s, b) => s + (b.net  || 0), 0);
 
-    el.querySelector('#lblBruto').textContent = bruto.toLocaleString('id-ID');
-    el.querySelector('#lblNetto').textContent = netto.toLocaleString('id-ID');
+      const lblBruto = el.querySelector('#lblBruto');
+      const lblNetto = el.querySelector('#lblNetto');
+      if (lblBruto) lblBruto.textContent = bruto.toLocaleString('id-ID');
+      if (lblNetto) lblNetto.textContent = netto.toLocaleString('id-ID');
 
-    const discPct   = +el.querySelector('#bDiscPct').value || 0;
-    const nettiAkhir = Math.round(netto * (1 - discPct / 100));
+      const inpBruto = el.querySelector('#bBruto');
+      if (inpBruto) inpBruto.value = bruto;
 
-    el.querySelector('#bBruto').value    = bruto;
-    el.querySelector('#bNetti').value    = nettiAkhir;
-    el.querySelector('#bBayarSkrg').value = nettiAkhir;
-    el.querySelector('#bKurang').value   = 0;
+      // Nilai dasar: gunakan netto jika ada potongan rekanan per baris (netto < bruto), atau bruto
+      const dasar = (netto > 0 && netto < bruto) ? netto : bruto;
+      const rawDisc = parseFloat(el.querySelector('#bDiscPct')?.value);
+      const discPct = isNaN(rawDisc) ? 0 : Math.max(0, Math.min(100, rawDisc));
+      const nettiAkhir = Math.max(0, Math.round(dasar * (1 - discPct / 100)));
 
-    hitungKembalian(el, nettiAkhir);
+      const inpNetti = el.querySelector('#bNetti');
+      const inpBayarSkrg = el.querySelector('#bBayarSkrg');
+      if (inpNetti) inpNetti.value = nettiAkhir;
+      if (inpBayarSkrg) inpBayarSkrg.value = nettiAkhir;
+
+      hitungKembalian(el, nettiAkhir);
+    } finally {
+      isUpdatingBayar = false;
+    }
+  }
+
+  // Dipanggil saat input Disc All (%) diubah oleh pengguna
+  function hitungDariDisc(el) {
+    if (isUpdatingBayar) return;
+    isUpdatingBayar = true;
+    try {
+      const bruto = barisPemeriksaan.reduce((s, b) => s + (b.harga || 0), 0);
+      const netto = barisPemeriksaan.reduce((s, b) => s + (b.net  || 0), 0);
+      const dasar = (netto > 0 && netto < bruto) ? netto : bruto;
+
+      const rawDisc = parseFloat(el.querySelector('#bDiscPct')?.value);
+      const discPct = isNaN(rawDisc) ? 0 : Math.max(0, Math.min(100, rawDisc));
+      const nettiAkhir = Math.max(0, Math.round(dasar * (1 - discPct / 100)));
+
+      const inpNetti = el.querySelector('#bNetti');
+      const inpBayarSkrg = el.querySelector('#bBayarSkrg');
+      if (inpNetti) inpNetti.value = nettiAkhir;
+      if (inpBayarSkrg) inpBayarSkrg.value = nettiAkhir;
+
+      hitungKembalian(el, nettiAkhir);
+    } finally {
+      isUpdatingBayar = false;
+    }
+  }
+
+  // Dipanggil saat input Netti diketik manual oleh pengguna
+  function hitungDariNetti(el) {
+    if (isUpdatingBayar) return;
+    isUpdatingBayar = true;
+    try {
+      const bruto = barisPemeriksaan.reduce((s, b) => s + (b.harga || 0), 0);
+      const netto = barisPemeriksaan.reduce((s, b) => s + (b.net  || 0), 0);
+      const dasar = (netto > 0 && netto < bruto) ? netto : bruto;
+
+      const rawNetti = ambilAngkaMurni(el.querySelector('#bNetti')?.value);
+      const nettiVal = Math.max(0, rawNetti);
+
+      if (dasar > 0) {
+        let persenDisc = ((dasar - nettiVal) / dasar) * 100;
+        if (persenDisc < 0) persenDisc = 0;
+        if (persenDisc > 100) persenDisc = 100;
+        const inpDisc = el.querySelector('#bDiscPct');
+        if (inpDisc) inpDisc.value = formatPersenDisc(persenDisc);
+      } else {
+        const inpDisc = el.querySelector('#bDiscPct');
+        if (inpDisc) inpDisc.value = 0;
+      }
+
+      const inpBayarSkrg = el.querySelector('#bBayarSkrg');
+      if (inpBayarSkrg) inpBayarSkrg.value = nettiVal;
+
+      hitungKembalian(el, nettiVal);
+    } finally {
+      isUpdatingBayar = false;
+    }
   }
 
   function hitungKembalian(el, netti) {
-    const uang      = +el.querySelector('#bUangPasien').value || 0;
-    const kembalian = Math.max(0, uang - (netti ?? +el.querySelector('#bNetti').value));
-    const kurang    = Math.max(0, (netti ?? +el.querySelector('#bNetti').value) - uang);
-    el.querySelector('#bKembalian').value = kembalian;
-    el.querySelector('#bKurang').value    = kurang;
+    const uang = ambilAngkaMurni(el.querySelector('#bUangPasien')?.value);
+    const nettiVal = (netti !== undefined && netti !== null)
+      ? +netti
+      : ambilAngkaMurni(el.querySelector('#bNetti')?.value);
+
+    const kembalian = Math.max(0, uang - nettiVal);
+    const kurang    = Math.max(0, nettiVal - uang);
+
+    const inpKembalian = el.querySelector('#bKembalian');
+    const inpKurang = el.querySelector('#bKurang');
+    if (inpKembalian) inpKembalian.value = kembalian;
+    if (inpKurang) inpKurang.value = kurang;
+
     simpanDraftPendaftaran(el);
   }
 
@@ -838,8 +947,11 @@ const Pendaftaran = (() => {
       gambarBarisPemeriksaan(el);
     });
 
-    /* ---- Disc all ---- */
-    el.querySelector('#bDiscPct').addEventListener('input', () => hitungUlang(el));
+    /* ---- Disc all (%) ---- */
+    el.querySelector('#bDiscPct').addEventListener('input', () => hitungDariDisc(el));
+
+    /* ---- Netti (Edit Manual) ---- */
+    el.querySelector('#bNetti').addEventListener('input', () => hitungDariNetti(el));
 
     /* ---- Uang pasien ---- */
     el.querySelector('#bUangPasien').addEventListener('input', () => hitungKembalian(el));
@@ -1236,6 +1348,10 @@ const Pendaftaran = (() => {
     el.querySelector('#bJenisBayar').value = 'UMUM';
     el.querySelector('#bUangPasien').value = '0';
     el.querySelector('#bDiscPct').value   = '0';
+    if (el.querySelector('#bNetti')) el.querySelector('#bNetti').value = '0';
+    if (el.querySelector('#bBayarSkrg')) el.querySelector('#bBayarSkrg').value = '0';
+    if (el.querySelector('#bKembalian')) el.querySelector('#bKembalian').value = '0';
+    if (el.querySelector('#bKurang')) el.querySelector('#bKurang').value = '0';
     const cb = el.querySelector('#filterBpjs');
     if (cb) cb.checked = false;
     el.querySelector('#fJanjiTgl').value = UI.hariIni();
@@ -1268,6 +1384,7 @@ const Pendaftaran = (() => {
         jenisBayar: el.querySelector('#bJenisBayar')?.value,
         uangPasien: el.querySelector('#bUangPasien')?.value,
         discPct: el.querySelector('#bDiscPct')?.value,
+        netti: el.querySelector('#bNetti')?.value,
         filterBpjs: el.querySelector('#filterBpjs')?.checked
       }
     };
