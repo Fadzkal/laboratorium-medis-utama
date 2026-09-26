@@ -41,6 +41,18 @@ from config import (
 )
 from db_adapter import get_adapter
 
+# Konfigurasi Wondfo III Plus (TCP Socket Port 8001)
+HOST_WONDFO = "0.0.0.0"
+PORT_WONDFO = 8001
+try:
+    import config
+    if hasattr(config, "HOST_WONDFO"):
+        HOST_WONDFO = config.HOST_WONDFO
+    if hasattr(config, "PORT_WONDFO"):
+        PORT_WONDFO = config.PORT_WONDFO
+except Exception:
+    pass
+
 # Setup Logging
 os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
@@ -61,6 +73,7 @@ BUFFER_RIWAYAT = []
 STATUS_LISTENER = {
     "mindray": {"port": PORT_MINDRAY, "status": "BERHENTI", "pesan_terakhir": None},
     "sysmex": {"port": PORT_SYSMEX, "status": "BERHENTI", "pesan_terakhir": None},
+    "wondfo": {"port": PORT_WONDFO, "status": "BERHENTI", "pesan_terakhir": None},
     "api": {"port": PORT_LOCAL_API, "status": "BERHENTI"}
 }
 
@@ -487,7 +500,230 @@ def sysmex_worker():
 
 
 # ===========================================================================
-# 4. LOCAL REST API SERVER (PORT 7119)
+# 4. LISTENER WONDFO III PLUS (HL7 MLLP - PORT 8001)
+# ===========================================================================
+def buat_wondfo_ack(msh_segment: str) -> bytes:
+    """Membuat respon HL7 ACK standar untuk Wondfo III Plus"""
+    try:
+        fields = msh_segment.split("|")
+        msh_control_id = fields[9] if len(fields) > 9 and fields[9] else "1"
+        sending_app = fields[2] if len(fields) > 2 and fields[2] else "WONDFO"
+        now_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        ack_msg = (
+            f"MSH|^~\\&|LMU_LIS|KLINIK|{sending_app}|WONDFO|{now_str}||ACK^R01|{msh_control_id}|P|2.3.1\r"
+            f"MSA|AA|{msh_control_id}|Message accepted successfully\r"
+        )
+        return START_BLOCK + ack_msg.encode("latin-1") + END_BLOCK
+    except Exception as e:
+        logger.error(f"Gagal membuat Wondfo HL7 ACK: {e}")
+        return START_BLOCK + b"MSH|^~\\&|||||||ACK|1|P|2.3.1\rMSA|AA|1\r" + END_BLOCK
+
+
+def parse_wondfo_hl7_message(raw_text: str):
+    """
+    Mengekstrak Sample ID dan parameter pemeriksaan dari paket HL7 Wondfo III Plus.
+    OBR: fields[3] = sample_number / sample_id, fields[15] = sample_type
+    OBX: fields[4] = test_name, fields[5] = result, fields[6] = unit, fields[7] = ref_range, fields[14] = test_time
+    """
+    results = []
+    sample_id = ""
+    patient_name = ""
+    patient_id = ""
+    gender = ""
+    age = ""
+    sample_type = ""
+    test_time = ""
+    msh_raw = ""
+
+    segments = [s.strip() for s in raw_text.replace("\r\n", "\r").replace("\n", "\r").split("\r") if s.strip()]
+
+    for segment in segments:
+        fields = segment.split("|")
+        seg_type = fields[0]
+
+        if seg_type == "MSH":
+            msh_raw = segment
+            if len(fields) > 7 and fields[7]:
+                test_time = fields[7].strip()
+
+        elif seg_type == "PID":
+            if len(fields) > 3 and fields[3]:
+                patient_id = fields[3].strip()
+            if len(fields) > 2 and fields[2] and not sample_id:
+                sample_id = fields[2].strip()
+            if len(fields) > 5 and fields[5]:
+                patient_name = fields[5].replace("^", " ").strip()
+            if len(fields) > 7 and fields[7]:
+                age = fields[7].strip()
+            if len(fields) > 8 and fields[8]:
+                gender = fields[8].strip()
+
+        elif seg_type == "OBR":
+            # fields[3] = sample_number / sample_id
+            if len(fields) > 3 and fields[3].strip():
+                sample_id = fields[3].strip()
+            elif len(fields) > 2 and fields[2].strip() and not sample_id:
+                sample_id = fields[2].strip()
+
+            # fields[15] = sample_type
+            if len(fields) > 15 and fields[15].strip():
+                sample_type = fields[15].strip()
+
+            if len(fields) > 7 and fields[7].strip() and not test_time:
+                test_time = fields[7].strip()
+
+        elif seg_type == "OBX" and len(fields) > 5:
+            # fields[4] = test_name (misal: 'MAU')
+            raw_test_name = fields[4].strip() if len(fields) > 4 and fields[4].strip() else ""
+            if not raw_test_name and len(fields) > 3:
+                raw_test_name = fields[3].strip()
+
+            test_code = raw_test_name.split("^")[0].strip() if "^" in raw_test_name else raw_test_name
+            test_desc = raw_test_name.split("^")[1].strip() if ("^" in raw_test_name and len(raw_test_name.split("^")) > 1) else test_code
+
+            # fields[5] = result (bersihkan tanda panah, catat flag H/L)
+            raw_val = fields[5].strip() if len(fields) > 5 else ""
+            flag = ""
+
+            # Deteksi flag dari panah atau penanda H/L di raw_val
+            if "↑" in raw_val or "▲" in raw_val or raw_val.endswith(" H") or raw_val.startswith("H "):
+                flag = "H"
+            elif "↓" in raw_val or "▼" in raw_val or raw_val.endswith(" L") or raw_val.startswith("L "):
+                flag = "L"
+
+            # Bersihkan nilai dari panah dan indikator
+            clean_val = raw_val.replace("↑", "").replace("↓", "").replace("▲", "").replace("▼", "").strip()
+            if clean_val.endswith(" H") or clean_val.endswith(" L"):
+                clean_val = clean_val[:-2].strip()
+
+            # fields[6] = unit
+            unit = fields[6].strip() if len(fields) > 6 else ""
+
+            # fields[7] = reference
+            ref_range = fields[7].strip() if len(fields) > 7 else ""
+
+            # fields[8] = abnormal flag jika belum terdeteksi dari raw_val
+            if not flag and len(fields) > 8 and fields[8].strip():
+                f8 = fields[8].strip()
+                if f8 not in ("", "-"):
+                    flag = f8
+
+            # fields[14] = test_time
+            if len(fields) > 14 and fields[14].strip():
+                test_time = fields[14].strip()
+
+            if not flag or flag in ("", "-"):
+                flag = "N"
+
+            # Normalisasi deskripsi untuk MAU
+            if test_code.upper() in ("MAU", "MICROALBUMIN", "M-ALB"):
+                test_desc = "Mikroalbumin Urin (MAU)"
+
+            if (test_code or raw_test_name) and clean_val:
+                results.append({
+                    "test_name": test_code,
+                    "test_desc": test_desc or test_code,
+                    "value": clean_val,
+                    "unit": unit,
+                    "ref_range": ref_range,
+                    "flag": flag
+                })
+
+    meta = {
+        "patient_id": patient_id or sample_id,
+        "gender": gender,
+        "age": age,
+        "sample_type": sample_type or "URINE",
+        "test_time": test_time,
+        "protokol": "HL7"
+    }
+    return sample_id, patient_name, results, msh_raw, meta
+
+
+def wondfo_worker():
+    """Thread server socket untuk Wondfo III Plus (Port 8001 - HL7 MLLP)"""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    try:
+        server.bind((HOST_WONDFO, PORT_WONDFO))
+        server.listen(5)
+        STATUS_LISTENER["wondfo"]["status"] = "AKTIF"
+        logger.info(f"Listener Wondfo III Plus AKTIF mendengarkan pada port {PORT_WONDFO}")
+    except Exception as e:
+        STATUS_LISTENER["wondfo"]["status"] = f"ERROR: {e}"
+        logger.error(f"Gagal mengikat port Wondfo {PORT_WONDFO}: {e}")
+        return
+
+    while True:
+        try:
+            client, addr = server.accept()
+            logger.info(f"Koneksi masuk Wondfo III Plus dari {addr}")
+            buffer = b""
+
+            while True:
+                data = client.recv(4096)
+                if not data:
+                    break
+                buffer += data
+
+                # Cek batas blok HL7 MLLP (START = 0x0B, END = 0x1C + CR / LF / FS)
+                while START_BLOCK in buffer:
+                    start_idx = buffer.index(START_BLOCK) + 1
+                    end_idx = -1
+                    end_len = 0
+                    if b"\x1c\r" in buffer:
+                        end_idx = buffer.index(b"\x1c\r")
+                        end_len = 2
+                    elif b"\x1c\x0d" in buffer:
+                        end_idx = buffer.index(b"\x1c\x0d")
+                        end_len = 2
+                    elif b"\x1c\n" in buffer:
+                        end_idx = buffer.index(b"\x1c\n")
+                        end_len = 2
+                    elif b"\x1c" in buffer:
+                        end_idx = buffer.index(b"\x1c")
+                        end_len = 1
+
+                    if end_idx == -1 or end_idx < start_idx:
+                        break
+
+                    raw_msg = buffer[start_idx:end_idx].decode("latin-1", errors="replace")
+                    buffer = buffer[end_idx + end_len:]
+
+                    logger.info("Menerima paket HL7 dari Wondfo III Plus.")
+                    sample_id, patient_name, results, msh_raw, meta = parse_wondfo_hl7_message(raw_msg)
+                    logger.info(f"Wondfo Sample ID: {sample_id}, Pasien: {patient_name}, Parameter: {len(results)}")
+
+                    # Kirim respon ACK ke Wondfo jika ada MSH
+                    if msh_raw:
+                        ack = buat_wondfo_ack(msh_raw)
+                        try:
+                            client.sendall(ack)
+                            logger.info("Respon HL7 ACK terkirim ke Wondfo.")
+                        except Exception as eAck:
+                            logger.error(f"Gagal kirim ACK ke Wondfo: {eAck}")
+
+                    if sample_id and results:
+                        catat_ke_csv(sample_id, patient_name, "Wondfo III Plus", results)
+                        perbarui_buffer(sample_id, patient_name, "Wondfo III Plus", results, raw_msg=raw_msg, metadata=meta)
+                        STATUS_LISTENER["wondfo"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
+
+                        try:
+                            adapter = get_adapter()
+                            res = adapter.sync_hasil_alat(sample_id, results, "Wondfo III Plus")
+                            logger.info(f"Hasil sinkronisasi DB Wondfo: {res.get('total_tersimpan', 0)} dari {len(results)} parameter tersimpan.")
+                        except Exception as eSync:
+                            logger.error(f"Gagal sync ke database Wondfo: {eSync}")
+
+            client.close()
+        except Exception as e:
+            logger.error(f"Error pada loop Wondfo: {e}")
+            time.sleep(1)
+
+
+# ===========================================================================
+# 5. LOCAL REST API SERVER (PORT 7119)
 # ===========================================================================
 class LocalApiHandler(BaseHTTPRequestHandler):
     def _send_json(self, data: dict, status_code: int = 200):
@@ -523,10 +759,13 @@ class LocalApiHandler(BaseHTTPRequestHandler):
         if path == "/api/status" or path == "/":
             total_tests = sum(len(x.get("hasil", [])) for x in BUFFER_RIWAYAT)
             last_time = BUFFER_RIWAYAT[0].get("waktu", "-") if BUFFER_RIWAYAT else "-"
+            wondfo_aktif = STATUS_LISTENER.get("wondfo", {}).get("status") == "AKTIF"
             self._send_json({
                 "status": "ONLINE",
                 "waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "listener": STATUS_LISTENER,
+                "port_8001": wondfo_aktif,
+                "wondfo_siap": wondfo_aktif,
                 "total_buffer": len(BUFFER_RIWAYAT),
                 "total_samples": len(BUFFER_RIWAYAT),
                 "total_tests": total_tests,
@@ -615,12 +854,28 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 body = self.rfile.read(content_len).decode("utf-8")
                 payload = json.loads(body)
 
-                sample_id = payload.get("sample_id", "26090026")
+                sample_id = payload.get("sample_id") or payload.get("id_sampel") or "0028"
                 nama_pasien = payload.get("nama_pasien", "Pasien Uji Coba")
                 alat = payload.get("alat", "Mindray BS-240")
                 hasil = payload.get("hasil", [])
                 metadata = payload.get("metadata", {})
                 raw_hl7 = payload.get("raw_hl7", "")
+
+                # Dukung format payload fleksibel langsung per parameter (misal pengujian Wondfo)
+                if not hasil and (payload.get("parameter") or payload.get("test_name")):
+                    p_name = payload.get("parameter") or payload.get("test_name")
+                    p_val = payload.get("nilai") if payload.get("nilai") is not None else (payload.get("hasil") or "25.3")
+                    p_unit = payload.get("satuan") or payload.get("unit") or "mg/L"
+                    p_ref = payload.get("rujukan") or payload.get("ref_range") or "0-20.0"
+                    p_flag = payload.get("flag") or "H"
+                    hasil = [{
+                        "test_name": p_name,
+                        "test_desc": "Mikroalbumin Urin (MAU)" if p_name == "MAU" else p_name,
+                        "value": str(p_val),
+                        "unit": p_unit,
+                        "ref_range": p_ref,
+                        "flag": p_flag
+                    }]
 
                 if not hasil:
                     self._send_json({"sukses": False, "pesan": "Daftar hasil tidak boleh kosong"}, 400)
@@ -637,6 +892,22 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                         for idx_h, h in enumerate(hasil, start=1):
                             lines.append(f"R|{idx_h}|^^^{h.get('test_name','')}|{h.get('value','')}|{h.get('unit','')}|{h.get('ref_range','')}|{h.get('flag','')}")
                         lines.append("L|1|N")
+                        raw_hl7 = "\r\n".join(lines)
+                    elif "Wondfo" in alat:
+                        sample_type = metadata.get("sample_type", "URINE")
+                        lines = [
+                            f"MSH|^~\\&|Wondfo III Plus|WONDFO|||{now_hl7}||ORU^R01|{int(time.time())}|P|2.3.1",
+                            f"PID|1||{metadata.get('patient_id', sample_id)}||{nama_pasien.replace(' ', '^')}||{metadata.get('age', '19900101')}|{metadata.get('gender', 'M')}",
+                            f"OBR|1||{sample_id}||||||||||||{sample_type}||{now_hl7}"
+                        ]
+                        for idx_h, h in enumerate(hasil, start=1):
+                            t_name = h.get('test_name', 'MAU')
+                            t_desc = h.get('test_desc', 'Mikroalbumin Urin (MAU)')
+                            val_str = str(h.get('value', ''))
+                            flag_str = str(h.get('flag', 'N'))
+                            unit_str = str(h.get('unit', 'mg/L'))
+                            ref_str = str(h.get('ref_range', '0-20.0'))
+                            lines.append(f"OBX|{idx_h}|NM|{t_name}^{t_desc}||{val_str}|{unit_str}|{ref_str}|{flag_str}||||||{now_hl7}")
                         raw_hl7 = "\r\n".join(lines)
                     else:
                         lines = [
@@ -693,12 +964,16 @@ def start_bridge_threads():
     t_sysmex = threading.Thread(target=sysmex_worker, daemon=True, name="SysmexListener")
     t_sysmex.start()
 
+    t_wondfo = threading.Thread(target=wondfo_worker, daemon=True, name="WondfoListener")
+    t_wondfo.start()
+
     t_api = threading.Thread(target=api_worker, daemon=True, name="LocalApiServer")
     t_api.start()
 
     return {
         "mindray": t_mindray,
         "sysmex": t_sysmex,
+        "wondfo": t_wondfo,
         "api": t_api
     }
 
@@ -712,6 +987,7 @@ def main():
     print("=" * 70)
     print(f"  Mindray BS-240 (HL7 MLLP) : Port {PORT_MINDRAY}")
     print(f"  Sysmex XP-100  (ASTM)     : Port {PORT_SYSMEX}")
+    print(f"  Wondfo III Plus (HL7 MLLP): Port {PORT_WONDFO}")
     print(f"  Local REST API (Browser)  : Port {PORT_LOCAL_API}")
     print("=" * 70)
 

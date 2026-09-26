@@ -104,6 +104,15 @@ ARKRAY_MAPPING = {
     "A1C": ["HbA 1C", "HbA1c", "Hemoglobin A1c"]
 }
 
+# ---------------------------------------------------------------------------
+# 4. PETA PARAMETER WONDFO III PLUS (POCT / FLUORESCENCE IMMUNOASSAY)
+# ---------------------------------------------------------------------------
+WONDFO_MAPPING = {
+    "MAU": ["Mikroalbumin Urin (MAU)", "Mikroalbumin Urin", "Mikroalbumin", "Microalbumin", "MAU"],
+    "MICROALBUMIN": ["Mikroalbumin Urin (MAU)", "Mikroalbumin Urin", "Mikroalbumin", "Microalbumin", "MAU"],
+    "M-ALB": ["Mikroalbumin Urin (MAU)", "Mikroalbumin Urin", "Mikroalbumin", "Microalbumin", "MAU"]
+}
+
 
 def normalize_code(raw_code: str) -> str:
     """Membersihkan kode/nama tes dari simbol tak perlu"""
@@ -121,7 +130,7 @@ def normalize_code(raw_code: str) -> str:
 def find_matching_test(raw_code: str, instrument_type: str, candidate_names: list) -> str:
     """
     Mencari nama pemeriksaan di database yang cocok dengan kode dari alat.
-    instrument_type: 'MINDRAY', 'SYSMEX', atau 'ARKRAY'
+    instrument_type: 'MINDRAY', 'SYSMEX', 'ARKRAY', atau 'WONDFO'
     candidate_names: daftar nama tes di lab_hasil pasien yang sedang diperiksa
     """
     clean_code = normalize_code(raw_code)
@@ -133,8 +142,10 @@ def find_matching_test(raw_code: str, instrument_type: str, candidate_names: lis
         mapping = SYSMEX_MAPPING
     elif instrument_type.upper().startswith("ARKRAY"):
         mapping = ARKRAY_MAPPING
+    elif instrument_type.upper().startswith("WONDFO"):
+        mapping = WONDFO_MAPPING
     else:
-        mapping = {**MINDRAY_MAPPING, **SYSMEX_MAPPING, **ARKRAY_MAPPING}
+        mapping = {**MINDRAY_MAPPING, **SYSMEX_MAPPING, **ARKRAY_MAPPING, **WONDFO_MAPPING}
         
     aliases = mapping.get(clean_code, [])
     

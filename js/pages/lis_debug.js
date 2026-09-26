@@ -78,7 +78,10 @@ const LisDebug = (() => {
     'PCT': ['PCT'],
     'LED': ['LED', 'Laju Endap Darah', 'ESR'],
     'ESR': ['LED', 'Laju Endap Darah', 'ESR'],
-    'HBA1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c']
+    'HBA1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c'],
+    'MAU': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU'],
+    'MICROALBUMIN': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU'],
+    'M-ALB': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU']
   };
 
   // State internal
@@ -158,7 +161,7 @@ const LisDebug = (() => {
         const j = await res.json();
         statusBridge = j;
         if (!senyap) {
-          tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port 7118, Sysmex: Port 8000, Total Buffer: ${j.total_buffer || 0}`, j);
+          tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port 7118, Sysmex: Port 8000, Wondfo: Port 8001, Total Buffer: ${j.total_buffer || 0}`, j);
           UI.toast('LIS Bridge terhubung dan aktif.', 'ok');
         }
       } else {
@@ -221,6 +224,7 @@ const LisDebug = (() => {
     const listener = statusBridge?.listener || {};
     const mindrayInfo = listener.mindray || {};
     const sysmexInfo = listener.sysmex || {};
+    const wondfoInfo = listener.wondfo || {};
 
     const totalSampel = statusBridge?.total_samples || daftarSampel.length || 0;
     const totalParameter = statusBridge?.total_tests || daftarSampel.reduce((acc, s) => acc + (Array.isArray(s.hasil) ? s.hasil.length : 0), 0);
@@ -236,12 +240,21 @@ const LisDebug = (() => {
     if (elTotParam) elTotParam.textContent = totalParameter;
     if (elTerakhir) elTerakhir.textContent = terakhirWaktu;
     if (elAlatStatus) {
-      elAlatStatus.textContent = isOnline ? (mindrayInfo.status === 'AKTIF' ? 'Mindray BS-240 Siaga' : 'Bridge Siaga') : 'Bridge Offline';
+      if (isOnline) {
+        const aktifList = [];
+        if (mindrayInfo.status === 'AKTIF') aktifList.push('BS-240');
+        if (sysmexInfo.status === 'AKTIF') aktifList.push('Sysmex');
+        if (wondfoInfo.status === 'AKTIF' || statusBridge?.port_8001 || statusBridge?.wondfo_siap) aktifList.push('Wondfo');
+        elAlatStatus.textContent = aktifList.length ? `${aktifList.join(' & ')} Siaga` : 'Bridge Siaga';
+      } else {
+        elAlatStatus.textContent = 'Bridge Offline';
+      }
     }
 
     // Badge status di Header
     const badgeMindray = document.getElementById('badgePortMindray');
     const badgeSysmex = document.getElementById('badgePortSysmex');
+    const badgeWondfo = document.getElementById('badgePortWondfo');
     const badgeBridge = document.getElementById('badgePortBridge');
 
     if (badgeMindray) {
@@ -254,6 +267,12 @@ const LisDebug = (() => {
       const aktif = isOnline && sysmexInfo.status === 'AKTIF';
       badgeSysmex.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
       badgeSysmex.textContent = aktif ? 'Port 8000 (Sysmex) Siap' : 'Port 8000 Offline';
+    }
+
+    if (badgeWondfo) {
+      const aktif = isOnline && (wondfoInfo.status === 'AKTIF' || statusBridge?.port_8001 === true || statusBridge?.wondfo_siap === true);
+      badgeWondfo.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
+      badgeWondfo.textContent = aktif ? 'Port 8001 (Wondfo) Siap' : 'Port 8001 Offline';
     }
 
     if (badgeBridge) {
@@ -306,8 +325,12 @@ const LisDebug = (() => {
     const html = filtered.map(s => {
       const isAktif = sampelTerpilih && String(sampelTerpilih.sample_id) === String(s.sample_id);
       const isMindray = (s.alat || '').toLowerCase().includes('mindray');
+      const isSysmex = (s.alat || '').toLowerCase().includes('sysmex');
+      const isWondfo = (s.alat || '').toLowerCase().includes('wondfo');
       const jmlParam = Array.isArray(s.hasil) ? s.hasil.length : 0;
-      const alatClass = isMindray ? 'tag-mindray' : 'tag-sysmex';
+      let alatClass = 'tag-mindray';
+      if (isWondfo) alatClass = 'tag-wondfo';
+      else if (isSysmex) alatClass = 'tag-sysmex';
 
       return `
         <div class="lis-sample-item ${isAktif ? 'aktif' : ''}" data-sid="${UI.esc(s.sample_id)}">
@@ -428,6 +451,9 @@ const LisDebug = (() => {
     }).join('');
 
     const rawMsg = s.raw_hl7 || '';
+    let tagAlatClass = 'tag-mindray';
+    if ((s.alat || '').toLowerCase().includes('wondfo')) tagAlatClass = 'tag-wondfo';
+    else if ((s.alat || '').toLowerCase().includes('sysmex')) tagAlatClass = 'tag-sysmex';
 
     wadah.innerHTML = `
       <!-- HEADER DETAIL -->
@@ -436,7 +462,7 @@ const LisDebug = (() => {
           <div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="lis-badge-sample-lg">${UI.esc(s.sample_id)}</span>
-              <span class="lis-sample-tag ${s.alat?.includes('Sysmex') ? 'tag-sysmex' : 'tag-mindray'}" style="font-size:11px;">
+              <span class="lis-sample-tag ${tagAlatClass}" style="font-size:11px;">
                 ${UI.esc(s.alat || 'Mindray BS-240')}
               </span>
               <span style="font-size:11.5px; color:#64748b;">Diterima: ${UI.esc(s.waktu || '-')}</span>
@@ -724,6 +750,57 @@ const LisDebug = (() => {
     }
   }
 
+  // Mengirim simulasi Wondfo III Plus ke bridge
+  async function kirimSimulasiWondfo(customSid = '') {
+    const sid = customSid.trim() || ('00' + String(Math.floor(10 + Math.random() * 90)));
+    const pasienNama = 'Tn. Hendra Wijaya (Uji Wondfo)';
+
+    const payload = {
+      sample_id: sid,
+      nama_pasien: pasienNama,
+      alat: 'Wondfo III Plus',
+      metadata: {
+        patient_id: 'RM-' + sid,
+        gender: 'M',
+        age: '19780512',
+        sample_type: 'URINE'
+      },
+      hasil: [
+        {
+          test_name: 'MAU',
+          test_desc: 'Mikroalbumin Urin (MAU)',
+          value: '25.3',
+          unit: 'mg/L',
+          ref_range: '0-20.0',
+          flag: 'H'
+        }
+      ]
+    };
+
+    tambahLog('INFO', `Mengirim paket simulasi Wondfo III Plus untuk Sample #${sid}...`, payload);
+
+    try {
+      const res = await fetch(`${BRIDGE_HOST}/api/simulasi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const j = await res.json();
+        tambahLog('SUCCESS', `Simulasi Wondfo III Plus sukses diproses bridge. Parameter: MAU = 25.3 mg/L (H).`, j);
+        UI.toast(`Simulasi paket Wondfo III Plus #${sid} berhasil dikirim!`, 'ok');
+        await periksaStatusListener(true);
+      } else {
+        tambahLog('WARN', `Simulasi Wondfo ditolak (HTTP ${res.status})`);
+        UI.toast(`Simulasi gagal: HTTP ${res.status}`, 'warn');
+      }
+    } catch (e) {
+      tambahLog('ERROR', `Gagal mengirim simulasi Wondfo ke bridge: ${e.message}`);
+      UI.toast('Gagal terhubung ke LIS Bridge.', 'err');
+    }
+  }
+
   // Membersihkan buffer riwayat di bridge
   async function bersihkanBufferBridge() {
     if (!confirm('Bersihkan seluruh daftar riwayat sampel di memori bridge?')) return;
@@ -825,6 +902,7 @@ const LisDebug = (() => {
         .lis-sample-tag { padding: 2px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase; }
         .tag-mindray { background: #ccfbf1; color: #0f766e; }
         .tag-sysmex { background: #ede9fe; color: #6d28d9; }
+        .tag-wondfo { background: #ffedd5; color: #c2410c; }
 
         /* Pane Kanan */
         .lis-right-pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
@@ -874,13 +952,14 @@ const LisDebug = (() => {
               ${UI.ikon('pengaturan', 22)} LIS &amp; Integrasi Alat Medis
             </h1>
             <div class="lis-subtitle">
-              Diagnostic, troubleshooting, dan monitoring komunikasi data alat laboratorium (Mindray BS-240 &amp; Sysmex XP-100).
+              Diagnostic, troubleshooting, dan monitoring komunikasi data alat laboratorium (Mindray BS-240, Sysmex XP-100, &amp; Wondfo III Plus).
             </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span class="lis-badge-pill offline" id="badgePortMindray">Port 7118 (BS-240)</span>
             <span class="lis-badge-pill offline" id="badgePortSysmex">Port 8000 (Sysmex)</span>
+            <span class="lis-badge-pill offline" id="badgePortWondfo">Port 8001 (Wondfo)</span>
             <span class="lis-badge-pill offline" id="badgePortBridge">REST API 7119</span>
             
             <button class="btn btn-secondary btn-sm" id="btnSettingAlat" title="Petunjuk konfigurasi alat Mindray BS-240">
@@ -957,10 +1036,11 @@ const LisDebug = (() => {
             <!-- Toolbar Pencarian & Filter Cepat -->
             <div class="lis-search-bar">
               <input type="text" id="inpCariSampel" class="input" placeholder="Cari Sample ID, Pasien..." style="flex:1; font-size:11.5px; height:32px;">
-              <select id="selFilterAlat" class="input" style="width:115px; font-size:11px; height:32px;">
+              <select id="selFilterAlat" class="input" style="width:125px; font-size:11px; height:32px;">
                 <option value="">Semua Alat</option>
                 <option value="Mindray">Mindray</option>
                 <option value="Sysmex">Sysmex</option>
+                <option value="Wondfo">Wondfo III Plus</option>
               </select>
             </div>
 
@@ -971,6 +1051,9 @@ const LisDebug = (() => {
               </button>
               <button class="btn btn-ghost btn-sm" id="btnSimSysmex" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #ddd6fe; background:#faf5ff; color:#6d28d9; font-weight:700;">
                 ${UI.ikon('plus', 12)} Simulasi Sysmex
+              </button>
+              <button class="btn btn-ghost btn-sm" id="btnSimWondfo" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #fed7aa; background:#fff7ed; color:#c2410c; font-weight:700;">
+                ${UI.ikon('plus', 12)} Simulasi Wondfo
               </button>
             </div>
 
@@ -1046,6 +1129,9 @@ const LisDebug = (() => {
     const btnSimSys = el.querySelector('#btnSimSysmex');
     if (btnSimSys) btnSimSys.onclick = () => kirimSimulasiSysmex();
 
+    const btnSimWon = el.querySelector('#btnSimWondfo');
+    if (btnSimWon) btnSimWon.onclick = () => kirimSimulasiWondfo();
+
     const inpCari = el.querySelector('#inpCariSampel');
     if (inpCari) {
       inpCari.oninput = () => {
@@ -1074,6 +1160,7 @@ const LisDebug = (() => {
     periksaStatusListener,
     kirimSimulasiBS240,
     kirimSimulasiSysmex,
+    kirimSimulasiWondfo,
     bersihkanLog
   };
 })();
