@@ -508,12 +508,13 @@ const Lab = (() => {
 
     const bSelesai = el.querySelector('#btnSelesai');
     if (bSelesai) bSelesai.addEventListener('click', async () => {
-      if (!await UI.konfirmasi('Selesaikan lembar hasil?',
-        'Setelah ditutup, hasilnya terkunci dan hanya admin yang bisa membukanya kembali.',
-        'Selesaikan')) return;
+      const verif = await modalPilihVerifikator(p);
+      if (!verif) return;
       try {
-        await DB.labSelesaikan(p.id);
-        UI.toast('Lembar hasil ditutup.');
+        await DB.labSelesaikan(p.id, verif);
+        p.verifikator = verif.nama;
+        p.tgl_verifikasi = verif.waktu;
+        UI.toast(`Lembar hasil berhasil diverifikasi oleh ${verif.nama}.`);
         App.segarkan();
       } catch (e) { UI.toast(e.message || 'Gagal menutup lembar.', 'err'); }
     });
@@ -1063,6 +1064,112 @@ const Lab = (() => {
             if (!v) { UI.toast('Alasan wajib diisi.', 'err'); return false; }
             return v;
           } }
+      ]
+    });
+  }
+
+  /* ================================================================== */
+  /*  MODAL PEMILIHAN VERIFIKATOR HASIL LAB (SMART SHIFT DETECTION)     */
+  /* ================================================================== */
+  async function modalPilihVerifikator(p) {
+    const now = new Date();
+    const jam = now.getHours();
+    const menit = now.getMinutes();
+    const totalMenit = jam * 60 + menit;
+
+    // Shift Pagi: 07:00 (420) s/d 14:30 (870)
+    // Shift Malam: 14:31 s/d 22:00 (atau di luar shift pagi)
+    const isPagi = totalMenit >= 420 && totalMenit <= 870;
+    const defaultVerifikator = isPagi ? 'DEDE KURNIASIH' : 'Nabila Nadhifatul Jannah';
+
+    // Ambil daftar analis dari master pegawai jika tersedia
+    let listPegawai = [];
+    try {
+      if (typeof DB !== 'undefined' && DB.daftarPegawai) {
+        listPegawai = await DB.daftarPegawai().catch(() => []);
+      }
+    } catch (_) {}
+
+    const pegDede = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('DEDE'));
+    const pegNabila = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('NABILA'));
+
+    const namaPasien = p?.nama || p?.pasien?.nama || 'Pasien';
+    const noLab = p?.no_lab || p?.no_medrec || '-';
+
+    const modalIsi = `
+      <div style="font-size: 13px; line-height: 1.5; color: #1e293b;">
+        <div style="background: #f1f5f9; padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; border-left: 4px solid #0f766e;">
+          <div style="font-weight: 700; color: #0f172a; font-size: 13.5px;">${UI.esc(namaPasien)}</div>
+          <div style="color: #64748b; font-size: 11.5px; margin-top: 2px;">
+            No. Lab: <b style="color: #0f766e;">${UI.esc(noLab)}</b> · Jam Saat Ini: <b>${('0'+jam).slice(-2)}:${('0'+menit).slice(-2)} WIB</b>
+          </div>
+        </div>
+
+        <label style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 12.5px; color: #334155;">
+          Pilih Analis yang Bertugas Memverifikasi:
+        </label>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;" id="boxPilihanVerifikator">
+          <label style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid ${defaultVerifikator === 'DEDE KURNIASIH' ? '#0f766e' : '#cbd5e1'}; background: ${defaultVerifikator === 'DEDE KURNIASIH' ? '#f0fdfa' : '#fff'}; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">
+            <input type="radio" name="optVerifikator" value="DEDE KURNIASIH" data-id="${pegDede?.id || ''}" ${defaultVerifikator === 'DEDE KURNIASIH' ? 'checked' : ''} style="accent-color: #0f766e; width: 16px; height: 16px;">
+            <div style="flex: 1;">
+              <div style="font-weight: 700; color: #0f172a;">DEDE KURNIASIH</div>
+              <div style="font-size: 11px; color: #64748b;">Analis Shift Pagi (07:00 - 14:30 WIB)</div>
+            </div>
+            ${isPagi ? `<span style="font-size: 10.5px; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Shift Aktif</span>` : ''}
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? '#0f766e' : '#cbd5e1'}; background: ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? '#f0fdfa' : '#fff'}; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">
+            <input type="radio" name="optVerifikator" value="Nabila Nadhifatul Jannah" data-id="${pegNabila?.id || ''}" ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? 'checked' : ''} style="accent-color: #0f766e; width: 16px; height: 16px;">
+            <div style="flex: 1;">
+              <div style="font-weight: 700; color: #0f172a;">Nabila Nadhifatul Jannah</div>
+              <div style="font-size: 11px; color: #64748b;">Analis Shift Malam (14:31 - 22:00 WIB)</div>
+            </div>
+            ${!isPagi ? `<span style="font-size: 10.5px; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Shift Aktif</span>` : ''}
+          </label>
+        </div>
+
+        <p style="margin: 0; font-size: 11px; color: #64748b; font-style: italic;">
+          * Nama analis yang dipilih akan tercatat permanen pada lembar cetak hasil dan dihitung pada bonus kinerja laboratorium.
+        </p>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const box = document.getElementById('boxPilihanVerifikator');
+      if (box) {
+        box.querySelectorAll('label').forEach(lbl => {
+          lbl.addEventListener('click', () => {
+            box.querySelectorAll('label').forEach(l => {
+              l.style.borderColor = '#cbd5e1';
+              l.style.background = '#fff';
+            });
+            lbl.style.borderColor = '#0f766e';
+            lbl.style.background = '#f0fdfa';
+          });
+        });
+      }
+    }, 60);
+
+    return await UI.modal({
+      judul: 'Verifikasi & Kunci Hasil Laboratorium',
+      isi: modalIsi,
+      tombol: [
+        { teks: 'Batal', nilai: null },
+        {
+          teks: 'Konfirmasi Verifikasi',
+          kelas: 'btn-primary',
+          aksi: (b) => {
+            const checked = b.querySelector('input[name="optVerifikator"]:checked');
+            if (!checked) {
+              UI.toast('Pilih analis verifikator terlebih dahulu.', 'err');
+              return false;
+            }
+            const nama = checked.value;
+            const id = checked.dataset.id || (nama === 'DEDE KURNIASIH' ? pegDede?.id : pegNabila?.id) || null;
+            return { nama, id, waktu: new Date().toISOString() };
+          }
+        }
       ]
     });
   }
@@ -2116,13 +2223,25 @@ const Lab = (() => {
     `);
 
     // 5. TANDA TANGAN & PENGESAHAN
+    let namaVerifikatorTampil = p.verifikator || (p.penutup?.nama && p.penutup.nama.toLowerCase() !== 'master' ? p.penutup.nama : null);
+    if (!namaVerifikatorTampil) {
+      if (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') {
+        namaVerifikatorTampil = dicetakOleh;
+      } else {
+        namaVerifikatorTampil = 'DEDE KURNIASIH';
+      }
+    }
+    const waktuVerifTampil = p.tgl_verifikasi
+      ? p.tgl_verifikasi.replace('T', ' ').substring(0, 19)
+      : (p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : jamSampel);
+
     tulis(`
       <div class="sig-container">
         <div class="sig-box">
           <div class="role">${isEng ? 'Verified by (Analyst),' : 'Verifikator,'}</div>
           <div style="height: 52px;"></div>
-          <div class="name">${UI.esc(p.penutup?.nama || dicetakOleh)}</div>
-          <div class="time">${isEng ? 'Timestamp: ' : 'Waktu: '}${p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : jamSampel}</div>
+          <div class="name">${UI.esc(namaVerifikatorTampil)}</div>
+          <div class="time">${isEng ? 'Timestamp: ' : 'Waktu: '}${UI.esc(waktuVerifTampil)}</div>
         </div>
         <div class="sig-box" style="align-items: flex-end; text-align: right;">
           <div class="role" style="text-align: right;">${isEng ? 'Clinical Pathologist in Charge,' : 'Penanggung Jawab,'}</div>
@@ -3431,7 +3550,8 @@ const Lab = (() => {
 
           const btnV = kanan.querySelector('#btnVerify');
           if (btnV) btnV.onclick = async () => {
-            if (!await UI.konfirmasi('Yakin ingin memverifikasi (mengunci) lembar hasil ini? Setelah diverifikasi, hasil tidak bisa diubah.')) return;
+            const verif = await modalPilihVerifikator(p);
+            if (!verif) return;
             try {
               if (skylabState.syncTimer) {
                 clearInterval(skylabState.syncTimer);
@@ -3470,8 +3590,10 @@ const Lab = (() => {
                 await Promise.all(simpanTunda);
               }
 
-              await DB.labSelesaikan(p.id);
-              UI.toast('Lembar berhasil diverifikasi!');
+              await DB.labSelesaikan(p.id, verif);
+              p.verifikator = verif.nama;
+              p.tgl_verifikasi = verif.waktu;
+              UI.toast('Lembar berhasil diverifikasi oleh ' + verif.nama);
               await muat();
               await bukaHasil(p.id);
             } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }
@@ -4161,10 +4283,13 @@ const Lab = (() => {
 
           const btnV = kanan.querySelector('#btnVerifyFisik');
           if (btnV) btnV.onclick = async () => {
-            if (!await UI.konfirmasi('Verifikasi hasil pemeriksaan fisik ini? Setelah diverifikasi, data akan dikunci.')) return;
+            const verif = await modalPilihVerifikator(p);
+            if (!verif) return;
             try {
-              await DB.labSelesaikan(p.id);
-              UI.toast('Pemeriksaan fisik berhasil diverifikasi.');
+              await DB.labSelesaikan(p.id, verif);
+              p.verifikator = verif.nama;
+              p.tgl_verifikasi = verif.waktu;
+              UI.toast('Pemeriksaan fisik berhasil diverifikasi oleh ' + verif.nama);
               await muat();
               await bukaFisik(p.id);
             } catch(err) { UI.toast('Gagal: ' + err.message, 'err'); }
@@ -4544,10 +4669,13 @@ const Lab = (() => {
 
           const btnV = kanan.querySelector('#btnVerifyAnamnesa');
           if (btnV) btnV.onclick = async () => {
-            if (!await UI.konfirmasi('Verifikasi hasil anamnesa ini? Setelah diverifikasi, data akan dikunci.')) return;
+            const verif = await modalPilihVerifikator(p);
+            if (!verif) return;
             try {
-              await DB.labSelesaikan(p.id);
-              UI.toast('Anamnesa berhasil diverifikasi.');
+              await DB.labSelesaikan(p.id, verif);
+              p.verifikator = verif.nama;
+              p.tgl_verifikasi = verif.waktu;
+              UI.toast('Anamnesa berhasil diverifikasi oleh ' + verif.nama);
               await muat();
               await bukaAnamnesa(p.id);
             } catch(err) { UI.toast('Gagal: ' + err.message, 'err'); }
@@ -5065,10 +5193,13 @@ const Lab = (() => {
 
           const btnV = kanan.querySelector('#btnVerifySperma');
           if (btnV) btnV.onclick = async () => {
-            if (!await UI.konfirmasi('Verifikasi analisa sperma ini? Setelah diverifikasi, data akan dikunci.')) return;
+            const verif = await modalPilihVerifikator(p);
+            if (!verif) return;
             try {
-              await DB.labSelesaikan(p.id);
-              UI.toast('Analisa sperma berhasil diverifikasi.');
+              await DB.labSelesaikan(p.id, verif);
+              p.verifikator = verif.nama;
+              p.tgl_verifikasi = verif.waktu;
+              UI.toast('Analisa sperma berhasil diverifikasi oleh ' + verif.nama);
               await muat();
               await bukaSperma(p.id);
             } catch(err) { UI.toast('Gagal: ' + err.message, 'err'); }

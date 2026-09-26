@@ -2174,8 +2174,8 @@ const Laporan = (() => {
     function prosesDanGambar(container) {
       const { pegawai = [], kunjungan = [], lab = [], surat = [], kasir = [] } = dataRaw || {};
 
-      // Hanya daftarkan karyawan dengan role 'karyawan'
-      const stafKaryawan = pegawai.filter(p => p.peran === 'karyawan');
+      // Daftarkan staf karyawan dan analis laboratorium
+      const stafKaryawan = pegawai.filter(p => p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE')));
       const mapPeg = new Map();
       stafKaryawan.forEach(p => {
         mapPeg.set(p.id, {
@@ -2221,11 +2221,24 @@ const Laporan = (() => {
         });
       });
 
-      // 2. Verifikasi Lab (hanya hitung jika divalidasi oleh karyawan)
+      // 2. Verifikasi Lab (hanya hitung jika divalidasi oleh karyawan/analis)
       lab.forEach(l => {
-        const pId = l.selesai_oleh;
-        const p = mapPeg.get(pId);
-        if (!p) return; // Lewati jika bukan role karyawan
+        let pId = l.selesai_oleh;
+        let p = mapPeg.get(pId);
+        if (!p && l.verifikator) {
+          for (const [id, peg] of mapPeg.entries()) {
+            const vNama = (l.verifikator || '').toLowerCase();
+            const pNama = (peg.nama || '').toLowerCase();
+            if (vNama.includes(pNama) || pNama.includes(vNama) ||
+                (vNama.includes('dede') && pNama.includes('dede')) ||
+                (vNama.includes('nabila') && pNama.includes('nabila'))) {
+              p = peg;
+              pId = id;
+              break;
+            }
+          }
+        }
+        if (!p) return; // Lewati jika bukan role karyawan/analis
         p.verif++;
         p.total++;
         const ts = new Date(l.waktu_selesai || (l.tanggal + 'T09:00:00'));

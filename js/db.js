@@ -2105,9 +2105,50 @@ const DB = (() => {
       .update(patch).eq('id', id).select().single();
     if (error) throw error; return data;
   }
-  async function labSelesaikan(id) {
+  async function labSelesaikan(id, verifikator = null) {
     const { error } = await sb.rpc('lab_selesaikan', { p_permintaan_id: id });
     if (error) throw error;
+
+    if (verifikator) {
+      let namaVerifikator = typeof verifikator === 'object' ? verifikator.nama : verifikator;
+      let pegawaiId = typeof verifikator === 'object' ? verifikator.id : null;
+
+      // Cari pegawaiId jika belum ada
+      if (!pegawaiId && namaVerifikator) {
+        try {
+          const kataKunci = namaVerifikator.split(' ')[0];
+          const { data: pData } = await sb.from('pegawai')
+            .select('id, nama')
+            .ilike('nama', `%${kataKunci}%`)
+            .limit(1);
+          if (pData && pData.length > 0) {
+            pegawaiId = pData[0].id;
+          }
+        } catch (_) {}
+      }
+
+      const nowIso = new Date().toISOString();
+      const patch = {};
+      if (pegawaiId) patch.selesai_oleh = pegawaiId;
+      if (namaVerifikator) {
+        patch.verifikator = namaVerifikator;
+        patch.tgl_verifikasi = nowIso;
+      }
+
+      try {
+        const { error: errUpdate } = await sb.from('lab_permintaan').update(patch).eq('id', id);
+        if (errUpdate && pegawaiId) {
+          // Fallback bila kolom verifikator belum ada di PostgreSQL Supabase
+          await sb.from('lab_permintaan').update({ selesai_oleh: pegawaiId }).eq('id', id);
+        }
+      } catch (_) {
+        if (pegawaiId) {
+          try {
+            await sb.from('lab_permintaan').update({ selesai_oleh: pegawaiId }).eq('id', id);
+          } catch (_) {}
+        }
+      }
+    }
   }
   async function labBukaKunci(id, alasan) {
     const { error } = await sb.rpc('lab_buka_kunci', { p_permintaan_id: id, p_alasan: alasan });
@@ -3160,7 +3201,7 @@ const DB = (() => {
      Pendaftaran, Verifikasi Lab, Pembuatan Surat, dan Kasir beserta timestamp jam lengkap. */
   async function laporanKaryawanAktivitas({ dari, sampai }) {
     const [pegawai, kunjungan, lab, surat, kasir] = await Promise.all([
-      sb.from('pegawai').select('id, nama, peran, aktif').eq('peran', 'karyawan').order('nama').then(r => r.data || []),
+      sb.from('pegawai').select('id, nama, peran, aktif').or('peran.eq.karyawan,nama.ilike.%DEDE%').order('nama').then(r => r.data || []),
       ambilSemua(() =>
         sb.from('kunjungan')
           .select('id, no_kunjungan, tanggal, waktu_daftar, created_at, created_by, status, cara_bayar, pasien:pasien_id(id, no_rm, nama)')
@@ -3859,7 +3900,7 @@ const DB = (() => {
   /* --- KPI & Bonus Karyawan --- */
   async function daftarPegawaiStaff() {
     const list = await daftarPegawai();
-    return (list || []).filter(p => p.aktif && p.peran === 'karyawan');
+    return (list || []).filter(p => p.aktif && (p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE'))));
   }
 
   async function kpiDaftar(bulan, tahun) {

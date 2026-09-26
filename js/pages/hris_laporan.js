@@ -90,8 +90,20 @@ const HrisLaporan = (() => {
       };
     }
 
+    const targetPeg = (dataPegawai || []).find(p => p.id === pegawaiId);
+    const namaTarget = targetPeg ? (targetPeg.nama || '').trim().toLowerCase() : '';
+
     const kList = (dataAktivitas?.kunjungan || []).filter(k => k.created_by === pegawaiId);
-    const lList = (dataAktivitas?.lab || []).filter(l => l.selesai_oleh === pegawaiId);
+    const lList = (dataAktivitas?.lab || []).filter(l => {
+      if (l.selesai_oleh === pegawaiId) return true;
+      if (namaTarget) {
+        const vNama = (l.verifikator || '').trim().toLowerCase();
+        if (vNama && (vNama.includes(namaTarget) || namaTarget.includes(vNama))) return true;
+        if (namaTarget.includes('dede') && vNama.includes('dede')) return true;
+        if (namaTarget.includes('nabila') && vNama.includes('nabila')) return true;
+      }
+      return false;
+    });
     const sList = (dataAktivitas?.surat || []).filter(s => s.dibuat_oleh === pegawaiId);
     const bList = (dataAktivitas?.kasir || []).filter(b => b.dibuat_oleh === pegawaiId);
 
