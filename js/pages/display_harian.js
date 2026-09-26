@@ -899,7 +899,7 @@ const DisplayHarian = (() => {
         }
       }
 
-      const svg = buatBarcodeSVG(lbl.idBarcode, 38, 1.5);
+      const svg = buatBarcodeSVG(lbl.idBarcode, 32, 1.25);
 
       return `
         <div class="label-tube">
@@ -957,12 +957,12 @@ const DisplayHarian = (() => {
             }
           }
           .label-tube {
-            width: 100% !important;
-            max-width: 72mm !important;
+            width: 48mm !important;
+            max-width: 48mm !important;
             height: 28mm !important;
             max-height: 28mm !important;
             margin: 0 auto !important;
-            padding: 1mm 1.5mm !important;
+            padding: 1mm 1mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -981,15 +981,15 @@ const DisplayHarian = (() => {
             break-after: avoid !important;
           }
           .col-id {
-            width: 4.8mm;
-            min-width: 4.8mm;
+            width: 4.5mm;
+            min-width: 4.5mm;
             height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7.5pt;
+            font-size: 7pt;
             font-weight: 700;
             line-height: 1;
             letter-spacing: 0.2px;
@@ -1013,8 +1013,8 @@ const DisplayHarian = (() => {
           }
           .barcode-wrap {
             width: 100%;
-            max-width: 48mm;
-            height: 13mm;
+            max-width: 34mm;
+            height: 12.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1029,9 +1029,9 @@ const DisplayHarian = (() => {
           }
           .patient-name {
             margin-top: 0.5mm;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            line-height: 1.15;
+            line-height: 1.1;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
@@ -1043,7 +1043,7 @@ const DisplayHarian = (() => {
           }
           .patient-sub {
             margin-top: 0.3mm;
-            font-size: 9.5px;
+            font-size: 8.5px;
             font-weight: 700;
             line-height: 1.1;
             text-align: center;
@@ -1056,15 +1056,15 @@ const DisplayHarian = (() => {
             color: #000;
           }
           .col-dept {
-            width: 5.5mm;
-            min-width: 5.5mm;
+            width: 4.5mm;
+            min-width: 4.5mm;
             height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7.5pt;
+            font-size: 7pt;
             font-weight: 700;
             line-height: 1;
             letter-spacing: 0.2px;
