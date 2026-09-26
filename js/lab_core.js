@@ -137,6 +137,58 @@ const LabCore = (() => {
      Kalau urutannya dibalik, kasus paling gawat justru tampil paling
      tenang.
      ------------------------------------------------------------------ */
+  /**
+   * Mengurai teks rujukan bebas menjadi batas terstruktur:
+   * - Rentang: "10 - 20", "10.5 - 25.0", "70-110", "70 s/d 110", "70 sampai 110"
+   * - Kurang Dari: "< 200", "<= 150"
+   * - Lebih Dari: "> 50", ">= 40"
+   * - Kualitatif: "Negatif", "Non Reaktif", dll.
+   */
+  function uraiTeksRujukan(teksRuj) {
+    if (!teksRuj || typeof teksRuj !== 'string') return null;
+    const s = teksRuj.trim();
+    if (!s) return null;
+
+    // 1. Rentang Angka
+    const mRentang = s.match(/^(-?\d+(?:[.,]\d+)?)\s*(?:-|s\/?d|s\.d|sampai)\s*(-?\d+(?:[.,]\d+)?)/i);
+    if (mRentang) {
+      const min = parseFloat(mRentang[1].replace(/,/g, '.'));
+      const max = parseFloat(mRentang[2].replace(/,/g, '.'));
+      if (!isNaN(min) && !isNaN(max)) {
+        return { tipe: 'RENTANG', min, max, teks: s };
+      }
+    }
+
+    // 2. Operator Kurang Dari
+    const mKurang = s.match(/^<=\s*(-?\d+(?:[.,]\d+)?)|^<\s*(-?\d+(?:[.,]\d+)?)/);
+    if (mKurang) {
+      const max = parseFloat((mKurang[1] || mKurang[2]).replace(/,/g, '.'));
+      if (!isNaN(max)) {
+        return { tipe: 'KURANG_DARI', max, teks: s };
+      }
+    }
+
+    // 3. Operator Lebih Dari
+    const mLebih = s.match(/^>=\s*(-?\d+(?:[.,]\d+)?)|^>\s*(-?\d+(?:[.,]\d+)?)/);
+    if (mLebih) {
+      const min = parseFloat((mLebih[1] || mLebih[2]).replace(/,/g, '.'));
+      if (!isNaN(min)) {
+        return { tipe: 'LEBIH_DARI', min, teks: s };
+      }
+    }
+
+    // 4. Kualitatif / Teks
+    return { tipe: 'TEKS', teksNormal: s, teks: s };
+  }
+
+  /* ------------------------------------------------------------------
+     Menandai sebuah nilai. Kembaran lab_tanda() di 11_penunjang.sql.
+
+     Nilai kritis diperiksa LEBIH DULU daripada batas biasa: hemoglobin
+     6,2 bukan sekadar "rendah", ia harus segera diberitahukan ke dokter.
+     Kalau urutannya dibalik, kasus paling gawat justru tampil paling
+     tenang.
+     ------------------------------------------------------------------ */
   function tandaAngka(nilai, ruj) {
     if (nilai === null || nilai === undefined || nilai === '' || isNaN(nilai)) return 'BELUM';
     const r = ruj || {};
@@ -144,17 +196,18 @@ const LabCore = (() => {
     let kb = r.kritis_bawah, ka = r.kritis_atas;
     let bb = r.batas_bawah,  ba = r.batas_atas;
 
-    // Jika batas_bawah / batas_atas belum di-parse tapi ada r.teks (misal: "12 - 16" atau "8.1 - 10.4")
+    // Jika batas_bawah / batas_atas belum di-parse tapi ada r.teks
     if ((bb === null || bb === undefined) && (ba === null || ba === undefined) && r.teks) {
-      const mTeks = String(r.teks).match(/([\d.,]+)\s*-\s*([\d.,]+)/);
-      if (mTeks) {
-        bb = parseFloat(mTeks[1].replace(',', '.'));
-        ba = parseFloat(mTeks[2].replace(',', '.'));
-      } else {
-        const mKurang = String(r.teks).match(/<\s*([\d.,]+)/);
-        if (mKurang) ba = parseFloat(mKurang[1].replace(',', '.'));
-        const mLebih = String(r.teks).match(/>\s*([\d.,]+)/);
-        if (mLebih) bb = parseFloat(mLebih[1].replace(',', '.'));
+      const parsed = uraiTeksRujukan(r.teks);
+      if (parsed) {
+        if (parsed.tipe === 'RENTANG') {
+          bb = parsed.min;
+          ba = parsed.max;
+        } else if (parsed.tipe === 'KURANG_DARI') {
+          ba = parsed.max;
+        } else if (parsed.tipe === 'LEBIH_DARI') {
+          bb = parsed.min;
+        }
       }
     }
 
@@ -213,6 +266,86 @@ const LabCore = (() => {
       return tandaAngka(parseFloat(String(nilaiTeks).replace(',', '.')), ruj);
     }
     return tandaTeks(nilaiTeks, lab.teks_normal);
+  }
+
+  /**
+   * Mengevaluasi hasil pemeriksaan terhadap teks rujukan secara dinamis
+   * @param {string|number} nilai - Nilai hasil laboratorium
+   * @param {string} teksRuj - Teks nilai rujukan (misal "10 - 20", "< 200", "Negatif")
+   * @param {object} opsi - Metadata tambahan: { kode, nama, ref }
+   * @returns {{ abnormal: boolean, tanda: string }}
+   */
+  function evaluasiHasil(nilai, teksRuj, opsi = {}) {
+    if (nilai === null || nilai === undefined || nilai === '' || nilai === '—' || nilai === '-') {
+      return { abnormal: false, tanda: 'BELUM' };
+    }
+
+    const kode = String(opsi.kode || (opsi.ref && opsi.ref.kode) || '').trim().toUpperCase();
+    const nama = String(opsi.nama || (opsi.ref && opsi.ref.nama) || '').trim().toLowerCase();
+    const isHba1c = (kode === 'K0335' || /hba\s*1\s*c|hba1c/i.test(nama));
+
+    const rawStr = String(nilai).trim();
+    const valClean = rawStr.replace(/,/g, '.');
+    const numVal = parseFloat(valClean);
+    const isNum = !isNaN(numVal) && /^-?\d+(?:[.,]\d+)?$/.test(rawStr.replace(/\s+/g, ''));
+
+    const parsed = uraiTeksRujukan(teksRuj);
+
+    // 1. Fallback khusus HbA1c (Kode K0335)
+    // Tetap pertahankan aturan khusus jika nilai rujukan default (flag '*' jika hasil numerik > 6.5),
+    // kecuali jika analis sengaja menentukan rentang baru.
+    if (isHba1c) {
+      if (parsed && (parsed.tipe === 'RENTANG' || parsed.tipe === 'KURANG_DARI' || parsed.tipe === 'LEBIH_DARI')) {
+        // Analis sengaja menentukan rentang baru
+      } else if (isNum) {
+        return { abnormal: numVal > 6.5, tanda: numVal > 6.5 ? 'TINGGI' : 'NORMAL' };
+      }
+    }
+
+    // 2. Evaluasi berbasis parser teks rujukan dinamis
+    if (parsed) {
+      if (parsed.tipe === 'RENTANG') {
+        if (isNum) {
+          if (numVal < parsed.min) return { abnormal: true, tanda: 'RENDAH' };
+          if (numVal > parsed.max) return { abnormal: true, tanda: 'TINGGI' };
+          return { abnormal: false, tanda: 'NORMAL' };
+        }
+      } else if (parsed.tipe === 'KURANG_DARI') {
+        if (isNum) {
+          if (numVal > parsed.max) return { abnormal: true, tanda: 'TINGGI' };
+          return { abnormal: false, tanda: 'NORMAL' };
+        }
+      } else if (parsed.tipe === 'LEBIH_DARI') {
+        if (isNum) {
+          if (numVal < parsed.min) return { abnormal: true, tanda: 'RENDAH' };
+          return { abnormal: false, tanda: 'NORMAL' };
+        }
+      } else if (parsed.tipe === 'TEKS') {
+        const tn = parsed.teksNormal.toLowerCase().trim();
+        const vLow = rawStr.toLowerCase().trim();
+        if (vLow === tn) return { abnormal: false, tanda: 'NORMAL' };
+        if (/negatif|non\s*reaktif|normal/i.test(tn)) {
+          if (/positif|reaktif|abnormal/i.test(vLow)) return { abnormal: true, tanda: 'ABNORMAL' };
+          if (/negatif|non\s*reaktif|normal/i.test(vLow)) return { abnormal: false, tanda: 'NORMAL' };
+        }
+        if (/^(positif|reaktif|abnormal|ditemukan|keruh|merah|pos|\+)/i.test(vLow)) {
+          return { abnormal: true, tanda: 'ABNORMAL' };
+        }
+        if (/^(negatif|non\s*reaktif|normal|-)/i.test(vLow)) {
+          return { abnormal: false, tanda: 'NORMAL' };
+        }
+      }
+    }
+
+    // 3. Fallback nilai numerik tanpa rujukan atau nilai kualitatif bebas
+    if (isNum) {
+      return { abnormal: false, tanda: 'NORMAL' };
+    }
+    const vLow = rawStr.toLowerCase();
+    if (/^(positif|reaktif|abnormal|ditemukan|keruh|merah|pos|\+)/i.test(vLow)) {
+      return { abnormal: true, tanda: 'ABNORMAL' };
+    }
+    return { abnormal: false, tanda: 'NORMAL' };
   }
 
   /* ------------------------------------------------------------------
@@ -523,7 +656,7 @@ const LabCore = (() => {
   const API = {
     TANDA, JENIS_PENUNJANG, JENIS_LAMPIRAN, REF_FISIK, REF_ANAMNESA, REF_SPERMA,
     labelJenis, jenisPakaiGigi, labelLampiran,
-    umurBulan, pilihRujukan, tandaAngka, tandaTeks, tandai,
+    umurBulan, pilihRujukan, tandaAngka, tandaTeks, tandai, uraiTeksRujukan, evaluasiHasil,
     fmSql, teksRujukan, bacaNilai, formatNilai,
     ringkasLembar, urutMenonjol, kelompokkan, susunTren, validasi,
     hasilFisikTeks, hasilAnamnesaTeks
