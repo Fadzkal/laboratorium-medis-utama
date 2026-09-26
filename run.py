@@ -116,6 +116,7 @@ def main():
     print(f"  [OK] Display Antrean Harian   : http://localhost:{PORT_WEB}/display.html")
     print(f"  [OK] Alat Sysmex XP-100 (ASTM): Port 8000 (ASTM E1381/E1394)")
     print(f"  [OK] Alat Mindray BS-240(HL7) : Port 7118 (HL7 MLLP)")
+    print(f"  [OK] Alat Wondfo III Plus(HL7): Port 8001 (HL7 MLLP)")
     print(f"  [OK] LIS Local REST API       : http://127.0.0.1:7119")
     print("=" * 74)
     print("  Status: SEMUA LAYANAN AKTIF DALAM 1 TERMINAL")

@@ -46,6 +46,12 @@ PORT_MINDRAY = 7118
 # Port untuk mendengarkan Sysmex XP-100 (Protokol ASTM E1381/E1394)
 HOST_SYSMEX = "0.0.0.0"
 PORT_SYSMEX = 8000
+# Port cadangan Sysmex jika port 8000 terpakai / bentrok (WinError 10013)
+PORT_SYSMEX_FALLBACK = [8005, 8010, 5100]
+
+# Port untuk mendengarkan Wondfo Finecare III Plus (Protokol HL7 MLLP)
+HOST_WONDFO = "0.0.0.0"
+PORT_WONDFO = 8001
 
 # ---------------------------------------------------------------------------
 # 5. LOCAL REST API (Untuk Sinkronisasi Langsung ke Browser)
@@ -60,4 +66,5 @@ PORT_LOCAL_API = 7119
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 CSV_LOG_FILE = os.path.join(LOG_DIR, "hasil_alat_log.csv")
+WONDFO_CSV_FILE = os.path.join(LOG_DIR, "wondfo_results.csv")
 JSON_BUFFER_FILE = os.path.join(LOG_DIR, "buffer_terakhir.json")

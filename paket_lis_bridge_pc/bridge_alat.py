@@ -33,25 +33,17 @@ from config import (
     PORT_MINDRAY,
     HOST_SYSMEX,
     PORT_SYSMEX,
+    PORT_SYSMEX_FALLBACK,
+    HOST_WONDFO,
+    PORT_WONDFO,
     HOST_LOCAL_API,
     PORT_LOCAL_API,
     LOG_DIR,
     CSV_LOG_FILE,
+    WONDFO_CSV_FILE,
     JSON_BUFFER_FILE,
 )
 from db_adapter import get_adapter
-
-# Konfigurasi Wondfo III Plus (TCP Socket Port 8001)
-HOST_WONDFO = "0.0.0.0"
-PORT_WONDFO = 8001
-try:
-    import config
-    if hasattr(config, "HOST_WONDFO"):
-        HOST_WONDFO = config.HOST_WONDFO
-    if hasattr(config, "PORT_WONDFO"):
-        PORT_WONDFO = config.PORT_WONDFO
-except Exception:
-    pass
 
 # Setup Logging
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -104,6 +96,32 @@ def catat_ke_csv(sample_id: str, nama_pasien: str, alat: str, hasil_list: list):
                 ])
     except Exception as e:
         logger.error(f"Gagal mencatat ke CSV log: {e}")
+
+
+def catat_ke_wondfo_csv(sample_id: str, nama_pasien: str, hasil_list: list, sample_type: str = ""):
+    """Menyimpan backup hasil pemeriksaan Wondfo III Plus ke CSV khusus wondfo_results.csv"""
+    file_ada = os.path.exists(WONDFO_CSV_FILE)
+    waktu_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        with open(WONDFO_CSV_FILE, mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_ada:
+                writer.writerow(["Waktu", "Sample_ID", "Nama_Pasien", "Tipe_Sampel", "Parameter", "Nilai", "Satuan", "Rujukan", "Flag"])
+            for h in hasil_list:
+                writer.writerow([
+                    waktu_str,
+                    sample_id,
+                    nama_pasien,
+                    sample_type,
+                    h.get("test_name", ""),
+                    h.get("value", ""),
+                    h.get("unit", ""),
+                    h.get("ref_range", ""),
+                    h.get("flag", "")
+                ])
+    except Exception as e:
+        logger.error(f"Gagal mencatat ke wondfo_results.csv: {e}")
 
 
 def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: list, raw_msg: str = "", metadata: dict = None):
@@ -408,18 +426,37 @@ def parse_astm_records(raw_frames: list):
 
 
 def sysmex_worker():
-    """Thread server socket untuk Sysmex XP-100"""
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    """Thread server socket untuk Sysmex XP-100 dengan fallback otomatis jika port bentrok (WinError 10013)"""
+    candidate_ports = [PORT_SYSMEX]
+    for p in PORT_SYSMEX_FALLBACK:
+        if p not in candidate_ports:
+            candidate_ports.append(p)
 
-    try:
-        server.bind((HOST_SYSMEX, PORT_SYSMEX))
-        server.listen(5)
-        STATUS_LISTENER["sysmex"]["status"] = "AKTIF"
-        logger.info(f"Listener Sysmex XP-100 AKTIF mendengarkan pada port {PORT_SYSMEX}")
-    except Exception as e:
-        STATUS_LISTENER["sysmex"]["status"] = f"ERROR: {e}"
-        logger.error(f"Gagal mengikat port Sysmex {PORT_SYSMEX}: {e}")
+    server = None
+    active_port = None
+
+    for port_try in candidate_ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((HOST_SYSMEX, port_try))
+            s.listen(5)
+            server = s
+            active_port = port_try
+            STATUS_LISTENER["sysmex"]["port"] = active_port
+            STATUS_LISTENER["sysmex"]["status"] = "AKTIF"
+            logger.info(f"Listener Sysmex XP-100 AKTIF mendengarkan pada port {active_port}")
+            break
+        except (OSError, socket.error) as err:
+            logger.warning(f"Gagal mengikat port Sysmex {port_try} ({err}). Mencoba port cadangan...")
+            try:
+                s.close()
+            except Exception:
+                pass
+
+    if not server:
+        STATUS_LISTENER["sysmex"]["status"] = f"ERROR: Port Sysmex {candidate_ports} gagal diikat (WinError 10013 / bentrok)"
+        logger.error(f"Listener Sysmex dinonaktifkan sementara karena semua port {candidate_ports} terblokir.")
         return
 
     while True:
@@ -705,13 +742,16 @@ def wondfo_worker():
                             logger.error(f"Gagal kirim ACK ke Wondfo: {eAck}")
 
                     if sample_id and results:
-                        catat_ke_csv(sample_id, patient_name, "Wondfo III Plus", results)
-                        perbarui_buffer(sample_id, patient_name, "Wondfo III Plus", results, raw_msg=raw_msg, metadata=meta)
+                        # 1. Catat ke CSV log umum dan CSV khusus Wondfo
+                        catat_ke_csv(sample_id, patient_name, "WONDFO_III_PLUS", results)
+                        catat_ke_wondfo_csv(sample_id, patient_name, results, sample_type=meta.get("sample_type", ""))
+                        perbarui_buffer(sample_id, patient_name, "WONDFO_III_PLUS", results, raw_msg=raw_msg, metadata=meta)
                         STATUS_LISTENER["wondfo"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
+                        # 2. Kirim ke Database (Supabase / MySQL)
                         try:
                             adapter = get_adapter()
-                            res = adapter.sync_hasil_alat(sample_id, results, "Wondfo III Plus")
+                            res = adapter.sync_hasil_alat(sample_id, results, "WONDFO_III_PLUS")
                             logger.info(f"Hasil sinkronisasi DB Wondfo: {res.get('total_tersimpan', 0)} dari {len(results)} parameter tersimpan.")
                         except Exception as eSync:
                             logger.error(f"Gagal sync ke database Wondfo: {eSync}")
@@ -1036,10 +1076,12 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
             self.send_response(status_code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            # CORS penuh agar halaman web klinik bisa mengakses API lokal
+            # CORS penuh & Private Network Access (PNA) agar web VPS publik bisa mengakses bridge lokal
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Allow-Credentials", "true")
+            self.send_header("Access-Control-Allow-Methods", "*")
+            self.send_header("Access-Control-Allow-Headers", "*")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
@@ -1049,10 +1091,14 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             logger.error(f"Error kirim JSON response: {eSend}")
 
     def do_OPTIONS(self):
-        self.send_response(204)
+        # Tangani preflight OPTIONS request untuk semua path dengan respon HTTP 200 OK & PNA
+        self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Credentials", "true")
+        self.send_header("Access-Control-Allow-Methods", "*")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_GET(self):
@@ -1060,13 +1106,17 @@ class LocalApiHandler(BaseHTTPRequestHandler):
         path = parsed.path
         params = parse_qs(parsed.query)
 
-        # 1. Health check status
-        if path == "/api/status" or path == "/":
+        # 1. Health check status di semua variasi endpoint
+        if path in ("/", "/status", "/api/status", "/ping", "/api/ping"):
             total_tests = sum(len(x.get("hasil", [])) for x in BUFFER_RIWAYAT)
             last_time = BUFFER_RIWAYAT[0].get("waktu", "-") if BUFFER_RIWAYAT else "-"
             wondfo_aktif = STATUS_LISTENER.get("wondfo", {}).get("status") == "AKTIF"
             self._send_json({
-                "status": "ONLINE",
+                "sukses": True,
+                "status": "online",
+                "bridge": "standby",
+                "pesan": "LIS Bridge siap menerima data",
+                "alat": ["Mindray BS-240", "Sysmex XP-100", "Wondfo III Plus"],
                 "waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "listener": STATUS_LISTENER,
                 "port_8001": wondfo_aktif,
@@ -1075,7 +1125,7 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 "total_samples": len(BUFFER_RIWAYAT),
                 "total_tests": total_tests,
                 "last_sample_time": last_time
-            })
+            }, 200)
             return
 
         # 2. Ambil hasil berdasarkan nomor barcode / no_lab
