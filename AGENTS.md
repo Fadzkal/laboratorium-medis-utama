@@ -1,4 +1,4 @@
-﻿# PANDUAN KERJA & ATURAN BAKU AI AGENT (MANDATORI)
+# PANDUAN KERJA & ATURAN BAKU AI AGENT (MANDATORI)
 
 Dokumen ini berisi prinsip arsitektur dan batasan operasional yang **WAJIB dipatuhi tanpa pengecualian** oleh AI Agent saat bekerja pada repositori RME & SIM Laboratorium Medis Utama:
 
@@ -38,3 +38,11 @@ Dokumen ini berisi prinsip arsitektur dan batasan operasional yang **WAJIB dipat
 - Jika memerlukan ikon visual penanda, **hanya gunakan sistem SVG bawaan sistem** melalui fungsi:
   ```javascript
   UI.ikon('nama_ikon', ukuran) // Contoh: UI.ikon('cetak', 16)
+  ```
+
+---
+
+## 5. IMMUTABLE RULE - BARCODE LAYOUT (FORMAT CETAK STIKER 50MM X 30MM)
+- **Dilarang keras memodifikasi styling CSS cetak thermal stiker spesimen** (`.label-tube`, `.col-id`, `.col-center`, `.col-dept`, transform offset) di `js/barcode_printer.js`, `js/pages/display_harian.js`, serta logika kanvas `buat_image_label_barcode()` di `bridge/bridge_alat.py` tanpa izin eksplisit tertulis dari admin.
+- Format ini telah dikalibrasi fisik secara sempurna untuk printer Blueprint ECO 80B / 80Label dengan ukuran stiker roll 50mm x 30mm.
+- Segala rincian parameter teknis, dimensi, dan offset terkunci permanen pada berkas `BARCODE_SPEC.md`.
