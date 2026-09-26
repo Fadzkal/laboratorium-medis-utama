@@ -68,3 +68,12 @@ LOG_DIR = os.path.join(BASE_DIR, "logs")
 CSV_LOG_FILE = os.path.join(LOG_DIR, "hasil_alat_log.csv")
 WONDFO_CSV_FILE = os.path.join(LOG_DIR, "wondfo_results.csv")
 JSON_BUFFER_FILE = os.path.join(LOG_DIR, "buffer_terakhir.json")
+
+# ---------------------------------------------------------------------------
+# 7. HEARTBEAT BRIDGE (Sinkronisasi Status ke Database)
+# ---------------------------------------------------------------------------
+# Interval pengiriman heartbeat ke Supabase (detik)
+HEARTBEAT_INTERVAL_SEC = 15
+# IP lokal PC Lab yang menjalankan bridge (dipakai multi-device detection)
+IP_PC_LAB = "192.168.8.124"
+

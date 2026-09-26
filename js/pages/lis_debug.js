@@ -95,6 +95,8 @@ const LisDebug = (() => {
   let refLabMaster = [];
   let timerPolling = null;
   let autoRefreshAktif = true;
+  let sumberData = 'lokal';  // 'lokal' jika terhubung langsung, 'supabase' jika fallback
+  let statusDariDB = null;   // Heartbeat terakhir dari lis_status_bridge
 
   // Mendapatkan peta kamus kode alat
   function ambilMapKode() {
@@ -137,7 +139,6 @@ const LisDebug = (() => {
   }
 
   // Memeriksa status listener bridge lokal dan mengambil sampel buffer
-  // Memeriksa status listener bridge lokal dan mengambil sampel buffer
   async function periksaStatusListener(senyap = false) {
     const btnCek = document.getElementById('btnCekListener');
     if (btnCek && !senyap) {
@@ -149,6 +150,7 @@ const LisDebug = (() => {
       tambahLog('INFO', `Melakukan ping ke LIS Bridge (${BRIDGE_HOST}/status)...`);
     }
 
+    let langsung = false;
     try {
       const c = new AbortController();
       const tid = setTimeout(() => c.abort(), 6000);
@@ -170,6 +172,7 @@ const LisDebug = (() => {
       if (res && res.ok) {
         const j = await res.json();
         statusBridge = j;
+        langsung = true;
         const isOnline = !!(
           j.sukses === true ||
           String(j.status).toLowerCase() === 'online' ||
@@ -196,8 +199,53 @@ const LisDebug = (() => {
       statusBridge = { status: 'OFFLINE', error: err.message || 'Koneksi ditolak / Service belum aktif' };
       if (!senyap) {
         tambahLog('ERROR', `Gagal terhubung ke LIS Bridge pada 127.0.0.1:7119: ${err.message || 'Connection refused'}. Pastikan LIS Bridge aktif.`);
-        UI.toast('LIS Bridge lokal offline / tidak terjangkau.', 'err');
       }
+    }
+
+    // ---- MULTI-DEVICE FALLBACK: Cek heartbeat dari Supabase ----
+    if (!langsung) {
+      try {
+        statusDariDB = await DB.ambilStatusBridge();
+        if (statusDariDB) {
+          const lastHb = statusDariDB.last_heartbeat;
+          const terkini = lastHb ? new Date(lastHb) : null;
+          const sekarang = new Date();
+          // Jika heartbeat kurang dari 60 detik lalu, anggap bridge ONLINE di jaringan
+          const selisihDetik = terkini ? Math.abs((sekarang - terkini) / 1000) : 99999;
+          if (selisihDetik < 60) {
+            let lj = statusDariDB.listener_json || {};
+            if (typeof lj === 'string') {
+              try { lj = JSON.parse(lj); } catch (_) { lj = {}; }
+            }
+            statusBridge = {
+              sukses: true,
+              status: 'ONLINE',
+              bridge: 'standby',
+              listener: lj,
+              total_buffer: statusDariDB.total_buffer || 0,
+              total_samples: statusDariDB.total_buffer || 0,
+              _sumber: 'database'
+            };
+            sumberData = 'supabase';
+            if (!senyap) {
+              tambahLog('INFO', `Bridge terdeteksi ONLINE via heartbeat DB (${Math.round(selisihDetik)}s lalu). Perangkat ini bukan PC Lab, membaca riwayat dari database.`);
+              UI.toast('Bridge terdeteksi ONLINE via jaringan (heartbeat DB).', 'ok');
+            }
+          } else {
+            sumberData = 'supabase';
+            if (!senyap) {
+              tambahLog('WARN', `Heartbeat bridge terakhir ${Math.round(selisihDetik)}s lalu. Bridge kemungkinan OFFLINE.`);
+              UI.toast('LIS Bridge lokal offline. Menampilkan data dari database.', 'warn');
+            }
+          }
+        }
+      } catch (eDb) {
+        if (!senyap) {
+          tambahLog('WARN', `Gagal cek heartbeat dari database: ${eDb.message}`);
+        }
+      }
+    } else {
+      sumberData = 'lokal';
     }
 
     const isBridgeConnected = !!(
@@ -208,15 +256,14 @@ const LisDebug = (() => {
       )
     );
 
-    // Ambil daftar sampel terakhir jika bridge online
-    if (isBridgeConnected) {
+    // Ambil daftar sampel: prioritas lokal, fallback Supabase
+    if (langsung && isBridgeConnected) {
       try {
         const resBuf = await fetch(`${BRIDGE_HOST}/api/terakhir`);
         if (resBuf.ok) {
           const jBuf = await resBuf.json();
           const daftarBaru = (jBuf && jBuf.data) ? jBuf.data : [];
 
-          // Deteksi sampel baru untuk auto-notifikasi
           if (daftarSampel.length > 0 && daftarBaru.length > daftarSampel.length) {
             const sidBaru = daftarBaru[0]?.sample_id;
             tambahLog('SUCCESS', `Sampel baru diterima dari alat: #${sidBaru} (${daftarBaru[0]?.alat || 'Alat'})`);
@@ -224,17 +271,39 @@ const LisDebug = (() => {
           }
 
           daftarSampel = daftarBaru;
-
-          // Jika belum ada sampel terpilih, pilih sampel pertama
-          if (!sampelTerpilih && daftarSampel.length > 0) {
-            sampelTerpilih = daftarSampel[0];
-          } else if (sampelTerpilih) {
-            // Update data sampel aktif jika ada data terbaru
-            const cocokan = daftarSampel.find(s => String(s.sample_id) === String(sampelTerpilih.sample_id));
-            if (cocokan) sampelTerpilih = cocokan;
-          }
+          sumberData = 'lokal';
         }
       } catch (_) {}
+    } else {
+      // Fallback: ambil dari Supabase lis_riwayat_sampel
+      try {
+        const dataSb = await DB.ambilRiwayatSampelLIS(100);
+        if (dataSb && dataSb.length > 0) {
+          // Normalisasi field supaya konsisten dengan format bridge
+          daftarSampel = dataSb.map(r => ({
+            id: r.id,
+            sample_id: r.sample_id,
+            nama_pasien: r.nama_pasien || 'Pasien',
+            alat: r.alat || '',
+            waktu: r.waktu_terima ? new Date(r.waktu_terima).toLocaleString('id-ID') : '-',
+            hasil: Array.isArray(r.hasil_json) ? r.hasil_json : (typeof r.hasil_json === 'string' ? JSON.parse(r.hasil_json || '[]') : []),
+            raw_hl7: r.raw_data || '',
+            status_mapping: r.status_mapping || 'BELUM',
+            metadata: {}
+          }));
+          sumberData = 'supabase';
+        }
+      } catch (eSb) {
+        tambahLog('WARN', `Gagal memuat riwayat dari database: ${eSb.message}`);
+      }
+    }
+
+    // Pilih sampel pertama jika belum ada
+    if (!sampelTerpilih && daftarSampel.length > 0) {
+      sampelTerpilih = daftarSampel[0];
+    } else if (sampelTerpilih) {
+      const cocokan = daftarSampel.find(s => String(s.sample_id) === String(sampelTerpilih.sample_id));
+      if (cocokan) sampelTerpilih = cocokan;
     }
 
     perbaruiUIStatus();
@@ -280,7 +349,11 @@ const LisDebug = (() => {
     if (elTotParam) elTotParam.textContent = totalParameter;
     if (elTerakhir) elTerakhir.textContent = terakhirWaktu;
     if (elAlatStatus) {
-      elAlatStatus.textContent = isBridgeConnected ? 'Siaga (Standby)' : 'Bridge Offline';
+      if (isBridgeConnected) {
+        elAlatStatus.textContent = sumberData === 'supabase' ? 'Online (via DB)' : 'Siaga (Standby)';
+      } else {
+        elAlatStatus.textContent = 'Bridge Offline';
+      }
     }
 
     // Badge status di Header
@@ -384,11 +457,15 @@ const LisDebug = (() => {
       if (isWondfo) alatClass = 'tag-wondfo';
       else if (isSysmex) alatClass = 'tag-sysmex';
 
+      const hasDbId = !!s.id;
       return `
         <div class="lis-sample-item ${isAktif ? 'aktif' : ''}" data-sid="${UI.esc(s.sample_id)}">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span class="lis-sample-id">${UI.esc(s.sample_id)}</span>
-            <span class="lis-sample-time">${UI.esc(s.waktu ? s.waktu.split(' ')[1] : '-')}</span>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span class="lis-sample-time">${UI.esc(s.waktu ? s.waktu.split(' ')[1] || s.waktu : '-')}</span>
+              ${hasDbId ? `<button class="btn-hapus-sampel" data-rid="${UI.esc(s.id)}" title="Hapus sampel ini" style="background:none; border:none; cursor:pointer; color:#ef4444; padding:2px 4px; font-size:14px; line-height:1;">&times;</button>` : ''}
+            </div>
           </div>
           <div style="font-weight:700; font-size:13px; color:#0f172a; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             ${UI.esc(s.nama_pasien || 'Pasien Tanpa Nama')}
@@ -404,7 +481,9 @@ const LisDebug = (() => {
     wadah.innerHTML = html;
 
     wadah.querySelectorAll('.lis-sample-item').forEach(elItem => {
-      elItem.onclick = () => {
+      elItem.onclick = (e) => {
+        // Jangan pilih kalau klik tombol hapus
+        if (e.target.closest('.btn-hapus-sampel')) return;
         const sid = elItem.dataset.sid;
         const target = daftarSampel.find(s => String(s.sample_id) === String(sid));
         if (target) {
@@ -413,6 +492,17 @@ const LisDebug = (() => {
           renderDetailSampel();
           tambahLog('INFO', `Inspeksi sampel #${target.sample_id} (${target.alat || 'Alat'}).`);
         }
+      };
+    });
+
+    // Pasang handler hapus
+    wadah.querySelectorAll('.btn-hapus-sampel').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const rid = btn.dataset.rid;
+        if (!rid) return;
+        if (!confirm('Hapus sampel ini dari riwayat?')) return;
+        await hapusSampelRiwayat(rid);
       };
     });
   }
@@ -875,6 +965,50 @@ const LisDebug = (() => {
       renderDaftarSampel();
       renderDetailSampel();
       UI.toast('Buffer lokal dibersihkan.', 'info');
+    }
+  }
+
+  // Menghapus satu riwayat sampel dari Supabase (soft-delete)
+  async function hapusSampelRiwayat(recordId) {
+    try {
+      // Coba hapus via bridge lokal dulu
+      if (sumberData === 'lokal') {
+        try {
+          const res = await fetch(`${BRIDGE_HOST}/api/hapus-riwayat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: recordId })
+          });
+          if (res.ok) {
+            const j = await res.json();
+            if (j.sukses) {
+              tambahLog('SUCCESS', `Riwayat sampel ${recordId} berhasil dihapus via bridge.`);
+              UI.toast('Riwayat sampel berhasil dihapus.', 'ok');
+              await periksaStatusListener(true);
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+      // Fallback: hapus langsung via Supabase
+      const ok = await DB.hapusRiwayatSampelLIS(recordId);
+      if (ok) {
+        tambahLog('SUCCESS', `Riwayat sampel ${recordId} berhasil dihapus dari database.`);
+        UI.toast('Riwayat sampel berhasil dihapus.', 'ok');
+        // Hapus dari daftar lokal
+        daftarSampel = daftarSampel.filter(s => s.id !== recordId);
+        if (sampelTerpilih && sampelTerpilih.id === recordId) {
+          sampelTerpilih = daftarSampel[0] || null;
+        }
+        renderDaftarSampel();
+        renderDetailSampel();
+        perbaruiUIStatus();
+      } else {
+        UI.toast('Gagal menghapus riwayat sampel.', 'err');
+      }
+    } catch (e) {
+      tambahLog('ERROR', `Gagal menghapus riwayat: ${e.message}`);
+      UI.toast('Gagal menghapus riwayat sampel.', 'err');
     }
   }
 

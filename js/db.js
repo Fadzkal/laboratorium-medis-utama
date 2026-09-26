@@ -4322,6 +4322,48 @@ const DB = (() => {
     } catch (_) {}
   }
 
+  async function ambilRiwayatSampelLIS(limit = 100) {
+    try {
+      const { data, error } = await sb.from('lis_riwayat_sampel')
+        .select('*')
+        .order('waktu_terima', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.warn('Gagal ambil lis_riwayat_sampel:', e);
+      return [];
+    }
+  }
+
+  async function hapusRiwayatSampelLIS(id) {
+    try {
+      const { error } = await sb.from('lis_riwayat_sampel')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.warn('Gagal hapus lis_riwayat_sampel:', e);
+      return false;
+    }
+  }
+
+  async function ambilStatusBridge() {
+    try {
+      const { data, error } = await sb.from('lis_status_bridge')
+        .select('*')
+        .order('last_heartbeat', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.warn('Gagal ambil lis_status_bridge:', e);
+      return null;
+    }
+  }
+
   return {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
@@ -4406,6 +4448,7 @@ const DB = (() => {
     statistikEksekutif,
     daftarRekanan, simpanRekanan, hapusRekanan,
     jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus,
-    kasirTagihanKunjungan
+    kasirTagihanKunjungan,
+    ambilRiwayatSampelLIS, hapusRiwayatSampelLIS, ambilStatusBridge
   };
 })();

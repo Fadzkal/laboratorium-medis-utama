@@ -225,6 +225,115 @@ class SupabaseAdapter(BaseAdapter):
             return False
 
 
+    # ------------------------------------------------------------------
+    # RIWAYAT SAMPEL: Simpan setiap hasil alat ke tabel lis_riwayat_sampel
+    # ------------------------------------------------------------------
+    def insert_riwayat_sampel(self, data: Dict[str, Any]) -> bool:
+        """Menyimpan satu rekord riwayat sampel ke Supabase (lis_riwayat_sampel)"""
+        endpoint = f"{self.url}/rest/v1/lis_riwayat_sampel"
+        hasil_obj = data.get("hasil_json", [])
+        if isinstance(hasil_obj, str):
+            try:
+                hasil_obj = json.loads(hasil_obj)
+            except Exception:
+                hasil_obj = []
+
+        payload = {
+            "sample_id": str(data.get("sample_id", "")),
+            "alat": str(data.get("alat", "")),
+            "nama_pasien": data.get("nama_pasien"),
+            "no_rm": data.get("no_rm"),
+            "status_mapping": data.get("status_mapping", "BELUM"),
+            "raw_data": data.get("raw_data"),
+            "hasil_json": hasil_obj,
+        }
+        try:
+            r = requests.post(endpoint, headers=self.headers, json=payload, timeout=10)
+            if r.status_code in (200, 201):
+                logger.info(f"Riwayat sampel {data.get('sample_id')} tersimpan di Supabase.")
+                return True
+            else:
+                logger.warning(f"Gagal simpan riwayat sampel: HTTP {r.status_code} - {r.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Error insert_riwayat_sampel: {e}")
+            return False
+
+    def hapus_riwayat_sampel(self, record_id: str, hard: bool = False) -> bool:
+        """Soft-delete (is_deleted=true) atau hard-delete riwayat sampel"""
+        if hard:
+            endpoint = f"{self.url}/rest/v1/lis_riwayat_sampel?id=eq.{record_id}"
+            try:
+                r = requests.delete(endpoint, headers=self.headers, timeout=10)
+                return r.status_code in (200, 204)
+            except Exception as e:
+                logger.error(f"Error hard-delete riwayat: {e}")
+                return False
+        else:
+            endpoint = f"{self.url}/rest/v1/lis_riwayat_sampel?id=eq.{record_id}"
+            try:
+                r = requests.patch(endpoint, headers=self.headers, json={"is_deleted": True}, timeout=10)
+                return r.status_code in (200, 204)
+            except Exception as e:
+                logger.error(f"Error soft-delete riwayat: {e}")
+                return False
+
+    def ambil_riwayat_sampel(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Mengambil riwayat sampel terakhir dari Supabase (exclude soft-deleted)"""
+        endpoint = (
+            f"{self.url}/rest/v1/lis_riwayat_sampel"
+            f"?is_deleted=eq.false&order=waktu_terima.desc&limit={limit}"
+        )
+        try:
+            r = requests.get(endpoint, headers=self.headers, timeout=10)
+            if r.status_code == 200:
+                return r.json()
+        except Exception as e:
+            logger.error(f"Error ambil_riwayat_sampel: {e}")
+        return []
+
+    # ------------------------------------------------------------------
+    # HEARTBEAT: Perbarui status bridge di tabel lis_status_bridge
+    # ------------------------------------------------------------------
+    def update_heartbeat(self, status_data: Dict[str, Any]) -> bool:
+        """Upsert heartbeat status bridge ke Supabase (lis_status_bridge)"""
+        endpoint = f"{self.url}/rest/v1/lis_status_bridge?id=eq.BRIDGE_PC_LAB"
+        listener_obj = status_data.get("listener_json", {})
+        if isinstance(listener_obj, str):
+            try:
+                listener_obj = json.loads(listener_obj)
+            except Exception:
+                listener_obj = {}
+
+        payload = {
+            "id": "BRIDGE_PC_LAB",
+            "status": status_data.get("status", "ONLINE"),
+            "ip_pc_lab": status_data.get("ip_pc_lab", "127.0.0.1"),
+            "port_mindray": status_data.get("port_mindray"),
+            "port_sysmex": status_data.get("port_sysmex"),
+            "port_wondfo": status_data.get("port_wondfo"),
+            "port_api": status_data.get("port_api"),
+            "listener_json": listener_obj,
+            "total_buffer": status_data.get("total_buffer", 0),
+            "last_heartbeat": status_data.get("last_heartbeat"),
+        }
+        headers_upsert = dict(self.headers)
+        headers_upsert["Prefer"] = "resolution=merge-duplicates,return=representation"
+        try:
+            # Upsert via POST on-conflict
+            ep_upsert = f"{self.url}/rest/v1/lis_status_bridge?on_conflict=id"
+            r = requests.post(ep_upsert, headers=headers_upsert, json=payload, timeout=10)
+            if r.status_code in (200, 201):
+                return True
+            else:
+                # Fallback ke PATCH jika baris sudah ada
+                r2 = requests.patch(endpoint, headers=self.headers, json=payload, timeout=10)
+                return r2.status_code in (200, 204)
+        except Exception as e:
+            logger.error(f"Error update_heartbeat: {e}")
+            return False
+
+
 # ===========================================================================
 # IMPLEMENTASI 2: MYSQL ADAPTER (SIAP SAAT MIGRASI KE CLOUD VPS)
 # ===========================================================================
