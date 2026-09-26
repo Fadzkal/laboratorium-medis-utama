@@ -1,0 +1,46 @@
+===============================================================================
+PANDUAN PEMASANGAN LIS BRIDGE ALAT MEDIS - LABORATORIUM MEDIS UTAMA
+Kompatibel: Mindray BS-240 (Kimia Darah) & Sysmex XP-100 (Hematologi)
+===============================================================================
+
+Paket ini berisi seluruh komponen mandiri yang dibutuhkan agar komputer PC Lab
+dapat menerima data otomatis dari alat analyzer dan menyinkronkannya ke Web RME.
+
+-------------------------------------------------------------------------------
+LANGKAH PEMASANGAN (HANYA 3 LANGKAH):
+-------------------------------------------------------------------------------
+
+Langkah 1:
+Salin atau ekstrak seluruh folder "paket_lis_bridge_pc" ini ke drive C:\
+Ubah nama folder menjadi:
+C:\LIS_Bridge
+
+(Pastikan seluruh file: bridge_alat.py, config.py, db_adapter.py, dictionary.py,
+jalankan.bat, dan pasang_otomatis_startup.bat berada di dalam folder C:\LIS_Bridge).
+
+
+Langkah 2:
+Buka folder C:\LIS_Bridge.
+Klik kanan file "pasang_otomatis_startup.bat", lalu pilih:
+"Run as administrator" (Jalankan sebagai administrator).
+
+Skrip ini akan:
+- Mendaftarkan LIS Bridge ke Startup Windows (otomatis aktif saat PC lab dinyalakan).
+- Mendaftarkan URL Protocol lmu-bridge:// agar tombol "Hubungkan Bridge" di Web RME
+  dapat menyalakan bridge secara otomatis.
+
+
+Langkah 3:
+Klik dua kali file "jalankan.bat" untuk verifikasi bridge langsung aktif.
+Periksa indikator di Web RME (halaman Laboratorium atau menu LIS):
+Status indikator koneksi bridge akan berubah menjadi "Standby" (Hijau).
+
+-------------------------------------------------------------------------------
+CATATAN TEKNIS DAN PORT JARINGAN:
+-------------------------------------------------------------------------------
+- Port Mindray BS-240 (HL7 MLLP) : 7118
+- Port Sysmex XP-100  (ASTM)     : 8000
+- Port Local REST API (Web Sync) : 7119
+- Pastikan kabel LAN / Serial dari alat terhubung ke PC Lab ini.
+- Python 3 wajib terpasang di PC Lab dengan opsi "Add Python to PATH" dicentang.
+===============================================================================

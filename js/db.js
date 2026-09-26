@@ -76,6 +76,38 @@ const DB = (() => {
     const { data, error } = await q;
     if (error) throw error; return data;
   }
+  async function hapusPoli(id) {
+    if (!id) throw new Error('ID poli tidak valid.');
+
+    // 1. Ambil data poli utama (LAB) sebagai target pengalihan foreign key
+    const { data: poliLab } = await sb.from('poli').select('id, kode').eq('kode', 'LAB').maybeSingle();
+
+    if (poliLab && poliLab.id === id) {
+      throw new Error('Poli LAB adalah poli utama operasional laboratorium medis dan tidak boleh dihapus.');
+    }
+
+    // 2. Alihkan data relasi kunjungan ke poli LAB dan bersihkan antrean poli terkait
+    if (poliLab) {
+      await Promise.allSettled([
+        sb.from('kunjungan').update({ poli_id: poliLab.id }).eq('poli_id', id),
+        sb.from('antrean').delete().eq('poli_id', id),
+        sb.from('antrean_jadwal').delete().eq('poli_id', id),
+        sb.from('antrean_kuota').delete().eq('poli_id', id),
+        sb.from('pegawai').update({ poli_default: poliLab.id }).eq('poli_default', id),
+        sb.from('pemeriksaan').update({ rujuk_poli_internal_id: null }).eq('rujuk_poli_internal_id', id)
+      ]);
+    }
+
+    // 3. Jalankan penghapusan data poli
+    const { error } = await sb.from('poli').delete().eq('id', id);
+    if (error) {
+      if (error.code === '23503' || (error.message && error.message.toLowerCase().includes('foreign key'))) {
+        throw new Error('Gagal menghapus poli: Poli masih digunakan dalam data antrean/kunjungan.');
+      }
+      throw error;
+    }
+    return true;
+  }
   async function daftarDokter(jenis = null) {
     let q = sb.from('pegawai')
       .select('*')
@@ -4294,7 +4326,7 @@ const DB = (() => {
     sb, masuk, keluar, sesi, saya, bolehTulis,
     hakAksesSaya, daftarHakAkses, simpanHakAkses,
     faskes, simpanFaskes,
-    daftarPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
+    daftarPoli, hapusPoli, daftarDokter, simpanPegawaiDokter, hapusPegawaiDokter, daftarPegawai,
     tambahPengguna, hapusPengguna, resetPasswordPengguna, ubahProfilSaya, adminUbahPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
     cariPasien, daftarPasienLengkap, dataKronisBpjsPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,

@@ -617,6 +617,14 @@ const Pasien = (() => {
 
     if (inpCari) {
       inpCari.addEventListener('input', UI.tunda(onCari, 300));
+
+      // Auto-Scan Barcode Kartu Rekam Medis (Scan-to-History)
+      if (typeof KartuPasien !== 'undefined' && KartuPasien.pasangAutoScanRm) {
+        KartuPasien.pasangAutoScanRm(inpCari, (pasienDitemukan) => {
+          UI.toast(`Data pasien ${pasienDitemukan.nama} berhasil dimuat dari kartu.`, 'ok');
+          location.hash = '#/pasien/' + pasienDitemukan.id;
+        });
+      }
     }
 
     const resetDanMuat = () => muat({ reset: true });
@@ -1161,6 +1169,7 @@ const Pasien = (() => {
         ${App.boleh('pasien_simpan')
           ? `<button class="btn btn-primary btn-sm" id="btnDaftarkan">${UI.ikon('plus',15)} Daftarkan kunjungan</button>
              <button class="btn btn-secondary btn-sm" id="btnUbah">Ubah data</button>` : ''}
+        <button class="btn btn-secondary btn-sm" id="btnCetakKartu">${UI.ikon('cetak',15)} Cetak Kartu</button>
         ${App.boleh('pasien_alergi')
           ? `<button class="btn btn-secondary btn-sm" id="btnAlergi">Tambah alergi</button>` : ''}
       </div>
@@ -1238,6 +1247,13 @@ const Pasien = (() => {
 
     const btnDaftar = el.querySelector('#btnDaftarkan');
     if (btnDaftar) btnDaftar.addEventListener('click', () => App.pergi('#/pendaftaran/' + p.id));
+
+    const btnCetak = el.querySelector('#btnCetakKartu');
+    if (btnCetak) btnCetak.addEventListener('click', () => {
+      if (typeof KartuPasien !== 'undefined' && KartuPasien.bukaModal) {
+        KartuPasien.bukaModal(p);
+      }
+    });
 
     const btnAlergi = el.querySelector('#btnAlergi');
     if (btnAlergi) btnAlergi.addEventListener('click', async () => {

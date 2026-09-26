@@ -148,6 +148,9 @@ const Pengaturan = (() => {
   /* ---------------- Poli ---------------- */
   async function tabPoli(w) {
     const d = await DB.daftarPoli(false);
+    const peranUser = App.siapa()?.peran;
+    const bolehHapus = peranUser === 'master' || peranUser === 'developer' || (typeof Auth !== 'undefined' && Auth.isSuperadmin && Auth.isSuperadmin(App.siapa()));
+
     w.innerHTML = `
       <div class="card">
         <div class="card-head"><div class="flex-1"><h2>Daftar poli</h2>
@@ -155,8 +158,8 @@ const Pengaturan = (() => {
             <b>GIGI</b> memunculkan odontogram dan pemeriksaan gigi</div></div>
           <button class="btn btn-primary btn-sm" id="btnPoliBaru">${UI.ikon('plus',15)} Tambah poli</button></div>
         <div class="card-body tight">
-          <div class="table-wrap"><table class="tbl"><thead><tr><th>Kode</th><th>Nama poli</th><th>Jenis</th>
-            <th>Kode PCare</th><th>Location ID SatuSehat</th><th>Status</th></tr></thead>
+          <div class="table-wrap"><table class="tbl" id="tabelPoli"><thead><tr><th>Kode</th><th>Nama poli</th><th>Jenis</th>
+            <th>Kode PCare</th><th>Location ID SatuSehat</th><th>Status</th><th>AKSI</th></tr></thead>
             <tbody>${d.map(p => `<tr>
               <td class="mono"><b>${UI.esc(p.kode)}</b></td>
               <td>${UI.esc(p.nama)}</td>
@@ -168,6 +171,15 @@ const Pengaturan = (() => {
               <td class="mono muted">${UI.esc(p.satusehat_location_id || '—')}</td>
               <td>${p.aktif ? '<span class="badge b-ok">Aktif</span>'
                             : '<span class="badge b-batal">Nonaktif</span>'}</td>
+              <td>
+                ${p.kode === 'LAB' ? `
+                  <span class="badge b-info" style="font-size:10.5px; font-weight:600;">Poli Utama</span>
+                ` : bolehHapus ? `
+                  <button class="btn btn-danger btn-sm btn-hapus-poli" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-kode="${UI.esc(p.kode)}" style="padding:3px 8px; font-size:11.5px; display:inline-flex; align-items:center; gap:4px;" title="Hapus Poli">
+                    ${UI.ikon('hapus', 13)} Hapus
+                  </button>
+                ` : `<span class="muted">—</span>`}
+              </td>
             </tr>`).join('')}</tbody></table></div>
         </div>
       </div>`;
@@ -177,6 +189,33 @@ const Pengaturan = (() => {
         .eq('id', sel.dataset.jenisPoli);
       UI.toast(error ? error.message : 'Jenis poli diperbarui.', error ? 'err' : 'ok');
     }));
+
+    if (bolehHapus) {
+      w.querySelectorAll('.btn-hapus-poli').forEach(btn => btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const nama = btn.dataset.nama;
+        const kode = btn.dataset.kode;
+        const yakin = await UI.modal({
+          judul: `Hapus Poli ${nama}?`,
+          isi: `<div style="font-size:13px; line-height:1.6; color:#334155;">
+                  <p style="margin-top:0;">Peringatan: Poli ini (<b>${UI.esc(kode)}</b>) akan dihapus permanen dari daftar poli klinik/lab.</p>
+                  <p style="margin-bottom:0; color:#dc2626; font-size:12px;">Pastikan poli ini tidak lagi digunakan pada data pendaftaran atau antrean berjalan.</p>
+                </div>`,
+          tombol: [
+            { teks: 'Batal', nilai: false },
+            { teks: 'Hapus Poli', kelas: 'btn-danger', nilai: true }
+          ]
+        });
+        if (!yakin) return;
+        try {
+          await DB.hapusPoli(id);
+          UI.toast('Poli berhasil dihapus.', 'ok');
+          await tabPoli(w);
+        } catch (err) {
+          UI.toast(err.message || 'Gagal menghapus poli.', 'err');
+        }
+      }));
+    }
 
     w.querySelector('#btnPoliBaru').addEventListener('click', async () => {
       const h = await UI.modal({

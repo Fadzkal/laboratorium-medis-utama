@@ -273,6 +273,9 @@ const Pendaftaran = (() => {
                 </div>
                 <button id="btnCekNrp" title="Cek Pasien Berdasarkan NIK" style="background:#388E3C;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Cek</button>
                 <button id="btnReset" title="Reset / Pasien Baru" style="background:#1565C0;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700">Baru</button>
+                <button type="button" id="btnCetakKartuPendaftaran" title="Cetak Kartu Rekam Medis Pasien (CR-80)" style="background:#475569;color:#fff;border:none;border-radius:4px;padding:5px 9px;cursor:pointer;height:32px;font-weight:700;display:none;align-items:center;gap:4px">
+                  ${UI.ikon('cetak', 13)} Kartu
+                </button>
               </div>
             </div>
 
@@ -424,6 +427,7 @@ const Pendaftaran = (() => {
               <button class="btn-aksi btn-ic" id="btnIcPcr">IC PCR</button>
               <button class="btn-aksi btn-ic2" id="btnIc1">IC.1</button>
               <button class="btn-aksi btn-ic2" id="btnIc2">IC.2</button>
+              <button class="btn-aksi" id="btnCetakKartuAksi" style="background:#475569" title="Cetak Kartu Rekam Medis (ISO CR-80)">Cetak Kartu</button>
               <button class="btn-aksi" id="btnSelesaiBaru" style="background:#0284c7; margin-left:auto;" title="Selesai dan bersihkan form untuk pasien berikutnya">+ Pasien Baru</button>
             </div>
           </div>
@@ -971,21 +975,52 @@ const Pendaftaran = (() => {
       }
       hasilDiv.innerHTML = `<div style="background:#fff;border:1px solid #9fa8da;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.1)">
         ${d.map(p => `<div class="pdft-ac-item" data-pid="${p.id}"
-          style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px">
-          <b>${UI.esc(p.nama)}</b>
-          <span style="color:#888;font-size:11px"> — No.RM ${UI.esc(p.no_rm)} · ${UI.umurTeks(p.tanggal_lahir)}</span>
+          style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <b>${UI.esc(p.nama)}</b>
+            <span style="color:#888;font-size:11px"> — No.RM ${UI.esc(p.no_rm)} · ${UI.umurTeks(p.tanggal_lahir)}</span>
+          </div>
+          <button type="button" class="btn-cetak-kartu-ac" data-pid="${p.id}"
+            style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;color:#334155;cursor:pointer;white-space:nowrap;"
+            title="Cetak Kartu Rekam Medis (CR-80)">
+            Cetak Kartu
+          </button>
         </div>`).join('')}
       </div>`;
+
       hasilDiv.querySelectorAll('[data-pid]').forEach(item => {
-        item.addEventListener('click', async () => {
+        item.addEventListener('click', async (ev) => {
+          if (ev.target.closest('.btn-cetak-kartu-ac')) return;
           hasilDiv.innerHTML = '';
           inpCari.value = '';
           const p = await DB.pasien(item.dataset.pid);
           isiFormPasien(el, p);
           pasienTerpilih = p;
         });
+
+        const btnCetakAc = item.querySelector('.btn-cetak-kartu-ac');
+        if (btnCetakAc) {
+          btnCetakAc.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            const p = await DB.pasien(item.dataset.pid);
+            if (typeof KartuPasien !== 'undefined' && KartuPasien.bukaModal) {
+              KartuPasien.bukaModal(p);
+            }
+          });
+        }
       });
     }, 300));
+
+    // Auto-Scan Barcode Kartu Rekam Medis pada Kolom Pencarian Pasien
+    if (typeof KartuPasien !== 'undefined' && KartuPasien.pasangAutoScanRm) {
+      KartuPasien.pasangAutoScanRm(inpCari, (p) => {
+        hasilDiv.innerHTML = '';
+        inpCari.value = '';
+        pasienTerpilih = p;
+        isiFormPasien(el, p);
+        UI.toast(`Data pasien ${p.nama} berhasil dimuat dari kartu.`, 'ok');
+      });
+    }
 
     /* ---- Reset / Pasien Baru ---- */
     el.querySelector('#btnReset').addEventListener('click', () => {
@@ -1109,7 +1144,44 @@ const Pendaftaran = (() => {
           return;
         }
 
-        // Reset buffer jika bukan scan kartu BPJS
+        // Deteksi Barcode Kartu Rekam Medis Pasien (No. RM)
+        const rmCandidate = scanBuffer.trim();
+        const isRmScanBurst = totalChars >= 4 && (now - scanTimestamps[0]) < 800;
+        if (rmCandidate && rmCandidate.length >= 3 && isRmScanBurst) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const bufferToClean = scanBuffer;
+          scanBuffer = '';
+          scanTimestamps = [];
+          lastKeyTime = 0;
+
+          // Bersihkan teks barcode yang sempat masuk ke input aktif
+          const active = document.activeElement;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            if (active.value.endsWith(bufferToClean)) {
+              active.value = active.value.slice(0, -bufferToClean.length).trim();
+            } else if (active.value === bufferToClean || active.value === rmCandidate) {
+              active.value = '';
+            }
+          }
+
+          DB.cariPasien(rmCandidate, 5).then(res => {
+            if (res && res.length > 0) {
+              const target = res.find(p => (p.no_rm || '').toLowerCase() === rmCandidate.toLowerCase()) || res[0];
+              if (target) {
+                pasienTerpilih = target;
+                isiFormPasien(el, target);
+                UI.toast(`Data pasien ${target.nama} berhasil dimuat dari kartu.`, 'ok');
+              }
+            } else {
+              UI.toast(`Pasien dengan No. RM "${rmCandidate}" tidak ditemukan.`, 'err');
+            }
+          }).catch(err => console.warn('Gagal memproses auto-scan kartu pasien:', err));
+          return;
+        }
+
+        // Reset buffer jika bukan scan kartu BPJS / RM
         scanBuffer = '';
         scanTimestamps = [];
         lastKeyTime = 0;
@@ -1162,6 +1234,34 @@ const Pendaftaran = (() => {
 
     /* ---- Tombol IC.2 ---- */
     el.querySelector('#btnIc2').addEventListener('click', () => cetakIC(el, 'IC2'));
+
+    /* ---- Tombol CETAK KARTU PASIEN (CR-80) ---- */
+    const onCetakKartuPasien = () => {
+      const p = terakhirTerdaftar?.pasien || pasienTerpilih;
+      if (p) {
+        if (typeof KartuPasien !== 'undefined' && KartuPasien.bukaModal) {
+          KartuPasien.bukaModal(p);
+        }
+        return;
+      }
+      const namaPx = (el.querySelector('#fNama')?.value || '').trim();
+      if (namaPx) {
+        if (typeof KartuPasien !== 'undefined' && KartuPasien.bukaModal) {
+          KartuPasien.bukaModal({
+            no_rm: el.querySelector('#fRm')?.value || '-',
+            nama: namaPx,
+            nik: (el.querySelector('#fNik')?.value || '').trim(),
+            tanggal_lahir: el.querySelector('#fTglLahir')?.value || '',
+            jenis_kelamin: el.querySelector('#fJk')?.value || 'L'
+          });
+        }
+        return;
+      }
+      UI.toast('Pilih atau daftarkan pasien terlebih dahulu.', 'err');
+    };
+
+    el.querySelector('#btnCetakKartuPendaftaran')?.addEventListener('click', onCetakKartuPasien);
+    el.querySelector('#btnCetakKartuAksi')?.addEventListener('click', onCetakKartuPasien);
 
     /* ---- Tombol PASIEN BARU ---- */
     el.querySelector('#btnSelesaiBaru')?.addEventListener('click', () => {
@@ -1330,6 +1430,9 @@ const Pendaftaran = (() => {
     el.querySelector('#fAlamat').value   = p.alamat || '';
     el.querySelector('#fTelp').value     = p.no_hp || p.no_telp || '';
     el.querySelector('#bJenisBayar').value = p.no_bpjs ? 'BPJS' : 'UMUM';
+
+    const btnCtk = el.querySelector('#btnCetakKartuPendaftaran');
+    if (btnCtk) btnCtk.style.display = (p && p.no_rm && p.no_rm !== '(Otomatis)') ? 'inline-flex' : 'none';
   }
 
   function resetFormPasien(el) {
@@ -1362,6 +1465,9 @@ const Pendaftaran = (() => {
       lblNoLab.textContent = '';
       lblNoLab.style.display = 'none';
     }
+
+    const btnCtk = el.querySelector('#btnCetakKartuPendaftaran');
+    if (btnCtk) btnCtk.style.display = 'none';
   }
 
   function simpanDraftPendaftaran(el) {
@@ -1477,7 +1583,43 @@ const Pendaftaran = (() => {
     }
 
     try {
+      const isPasienBaru = !pasienTerpilih;
       let pasien = pasienTerpilih;
+
+      const tampilkanDialogKartuPasienBaru = (p) => {
+        if (!p) return;
+        setTimeout(() => {
+          UI.modal({
+            judul: 'Pasien Baru Berhasil Disimpan',
+            isi: `
+              <div style="font-size:13px; color:var(--ink-800); line-height:1.6; margin-bottom:12px;">
+                Pasien baru telah terdaftar di database dengan data berikut:
+                <div style="margin-top:8px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+                  <div><b>Nama Pasien:</b> ${UI.esc(p.nama)}</div>
+                  <div><b>Nomor RM:</b> <span class="mono" style="font-weight:700; color:var(--brand-700);">${UI.esc(p.no_rm)}</span></div>
+                  ${p.nik ? `<div><b>NIK:</b> ${UI.esc(p.nik)}</div>` : ''}
+                </div>
+              </div>
+              <div style="font-size:12.5px; color:var(--ink-600);">
+                Apakah Anda ingin mencetak Kartu Rekam Medis (ISO CR-80) untuk pasien ini sekarang?
+              </div>
+            `,
+            tombol: [
+              { teks: 'Nanti', kelas: 'btn-secondary', nilai: false },
+              {
+                teks: 'Cetak Kartu Pasien',
+                kelas: 'btn-primary',
+                aksi: () => {
+                  if (typeof KartuPasien !== 'undefined' && KartuPasien.bukaModal) {
+                    KartuPasien.bukaModal(p);
+                  }
+                  return true;
+                }
+              }
+            ]
+          });
+        }, 400);
+      };
 
       const nrpInput = (el.querySelector('#fNrp')?.value || '').trim();
       let bpjsVal = null, nrpVal = nrpInput || null;
@@ -1541,6 +1683,9 @@ const Pendaftaran = (() => {
         el.querySelector('#fRm').value = pasien.no_rm || '';
         localStorage.removeItem('draft_pendaftaran');
         UI.toast(`Pasien berhasil didaftarkan (No. RM: ${pasien.no_rm}). Tanpa pemeriksaan lab, tagihan kasir tidak dibuat.`, 'ok');
+        if (isPasienBaru && pasien) {
+          tampilkanDialogKartuPasienBaru(pasien);
+        }
         return;
       }
 
@@ -1673,6 +1818,10 @@ const Pendaftaran = (() => {
       const pesanKasir = isBPJS ? ' Tagihan BPJS berstatus LUNAS.' : ' Tagihan Kasir berhasil disimpan.';
       UI.toast(`Pendaftaran lab${pesanLab}.${pesanKasir} Silakan cetak dokumen yang diperlukan.`, 'ok');
       localStorage.removeItem('draft_pendaftaran');
+
+      if (isPasienBaru && pasien) {
+        tampilkanDialogKartuPasienBaru(pasien);
+      }
 
     } catch(e) {
       UI.toast('Gagal mendaftarkan: ' + (e.message || e), 'err');
