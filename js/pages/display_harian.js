@@ -899,7 +899,7 @@ const DisplayHarian = (() => {
         }
       }
 
-      const svg = buatBarcodeSVG(lbl.idBarcode, 50, 1.8);
+      const svg = buatBarcodeSVG(lbl.idBarcode, 38, 1.5);
 
       return `
         <div class="label-tube">
@@ -923,12 +923,16 @@ const DisplayHarian = (() => {
         <title></title>
         <style>
           @page {
-            size: 80mm 100mm portrait;
+            size: auto;
             margin: 0mm !important;
           }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
           html, body {
-            width: 80mm;
+            width: 100%;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff;
@@ -940,11 +944,11 @@ const DisplayHarian = (() => {
           }
           @media print {
             @page {
-              size: 80mm 100mm portrait;
+              size: auto;
               margin: 0mm !important;
             }
             html, body {
-              width: 80mm !important;
+              width: 100% !important;
               margin: 0 !important;
               padding: 0 !important;
               overflow: hidden !important;
@@ -953,14 +957,12 @@ const DisplayHarian = (() => {
             }
           }
           .label-tube {
-            width: 44mm !important;
+            width: 100% !important;
+            max-width: 72mm !important;
             height: 28mm !important;
             max-height: 28mm !important;
-            margin-left: 19.5mm !important;
-            margin-right: auto !important;
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
-            padding: 1mm 1mm !important;
+            margin: 0 auto !important;
+            padding: 1mm 2mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -971,45 +973,48 @@ const DisplayHarian = (() => {
             break-inside: avoid !important;
           }
           .label-tube:not(:last-child) {
-            page-break-after: always;
-            break-after: page;
+            page-break-after: always !important;
+            break-after: page !important;
           }
           .label-tube:last-child {
-            page-break-after: avoid;
-            break-after: avoid;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           .col-id {
-            width: 4.5mm;
-            min-width: 4.5mm;
+            width: 5mm;
+            min-width: 5mm;
             height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7pt;
+            font-size: 7.5pt;
             font-weight: 700;
             line-height: 1;
             letter-spacing: 0.2px;
             white-space: nowrap;
             text-align: center;
             color: #000;
+            flex-shrink: 0;
+            margin-left: 1mm;
           }
           .col-center {
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0 0.8mm;
+            padding: 0 1.5mm;
             overflow: hidden;
             width: 100%;
           }
           .barcode-wrap {
-            width: 31mm;
-            max-width: 32mm;
-            height: 14mm;
+            width: 100%;
+            max-width: 48mm;
+            height: 13mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1024,7 +1029,7 @@ const DisplayHarian = (() => {
           }
           .patient-name {
             margin-top: 0.5mm;
-            font-size: 6.8pt;
+            font-size: 11px;
             font-weight: 700;
             line-height: 1.15;
             text-align: center;
@@ -1032,13 +1037,13 @@ const DisplayHarian = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 32mm;
+            max-width: 100%;
             letter-spacing: -0.1px;
             color: #000;
           }
           .patient-sub {
             margin-top: 0.3mm;
-            font-size: 6.2pt;
+            font-size: 9.5px;
             font-weight: 700;
             line-height: 1.1;
             text-align: center;
@@ -1046,26 +1051,28 @@ const DisplayHarian = (() => {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
-            max-width: 32mm;
+            max-width: 100%;
             letter-spacing: -0.1px;
             color: #000;
           }
           .col-dept {
-            width: 5mm;
-            min-width: 5mm;
+            width: 5.5mm;
+            min-width: 5.5mm;
             height: 26mm;
             display: flex;
             align-items: center;
             justify-content: center;
             writing-mode: vertical-rl;
             transform: rotate(180deg);
-            font-size: 7.2pt;
+            font-size: 7.5pt;
             font-weight: 700;
             line-height: 1;
             letter-spacing: 0.2px;
             white-space: nowrap;
             text-align: center;
             color: #000;
+            flex-shrink: 0;
+            margin-right: 2.5mm;
           }
         </style>
       </head>

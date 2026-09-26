@@ -2868,7 +2868,7 @@ const Lab = (() => {
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
                 <button id="btnHasilCetak" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Cetak</button>
-                <button id="btnBarcodeLabSky" style="background:#0f766e; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Cetak Barcode Tabung Spesimen">${UI.ikon('cetak', 13)} Barcode</button>
+                <button id="btnBarcodeLabSky" style="background:#0f766e; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Cetak Barcode Tabung Spesimen (Klik: Cetak Otomatis, Shift+Klik: Buka Pilihan Label)">${UI.ikon('cetak', 13)} Barcode</button>
                 ${!terkunci ? `<button id="btnTarikAlatSky" style="background:#0284c7; color:#fff; border:none; padding:4px 14px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tarik Hasil Otomatis dari Alat Laboratorium">${UI.ikon('ulang', 13)} Tarik Alat</button>` : ''}
                 ${!terkunci ? `<button id="btnTambahPxSky" style="background:#2563eb; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Tambah parameter pemeriksaan ke pasien ini">${UI.ikon('plus', 13)} Tambah PX</button>` : ''}
                 <button id="btnFisikSky" style="background:#2e7d32; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Fisik</button>
