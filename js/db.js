@@ -1816,11 +1816,70 @@ const DB = (() => {
     const { data, error } = await q;
     if (error) throw error; return data;
   }
+  async function refLabSemua(ikutNonaktif = true) {
+    return await refLab(!ikutNonaktif);
+  }
   async function refLabPaket() {
     const { data, error } = await sb.from('ref_lab_paket')
       .select('*, item:ref_lab_paket_item(lab_id, urutan)')
       .eq('aktif', true).order('urutan');
     if (error) throw error; return data;
+  }
+  /* CRUD penuh untuk Master Paket Pemeriksaan Lab */
+  async function daftarPaket(semuaStatus = false) {
+    let q = sb.from('ref_lab_paket')
+      .select('*, item:ref_lab_paket_item(lab_id, urutan)')
+      .order('urutan');
+    if (!semuaStatus) q = q.eq('aktif', true);
+    const { data, error } = await q;
+    if (error) throw error; return data || [];
+  }
+  async function simpanPaket(payload, itemLabIds) {
+    const isEdit = !!payload.id;
+    let resHeader;
+    try {
+      resHeader = isEdit
+        ? await sb.from('ref_lab_paket').update(payload).eq('id', payload.id).select().single()
+        : await sb.from('ref_lab_paket').insert(payload).select().single();
+      if (resHeader.error) throw resHeader.error;
+    } catch (errHeader) {
+      // Fallback jika kolom bruto/netto/keterangan belum ada di database lama
+      const msg = String(errHeader.message || '').toLowerCase();
+      if (msg.includes('bruto') || msg.includes('netto') || msg.includes('keterangan')) {
+        const stripped = {
+          kode: payload.kode,
+          nama: payload.nama,
+          urutan: payload.urutan,
+          aktif: payload.aktif
+        };
+        resHeader = isEdit
+          ? await sb.from('ref_lab_paket').update(stripped).eq('id', payload.id).select().single()
+          : await sb.from('ref_lab_paket').insert(stripped).select().single();
+        if (resHeader.error) throw resHeader.error;
+      } else {
+        throw errHeader;
+      }
+    }
+
+    const paketId = resHeader.data.id;
+    /* Sinkronisasi item: hapus lama lalu insert ulang */
+    if (Array.isArray(itemLabIds)) {
+      const { error: delErr } = await sb.from('ref_lab_paket_item').delete().eq('paket_id', paketId);
+      if (delErr) console.warn('Hapus item paket lama:', delErr);
+      if (itemLabIds.length > 0) {
+        const rows = itemLabIds.map((lid, i) => ({ paket_id: paketId, lab_id: lid, urutan: i }));
+        const { error: insErr } = await sb.from('ref_lab_paket_item').insert(rows);
+        if (insErr) {
+          console.error('Gagal simpan ref_lab_paket_item:', insErr);
+          throw insErr;
+        }
+      }
+    }
+    return resHeader.data;
+  }
+  async function hapusPaket(id) {
+    const { error } = await sb.from('ref_lab_paket').delete().eq('id', id);
+    if (error) throw error;
   }
   async function simpanRefLab(patch) {
     const { data, error } = patch.id
@@ -4127,7 +4186,7 @@ const DB = (() => {
     kasirTambahItem, kasirUbahItem, kasirHapusItem, kasirJualObatBebas,
     daftarTarif, simpanTarif, updateHargaLab, updateLabExtras, kasirRekap,
     templateInvoice, simpanTemplateInvoice,
-    refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
+    refLab, refLabSemua, refLabPaket, daftarPaket, daftarPaketLab: daftarPaket, simpanPaket, simpanPaketLab: simpanPaket, hapusPaket, simpanRefLab, simpanRujukan, hapusRujukan, hapusLab,
     labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
     simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
     labTambahItem, labHapusItem, labHapusPermintaan,

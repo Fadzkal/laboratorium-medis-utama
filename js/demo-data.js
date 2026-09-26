@@ -2445,7 +2445,34 @@ const DB = (() => {
     await tunggu(30);
     return salin(REF_LAB.filter(m => !hanyaAktif || m.aktif));
   }
+  async function refLabSemua(ikutNonaktif = true) {
+    return await refLab(!ikutNonaktif);
+  }
   async function refLabPaket() { await tunggu(20); return salin(REF_PAKET); }
+  async function daftarPaket(semuaStatus = false) {
+    await tunggu(20);
+    return salin(REF_PAKET.filter(p => semuaStatus || p.aktif));
+  }
+  async function simpanPaket(payload, itemLabIds) {
+    await tunggu(40);
+    let p;
+    if (payload.id) {
+      p = REF_PAKET.find(x => x.id === payload.id);
+      if (p) Object.assign(p, payload);
+    } else {
+      p = Object.assign({ id: uid() }, payload);
+      REF_PAKET.push(p);
+    }
+    if (Array.isArray(itemLabIds)) {
+      p.item = itemLabIds.map((lid, idx) => ({ lab_id: lid, urutan: idx + 1 }));
+    }
+    return salin(p);
+  }
+  async function hapusPaket(id) {
+    await tunggu(30);
+    const idx = REF_PAKET.findIndex(x => x.id === id);
+    if (idx !== -1) REF_PAKET.splice(idx, 1);
+  }
   async function simpanRefLab(patch) {
     if (patch.id) { Object.assign(REF_LAB.find(m => m.id === patch.id), patch); return patch; }
     const baru = Object.assign({ id: uid(), rujukan: [] }, patch);
@@ -3754,7 +3781,7 @@ const DB = (() => {
            kasirTambahItem, kasirUbahItem, kasirHapusItem, kasirJualObatBebas,
            daftarTarif, simpanTarif, kasirRekap,
            templateInvoice, simpanTemplateInvoice,
-           refLab, refLabPaket, simpanRefLab, simpanRujukan, hapusRujukan,
+           refLab, refLabSemua, refLabPaket, daftarPaket, daftarPaketLab: daftarPaket, simpanPaket, simpanPaketLab: simpanPaket, hapusPaket, simpanRefLab, simpanRujukan, hapusRujukan,
            labMinta, labMintaLuar, labAntrean, labPermintaan, labKunjungan, labPasien,
            simpanHasilLab, labSelesaikan, labBukaKunci, labBatalkan,
            labTambahItem, labHapusItem, labHapusPermintaan,

@@ -5,7 +5,7 @@
    ============================================================== */
 const Master = (() => {
 
-  let tabAktif = 'eksekutif';
+  let tabAktif = 'paket';
   let cache = { obat: [], icd10: [], icd9: [], lab: [] };
 
   const GOLONGAN = ['Bebas', 'Bebas Terbatas', 'Keras', 'Narkotika', 'Psikotropika'];
@@ -82,11 +82,10 @@ const Master = (() => {
     el.innerHTML = `
       <div class="mb-16">
         <h1>Master Data</h1>
-        <p class="text-muted mb-0">Daftar obat, diagnosa, dan tindakan yang muncul saat
-          dokter memeriksa pasien.</p>
+        <p class="text-muted mb-0">Pengelolaan katalog paket pemeriksaan, master uji lab, nilai rujukan, tarif, data dokter pengirim, dan rekanan instansi.</p>
       </div>
       <div class="tabs" id="tabsMaster">
-        ${[['eksekutif', 'Statistik Eksekutif'],
+        ${[['paket', 'Paket Pemeriksaan'],
            ['kodepx', 'Kode Pemeriksaan'],['hargapx', 'Harga Pemeriksaan'],['lab','Pemeriksaan Lab'],['dokter','Dokter'],['rekanan','Rekanan']]
           .map(([k,t]) => `<button class="tab ${tabAktif === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('')}
       </div>
@@ -106,7 +105,7 @@ const Master = (() => {
   async function gambarTab(w) {
     w.innerHTML = UI.memuat(3);
     try {
-      if (tabAktif === 'eksekutif') return await tabEksekutif(w);
+      if (tabAktif === 'paket') return await tabPaket(w);
       if (tabAktif === 'obat')  return await tabObat(w);
       if (tabAktif === 'icd10') return await tabIcd10(w);
       if (tabAktif === 'icd9')  return await tabIcd9(w);
@@ -121,101 +120,386 @@ const Master = (() => {
   }
 
   /* ================================================================ *
-   *  STATISTIK EKSEKUTIF
+   *  PAKET PEMERIKSAAN LAB
    * ================================================================ */
-  async function tabEksekutif(w) {
-    try {
-      const stat = await DB.statistikEksekutif();
-      
-      const rp = (n) => 'Rp ' + Number(n).toLocaleString('id-ID');
-      const tren = (skrg, lalu) => {
-        if (!lalu) return '<span class="text-muted text-sm">Tidak ada data bulan lalu</span>';
-        const pr = ((skrg - lalu) / lalu) * 100;
-        if (pr > 0) return `<span class="text-green-600 font-bold text-sm">▲ Naik ${pr.toFixed(1)}%</span> dari bulan lalu`;
-        if (pr < 0) return `<span class="text-red-600 font-bold text-sm">▼ Turun ${Math.abs(pr).toFixed(1)}%</span> dari bulan lalu`;
-        return '<span class="text-muted text-sm">Sama dengan bulan lalu</span>';
-      };
+  let cachePaket = [];
+  let cacheLabMaster = [];
 
-      w.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-          
-          <!-- PELAYANAN -->
-          <div class="card" style="padding: 18px; border-left: 4px solid var(--utama); background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
-              ${UI.ikon('pasien', 18)} Pelayanan
-            </h3>
-            <div class="flex items-end justify-between" style="margin-top: 16px;">
-              <div>
-                <div class="text-xs text-muted" style="margin-bottom: 4px;">Total Pasien Terdaftar</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--ink-900); line-height: 1;">
-                  ${stat.total_pasien.toLocaleString('id-ID')}
-                </div>
-              </div>
-              <div style="text-align: right;">
-                <div class="text-xs text-muted" style="margin-bottom: 4px;">Kunjungan Hari Ini</div>
-                <div style="font-size: 22px; font-weight: 700; color: var(--utama); line-height: 1;">
-                  ${stat.kunjungan_hari_ini}
-                </div>
-              </div>
-            </div>
+  const rpPaket = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+
+  async function tabPaket(w) {
+    w.innerHTML = `
+      <div class="card">
+        <div class="card-head flex-wrap gap-8">
+          <div class="flex-1">
+            <h2>Daftar Paket Pemeriksaan Laboratorium</h2>
+            <div class="sub">Paket / panel pemeriksaan lab (Prolanis, MCU, Check-up) beserta komponen dan tarif paketnya.</div>
           </div>
-
-          <!-- KEUANGAN -->
-          <div class="card" style="padding: 18px; border-left: 4px solid #10b981; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
-              ${UI.ikon('laporan', 18)} Pendapatan Kotor
-            </h3>
-            <div class="text-xs text-muted" style="margin-top: 16px; margin-bottom: 4px;">Total Tagihan Kasir Bulan Ini</div>
-            <div style="font-size: 24px; font-weight: 800; color: #047857;">
-              ${rp(stat.pendapatan_bulan_ini)}
-            </div>
-            <div style="margin-top: 10px;">
-              ${tren(stat.pendapatan_bulan_ini, stat.pendapatan_bulan_lalu)}
-            </div>
+          <div class="search-box" style="min-width:200px">
+            <span class="ico">${UI.ikon('cari',16)}</span>
+            <input type="search" id="cariPaketMaster" placeholder="Cari nama atau kode paket...">
           </div>
-
-          <!-- INVENTORI -->
-          <div class="card" style="padding: 18px; border-left: 4px solid #f59e0b; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
-              ${UI.ikon('stetoskop', 18)} Stok &amp; Inventori
-            </h3>
-            <div class="flex items-center gap-12" style="margin-top: 16px;">
-              <div style="font-size: 32px; font-weight: 800; color: ${stat.stok_kritis_inventori > 0 ? '#ea580c' : '#16a34a'}; line-height: 1;">
-                ${stat.stok_kritis_inventori}
-              </div>
-              <div class="text-sm" style="line-height: 1.4;">
-                Barang inventori / reagen <b>menipis</b> (di bawah stok minimum).<br>
-                <a href="#/inkaso" style="color: var(--utama); font-weight: 600; font-size: 12px; display: inline-block; margin-top: 4px; text-decoration: none;">Cek Inventori &rarr;</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- HRIS -->
-          <div class="card" style="padding: 18px; border-left: 4px solid #6366f1; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-            <h3 class="text-muted flex items-center gap-8" style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
-              ${UI.ikon('jam', 18)} HRIS &amp; Karyawan
-            </h3>
-            <div class="flex items-end justify-between" style="margin-top: 16px;">
-              <div>
-                <div class="text-xs text-muted" style="margin-bottom: 4px;">Hadir Hari Ini</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--ink-900); line-height: 1;">
-                  ${stat.pegawai_hadir_hari_ini} <span style="font-size: 14px; font-weight: 400; color: var(--ink-500);">staf</span>
-                </div>
-              </div>
-              <div style="text-align: right;">
-                <div class="text-xs text-muted" style="margin-bottom: 4px;">Proyeksi Bonus Bulan Ini</div>
-                <div style="font-size: 20px; font-weight: 700; color: #4338ca; line-height: 1;">
-                  ${rp(stat.total_bonus_bulan_ini)}
-                </div>
-              </div>
-            </div>
-          </div>
-
+          <button class="btn btn-primary btn-sm" id="btnTambahPaket">${UI.ikon('plus',15)} Tambah Paket</button>
         </div>
-      `;
-    } catch (e) {
-      w.innerHTML = `<div class="banner err">Gagal memuat statistik: ${UI.esc(e.message)}</div>`;
+        <div class="card-body tight" id="tabelPaketMaster">${UI.memuat(4)}</div>
+      </div>`;
+
+    /* Muat data master lab (untuk multi-select item) beserta data tarif harga */
+    try {
+      cacheLabMaster = typeof DB.refLabSemua === 'function' ? await DB.refLabSemua(true) : await DB.refLab(false);
+    } catch(_) {
+      try { cacheLabMaster = await DB.refLab(true); } catch(__) { cacheLabMaster = []; }
     }
+    try {
+      const tarifList = await DB.daftarTarif({ jenis: 'LAB' });
+      const mapTarif = {};
+      (tarifList || []).forEach(t => { if (t.kode) mapTarif[t.kode] = Number(t.tarif) || 0; });
+      cacheLabMaster.forEach(m => {
+        m.harga = mapTarif[m.kode] != null ? mapTarif[m.kode] : (Number(m.harga) || 0);
+      });
+    } catch(_) {}
+
+    const muat = async () => {
+      const t = w.querySelector('#tabelPaketMaster');
+      if (!t) return;
+      t.innerHTML = UI.memuat(3);
+      try {
+        cachePaket = await DB.daftarPaket(true);
+      } catch(e) {
+        /* Fallback jika tabel belum ada di server */
+        cachePaket = [];
+        t.innerHTML = `<div class="banner warn" style="margin:16px">${UI.ikon('peringatan',16)}
+          <div>Tabel paket pemeriksaan belum tersedia di database. Jalankan migrasi SQL (sql/36_paket_bruto_netto.sql) terlebih dahulu.
+          <br><span class="text-xs text-muted">${UI.esc(e.message)}</span></div></div>`;
+        return;
+      }
+      gambarTabelPaket(t);
+    };
+
+    const filterTabel = () => {
+      const t = w.querySelector('#tabelPaketMaster');
+      if (t) gambarTabelPaket(t);
+    };
+    const cariInput = w.querySelector('#cariPaketMaster');
+    if (cariInput) cariInput.addEventListener('input', filterTabel);
+
+    w.querySelector('#btnTambahPaket').addEventListener('click', async () => {
+      if (await modalPaket(null)) await muat();
+    });
+
+    await muat();
+  }
+
+  function paketTerfilter() {
+    const kata = (document.querySelector('#cariPaketMaster')?.value || '').toLowerCase().trim();
+    if (!kata) return cachePaket;
+    return cachePaket.filter(p => {
+      const k = (p.kode || '').toLowerCase();
+      const n = (p.nama || '').toLowerCase();
+      const ket = (p.keterangan || '').toLowerCase();
+      if (k.includes(kata) || n.includes(kata) || ket.includes(kata)) return true;
+      if (p.item && p.item.length) {
+        return p.item.some(it => {
+          const m = cacheLabMaster.find(x => String(x.id) === String(it.lab_id) || String(x.kode) === String(it.lab_id));
+          return m && ((m.nama || '').toLowerCase().includes(kata) || (m.kode || '').toLowerCase().includes(kata));
+        });
+      }
+      return false;
+    });
+  }
+
+  function gambarTabelPaket(t) {
+    const data = paketTerfilter();
+    if (!data.length) {
+      t.innerHTML = UI.kosong('Belum ada paket pemeriksaan', 'Klik "Tambah Paket" untuk membuat paket baru.');
+      return;
+    }
+
+    /* Buat map lab_id -> nama & harga */
+    const mapLab = {};
+    const mapHarga = {};
+    cacheLabMaster.forEach(m => {
+      mapLab[m.id] = m.nama;
+      mapLab[m.kode] = m.nama;
+      mapHarga[m.id] = Number(m.harga) || 0;
+      mapHarga[m.kode] = Number(m.harga) || 0;
+    });
+
+    t.innerHTML = `<div class="table-wrap"><table class="tbl">
+      <thead><tr>
+        <th style="width:40px">No</th>
+        <th style="width:120px">Kode Paket</th>
+        <th>Nama Paket</th>
+        <th>Daftar Pemeriksaan</th>
+        <th style="width:110px" class="text-right">Bruto</th>
+        <th style="width:110px" class="text-right">Tarif Paket</th>
+        <th style="width:70px">Status</th>
+        <th style="width:1%"></th>
+      </tr></thead>
+      <tbody>${data.map((p, i) => {
+        const items = (p.item || []).sort((a,b) => (a.urutan||0) - (b.urutan||0));
+        const namaItem = items.map(it => mapLab[it.lab_id] || it.lab_id).filter(Boolean);
+        const ringkasItem = namaItem.length > 4
+          ? namaItem.slice(0, 4).join(', ') + ` (+${namaItem.length - 4} lainnya)`
+          : namaItem.join(', ') || '<span class="text-muted">-</span>';
+
+        /* 1. Hitung / Fallback Bruto jika bernilai 0 atau null */
+        let bruto = Number(p.bruto || 0);
+        if (!bruto && items.length) {
+          bruto = items.reduce((s, it) => s + (mapHarga[it.lab_id] || 0), 0);
+        }
+
+        /* 2. Hitung / Fallback Tarif Paket (Netto):
+           Prioritaskan nilai netto eksplisit > 0, atau properti tarif_paket / tarif / harga.
+           Jika nilai tersebut 0 atau null, lakukan fallback ke nilai bruto (harga normal) */
+        let tarifPaket = Number(p.netto ?? p.tarif_paket ?? p.tarif ?? p.harga ?? 0);
+        if (tarifPaket <= 0 && bruto > 0) {
+          tarifPaket = bruto;
+        }
+
+        const statusClass = p.aktif ? 'badge-green' : 'badge-gray';
+        const statusTeks = p.aktif ? 'Aktif' : 'Nonaktif';
+        return `<tr>
+          <td class="text-center text-muted">${i+1}</td>
+          <td class="mono" style="color:#1565C0; font-weight:600">${UI.esc(p.kode)}</td>
+          <td><b>${UI.esc(p.nama)}</b>${p.keterangan ? `<div class="text-xs text-muted">${UI.esc(p.keterangan)}</div>` : ''}</td>
+          <td class="text-xs" style="max-width:260px; line-height:1.5">${ringkasItem}</td>
+          <td class="text-right mono text-muted">${rpPaket(bruto)}</td>
+          <td class="text-right mono" style="font-weight:600; color:#047857">${rpPaket(tarifPaket)}</td>
+          <td class="text-center"><span class="badge ${statusClass}" style="font-size:11px">${statusTeks}</span></td>
+          <td class="text-right" style="white-space:nowrap">
+            <button class="btn btn-secondary btn-sm" data-edit-paket="${i}">Edit</button>
+            <button class="btn btn-ghost btn-sm" data-hapus-paket="${i}">Hapus</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+
+    /* Event listener edit & hapus */
+    t.querySelectorAll('[data-edit-paket]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = +btn.dataset.editPaket;
+        const p = paketTerfilter()[idx];
+        if (p && await modalPaket(p)) await muat();
+      });
+    });
+    t.querySelectorAll('[data-hapus-paket]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = +btn.dataset.hapusPaket;
+        const p = paketTerfilter()[idx];
+        if (!p) return;
+        if (!await UI.konfirmasi(
+          `Hapus paket "${p.nama}"?`,
+          'Paket akan dihapus permanen beserta daftar item pemeriksaannya. Jika paket sudah pernah dipakai pada data pasien, penghapusan akan ditolak oleh database.',
+          'Hapus', true)) return;
+        try {
+          await DB.hapusPaket(p.id);
+          UI.toast('Paket berhasil dihapus.', 'ok');
+          await muat();
+        } catch(e) {
+          UI.toast(pesanGagalHapus(e), 'err', 6000);
+        }
+      });
+    });
+  }
+
+  /* Modal Tambah / Edit Paket Pemeriksaan */
+  async function modalPaket(paketEdit) {
+    const isEdit = !!paketEdit;
+    const itemTerpilih = new Set();
+    if (isEdit && Array.isArray(paketEdit.item)) {
+      paketEdit.item.forEach(it => {
+        if (it) {
+          if (it.lab_id) {
+            itemTerpilih.add(String(it.lab_id));
+            const f = cacheLabMaster.find(m => String(m.id) === String(it.lab_id) || String(m.kode) === String(it.lab_id));
+            if (f) {
+              itemTerpilih.add(String(f.id));
+              itemTerpilih.add(String(f.kode));
+            }
+          } else if (typeof it === 'string') {
+            itemTerpilih.add(it);
+          }
+        }
+      });
+    }
+
+    /* Hitung estimasi bruto dari harga master lab */
+    const hitungEstBruto = () => {
+      let total = 0;
+      cacheLabMaster.forEach(m => {
+        if (itemTerpilih.has(String(m.id)) || itemTerpilih.has(String(m.kode))) {
+          total += Number(m.harga || 0);
+        }
+      });
+      return total;
+    };
+
+    /* Kelompokkan lab master agar mudah dipilih */
+    const kelompokLab = {};
+    cacheLabMaster.forEach(m => {
+      const kel = m.kelompok || 'Lainnya';
+      if (!kelompokLab[kel]) kelompokLab[kel] = [];
+      kelompokLab[kel].push(m);
+    });
+
+    let htmlCheckbox = '';
+    Object.keys(kelompokLab).sort().forEach(kel => {
+      htmlCheckbox += `<div class="grup-kelompok-lab" style="margin-bottom:8px">
+        <div style="font-weight:600; font-size:12px; color:#475569; margin-bottom:4px; border-bottom:1px solid #e2e8f0; padding-bottom:2px">${UI.esc(kel)}</div>`;
+      kelompokLab[kel].forEach(m => {
+        const checked = (itemTerpilih.has(String(m.id)) || itemTerpilih.has(String(m.kode))) ? 'checked' : '';
+        const hargaTxt = m.harga ? ` (${rpPaket(m.harga)})` : '';
+        htmlCheckbox += `<label class="check" style="display:block; margin-bottom:2px; font-size:12px">
+          <input type="checkbox" data-lab-id="${m.id}" data-kode="${UI.esc(m.kode)}" ${checked}>
+          <span>${UI.esc(m.kode)} - ${UI.esc(m.nama)}${hargaTxt}</span>
+        </label>`;
+      });
+      htmlCheckbox += '</div>';
+    });
+
+    const estBruto = hitungEstBruto();
+    let tarifNettoAwal = 0;
+    if (isEdit) {
+      tarifNettoAwal = Number(paketEdit.netto ?? paketEdit.tarif_paket ?? paketEdit.tarif ?? paketEdit.harga ?? 0);
+      if (tarifNettoAwal <= 0) {
+        tarifNettoAwal = Number(paketEdit.bruto || estBruto || 0);
+      }
+    }
+
+    return await UI.modal({
+      judul: isEdit ? 'Edit Paket Pemeriksaan' : 'Tambah Paket Pemeriksaan',
+      lebar: true,
+      isi: `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
+          <div class="field">
+            <label>Kode Paket</label>
+            <input type="text" id="pktKode" value="${isEdit ? UI.esc(paketEdit.kode) : ''}" placeholder="Misal: PKT-PROLANIS" style="text-transform:uppercase">
+          </div>
+          <div class="field">
+            <label>Nama Paket</label>
+            <input type="text" id="pktNama" value="${isEdit ? UI.esc(paketEdit.nama) : ''}" placeholder="Misal: Paket Pemantauan Prolanis Rutin">
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px">
+          <div class="field">
+            <label>Estimasi Bruto (total harga normal)</label>
+            <input type="text" id="pktBrutoEst" value="${rpPaket(isEdit ? (paketEdit.bruto || estBruto) : estBruto)}" readonly style="background:#f1f5f9; color:#64748b">
+          </div>
+          <div class="field">
+            <label>Tarif Paket (Netto)</label>
+            <input type="number" id="pktNetto" value="${tarifNettoAwal || ''}" min="0" placeholder="${estBruto || 0}">
+          </div>
+          <div class="field">
+            <label>Urutan</label>
+            <input type="number" id="pktUrutan" value="${isEdit ? (paketEdit.urutan || 0) : 0}" min="0">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>Keterangan / Catatan</label>
+          <textarea id="pktKet" rows="2" placeholder="Deskripsi singkat paket (opsional)">${isEdit ? UI.esc(paketEdit.keterangan || '') : ''}</textarea>
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label style="display:flex; align-items:center; gap:6px">
+            <input type="checkbox" id="pktAktif" ${(!isEdit || paketEdit.aktif) ? 'checked' : ''}>
+            <span>Paket aktif (tampil di pendaftaran)</span>
+          </label>
+        </div>
+        <div style="margin-bottom:4px; font-weight:600; font-size:13px">Komponen Pemeriksaan Lab</div>
+        <div style="border:1px solid #cbd5e1; border-radius:6px; padding:10px; max-height:240px; overflow-y:auto; background:#fafbfc" id="wadahItemPaket">
+          <div style="margin-bottom:8px">
+            <input type="search" id="cariItemPaket" placeholder="Filter pemeriksaan..." style="width:100%; padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px">
+          </div>
+          <div id="daftarItemPaket">${htmlCheckbox}</div>
+        </div>
+        <div class="text-xs text-muted" style="margin-top:6px" id="pktInfoTerpilih">${itemTerpilih.size} pemeriksaan dipilih</div>`,
+      tombol: [
+        { teks: 'Batal', nilai: false },
+        { teks: isEdit ? 'Simpan Perubahan' : 'Simpan Paket', kelas: 'btn-primary', aksi: async (box) => {
+          const kode = box.querySelector('#pktKode').value.trim().toUpperCase();
+          const nama = box.querySelector('#pktNama').value.trim();
+          if (!kode || !nama) { UI.toast('Kode dan Nama Paket wajib diisi.', 'err'); return false; }
+
+          const selectedIds = [];
+          box.querySelectorAll('#daftarItemPaket input[data-lab-id]:checked').forEach(cb => {
+            selectedIds.push(cb.dataset.labId);
+          });
+
+          /* Hitung bruto dari item terpilih */
+          let brutoHitung = 0;
+          cacheLabMaster.forEach(m => {
+            if (selectedIds.includes(String(m.id)) || selectedIds.includes(String(m.kode))) {
+              brutoHitung += Number(m.harga || 0);
+            }
+          });
+
+          let inputNetto = Number(box.querySelector('#pktNetto').value) || 0;
+          if (inputNetto <= 0 && brutoHitung > 0) {
+            inputNetto = brutoHitung; // Fallback otomatis ke bruto jika dibiarkan 0
+          }
+
+          const payload = {
+            kode,
+            nama,
+            bruto: brutoHitung,
+            netto: inputNetto,
+            urutan: Number(box.querySelector('#pktUrutan').value) || 0,
+            keterangan: box.querySelector('#pktKet').value.trim() || null,
+            aktif: box.querySelector('#pktAktif').checked
+          };
+          if (isEdit) payload.id = paketEdit.id;
+
+          try {
+            await DB.simpanPaket(payload, selectedIds);
+            UI.toast(isEdit ? 'Paket berhasil diperbarui.' : 'Paket baru berhasil disimpan.', 'ok');
+            return true;
+          } catch(e) {
+            UI.toast('Gagal menyimpan paket: ' + (e.message || e), 'err', 5000);
+            return false;
+          }
+        }}
+      ],
+      siap: (box) => {
+        /* Filter pencarian item pemeriksaan */
+        const cariItem = box.querySelector('#cariItemPaket');
+        const daftarItem = box.querySelector('#daftarItemPaket');
+        const infoTerpilih = box.querySelector('#pktInfoTerpilih');
+        const brutoEst = box.querySelector('#pktBrutoEst');
+        const inpNetto = box.querySelector('#pktNetto');
+
+        const updateInfo = () => {
+          const checkedBoxes = Array.from(daftarItem.querySelectorAll('input[data-lab-id]:checked'));
+          if (infoTerpilih) infoTerpilih.textContent = checkedBoxes.length + ' pemeriksaan dipilih';
+          /* Hitung ulang estimasi bruto */
+          let total = 0;
+          checkedBoxes.forEach(cb => {
+            const m = cacheLabMaster.find(x => String(x.id) === String(cb.dataset.labId) || String(x.kode) === String(cb.dataset.labId));
+            if (m) total += Number(m.harga || 0);
+          });
+          if (brutoEst) brutoEst.value = rpPaket(total);
+          // Jika inpNetto belum diisi atau bernilai 0 di form tambah baru
+          if (!isEdit && inpNetto && (!inpNetto.value || inpNetto.value === '0')) {
+            inpNetto.placeholder = String(total);
+          }
+        };
+
+        if (cariItem) {
+          cariItem.addEventListener('input', () => {
+            const kata = cariItem.value.toLowerCase().trim();
+            daftarItem.querySelectorAll('label.check').forEach(lbl => {
+              const teks = lbl.textContent.toLowerCase();
+              lbl.style.display = (!kata || teks.includes(kata)) ? '' : 'none';
+            });
+            daftarItem.querySelectorAll('.grup-kelompok-lab').forEach(grp => {
+              const hasVisible = Array.from(grp.querySelectorAll('label.check')).some(l => l.style.display !== 'none');
+              grp.style.display = hasVisible ? '' : 'none';
+            });
+          });
+        }
+
+        daftarItem.addEventListener('change', updateInfo);
+      }
+    });
   }
 
   /* ================================================================ *
