@@ -559,25 +559,38 @@ const Pasien = (() => {
       if (!wadah) return;
       try {
         const info = await DB.dataKronisBpjsPasien();
-        if (info && info.ringkasan) {
-          renderKpiKronis(info.ringkasan);
-          // Perbarui badge kronis pada baris pasien yang sedang tampil secara reaktif
-          if (info.mapPasien && daftarPasien.length > 0) {
-            let adaUpdate = false;
-            daftarPasien.forEach(p => {
-              const kr = info.mapPasien.get(p.id);
-              if (kr) {
-                p.kronis = kr;
-                adaUpdate = true;
-              }
-            });
-            if (adaUpdate) {
-              perbaruiBadgeKronisTabel(hasil, daftarPasien);
+        const ringkasan = (info && info.ringkasan) ? info.ringkasan : {
+          totalBpjsKronis: 0, bpjsSudahKlaim: 0, bpjsJatuhTempo: 0,
+          persenBpjsSudahKlaim: 0, persenBpjsJatuhTempo: 0,
+          totalDm: 0, totalDmTerperiksa: 0, dmHba1cTerkontrol: 0,
+          dmHba1cTinggi: 0, dmHba1cBelum: 0, persenHba1cTerkontrol: 0,
+          persenHba1cTinggi: 0, rataRataHba1c: null
+        };
+        renderKpiKronis(ringkasan);
+
+        // Perbarui badge kronis pada baris pasien yang sedang tampil secara reaktif
+        if (info && info.mapPasien && daftarPasien.length > 0) {
+          let adaUpdate = false;
+          daftarPasien.forEach(p => {
+            const kr = info.mapPasien.get(p.id);
+            if (kr) {
+              p.kronis = kr;
+              adaUpdate = true;
             }
+          });
+          if (adaUpdate) {
+            perbaruiBadgeKronisTabel(hasil, daftarPasien);
           }
         }
       } catch (err) {
-        console.warn('Gagal memuat KPI Kronis asinkron:', err);
+        console.warn('Gagal memuat KPI Kronis asinkron, gunakan tampilan default:', err.message || err);
+        renderKpiKronis({
+          totalBpjsKronis: 0, bpjsSudahKlaim: 0, bpjsJatuhTempo: 0,
+          persenBpjsSudahKlaim: 0, persenBpjsJatuhTempo: 0,
+          totalDm: 0, totalDmTerperiksa: 0, dmHba1cTerkontrol: 0,
+          dmHba1cTinggi: 0, dmHba1cBelum: 0, persenHba1cTerkontrol: 0,
+          persenHba1cTinggi: 0, rataRataHba1c: null
+        });
       }
     }
 

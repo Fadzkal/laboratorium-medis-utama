@@ -246,43 +246,74 @@ const DB = (() => {
   let _cacheKronis = null;
   let _cacheKronisWaktu = 0;
 
+  const DEFAULT_HASIL_KRONIS = {
+    ringkasan: {
+      totalKronis: 0,
+      totalHT: 0,
+      totalDM: 0,
+      totalBpjsKronis: 0,
+      bpjsSudahKlaim: 0,
+      bpjsJatuhTempo: 0,
+      persenBpjsSudahKlaim: 0,
+      persenBpjsJatuhTempo: 0,
+      totalDm: 0,
+      totalDmTerperiksa: 0,
+      dmHba1cTerkontrol: 0,
+      dmHba1cTinggi: 0,
+      dmHba1cBelum: 0,
+      persenHba1cTerkontrol: 0,
+      persenHba1cTinggi: 0,
+      rataRataHba1c: null
+    },
+    mapPasien: new Map(),
+    daftar: []
+  };
+
   async function dataKronisBpjsPasien(paksaSegar = false) {
     if (!paksaSegar && _cacheKronis && (Date.now() - _cacheKronisWaktu < 120000)) {
       return _cacheKronis;
     }
 
-    let dataList = [];
-    let pakaiView = false;
-
-    // 1. Coba ambil dari v_pasien_kronis_bpjs jika view SQL sudah ada di Supabase
     try {
-      const { data, error } = await sb.from('v_pasien_kronis_bpjs').select('*');
-      if (!error && Array.isArray(data) && data.length > 0) {
-        dataList = data;
-        pakaiView = true;
+      let dataList = [];
+      let pakaiView = false;
+
+      // 1. Coba ambil dari v_pasien_kronis_bpjs jika view SQL sudah ada di Supabase
+      try {
+        const res = await sb.from('v_pasien_kronis_bpjs').select('*');
+        if (res && !res.error && Array.isArray(res.data) && res.data.length > 0) {
+          dataList = res.data;
+          pakaiView = true;
+        } else if (res && res.error) {
+          console.warn('v_pasien_kronis_bpjs tidak dapat diakses, beralih ke fallback:', res.error.message || res.error);
+          pakaiView = false;
+        }
+      } catch (e) {
+        console.warn('Gagal membaca v_pasien_kronis_bpjs, beralih ke fallback:', e.message || e);
+        pakaiView = false;
       }
-    } catch (e) {
-      pakaiView = false;
-    }
 
-    // 2. Fallback: Hitung mandiri dari tabel pasien, kunjungan, kronis_terapi, diagnosa, lab_hasil
-    if (!pakaiView) {
-      const now = new Date();
-      const [pasienRes, kunjBpjsRes, kronisRes, diagnosaRes, labHasilRes] = await Promise.all([
-        sb.from('pasien').select('id, no_rm, nama, no_bpjs, no_hp, tanggal_lahir, jenis_kelamin, catatan_penting').eq('aktif', true),
-        sb.from('kunjungan').select('pasien_id, tanggal').eq('cara_bayar', 'BPJS').order('tanggal', { ascending: false }),
-        sb.from('kronis_terapi').select('pasien_id, aktif, kronis_terapi_diagnosa(kode)').eq('aktif', true).catch(() => ({ data: [] })),
-        sb.from('diagnosa').select('kunjungan:kunjungan_id(pasien_id), kode_icd10').catch(() => ({ data: [] })),
-        sb.from('lab_hasil').select('nilai_angka, nilai_teks, nama, permintaan:permintaan_id(pasien_id, tanggal, status)').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
-      ]);
+      // 2. Fallback: Hitung mandiri dari tabel pasien, kunjungan, kronis_terapi, diagnosa, lab_hasil
+      if (!pakaiView) {
+        async function jalankanAman(promiseBuilder) {
+          try {
+            const res = await promiseBuilder;
+            return (res && !res.error && Array.isArray(res.data)) ? res.data : [];
+          } catch (_) {
+            return [];
+          }
+        }
 
-      const semuaPasien = pasienRes.data || [];
-      const kunjBpjs = kunjBpjsRes.data || [];
-      const kronisTerapi = kronisRes.data || [];
-      const diagnosaList = diagnosaRes.data || [];
-      const labHasilList = labHasilRes.data || [];
+        const now = new Date();
+        const [semuaPasien, kunjBpjs, kronisTerapi, diagnosaList, labHasilList] = await Promise.all([
+          jalankanAman(sb.from('pasien').select('id, no_rm, nama, no_bpjs, no_hp, tanggal_lahir, jenis_kelamin, catatan_penting').eq('aktif', true)),
+          jalankanAman(sb.from('kunjungan').select('pasien_id, tanggal').eq('cara_bayar', 'BPJS').order('tanggal', { ascending: false })),
+          jalankanAman(sb.from('kronis_terapi').select('pasien_id, aktif, kronis_terapi_diagnosa(kode)').eq('aktif', true)),
+          jalankanAman(sb.from('diagnosa').select('kunjungan:kunjungan_id(pasien_id), kode_icd10')),
+          jalankanAman(sb.from('lab_hasil').select('nilai_angka, nilai_teks, nama, permintaan:permintaan_id(pasien_id, tanggal, status)').order('created_at', { ascending: false }))
+        ]);
 
-      // Map kunjungan BPJS terakhir per pasien
+        // Map kunjungan BPJS terakhir per pasien
       const mapKlaim = new Map();
       kunjBpjs.forEach(k => {
         if (k.pasien_id && !mapKlaim.has(k.pasien_id) && k.tanggal) {
@@ -391,7 +422,11 @@ const DB = (() => {
       });
     }
 
-    return hitungRingkasanKronis(dataList);
+      return hitungRingkasanKronis(dataList);
+    } catch (errGlobal) {
+      console.warn('Gagal memproses data kronis BPJS & HbA1c, gunakan default:', errGlobal.message || errGlobal);
+      return DEFAULT_HASIL_KRONIS;
+    }
   }
 
   function hitungRingkasanKronis(dataList) {
