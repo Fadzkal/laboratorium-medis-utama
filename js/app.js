@@ -272,16 +272,31 @@ const App = (() => {
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 3500);
-        const res = await fetch('http://127.0.0.1:7119/api/status', {
-          method: 'GET',
-          signal: ctrl.signal
-        });
+        let res;
+        try {
+          res = await fetch('http://127.0.0.1:7119/status', {
+            method: 'GET',
+            signal: ctrl.signal
+          });
+        } catch (_) {
+          res = await fetch('http://127.0.0.1:7119/api/status', {
+            method: 'GET',
+            signal: ctrl.signal
+          });
+        }
         clearTimeout(tid);
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
-          if (data && data.status === 'ONLINE') {
+          const isOnline = !!(
+            data && (
+              data.sukses === true ||
+              String(data.status).toLowerCase() === 'online' ||
+              String(data.bridge).toLowerCase() === 'standby'
+            )
+          );
+          if (isOnline) {
             box.innerHTML = `
-              <div class="badge-bridge-online" title="Server LIS aktif di PC ini mendengarkan Mindray BS-240 (Port 7118) dan Sysmex XP-100 (Port 8000)">
+              <div class="badge-bridge-online" title="Server LIS aktif di PC ini mendengarkan Mindray BS-240 (Port 7118), Sysmex XP-100 (Port 8005), dan Wondfo III Plus (Port 8001)">
                 ${UI.ikon('centang', 12)} LIS Bridge: Standby (Siaga Terima Data)
               </div>
             `;

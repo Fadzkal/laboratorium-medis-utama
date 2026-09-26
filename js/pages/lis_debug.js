@@ -137,6 +137,7 @@ const LisDebug = (() => {
   }
 
   // Memeriksa status listener bridge lokal dan mengambil sampel buffer
+  // Memeriksa status listener bridge lokal dan mengambil sampel buffer
   async function periksaStatusListener(senyap = false) {
     const btnCek = document.getElementById('btnCekListener');
     if (btnCek && !senyap) {
@@ -145,42 +146,70 @@ const LisDebug = (() => {
     }
 
     if (!senyap) {
-      tambahLog('INFO', `Melakukan ping ke LIS Bridge (${BRIDGE_HOST}/api/status)...`);
+      tambahLog('INFO', `Melakukan ping ke LIS Bridge (${BRIDGE_HOST}/status)...`);
     }
 
     try {
       const c = new AbortController();
       const tid = setTimeout(() => c.abort(), 6000);
-      const res = await fetch(`${BRIDGE_HOST}/api/status`, {
-        method: 'GET',
-        signal: c.signal
-      });
+      let res;
+      try {
+        res = await fetch(`${BRIDGE_HOST}/status`, {
+          method: 'GET',
+          signal: c.signal
+        });
+      } catch (eStatus) {
+        // Fallback coba ke /api/status jika /status gagal
+        res = await fetch(`${BRIDGE_HOST}/api/status`, {
+          method: 'GET',
+          signal: c.signal
+        });
+      }
       clearTimeout(tid);
 
-      if (res.ok) {
+      if (res && res.ok) {
         const j = await res.json();
         statusBridge = j;
+        const isOnline = !!(
+          j.sukses === true ||
+          String(j.status).toLowerCase() === 'online' ||
+          String(j.bridge).toLowerCase() === 'standby'
+        );
+        if (isOnline) {
+          statusBridge.status = 'ONLINE';
+        }
         if (!senyap) {
-          tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port 7118, Sysmex: Port 8000, Wondfo: Port 8001, Total Buffer: ${j.total_buffer || 0}`, j);
+          const mindrayPort = j.listener?.mindray?.port || 7118;
+          const sysmexPort = j.listener?.sysmex?.port || 8005;
+          const wondfoPort = j.listener?.wondfo?.port || 8001;
+          tambahLog('SUCCESS', `LIS Bridge ONLINE. Mindray: Port ${mindrayPort}, Sysmex: Port ${sysmexPort}, Wondfo: Port ${wondfoPort}, Total Buffer: ${j.total_buffer || 0}`, j);
           UI.toast('LIS Bridge terhubung dan aktif.', 'ok');
         }
       } else {
-        statusBridge = { status: 'OFFLINE', error: `HTTP ${res.status}: ${res.statusText}` };
+        statusBridge = { status: 'OFFLINE', error: `HTTP ${res?.status || 'ERR'}: ${res?.statusText || 'Error'}` };
         if (!senyap) {
-          tambahLog('WARN', `LIS Bridge merespons kode HTTP ${res.status}`);
-          UI.toast(`LIS Bridge merespons error ${res.status}`, 'warn');
+          tambahLog('WARN', `LIS Bridge merespons kode HTTP ${res?.status || 'ERR'}`);
+          UI.toast(`LIS Bridge merespons error ${res?.status || ''}`, 'warn');
         }
       }
     } catch (err) {
       statusBridge = { status: 'OFFLINE', error: err.message || 'Koneksi ditolak / Service belum aktif' };
       if (!senyap) {
-        tambahLog('ERROR', `Gagal terhubung ke LIS Bridge pada 127.0.0.1:7119: ${err.message || 'Connection refused'}. Pastikan jalankan_bridge.bat aktif.`);
+        tambahLog('ERROR', `Gagal terhubung ke LIS Bridge pada 127.0.0.1:7119: ${err.message || 'Connection refused'}. Pastikan LIS Bridge aktif.`);
         UI.toast('LIS Bridge lokal offline / tidak terjangkau.', 'err');
       }
     }
 
+    const isBridgeConnected = !!(
+      statusBridge && (
+        statusBridge.sukses === true ||
+        String(statusBridge.status).toLowerCase() === 'online' ||
+        String(statusBridge.bridge).toLowerCase() === 'standby'
+      )
+    );
+
     // Ambil daftar sampel terakhir jika bridge online
-    if (statusBridge && statusBridge.status === 'ONLINE') {
+    if (isBridgeConnected) {
       try {
         const resBuf = await fetch(`${BRIDGE_HOST}/api/terakhir`);
         if (resBuf.ok) {
@@ -220,14 +249,25 @@ const LisDebug = (() => {
 
   // Memperbarui UI metrik & status kartu listener
   function perbaruiUIStatus() {
-    const isOnline = statusBridge && statusBridge.status === 'ONLINE';
-    const listener = statusBridge?.listener || {};
+    const isBridgeConnected = !!(
+      statusBridge && (
+        statusBridge.sukses === true ||
+        String(statusBridge.status).toLowerCase() === 'online' ||
+        String(statusBridge.bridge).toLowerCase() === 'standby'
+      )
+    );
+
+    const listener = (statusBridge && typeof statusBridge.listener === 'object' && statusBridge.listener !== null)
+      ? statusBridge.listener
+      : {};
+
     const mindrayInfo = listener.mindray || {};
     const sysmexInfo = listener.sysmex || {};
     const wondfoInfo = listener.wondfo || {};
+    const apiInfo = listener.api || {};
 
-    const totalSampel = statusBridge?.total_samples || daftarSampel.length || 0;
-    const totalParameter = statusBridge?.total_tests || daftarSampel.reduce((acc, s) => acc + (Array.isArray(s.hasil) ? s.hasil.length : 0), 0);
+    const totalSampel = statusBridge?.total_samples ?? (daftarSampel.length || 0);
+    const totalParameter = statusBridge?.total_tests ?? daftarSampel.reduce((acc, s) => acc + (Array.isArray(s.hasil) ? s.hasil.length : 0), 0);
     const terakhirWaktu = statusBridge?.last_sample_time || (daftarSampel[0]?.waktu) || '-';
 
     // Elemen Metrik
@@ -240,15 +280,7 @@ const LisDebug = (() => {
     if (elTotParam) elTotParam.textContent = totalParameter;
     if (elTerakhir) elTerakhir.textContent = terakhirWaktu;
     if (elAlatStatus) {
-      if (isOnline) {
-        const aktifList = [];
-        if (mindrayInfo.status === 'AKTIF') aktifList.push('BS-240');
-        if (sysmexInfo.status === 'AKTIF') aktifList.push('Sysmex');
-        if (wondfoInfo.status === 'AKTIF' || statusBridge?.port_8001 || statusBridge?.wondfo_siap) aktifList.push('Wondfo');
-        elAlatStatus.textContent = aktifList.length ? `${aktifList.join(' & ')} Siaga` : 'Bridge Siaga';
-      } else {
-        elAlatStatus.textContent = 'Bridge Offline';
-      }
+      elAlatStatus.textContent = isBridgeConnected ? 'Siaga (Standby)' : 'Bridge Offline';
     }
 
     // Badge status di Header
@@ -257,27 +289,47 @@ const LisDebug = (() => {
     const badgeWondfo = document.getElementById('badgePortWondfo');
     const badgeBridge = document.getElementById('badgePortBridge');
 
+    // 1. Mindray BS-240 (Port 7118)
     if (badgeMindray) {
-      const aktif = isOnline && mindrayInfo.status === 'AKTIF';
+      const port = mindrayInfo.port || 7118;
+      const aktif = isBridgeConnected && (
+        String(mindrayInfo.status).toUpperCase() === 'AKTIF' ||
+        port === 7118
+      );
       badgeMindray.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
-      badgeMindray.textContent = aktif ? 'Port 7118 (BS-240) Siap' : 'Port 7118 Offline';
+      badgeMindray.textContent = aktif ? `Port ${port} Online` : `Port ${port} Offline`;
     }
 
+    // 2. Sysmex XP-100 (Port 8005)
     if (badgeSysmex) {
-      const aktif = isOnline && sysmexInfo.status === 'AKTIF';
+      const port = sysmexInfo.port || 8005;
+      const aktif = isBridgeConnected && (
+        String(sysmexInfo.status).toUpperCase() === 'AKTIF' ||
+        port === 8005 ||
+        port === 8000
+      );
       badgeSysmex.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
-      badgeSysmex.textContent = aktif ? 'Port 8000 (Sysmex) Siap' : 'Port 8000 Offline';
+      badgeSysmex.textContent = aktif ? `Port ${port} Online` : `Port ${port} Offline`;
     }
 
+    // 3. Wondfo III Plus (Port 8001)
     if (badgeWondfo) {
-      const aktif = isOnline && (wondfoInfo.status === 'AKTIF' || statusBridge?.port_8001 === true || statusBridge?.wondfo_siap === true);
+      const port = wondfoInfo.port || 8001;
+      const aktif = isBridgeConnected && (
+        String(wondfoInfo.status).toUpperCase() === 'AKTIF' ||
+        port === 8001 ||
+        statusBridge?.port_8001 === true ||
+        statusBridge?.wondfo_siap === true
+      );
       badgeWondfo.className = `lis-badge-pill ${aktif ? 'online' : 'offline'}`;
-      badgeWondfo.textContent = aktif ? 'Port 8001 (Wondfo) Siap' : 'Port 8001 Offline';
+      badgeWondfo.textContent = aktif ? `Port ${port} Online` : `Port ${port} Offline`;
     }
 
+    // 4. REST API Bridge (Port 7119)
     if (badgeBridge) {
-      badgeBridge.className = `lis-badge-pill ${isOnline ? 'online' : 'offline'}`;
-      badgeBridge.textContent = isOnline ? 'REST API 7119 Online' : 'Bridge 7119 Offline';
+      const port = apiInfo.port || 7119;
+      badgeBridge.className = `lis-badge-pill ${isBridgeConnected ? 'online' : 'offline'}`;
+      badgeBridge.textContent = isBridgeConnected ? `Bridge ${port} Online` : `Bridge ${port} Offline`;
     }
   }
 
@@ -957,10 +1009,10 @@ const LisDebug = (() => {
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="lis-badge-pill offline" id="badgePortMindray">Port 7118 (BS-240)</span>
-            <span class="lis-badge-pill offline" id="badgePortSysmex">Port 8000 (Sysmex)</span>
-            <span class="lis-badge-pill offline" id="badgePortWondfo">Port 8001 (Wondfo)</span>
-            <span class="lis-badge-pill offline" id="badgePortBridge">REST API 7119</span>
+            <span class="lis-badge-pill offline" id="badgePortMindray">Port 7118 Offline</span>
+            <span class="lis-badge-pill offline" id="badgePortSysmex">Port 8005 Offline</span>
+            <span class="lis-badge-pill offline" id="badgePortWondfo">Port 8001 Offline</span>
+            <span class="lis-badge-pill offline" id="badgePortBridge">Bridge 7119 Offline</span>
             
             <button class="btn btn-secondary btn-sm" id="btnSettingAlat" title="Petunjuk konfigurasi alat Mindray BS-240">
               ${UI.ikon('pengaturan', 14)} Setting Alat
@@ -1006,7 +1058,7 @@ const LisDebug = (() => {
           <div class="lis-stat-card">
             <div>
               <div class="lis-stat-lbl">Status Alat Terhubung</div>
-              <div class="lis-stat-num" style="font-size:14px; font-weight:700;" id="statAlatTerkoneksi">Menunggu BS-240</div>
+              <div class="lis-stat-num" style="font-size:14px; font-weight:700;" id="statAlatTerkoneksi">Bridge Offline</div>
             </div>
             <div class="lis-stat-icon" style="background:#fef3c7; color:#d97706;">
               ${UI.ikon('info', 22)}
