@@ -963,8 +963,8 @@ const DisplayHarian = (() => {
             max-height: 28mm !important;
             margin: 0 !important;
             margin-left: 0 !important;
-            transform: translateX(-5mm) !important;
-            padding: 1mm 1mm !important;
+            transform: translateX(-2mm) !important;
+            padding: 1mm 1.5mm 1mm 2.5mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;

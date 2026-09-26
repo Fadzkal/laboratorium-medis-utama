@@ -819,7 +819,7 @@ def buat_image_label_barcode(no_lab, nama_pasien, info_sub, spesimen, sub_info="
     d_id.text((2, 2), str(id_standar), font=font_id, fill="black")
     rot_id = img_id.rotate(90, expand=True)
     y_id = max(0, (h_canvas - rot_id.height) // 2)
-    img.paste(rot_id, (4, y_id))
+    img.paste(rot_id, (16, y_id))
 
     # 2. Kanan Vertikal: Departemen / Spesimen Medis
     spesimen_str = str(spesimen or "KIMIA").upper().strip()
@@ -840,7 +840,7 @@ def buat_image_label_barcode(no_lab, nama_pasien, info_sub, spesimen, sub_info="
     mod_w = 2 if total_modules * 3 > 280 else 3
     bc_w = total_modules * mod_w
     bc_h = 88 if not sub_info else 75
-    bc_x = 36 + (w_canvas - 36 - (w_canvas - x_sp) - bc_w) // 2
+    bc_x = 48 + max(0, (w_canvas - 48 - (w_canvas - x_sp) - bc_w) // 2)
     bc_y = 8
 
     cur_x = bc_x
@@ -853,7 +853,7 @@ def buat_image_label_barcode(no_lab, nama_pasien, info_sub, spesimen, sub_info="
         is_bar = not is_bar
 
     # Batas horizontal area tengah
-    cx_min = 36
+    cx_min = 48
     cx_max = x_sp
     avail_w = max(10, cx_max - cx_min)
 
