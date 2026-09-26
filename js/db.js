@@ -243,7 +243,14 @@ const DB = (() => {
   /* ------------------------------------------------------------------
    *  PEMANTAUAN KRONIS BPJS 6 BULAN & EVALUASI HBA1C PASIEN
    * ------------------------------------------------------------------ */
-  async function dataKronisBpjsPasien() {
+  let _cacheKronis = null;
+  let _cacheKronisWaktu = 0;
+
+  async function dataKronisBpjsPasien(paksaSegar = false) {
+    if (!paksaSegar && _cacheKronis && (Date.now() - _cacheKronisWaktu < 120000)) {
+      return _cacheKronis;
+    }
+
     let dataList = [];
     let pakaiView = false;
 
@@ -418,7 +425,7 @@ const DB = (() => {
     const arrNilai = pasienDM.map(r => Number(r.nilai_hba1c)).filter(v => !isNaN(v) && v > 0);
     const rataRataHba1c = arrNilai.length ? (arrNilai.reduce((a, b) => a + b, 0) / arrNilai.length).toFixed(1) : null;
 
-    return {
+    const hasil = {
       ringkasan: {
         totalKronis: pasienKronis.length,
         totalHT,
@@ -440,26 +447,79 @@ const DB = (() => {
       mapPasien,
       daftar: dataList
     };
+    _cacheKronis = hasil;
+    _cacheKronisWaktu = Date.now();
+    return hasil;
   }
 
-  /* Mengambil daftar pasien lengkap dengan statistik kunjungan & kelengkapan */
+  /* Mengambil daftar pasien lengkap dengan statistik kunjungan & kelengkapan (Teroptimasi Cepat) */
   async function daftarPasienLengkap(filter = {}) {
-    const { kata = '', tipe = 'semua', urut = 'kunjungan_terbanyak', jk = 'semua', umur = 'semua', kelengkapan = 'semua', kronis = 'semua', batas = 300 } = filter;
+    const {
+      kata = '',
+      tipe = 'semua',
+      urut = 'kunjungan_terbanyak',
+      jk = 'semua',
+      umur = 'semua',
+      kelengkapan = 'semua',
+      kronis = 'semua',
+      batas = 25,
+      offset = 0,
+      ambilKronis = false,
+      infoKronis = null
+    } = filter;
 
     let dataPasien = [];
     let pakaiView = false;
+    let totalHitung = null;
+    const batasNum = Number(batas) || 25;
+    const offsetNum = Number(offset) || 0;
 
     // 1. Coba ambil dari v_pasien_lengkap jika view SQL sudah dieksekusi di Supabase
     try {
-      let q = sb.from('v_pasien_lengkap').select('*').limit(batas);
+      let q = sb.from('v_pasien_lengkap').select('*', { count: 'exact' });
+
       if (kata && kata.trim().length >= 2) {
         const k = kata.trim();
         q = q.or(`nama.ilike.%${k}%,no_rm.ilike.%${k}%,nik.ilike.%${k}%,no_bpjs.ilike.%${k}%,no_hp.ilike.%${k}%`);
       }
-      const { data, error } = await q;
-      if (!error && Array.isArray(data) && data.length >= 0) {
+
+      if (jk === 'L' || jk === 'P') {
+        q = q.eq('jenis_kelamin', jk);
+      }
+
+      if (tipe === 'bpjs') {
+        q = q.not('no_bpjs', 'is', null).neq('no_bpjs', '').neq('no_bpjs', '-');
+      } else if (tipe === 'umum') {
+        q = q.or('no_bpjs.is.null,no_bpjs.eq.,no_bpjs.eq.-');
+      } else if (tipe === 'rekanan') {
+        q = q.or('nrp.not.is.null,bagian.not.is.null,plant.not.is.null');
+      }
+
+      // Pengurutan DB
+      if (urut === 'kunjungan_terbanyak') {
+        q = q.order('jml_kunjungan', { ascending: false }).order('kunjungan_terakhir', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
+      } else if (urut === 'kunjungan_terakhir') {
+        q = q.order('kunjungan_terakhir', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false });
+      } else if (urut === 'nama_asc') {
+        q = q.order('nama', { ascending: true });
+      } else if (urut === 'nama_desc') {
+        q = q.order('nama', { ascending: false });
+      } else if (urut === 'rm_desc') {
+        q = q.order('no_rm', { ascending: false });
+      } else if (urut === 'rm_asc') {
+        q = q.order('no_rm', { ascending: true });
+      } else {
+        q = q.order('created_at', { ascending: false });
+      }
+
+      // Range paginasi
+      q = q.range(offsetNum, offsetNum + batasNum - 1);
+
+      const { data, count, error } = await q;
+      if (!error && Array.isArray(data)) {
         dataPasien = data.map(r => ({ ...r, kekurangan: r.kekurangan || [] }));
         pakaiView = true;
+        totalHitung = count;
       }
     } catch (e) {
       pakaiView = false;
@@ -468,16 +528,33 @@ const DB = (() => {
     // 2. Fallback jika view belum dibuat: ambil langsung dari pasien + relasi kunjungan
     if (!pakaiView) {
       let q = sb.from('pasien')
-        .select('id,no_rm,nik,no_bpjs,nama,title,nrp,bagian,plant,tanggal_lahir,jenis_kelamin,alamat,no_hp,no_telp,catatan_penting,created_at,kunjungan(id,tanggal,cara_bayar)')
-        .eq('aktif', true).limit(batas);
+        .select('id,no_rm,nik,no_bpjs,nama,title,nrp,bagian,plant,tanggal_lahir,jenis_kelamin,alamat,no_hp,no_telp,catatan_penting,created_at,kunjungan(id,tanggal,cara_bayar)', { count: 'exact' })
+        .eq('aktif', true);
 
       if (kata && kata.trim().length >= 2) {
         const k = kata.trim();
         q = q.or(`nama.ilike.%${k}%,no_rm.ilike.%${k}%,nik.ilike.%${k}%,no_bpjs.ilike.%${k}%,no_hp.ilike.%${k}%`);
       }
+      if (jk === 'L' || jk === 'P') {
+        q = q.eq('jenis_kelamin', jk);
+      }
+      if (tipe === 'bpjs') {
+        q = q.not('no_bpjs', 'is', null).neq('no_bpjs', '').neq('no_bpjs', '-');
+      } else if (tipe === 'umum') {
+        q = q.or('no_bpjs.is.null,no_bpjs.eq.,no_bpjs.eq.-');
+      }
 
-      const { data, error } = await q;
+      if (urut === 'nama_asc') q = q.order('nama', { ascending: true });
+      else if (urut === 'nama_desc') q = q.order('nama', { ascending: false });
+      else if (urut === 'rm_desc') q = q.order('no_rm', { ascending: false });
+      else if (urut === 'rm_asc') q = q.order('no_rm', { ascending: true });
+      else q = q.order('created_at', { ascending: false });
+
+      q = q.range(offsetNum, offsetNum + batasNum - 1);
+
+      const { data, count, error } = await q;
       if (error) throw error;
+      totalHitung = count;
 
       dataPasien = (data || []).map(p => {
         const visits = p.kunjungan || [];
@@ -500,31 +577,43 @@ const DB = (() => {
       });
     }
 
-    // 3. Gabungkan dengan data status kronis, klaim BPJS 6 bulan, dan evaluasi HbA1c
-    const infoKronis = await dataKronisBpjsPasien().catch(() => ({ mapPasien: new Map(), ringkasan: {} }));
-    dataPasien.forEach(p => {
-      p.kronis = infoKronis.mapPasien.get(p.id) || {
-        is_ht: false,
-        is_dm: false,
-        jenis_kronis: 'Non-Kronis',
-        status_klaim_bpjs: p.no_bpjs ? 'BELUM_KLAIM' : 'NON_BPJS',
-        status_hba1c: 'BELUM_PERIKSA',
-        nilai_hba1c: null,
-        tgl_hba1c: null,
-        siklus_rekomendasi_hba1c: 'Segera Periksa (3/6 Bln)'
-      };
-    });
+    // 3. Resolusi info kronis (dari cache, argumen, atau default cepat non-blocking)
+    let mapKronis = null;
+    let ringkasanKronis = {};
 
-    // 4. Filter Client-side: Tipe Kepesertaan
-    if (tipe === 'bpjs') {
-      dataPasien = dataPasien.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
-    } else if (tipe === 'umum') {
-      dataPasien = dataPasien.filter(p => !p.no_bpjs || p.no_bpjs.trim() === '' || p.no_bpjs === '-');
-    } else if (tipe === 'rekanan') {
-      dataPasien = dataPasien.filter(p => (p.nrp && p.nrp.trim()) || (p.bagian && p.bagian.trim()) || (p.plant && p.plant.trim()));
+    if (infoKronis && infoKronis.mapPasien) {
+      mapKronis = infoKronis.mapPasien;
+      ringkasanKronis = infoKronis.ringkasan || {};
+    } else if (_cacheKronis && (Date.now() - _cacheKronisWaktu < 120000)) {
+      mapKronis = _cacheKronis.mapPasien;
+      ringkasanKronis = _cacheKronis.ringkasan || {};
+    } else if (ambilKronis) {
+      const info = await dataKronisBpjsPasien().catch(() => ({ mapPasien: new Map(), ringkasan: {} }));
+      mapKronis = info.mapPasien;
+      ringkasanKronis = info.ringkasan || {};
     }
 
-    // 5. Filter Khusus Kronis & Klaim BPJS 6 Bulan / HbA1c
+    dataPasien.forEach(p => {
+      if (mapKronis && mapKronis.has(p.id)) {
+        p.kronis = mapKronis.get(p.id);
+      } else {
+        const cp = (p.catatan_penting || '').toLowerCase();
+        const isHT = /(hipertensi|\bhpt\b|\bht\b|tensi tinggi)/.test(cp);
+        const isDM = /(diabetes|\bdm\b|gula darah|kencing manis)/.test(cp);
+        p.kronis = {
+          is_ht: isHT,
+          is_dm: isDM,
+          jenis_kronis: (isHT && isDM) ? 'HT & DM' : (isHT ? 'Hipertensi' : (isDM ? 'Diabetes Melitus' : 'Non-Kronis')),
+          status_klaim_bpjs: (p.no_bpjs && p.no_bpjs.trim() && p.no_bpjs !== '-') ? 'BELUM_KLAIM' : 'NON_BPJS',
+          status_hba1c: 'BELUM_PERIKSA',
+          nilai_hba1c: null,
+          tgl_hba1c: null,
+          siklus_rekomendasi_hba1c: 'Segera Periksa (3/6 Bln)'
+        };
+      }
+    });
+
+    // 4. Filter Khusus Kronis & Klaim BPJS 6 Bulan / HbA1c (jika dipilih)
     if (kronis && kronis !== 'semua') {
       if (kronis === 'bpjs_sudah_klaim') {
         dataPasien = dataPasien.filter(p => p.kronis?.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN');
@@ -541,14 +630,7 @@ const DB = (() => {
       }
     }
 
-    // 6. Filter Jenis Kelamin
-    if (jk === 'L') {
-      dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'L');
-    } else if (jk === 'P') {
-      dataPasien = dataPasien.filter(p => p.jenis_kelamin === 'P');
-    }
-
-    // 7. Filter Kelompok Umur
+    // 5. Filter Kelompok Umur
     if (umur && umur !== 'semua') {
       const now = new Date();
       dataPasien = dataPasien.filter(p => {
@@ -564,39 +646,19 @@ const DB = (() => {
       });
     }
 
-    // 8. Filter Kelengkapan Data
+    // 6. Filter Kelengkapan Data
     if (kelengkapan === 'lengkap') {
       dataPasien = dataPasien.filter(p => !p.kekurangan || p.kekurangan.length === 0);
     } else if (kelengkapan === 'kurang') {
       dataPasien = dataPasien.filter(p => p.kekurangan && p.kekurangan.length > 0);
     }
 
-    // 9. Pengurutan / Sort
-    dataPasien.sort((a, b) => {
-      if (urut === 'kunjungan_terbanyak') {
-        const selisih = (b.jml_kunjungan || 0) - (a.jml_kunjungan || 0);
-        if (selisih !== 0) return selisih;
-        return (a.nama || '').localeCompare(b.nama || '');
-      }
-      if (urut === 'kunjungan_terakhir') {
-        const tA = a.kunjungan_terakhir || '1970-01-01';
-        const tB = b.kunjungan_terakhir || '1970-01-01';
-        return tB.localeCompare(tA);
-      }
-      if (urut === 'nama_desc') {
-        return (b.nama || '').localeCompare(a.nama || '');
-      }
-      if (urut === 'rm_desc') {
-        return (b.no_rm || '').localeCompare(a.no_rm || '');
-      }
-      if (urut === 'rm_asc') {
-        return (a.no_rm || '').localeCompare(b.no_rm || '');
-      }
-      // Default: nama_asc
-      return (a.nama || '').localeCompare(b.nama || '');
-    });
-
-    dataPasien.ringkasanKronis = infoKronis.ringkasan || {};
+    // Lampirkan metadata pagination
+    dataPasien.total = totalHitung;
+    dataPasien.offset = offsetNum;
+    dataPasien.batas = batasNum;
+    dataPasien.adaLanjutan = (dataPasien.length >= batasNum);
+    dataPasien.ringkasanKronis = ringkasanKronis;
     return dataPasien;
   }
   async function pasien(id) {
@@ -604,6 +666,7 @@ const DB = (() => {
     if (error) throw error; return data;
   }
   async function simpanPasien(data, id = null) {
+    _cacheKronis = null; _cacheKronisWaktu = 0;
     const q = id
       ? sb.from('pasien').update(data).eq('id', id).select().single()
       : sb.from('pasien').insert(data).select().single();
@@ -611,6 +674,7 @@ const DB = (() => {
     if (error) throw error; return hasil;
   }
   async function hapusPasien(id) {
+    _cacheKronis = null; _cacheKronisWaktu = 0;
     try {
       const { error: rpcErr } = await sb.rpc('hapus_pasien', { p_pasien_id: id });
       if (!rpcErr) return true;

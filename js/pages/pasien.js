@@ -273,12 +273,27 @@ const Pasien = (() => {
       </div>
 
       <!-- Widget KPI Pemantauan BPJS 6 Bulan & Kontrol HbA1c -->
-      <div id="wadahKpiKronis" class="mb-16"></div>
+      <div id="wadahKpiKronis" class="mb-16">
+        <div class="grid grid-2 gap-16">
+          <div class="card p-12" style="border-left: 4px solid #16a34a; background:#f8fdf9;">
+            <div class="text-xs font-bold" style="color:#166534; margin-bottom:8px;">
+              ${UI.ikon('cek', 14)} Pemantauan Siklus Klaim BPJS 6 Bulan (Prolanis)
+            </div>
+            ${UI.memuat(1)}
+          </div>
+          <div class="card p-12" style="border-left: 4px solid #2563eb; background:#f6faff;">
+            <div class="text-xs font-bold" style="color:#1e40af; margin-bottom:8px;">
+              ${UI.ikon('stetoskop', 14)} Evaluasi Kontrol HbA1c Pasien Diabetes
+            </div>
+            ${UI.memuat(1)}
+          </div>
+        </div>
+      </div>
 
       <div class="filter-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
         <div class="search-box filter-search" style="flex:1 1 240px; min-width:200px;">
           <span class="ico">${UI.ikon('cari',16)}</span>
-          <input type="search" id="cari" placeholder="Cari nama, No. RM, NIK, BPJS, atau HP…" autofocus>
+          <input type="search" id="cariPasien" placeholder="Cari nama, No. RM, NIK, BPJS, atau HP…" autofocus>
         </div>
 
         <div class="field" style="margin-bottom:0; min-width:180px;">
@@ -359,6 +374,7 @@ const Pasien = (() => {
           <span id="statUrut" style="font-size:11.5px; color:var(--brand-700); font-weight:600;"></span>
         </div>
         <div class="card-body tight" id="hasil">${UI.memuat(3)}</div>
+        <div id="wadahNavigasiPasien"></div>
       </div>`;
 
     const hasil = el.querySelector('#hasil');
@@ -464,8 +480,18 @@ const Pasien = (() => {
       `;
     }
 
-    const muat = async () => {
-      const kata = (el.querySelector('#cari')?.value || '').trim();
+    const UKURAN_AWAL = 25;
+    let offsetAktif = 0;
+    let daftarPasien = [];
+    let sedangMemuat = false;
+    let adaLanjutanData = false;
+
+    async function muat({ reset = false, muatLebih = false, batasKhusus = null } = {}) {
+      if (sedangMemuat) return;
+      sedangMemuat = true;
+
+      const inpCari = el.querySelector('#cariPasien') || el.querySelector('#cari');
+      const kata = (inpCari?.value || '').trim();
       const tipe = el.querySelector('#fTipe')?.value || 'semua';
       const kronis = el.querySelector('#fKronis')?.value || 'semua';
       const urut = el.querySelector('#fUrut')?.value || 'kunjungan_terbanyak';
@@ -473,46 +499,131 @@ const Pasien = (() => {
       const umur = el.querySelector('#fUmur')?.value || 'semua';
       const kelengkapan = el.querySelector('#fKelengkapan')?.value || 'semua';
 
-      hasil.innerHTML = UI.memuat(3);
       if (statUrut) statUrut.textContent = `Urutan: ${labelUrutan[urut] || urut}`;
+
+      const batas = batasKhusus || (kata.length >= 2 ? 50 : UKURAN_AWAL);
+
+      if (reset) {
+        offsetAktif = 0;
+        daftarPasien = [];
+        hasil.innerHTML = UI.memuat(3);
+        if (statJumlah) statJumlah.textContent = 'Memuat…';
+      }
 
       try {
         const data = await DB.daftarPasienLengkap({
-          kata, tipe, kronis, urut, jk, umur, kelengkapan, batas: 300
+          kata, tipe, kronis, urut, jk, umur, kelengkapan,
+          batas,
+          offset: offsetAktif,
+          ambilKronis: false
         });
 
-        const bpjsCount = data.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-').length;
-        const umumCount = data.length - bpjsCount;
+        adaLanjutanData = (data.length >= batas);
 
-        if (statJumlah) {
-          statJumlah.textContent = `Menampilkan ${data.length} pasien (${bpjsCount} BPJS, ${umumCount} Umum)`;
+        if (muatLebih) {
+          daftarPasien = daftarPasien.concat(data);
+          tambahBarisTabel(hasil, data, () => muat({ reset: true }));
+        } else {
+          daftarPasien = data;
+          gambarDaftar(hasil, daftarPasien, kata, () => muat({ reset: true }));
         }
 
-        renderKpiKronis(data.ringkasanKronis || {});
-        gambarDaftar(hasil, data, kata, muat);
+        const bpjsCount = daftarPasien.filter(p => p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-').length;
+        const umumCount = daftarPasien.length - bpjsCount;
+        const totalInfo = (data.total != null && data.total > 0) ? ` dari ${data.total}` : '';
+
+        if (statJumlah) {
+          statJumlah.textContent = `Menampilkan ${daftarPasien.length}${totalInfo} pasien (${bpjsCount} BPJS, ${umumCount} Umum)`;
+        }
+
+        perbaruiNavigasiBawah(el, adaLanjutanData, daftarPasien.length, async () => {
+          offsetAktif += batas;
+          await muat({ muatLebih: true });
+        });
+
       } catch (e) {
-        hasil.innerHTML = `<div class="banner err">${UI.esc(e.message || e)}</div>`;
+        if (reset) {
+          hasil.innerHTML = `<div class="banner err">${UI.esc(e.message || e)}</div>`;
+        } else {
+          UI.toast('Gagal memuat data lanjutan: ' + (e.message || e), 'err');
+        }
         if (statJumlah) statJumlah.textContent = 'Gagal memuat';
+      } finally {
+        sedangMemuat = false;
+      }
+    }
+
+    /* Pemuatan Asinkron untuk Kartu Ringkasan Atas (Non-Blocking) */
+    async function muatKpiKronis() {
+      const wadah = el.querySelector('#wadahKpiKronis');
+      if (!wadah) return;
+      try {
+        const info = await DB.dataKronisBpjsPasien();
+        if (info && info.ringkasan) {
+          renderKpiKronis(info.ringkasan);
+          // Perbarui badge kronis pada baris pasien yang sedang tampil secara reaktif
+          if (info.mapPasien && daftarPasien.length > 0) {
+            let adaUpdate = false;
+            daftarPasien.forEach(p => {
+              const kr = info.mapPasien.get(p.id);
+              if (kr) {
+                p.kronis = kr;
+                adaUpdate = true;
+              }
+            });
+            if (adaUpdate) {
+              perbaruiBadgeKronisTabel(hasil, daftarPasien);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat KPI Kronis asinkron:', err);
+      }
+    }
+
+    /* Real-time Search Cepat dengan Debounce 300 ms */
+    const inpCari = el.querySelector('#cariPasien') || el.querySelector('#cari');
+    let kataSebelumnya = '';
+
+    const onCari = async () => {
+      const kata = (inpCari?.value || '').trim();
+      if (kata === kataSebelumnya) return;
+      kataSebelumnya = kata;
+
+      if (kata.length === 0) {
+        // Kolom pencarian dikosongkan kembali: kembalikan ke 25 pasien terbaru awal
+        await muat({ reset: true, batasKhusus: UKURAN_AWAL });
+        return;
+      }
+
+      if (kata.length >= 2) {
+        // Minimal 2 karakter: kueri pencarian cepat limit 50
+        await muat({ reset: true, batasKhusus: 50 });
       }
     };
 
-    el.querySelector('#cari')?.addEventListener('input', UI.tunda(muat, 280));
-    el.querySelector('#fKronis')?.addEventListener('change', muat);
-    el.querySelector('#fTipe')?.addEventListener('change', muat);
-    el.querySelector('#fUrut')?.addEventListener('change', muat);
-    el.querySelector('#fJk')?.addEventListener('change', muat);
-    el.querySelector('#fUmur')?.addEventListener('change', muat);
-    el.querySelector('#fKelengkapan')?.addEventListener('change', muat);
+    if (inpCari) {
+      inpCari.addEventListener('input', UI.tunda(onCari, 300));
+    }
+
+    const resetDanMuat = () => muat({ reset: true });
+    el.querySelector('#fKronis')?.addEventListener('change', resetDanMuat);
+    el.querySelector('#fTipe')?.addEventListener('change', resetDanMuat);
+    el.querySelector('#fUrut')?.addEventListener('change', resetDanMuat);
+    el.querySelector('#fJk')?.addEventListener('change', resetDanMuat);
+    el.querySelector('#fUmur')?.addEventListener('change', resetDanMuat);
+    el.querySelector('#fKelengkapan')?.addEventListener('change', resetDanMuat);
 
     el.querySelector('#btnResetFilter')?.addEventListener('click', () => {
-      if (el.querySelector('#cari')) el.querySelector('#cari').value = '';
+      if (inpCari) inpCari.value = '';
+      kataSebelumnya = '';
       if (el.querySelector('#fKronis')) el.querySelector('#fKronis').value = 'semua';
       if (el.querySelector('#fTipe')) el.querySelector('#fTipe').value = 'semua';
       if (el.querySelector('#fUrut')) el.querySelector('#fUrut').value = 'kunjungan_terbanyak';
       if (el.querySelector('#fJk')) el.querySelector('#fJk').value = 'semua';
       if (el.querySelector('#fUmur')) el.querySelector('#fUmur').value = 'semua';
       if (el.querySelector('#fKelengkapan')) el.querySelector('#fKelengkapan').value = 'semua';
-      muat();
+      resetDanMuat();
     });
 
     const btn = el.querySelector('#btnBaru');
@@ -521,7 +632,178 @@ const Pasien = (() => {
       if (p) App.pergi('#/pasien/' + p.id);
     });
 
-    await muat();
+    // 1. Render tabel pasien awal (25 data terbaru) secara instan
+    await muat({ reset: true });
+
+    // 2. Muat ringkasan KPI secara asinkron di latar belakang
+    setTimeout(muatKpiKronis, 30);
+  }
+
+  function perbaruiNavigasiBawah(root, adaLanjutan, jumlahTampil, onMuatLebih) {
+    const wadah = root.querySelector('#wadahNavigasiPasien');
+    if (!wadah) return;
+    if (!jumlahTampil) {
+      wadah.innerHTML = '';
+      return;
+    }
+    if (adaLanjutan) {
+      wadah.innerHTML = `
+        <div style="padding:12px 16px; text-align:center; border-top:1px solid var(--ink-200); background:var(--ink-50);">
+          <button type="button" id="btnMuatLebih" class="btn btn-secondary btn-sm" style="font-weight:600; padding:6px 16px;">
+            ${UI.ikon('plus', 14)} Muat 25 Pasien Berikutnya
+          </button>
+          <div class="text-xs text-muted" style="margin-top:6px;">Menampilkan ${jumlahTampil} pasien</div>
+        </div>`;
+      const btn = wadah.querySelector('#btnMuatLebih');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          btn.innerHTML = `${UI.ikon('ulang', 14)} Memuat data berikutnya…`;
+          await onMuatLebih();
+        });
+      }
+    } else {
+      wadah.innerHTML = `
+        <div style="padding:10px 16px; text-align:center; border-top:1px solid var(--ink-200); background:var(--ink-50);" class="text-xs text-muted">
+          Semua data pasien yang sesuai telah ditampilkan (${jumlahTampil} pasien).
+        </div>`;
+    }
+  }
+
+  function buatKronisBadges(kr = {}, isBpjs = false) {
+    if (!kr.is_ht && !kr.is_dm) return '';
+    const badgeJenis = `<span class="badge ${kr.is_ht && kr.is_dm ? 'b-dokter' : 'b-info'} text-xs" style="margin-right:4px;">${UI.esc(kr.jenis_kronis)}</span>`;
+    let badgeKlaim = '';
+    if (isBpjs) {
+      if (kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN') {
+        badgeKlaim = `<span class="badge b-ok text-xs" title="Terakhir klaim BPJS: ${UI.tglPendek(kr.tgl_klaim_bpjs)} (${kr.hari_sejak_klaim} hari lalu)"><span class="dot"></span> Klaim 6 Bln OK</span> `;
+      } else {
+        badgeKlaim = `<span class="badge b-warn text-xs" title="${kr.tgl_klaim_bpjs ? 'Klaim terakhir ' + kr.hari_sejak_klaim + ' hari lalu (Jatuh tempo)' : 'Belum pernah klaim BPJS'}"><span class="dot"></span> Jatuh Tempo 6 Bln</span> `;
+      }
+    }
+    let badgeHba1c = '';
+    if (kr.is_dm) {
+      if (kr.status_hba1c === 'TERKONTROL') {
+        badgeHba1c = `<span class="badge b-ok text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Kontrol rutin: 6 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&lt; 7%)</span> `;
+      } else if (kr.status_hba1c === 'BELUM_TERKONTROL') {
+        badgeHba1c = `<span class="badge b-danger text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Perhatian: Evaluasi Ulang 3 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&ge; 7%)</span> `;
+      } else {
+        badgeHba1c = `<span class="badge b-batal text-xs" title="Belum pernah periksa HbA1c · Jadwal rutin: 3/6 Bulan">HbA1c: Belum Tes</span> `;
+      }
+    }
+    return `<div class="flex items-center gap-4 flex-wrap mt-4 wadah-kronis-badges">${badgeJenis}${badgeKlaim}${badgeHba1c}</div>`;
+  }
+
+  function buatBarisPasien(p) {
+    const jmlKunjungan = p.jml_kunjungan || 0;
+    const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
+    const badgeKunjunganClass = jmlKunjungan >= 5 ? 'b-ok' : (jmlKunjungan > 0 ? 'b-bpjs' : 'b-umum');
+    const adaKurang = p.kekurangan && p.kekurangan.length > 0;
+    const kr = p.kronis || {};
+    const kronisBadges = buatKronisBadges(kr, isBpjs);
+
+    return `
+    <tr class="clickable" data-id="${p.id}">
+      <td class="mono" style="font-weight:700;">${UI.esc(p.no_rm)}</td>
+      <td>
+        <div><b>${UI.esc(p.nama)}</b> ${p.title ? `<span class="text-xs text-muted">(${UI.esc(p.title)})</span>` : ''}</div>
+        ${p.catatan_penting ? `<div class="text-xs text-danger" style="margin-top:2px;">
+          ${UI.ikon('peringatan',12)} ${UI.esc(p.catatan_penting)}</div>` : ''}
+        ${adaKurang ? `<div class="text-xs text-warn" style="margin-top:2px;" title="${p.kekurangan.join(', ')}">
+          ${UI.ikon('peringatan',11)} ${p.kekurangan.length} data belum lengkap</div>` : ''}
+        ${kronisBadges}
+      </td>
+      <td>${p.jenis_kelamin || '—'}</td>
+      <td class="nowrap">
+        <div>${UI.umurTeks(p.tanggal_lahir)}</div>
+        <div class="text-xs text-muted">${UI.tglPendek(p.tanggal_lahir)}</div>
+      </td>
+      <td class="nowrap">
+        <span class="badge ${badgeKunjunganClass}" style="font-weight:700;">
+          ${jmlKunjungan}x
+        </span>
+        ${p.kunjungan_terakhir ? `<div class="text-xs text-muted" style="margin-top:2px;">terakhir ${UI.tglPendek(p.kunjungan_terakhir)}</div>` : ''}
+      </td>
+      <td>
+        ${isBpjs
+          ? `<span class="badge b-bpjs" style="font-size:10.5px; padding:2px 6px; margin-right:4px;">BPJS</span><span class="mono text-xs">${UI.esc(p.no_bpjs)}</span>`
+          : `<span class="badge b-umum" style="font-size:10.5px; padding:2px 6px;">Umum</span>`
+        }
+        ${(p.bagian || p.plant) ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc([p.bagian, p.plant].filter(Boolean).join(' - '))}</div>` : ''}
+        ${isBpjs && kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN' ? `<div class="text-xs text-ok font-bold" style="margin-top:2px;">Klaim Aktif (&le; 6 Bln)</div>` : ''}
+        ${isBpjs && (kr.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || kr.status_klaim_bpjs === 'BELUM_KLAIM') ? `<div class="text-xs text-danger font-bold" style="margin-top:2px;">Jatuh Tempo 6 Bln</div>` : ''}
+      </td>
+      <td class="muted">
+        <div>${UI.esc(p.no_hp || p.no_telp || '—')}</div>
+        ${p.nik ? `<div class="mono text-xs text-muted">NIK: ${UI.esc(p.nik)}</div>` : ''}
+      </td>
+      <td class="text-right whitespace-nowrap">
+        <button class="btn btn-ghost btn-sm text-danger btn-hapus-pasien" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-rm="${UI.esc(p.no_rm)}" title="Hapus Pasien">
+          ${UI.ikon('hapus',15)}
+        </button>
+      </td>
+    </tr>`;
+  }
+
+  function perbaruiBadgeKronisTabel(wadah, dataPasien) {
+    if (!wadah || !dataPasien || !dataPasien.length) return;
+    const map = new Map();
+    dataPasien.forEach(p => map.set(p.id, p));
+
+    wadah.querySelectorAll('tbody tr[data-id]').forEach(tr => {
+      const p = map.get(tr.dataset.id);
+      if (!p) return;
+      const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
+      const tdNama = tr.children[1];
+      if (tdNama) {
+        let wadahBadges = tdNama.querySelector('.wadah-kronis-badges');
+        const htmlBadges = buatKronisBadges(p.kronis, isBpjs);
+        if (wadahBadges) {
+          if (htmlBadges) wadahBadges.outerHTML = htmlBadges;
+          else wadahBadges.remove();
+        } else if (htmlBadges) {
+          tdNama.insertAdjacentHTML('beforeend', htmlBadges);
+        }
+      }
+      const tdKepesertaan = tr.children[5];
+      if (tdKepesertaan && isBpjs && p.kronis) {
+        const kr = p.kronis;
+        const infoKlaim = tdKepesertaan.querySelector('.text-ok, .text-danger');
+        if (infoKlaim) infoKlaim.remove();
+        if (kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN') {
+          tdKepesertaan.insertAdjacentHTML('beforeend', `<div class="text-xs text-ok font-bold" style="margin-top:2px;">Klaim Aktif (&le; 6 Bln)</div>`);
+        } else if (kr.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || kr.status_klaim_bpjs === 'BELUM_KLAIM') {
+          tdKepesertaan.insertAdjacentHTML('beforeend', `<div class="text-xs text-danger font-bold" style="margin-top:2px;">Jatuh Tempo 6 Bln</div>`);
+        }
+      }
+    });
+  }
+
+  function pasangAksiBaris(root, onMuat) {
+    root.querySelectorAll('tr.clickable').forEach(tr => {
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-hapus-pasien')) return;
+        const id = tr.dataset.id;
+        if (id) location.hash = '#/pasien/' + id;
+      });
+    });
+
+    root.querySelectorAll('.btn-hapus-pasien').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const nama = btn.dataset.nama || 'pasien ini';
+        const noRm = btn.dataset.rm ? ` (No. RM: ${btn.dataset.rm})` : '';
+        if (!await UI.konfirmasi('Hapus Pasien', `Yakin ingin menghapus data pasien "${nama}"${noRm}? Data yang dihapus tidak dapat dikembalikan.`, 'Hapus')) return;
+        try {
+          await DB.hapusPasien(id);
+          UI.toast('Data pasien berhasil dihapus.', 'ok');
+          if (typeof onMuat === 'function') onMuat();
+        } catch (err) {
+          UI.toast('Gagal menghapus pasien: ' + (err.message || err), 'err');
+        }
+      });
+    });
   }
 
   function gambarDaftar(wadah, data, kata, onMuat) {
@@ -546,104 +828,18 @@ const Pasien = (() => {
           <th style="width:1%"></th>
         </tr>
       </thead>
-      <tbody>${data.map(p => {
-        const jmlKunjungan = p.jml_kunjungan || 0;
-        const isBpjs = Boolean(p.no_bpjs && p.no_bpjs.trim() !== '' && p.no_bpjs !== '-');
-        const badgeKunjunganClass = jmlKunjungan >= 5 ? 'b-ok' : (jmlKunjungan > 0 ? 'b-bpjs' : 'b-umum');
-        const adaKurang = p.kekurangan && p.kekurangan.length > 0;
-        const kr = p.kronis || {};
+      <tbody>${data.map(buatBarisPasien).join('')}</tbody></table></div>`;
 
-        let kronisBadges = '';
-        if (kr.is_ht || kr.is_dm) {
-          const badgeJenis = `<span class="badge ${kr.is_ht && kr.is_dm ? 'b-dokter' : 'b-info'} text-xs" style="margin-right:4px;">${UI.esc(kr.jenis_kronis)}</span>`;
-          let badgeKlaim = '';
-          if (isBpjs) {
-            if (kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN') {
-              badgeKlaim = `<span class="badge b-ok text-xs" title="Terakhir klaim BPJS: ${UI.tglPendek(kr.tgl_klaim_bpjs)} (${kr.hari_sejak_klaim} hari lalu)"><span class="dot"></span> Klaim 6 Bln OK</span> `;
-            } else {
-              badgeKlaim = `<span class="badge b-warn text-xs" title="${kr.tgl_klaim_bpjs ? 'Klaim terakhir ' + kr.hari_sejak_klaim + ' hari lalu (Jatuh tempo)' : 'Belum pernah klaim BPJS'}"><span class="dot"></span> Jatuh Tempo 6 Bln</span> `;
-            }
-          }
-          let badgeHba1c = '';
-          if (kr.is_dm) {
-            if (kr.status_hba1c === 'TERKONTROL') {
-              badgeHba1c = `<span class="badge b-ok text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Kontrol rutin: 6 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&lt; 7%)</span> `;
-            } else if (kr.status_hba1c === 'BELUM_TERKONTROL') {
-              badgeHba1c = `<span class="badge b-danger text-xs" title="HbA1c: ${kr.nilai_hba1c}% (${UI.tglPendek(kr.tgl_hba1c)}) · Perhatian: Evaluasi Ulang 3 Bulan"><span class="dot"></span> HbA1c: ${kr.nilai_hba1c}% (&ge; 7%)</span> `;
-            } else {
-              badgeHba1c = `<span class="badge b-batal text-xs" title="Belum pernah periksa HbA1c · Jadwal rutin: 3/6 Bulan">HbA1c: Belum Tes</span> `;
-            }
-          }
-          kronisBadges = `<div class="flex items-center gap-4 flex-wrap mt-4">${badgeJenis}${badgeKlaim}${badgeHba1c}</div>`;
-        }
+    pasangAksiBaris(wadah, onMuat);
+  }
 
-        return `
-        <tr class="clickable" data-id="${p.id}">
-          <td class="mono" style="font-weight:700;">${UI.esc(p.no_rm)}</td>
-          <td>
-            <div><b>${UI.esc(p.nama)}</b> ${p.title ? `<span class="text-xs text-muted">(${UI.esc(p.title)})</span>` : ''}</div>
-            ${p.catatan_penting ? `<div class="text-xs text-danger" style="margin-top:2px;">
-              ${UI.ikon('peringatan',12)} ${UI.esc(p.catatan_penting)}</div>` : ''}
-            ${adaKurang ? `<div class="text-xs text-warn" style="margin-top:2px;" title="${p.kekurangan.join(', ')}">
-              ${UI.ikon('peringatan',11)} ${p.kekurangan.length} data belum lengkap</div>` : ''}
-            ${kronisBadges}
-          </td>
-          <td>${p.jenis_kelamin || '—'}</td>
-          <td class="nowrap">
-            <div>${UI.umurTeks(p.tanggal_lahir)}</div>
-            <div class="text-xs text-muted">${UI.tglPendek(p.tanggal_lahir)}</div>
-          </td>
-          <td class="nowrap">
-            <span class="badge ${badgeKunjunganClass}" style="font-weight:700;">
-              ${jmlKunjungan}x
-            </span>
-            ${p.kunjungan_terakhir ? `<div class="text-xs text-muted" style="margin-top:2px;">terakhir ${UI.tglPendek(p.kunjungan_terakhir)}</div>` : ''}
-          </td>
-          <td>
-            ${isBpjs
-              ? `<span class="badge b-bpjs" style="font-size:10.5px; padding:2px 6px; margin-right:4px;">BPJS</span><span class="mono text-xs">${UI.esc(p.no_bpjs)}</span>`
-              : `<span class="badge b-umum" style="font-size:10.5px; padding:2px 6px;">Umum</span>`
-            }
-            ${(p.bagian || p.plant) ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc([p.bagian, p.plant].filter(Boolean).join(' - '))}</div>` : ''}
-            ${isBpjs && kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN' ? `<div class="text-xs text-ok font-bold" style="margin-top:2px;">Klaim Aktif (&le; 6 Bln)</div>` : ''}
-            ${isBpjs && (kr.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || kr.status_klaim_bpjs === 'BELUM_KLAIM') ? `<div class="text-xs text-danger font-bold" style="margin-top:2px;">Jatuh Tempo 6 Bln</div>` : ''}
-          </td>
-          <td class="muted">
-            <div>${UI.esc(p.no_hp || p.no_telp || '—')}</div>
-            ${p.nik ? `<div class="mono text-xs text-muted">NIK: ${UI.esc(p.nik)}</div>` : ''}
-          </td>
-          <td class="text-right whitespace-nowrap">
-            <button class="btn btn-ghost btn-sm text-danger btn-hapus-pasien" data-id="${p.id}" data-nama="${UI.esc(p.nama)}" data-rm="${UI.esc(p.no_rm)}" title="Hapus Pasien">
-              ${UI.ikon('hapus',15)}
-            </button>
-          </td>
-        </tr>`;
-      }).join('')}</tbody></table></div>`;
+  function tambahBarisTabel(wadah, dataBaru, onMuat) {
+    const tbody = wadah.querySelector('tbody');
+    if (!tbody || !dataBaru.length) return;
 
-    wadah.querySelectorAll('tbody tr').forEach(tr => {
-      tr.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-hapus-pasien')) return;
-        const id = tr.dataset.id;
-        if (id) location.hash = '#/pasien/' + id;
-      });
-    });
-
-    wadah.querySelectorAll('.btn-hapus-pasien').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        const nama = btn.dataset.nama || 'pasien ini';
-        const noRm = btn.dataset.rm ? ` (No. RM: ${btn.dataset.rm})` : '';
-        if (!await UI.konfirmasi('Hapus Pasien', `Yakin ingin menghapus data pasien "${nama}"${noRm}? Data yang dihapus tidak dapat dikembalikan.`, 'Hapus')) return;
-        try {
-          await DB.hapusPasien(id);
-          UI.toast('Data pasien berhasil dihapus.', 'ok');
-          if (typeof onMuat === 'function') onMuat();
-        } catch (err) {
-          UI.toast('Gagal menghapus pasien: ' + (err.message || err), 'err');
-        }
-      });
-    });
+    const frag = document.createRange().createContextualFragment(dataBaru.map(buatBarisPasien).join(''));
+    pasangAksiBaris(frag, onMuat);
+    tbody.appendChild(frag);
   }
 
   function gambarDaftarKurang(wadah, data, onMuat) {
