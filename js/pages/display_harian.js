@@ -962,7 +962,7 @@ const DisplayHarian = (() => {
             height: 28mm !important;
             max-height: 28mm !important;
             margin: 0 auto !important;
-            padding: 1mm 2mm !important;
+            padding: 1mm 1.5mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
@@ -981,8 +981,8 @@ const DisplayHarian = (() => {
             break-after: avoid !important;
           }
           .col-id {
-            width: 5mm;
-            min-width: 5mm;
+            width: 4.8mm;
+            min-width: 4.8mm;
             height: 26mm;
             display: flex;
             align-items: center;
@@ -997,7 +997,7 @@ const DisplayHarian = (() => {
             text-align: center;
             color: #000;
             flex-shrink: 0;
-            margin-left: 1mm;
+            margin: 0;
           }
           .col-center {
             flex: 1;
@@ -1007,7 +1007,7 @@ const DisplayHarian = (() => {
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0 1.5mm;
+            padding: 0 1mm;
             overflow: hidden;
             width: 100%;
           }
@@ -1072,7 +1072,7 @@ const DisplayHarian = (() => {
             text-align: center;
             color: #000;
             flex-shrink: 0;
-            margin-right: 2.5mm;
+            margin: 0;
           }
         </style>
       </head>
