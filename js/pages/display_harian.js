@@ -961,14 +961,16 @@ const DisplayHarian = (() => {
             max-width: 48mm !important;
             height: 28mm !important;
             max-height: 28mm !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
+            margin-left: 0 !important;
+            transform: translateX(-5mm) !important;
             padding: 1mm 1mm !important;
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
             justify-content: space-between !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
