@@ -13,6 +13,7 @@ Dijalankan di PC laboratorium tempat alat terhubung melalui kabel LAN/Serial.
 
 import sys
 import os
+import math
 import socket
 import threading
 import time
@@ -195,7 +196,75 @@ def buat_hl7_ack(msh_segment: str) -> bytes:
         return START_BLOCK + ack_msg.encode("latin-1") + END_BLOCK
     except Exception as e:
         logger.error(f"Gagal membuat HL7 ACK: {e}")
-        return START_BLOCK + b"MSH|^~\\&|||||||ACK|1|P|2.3.1\rMSA|AA|1\r" + END_BLOCK
+
+def bulatkan_spesial_mindray(val_float: float) -> str:
+    """
+    Logika pembulatan khusus Mindray BS-240:
+    - Sisa desimal > 0.5 -> bulatkan ke atas (ceil)
+    - Sisa desimal <= 0.5 -> bulatkan ke bawah (floor)
+    """
+    desimal = val_float - math.floor(val_float)
+    return str(math.ceil(val_float)) if desimal > 0.500001 else str(math.floor(val_float))
+
+
+def format_nilai_mindray(kode_atau_nama: str, raw_val) -> str:
+    """
+    Pemformatan nilai hasil pemeriksaan khusus Mindray BS-240:
+    A. Bilangan Bulat (Pembulatan Khusus): GLU/Glue-G, TG, TC (Total Cholesterol)
+       * HDL diproteksi agar TIDAK terpengaruh oleh kata kunci 'cholesterol'.
+    B. Tepat 1 Angka Desimal: Urea / BUN
+    C. Sesuai Aslinya / Maks 2 Desimal: HDL (HDL-C), Crea / Kreatinin
+    """
+    if raw_val is None:
+        return ""
+    val_str = str(raw_val).strip()
+    if not val_str:
+        return ""
+
+    try:
+        val_float = float(val_str.replace(",", "."))
+    except (ValueError, TypeError):
+        return val_str
+
+    name_upper = str(kode_atau_nama or "").upper().strip()
+
+    # 1. Parameter HDL: Wajib diproses terlebih dahulu agar TIDAK terpengaruh kata kunci 'CHOL'/'KOLESTEROL'
+    if "HDL" in name_upper:
+        parts = val_str.replace(",", ".").split(".")
+        if len(parts) == 2 and len(parts[1]) > 2:
+            return f"{val_float:.2f}"
+        return val_str
+
+    # 2. Parameter CREA / Kreatinin (Kategori C)
+    if any(k in name_upper for k in ("CREA", "KREATININ")):
+        parts = val_str.replace(",", ".").split(".")
+        if len(parts) == 2 and len(parts[1]) > 2:
+            return f"{val_float:.2f}"
+        return val_str
+
+    # 3. Parameter Urea / BUN (Kategori B: tepat 1 angka desimal)
+    if any(k in name_upper for k in ("UREA", "UREUM", "BUN")):
+        return f"{val_float:.1f}"
+
+    # 4. Parameter Bilangan Bulat dengan Pembulatan Khusus (Kategori A)
+    # Glukosa / GDS / GDP / GD2PP / Glue-G
+    is_glu = any(k in name_upper for k in ("GLU", "GULA", "GDS", "GDP", "GD2PP"))
+    # Trigliserida / TG
+    is_tg = any(k in name_upper for k in ("TG", "TRIG"))
+    # Total Cholesterol / TC (tanpa HDL & LDL)
+    is_tc = ("TC" in name_upper) or (
+        ("CHOL" in name_upper or "KOLESTEROL" in name_upper) and "HDL" not in name_upper and "LDL" not in name_upper
+    )
+
+    if is_glu or is_tg or is_tc:
+        return bulatkan_spesial_mindray(val_float)
+
+    # Default untuk parameter Mindray lainnya jika alat mengirim desimal panjang > 2
+    parts = val_str.replace(",", ".").split(".")
+    if len(parts) == 2 and len(parts[1]) > 2:
+        return f"{val_float:.2f}"
+
+    return val_str
 
 
 def parse_hl7_message(raw_text: str):
@@ -293,11 +362,15 @@ def parse_hl7_message(raw_text: str):
             if not flag or flag in ("", "-"):
                 flag = "N"
 
+            # Pemformatan dan pembulatan nilai khusus Mindray BS-240
+            t_name = derived_code or test_code
+            formatted_val = format_nilai_mindray(f"{t_name} {test_desc or test_info}", value.strip())
+
             if (derived_code or test_info) and value:
                 results.append({
-                    "test_name": derived_code or test_code,
+                    "test_name": t_name,
                     "test_desc": test_desc or test_info,
-                    "value": value.strip(),
+                    "value": formatted_val,
                     "unit": unit.strip(),
                     "ref_range": ref_range.strip(),
                     "flag": flag.strip()
@@ -1290,6 +1363,12 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 if not hasil:
                     self._send_json({"sukses": False, "pesan": "Daftar hasil tidak boleh kosong"}, 400)
                     return
+
+                # Normalisasi dan pembulatan nilai jika simulasi alat Mindray
+                if "mindray" in str(alat).lower():
+                    for h in hasil:
+                        t_key = f"{h.get('test_name', '')} {h.get('test_desc', '')}"
+                        h['value'] = format_nilai_mindray(t_key, h.get('value', ''))
 
                 if not raw_hl7:
                     now_hl7 = datetime.now().strftime("%Y%m%d%H%M%S")

@@ -426,6 +426,60 @@ const LabCore = (() => {
   }
 
   /* ------------------------------------------------------------------
+     Pembulatan dan pemformatan khusus alat Mindray BS-240:
+     A. Bilangan Bulat (Pembulatan Khusus): GLU/Glue-G, TG, TC (Total Cholesterol)
+        * HDL diproteksi agar TIDAK terpengaruh oleh kata kunci 'cholesterol'.
+     B. Tepat 1 Angka Desimal: Urea / BUN
+     C. Sesuai Aslinya / Maks 2 Desimal: HDL (HDL-C), Crea / Kreatinin
+     ------------------------------------------------------------------ */
+  function bulatkanSpesialMindray(valFloat) {
+    const desimal = valFloat - Math.floor(valFloat);
+    return desimal > 0.500001 ? String(Math.ceil(valFloat)) : String(Math.floor(valFloat));
+  }
+
+  function formatNilaiMindray(kodeAtauNama, rawVal) {
+    if (rawVal === null || rawVal === undefined || rawVal === '') return '';
+    const valStr = String(rawVal).trim();
+    if (!valStr) return '';
+    const valFloat = parseFloat(valStr.replace(',', '.'));
+    if (isNaN(valFloat)) return valStr;
+
+    const nameUpper = String(kodeAtauNama || '').toUpperCase().trim();
+
+    // 1. Parameter HDL: Wajib diproses terlebih dahulu agar TIDAK terpengaruh kata kunci 'CHOL'/'KOLESTEROL'
+    if (nameUpper.includes('HDL')) {
+      const parts = valStr.replace(',', '.').split('.');
+      return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+    }
+
+    // 2. Parameter CREA / Kreatinin (Kategori C)
+    if (nameUpper.includes('CREA') || nameUpper.includes('KREATININ')) {
+      const parts = valStr.replace(',', '.').split('.');
+      return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+    }
+
+    // 3. Parameter Urea / BUN (Kategori B: tepat 1 angka desimal)
+    if (nameUpper.includes('UREA') || nameUpper.includes('UREUM') || nameUpper.includes('BUN')) {
+      return valFloat.toFixed(1);
+    }
+
+    // 4. Parameter Bilangan Bulat dengan Pembulatan Khusus (Kategori A)
+    const isGlu = ['GLU', 'GULA', 'GDS', 'GDP', 'GD2PP'].some(k => nameUpper.includes(k));
+    const isTg = ['TG', 'TRIG'].some(k => nameUpper.includes(k));
+    const isTc = nameUpper.includes('TC') || (
+      (nameUpper.includes('CHOL') || nameUpper.includes('KOLESTEROL')) &&
+      !nameUpper.includes('HDL') && !nameUpper.includes('LDL')
+    );
+
+    if (isGlu || isTg || isTc) {
+      return bulatkanSpesialMindray(valFloat);
+    }
+
+    const parts = valStr.replace(',', '.').split('.');
+    return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+  }
+
+  /* ------------------------------------------------------------------
      Ringkasan satu lembar hasil — dipakai untuk lencana di antrean lab
      dan untuk memutuskan apakah tombol "Selesaikan" boleh aktif.
      ------------------------------------------------------------------ */
@@ -658,6 +712,7 @@ const LabCore = (() => {
     labelJenis, jenisPakaiGigi, labelLampiran,
     umurBulan, pilihRujukan, tandaAngka, tandaTeks, tandai, uraiTeksRujukan, evaluasiHasil,
     fmSql, teksRujukan, bacaNilai, formatNilai,
+    bulatkanSpesialMindray, formatNilaiMindray,
     ringkasLembar, urutMenonjol, kelompokkan, susunTren, validasi,
     hasilFisikTeks, hasilAnamnesaTeks
   };

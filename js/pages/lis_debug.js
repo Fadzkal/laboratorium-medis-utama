@@ -105,6 +105,53 @@ const LisDebug = (() => {
       : FALLBACK_MAP_KODE_ALAT;
   }
 
+  // Pemformatan dan pembulatan khusus hasil alat Mindray BS-240
+  function formatNilaiMindray(kodeAtauNama, rawVal) {
+    if (typeof LabCore !== 'undefined' && LabCore.formatNilaiMindray) {
+      return LabCore.formatNilaiMindray(kodeAtauNama, rawVal);
+    }
+    if (rawVal === null || rawVal === undefined || rawVal === '') return '';
+    const valStr = String(rawVal).trim();
+    if (!valStr) return '';
+    const valFloat = parseFloat(valStr.replace(',', '.'));
+    if (isNaN(valFloat)) return valStr;
+
+    const nameUpper = String(kodeAtauNama || '').toUpperCase().trim();
+
+    // 1. Parameter HDL: Wajib diproses terlebih dahulu agar TIDAK terpengaruh kata kunci 'CHOL'/'KOLESTEROL'
+    if (nameUpper.includes('HDL')) {
+      const parts = valStr.replace(',', '.').split('.');
+      return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+    }
+
+    // 2. Parameter CREA / Kreatinin (Kategori C)
+    if (nameUpper.includes('CREA') || nameUpper.includes('KREATININ')) {
+      const parts = valStr.replace(',', '.').split('.');
+      return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+    }
+
+    // 3. Parameter Urea / BUN (Kategori B: tepat 1 angka desimal)
+    if (nameUpper.includes('UREA') || nameUpper.includes('UREUM') || nameUpper.includes('BUN')) {
+      return valFloat.toFixed(1);
+    }
+
+    // 4. Parameter Bilangan Bulat dengan Pembulatan Khusus (Kategori A)
+    const isGlu = ['GLU', 'GULA', 'GDS', 'GDP', 'GD2PP'].some(k => nameUpper.includes(k));
+    const isTg = ['TG', 'TRIG'].some(k => nameUpper.includes(k));
+    const isTc = nameUpper.includes('TC') || (
+      (nameUpper.includes('CHOL') || nameUpper.includes('KOLESTEROL')) &&
+      !nameUpper.includes('HDL') && !nameUpper.includes('LDL')
+    );
+
+    if (isGlu || isTg || isTc) {
+      const desimal = valFloat - Math.floor(valFloat);
+      return desimal > 0.500001 ? String(Math.ceil(valFloat)) : String(Math.floor(valFloat));
+    }
+
+    const parts = valStr.replace(',', '.').split('.');
+    return parts.length === 2 && parts[1].length > 2 ? valFloat.toFixed(2) : valStr;
+  }
+
   // Menambahkan log ke buffer internal
   function tambahLog(tipe, pesan, payload = null) {
     const d = new Date();
@@ -537,10 +584,16 @@ const LisDebug = (() => {
     const barisTabel = items.map((item, idx) => {
       const rawCode = (item.test_name || '').toUpperCase().trim();
       const rawDesc = item.test_desc || rawCode;
-      const rawVal = item.value || '';
+      let rawVal = item.value || '';
       const unit = item.unit || '-';
       const refRangeAlat = item.ref_range || '-';
       const flag = (item.flag || 'N').toUpperCase().trim();
+
+      // Format dan bulatkan nilai jika alat adalah Mindray BS-240
+      const isMindray = !s.alat || s.alat.toLowerCase().includes('mindray');
+      if (isMindray) {
+        rawVal = formatNilaiMindray(`${rawCode} ${rawDesc}`, rawVal);
+      }
 
       // Cari kesesuaian di refLabMaster
       const aliases = mapKode[rawCode] || [rawCode];
@@ -696,7 +749,15 @@ const LisDebug = (() => {
     const btnJson = wadah.querySelector('#btnSalinJSON');
     if (btnJson) {
       btnJson.onclick = () => {
-        navigator.clipboard.writeText(JSON.stringify(s, null, 2)).then(() => {
+        const isMindray = !s.alat || s.alat.toLowerCase().includes('mindray');
+        const salinanS = JSON.parse(JSON.stringify(s));
+        if (isMindray && Array.isArray(salinanS.hasil)) {
+          salinanS.hasil = salinanS.hasil.map(h => ({
+            ...h,
+            value: formatNilaiMindray(`${h.test_name || ''} ${h.test_desc || ''}`, h.value)
+          }));
+        }
+        navigator.clipboard.writeText(JSON.stringify(salinanS, null, 2)).then(() => {
           UI.toast('Payload JSON berhasil disalin ke clipboard.', 'ok');
         });
       };
@@ -719,19 +780,26 @@ const LisDebug = (() => {
   // Ekspor hasil sampel terpilih ke file CSV lokal
   function eksporCSVSampel(sampel) {
     if (!sampel || !Array.isArray(sampel.hasil)) return;
+    const isMindray = !sampel.alat || sampel.alat.toLowerCase().includes('mindray');
     const baris = [
       ['Sample_ID', 'Nama_Pasien', 'Alat', 'Waktu', 'Parameter', 'Kode', 'Nilai', 'Satuan', 'Flag', 'Ref_Range']
     ];
 
     sampel.hasil.forEach(h => {
+      const rawCode = (h.test_name || '').toUpperCase().trim();
+      const rawDesc = h.test_desc || rawCode;
+      let val = h.value || '';
+      if (isMindray) {
+        val = formatNilaiMindray(`${rawCode} ${rawDesc}`, val);
+      }
       baris.push([
         sampel.sample_id,
         sampel.nama_pasien || '',
         sampel.alat || '',
         sampel.waktu || '',
-        h.test_desc || h.test_name || '',
-        h.test_name || '',
-        h.value || '',
+        rawDesc,
+        rawCode,
+        val,
         h.unit || '',
         h.flag || '',
         h.ref_range || ''

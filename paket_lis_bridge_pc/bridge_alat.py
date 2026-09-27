@@ -13,6 +13,7 @@ Dijalankan di PC laboratorium tempat alat terhubung melalui kabel LAN/Serial.
 
 import sys
 import os
+import math
 import socket
 import threading
 import time
@@ -42,6 +43,8 @@ from config import (
     CSV_LOG_FILE,
     WONDFO_CSV_FILE,
     JSON_BUFFER_FILE,
+    HEARTBEAT_INTERVAL_SEC,
+    IP_PC_LAB,
 )
 from db_adapter import get_adapter
 
@@ -153,6 +156,26 @@ def perbarui_buffer(sample_id: str, nama_pasien: str, alat: str, hasil_list: lis
         logger.error(f"Gagal memperbarui file buffer JSON: {e}")
 
 
+def simpan_riwayat_ke_supabase(sample_id: str, nama_pasien: str, alat: str,
+                                hasil_list: list, raw_msg: str = "",
+                                status_mapping: str = "BELUM", no_rm: str = None):
+    """Menyimpan riwayat sampel ke tabel lis_riwayat_sampel di Supabase"""
+    try:
+        adapter = get_adapter()
+        if hasattr(adapter, 'insert_riwayat_sampel'):
+            adapter.insert_riwayat_sampel({
+                "sample_id": sample_id,
+                "alat": alat,
+                "nama_pasien": nama_pasien,
+                "no_rm": no_rm,
+                "status_mapping": status_mapping,
+                "raw_data": raw_msg[:5000] if raw_msg else None,
+                "hasil_json": hasil_list
+            })
+    except Exception as e:
+        logger.warning(f"Gagal simpan riwayat sampel ke Supabase: {e}")
+
+
 # ===========================================================================
 # 2. LISTENER MINDRAY BS-240 (HL7 MLLP - PORT 7118)
 # ===========================================================================
@@ -173,7 +196,75 @@ def buat_hl7_ack(msh_segment: str) -> bytes:
         return START_BLOCK + ack_msg.encode("latin-1") + END_BLOCK
     except Exception as e:
         logger.error(f"Gagal membuat HL7 ACK: {e}")
-        return START_BLOCK + b"MSH|^~\\&|||||||ACK|1|P|2.3.1\rMSA|AA|1\r" + END_BLOCK
+
+def bulatkan_spesial_mindray(val_float: float) -> str:
+    """
+    Logika pembulatan khusus Mindray BS-240:
+    - Sisa desimal > 0.5 -> bulatkan ke atas (ceil)
+    - Sisa desimal <= 0.5 -> bulatkan ke bawah (floor)
+    """
+    desimal = val_float - math.floor(val_float)
+    return str(math.ceil(val_float)) if desimal > 0.500001 else str(math.floor(val_float))
+
+
+def format_nilai_mindray(kode_atau_nama: str, raw_val) -> str:
+    """
+    Pemformatan nilai hasil pemeriksaan khusus Mindray BS-240:
+    A. Bilangan Bulat (Pembulatan Khusus): GLU/Glue-G, TG, TC (Total Cholesterol)
+       * HDL diproteksi agar TIDAK terpengaruh oleh kata kunci 'cholesterol'.
+    B. Tepat 1 Angka Desimal: Urea / BUN
+    C. Sesuai Aslinya / Maks 2 Desimal: HDL (HDL-C), Crea / Kreatinin
+    """
+    if raw_val is None:
+        return ""
+    val_str = str(raw_val).strip()
+    if not val_str:
+        return ""
+
+    try:
+        val_float = float(val_str.replace(",", "."))
+    except (ValueError, TypeError):
+        return val_str
+
+    name_upper = str(kode_atau_nama or "").upper().strip()
+
+    # 1. Parameter HDL: Wajib diproses terlebih dahulu agar TIDAK terpengaruh kata kunci 'CHOL'/'KOLESTEROL'
+    if "HDL" in name_upper:
+        parts = val_str.replace(",", ".").split(".")
+        if len(parts) == 2 and len(parts[1]) > 2:
+            return f"{val_float:.2f}"
+        return val_str
+
+    # 2. Parameter CREA / Kreatinin (Kategori C)
+    if any(k in name_upper for k in ("CREA", "KREATININ")):
+        parts = val_str.replace(",", ".").split(".")
+        if len(parts) == 2 and len(parts[1]) > 2:
+            return f"{val_float:.2f}"
+        return val_str
+
+    # 3. Parameter Urea / BUN (Kategori B: tepat 1 angka desimal)
+    if any(k in name_upper for k in ("UREA", "UREUM", "BUN")):
+        return f"{val_float:.1f}"
+
+    # 4. Parameter Bilangan Bulat dengan Pembulatan Khusus (Kategori A)
+    # Glukosa / GDS / GDP / GD2PP / Glue-G
+    is_glu = any(k in name_upper for k in ("GLU", "GULA", "GDS", "GDP", "GD2PP"))
+    # Trigliserida / TG
+    is_tg = any(k in name_upper for k in ("TG", "TRIG"))
+    # Total Cholesterol / TC (tanpa HDL & LDL)
+    is_tc = ("TC" in name_upper) or (
+        ("CHOL" in name_upper or "KOLESTEROL" in name_upper) and "HDL" not in name_upper and "LDL" not in name_upper
+    )
+
+    if is_glu or is_tg or is_tc:
+        return bulatkan_spesial_mindray(val_float)
+
+    # Default untuk parameter Mindray lainnya jika alat mengirim desimal panjang > 2
+    parts = val_str.replace(",", ".").split(".")
+    if len(parts) == 2 and len(parts[1]) > 2:
+        return f"{val_float:.2f}"
+
+    return val_str
 
 
 def parse_hl7_message(raw_text: str):
@@ -271,11 +362,15 @@ def parse_hl7_message(raw_text: str):
             if not flag or flag in ("", "-"):
                 flag = "N"
 
+            # Pemformatan dan pembulatan nilai khusus Mindray BS-240
+            t_name = derived_code or test_code
+            formatted_val = format_nilai_mindray(f"{t_name} {test_desc or test_info}", value.strip())
+
             if (derived_code or test_info) and value:
                 results.append({
-                    "test_name": derived_code or test_code,
+                    "test_name": t_name,
                     "test_desc": test_desc or test_info,
-                    "value": value.strip(),
+                    "value": formatted_val,
                     "unit": unit.strip(),
                     "ref_range": ref_range.strip(),
                     "flag": flag.strip()
@@ -340,12 +435,18 @@ def mindray_worker():
                         STATUS_LISTENER["mindray"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
                         # 2. Kirim ke Database (Supabase / MySQL)
+                        status_map = "BELUM"
                         try:
                             adapter = get_adapter()
                             res = adapter.sync_hasil_alat(sample_id, results, "Mindray BS-240")
                             logger.info(f"Hasil sinkronisasi DB: {res.get('total_tersimpan', 0)} dari {len(results)} parameter tersimpan.")
+                            if res.get('sukses'):
+                                status_map = "TERPETAKAN" if res.get('total_tersimpan') == len(results) else "SEBAGIAN"
                         except Exception as eSync:
                             logger.error(f"Gagal sync ke database: {eSync}")
+
+                        # 3. Simpan riwayat sampel ke Supabase
+                        simpan_riwayat_ke_supabase(sample_id, patient_name, "MINDRAY_BS240", results, raw_msg=raw_msg, status_mapping=status_map)
 
             client.close()
         except Exception as e:
@@ -524,12 +625,18 @@ def sysmex_worker():
                     perbarui_buffer(sample_id, patient_name, "Sysmex XP-100", results, raw_msg=raw_astm)
                     STATUS_LISTENER["sysmex"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
+                    status_map = "BELUM"
                     try:
                         adapter = get_adapter()
                         res = adapter.sync_hasil_alat(sample_id, results, "Sysmex XP-100")
                         logger.info(f"Hasil sinkronisasi DB Sysmex: {res.get('total_tersimpan', 0)} dari {len(results)} parameter tersimpan.")
+                        if res.get('sukses'):
+                            status_map = "TERPETAKAN" if res.get('total_tersimpan') == len(results) else "SEBAGIAN"
                     except Exception as eSync:
                         logger.error(f"Gagal sync ke database: {eSync}")
+
+                    # Simpan riwayat sampel ke Supabase
+                    simpan_riwayat_ke_supabase(sample_id, patient_name, "SYSMEX_XP100", results, raw_msg=raw_astm, status_mapping=status_map)
 
         except Exception as e:
             logger.error(f"Error pada loop Sysmex: {e}")
@@ -749,12 +856,18 @@ def wondfo_worker():
                         STATUS_LISTENER["wondfo"]["pesan_terakhir"] = f"Sample {sample_id} ({len(results)} item) - {datetime.now().strftime('%H:%M:%S')}"
 
                         # 2. Kirim ke Database (Supabase / MySQL)
+                        status_map = "BELUM"
                         try:
                             adapter = get_adapter()
                             res = adapter.sync_hasil_alat(sample_id, results, "WONDFO_III_PLUS")
                             logger.info(f"Hasil sinkronisasi DB Wondfo: {res.get('total_tersimpan', 0)} dari {len(results)} parameter tersimpan.")
+                            if res.get('sukses'):
+                                status_map = "TERPETAKAN" if res.get('total_tersimpan') == len(results) else "SEBAGIAN"
                         except Exception as eSync:
                             logger.error(f"Gagal sync ke database Wondfo: {eSync}")
+
+                        # 3. Simpan riwayat sampel ke Supabase
+                        simpan_riwayat_ke_supabase(sample_id, patient_name, "WONDFO_III_PLUS", results, raw_msg=raw_msg, status_mapping=status_map)
 
             client.close()
         except Exception as e:
@@ -1183,6 +1296,21 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             })
             return
 
+        # 5. Ambil riwayat sampel dari database Supabase
+        if path == "/api/riwayat":
+            limit = int(params.get("limit", ["100"])[0])
+            try:
+                adapter = get_adapter()
+                if hasattr(adapter, 'ambil_riwayat_sampel'):
+                    data = adapter.ambil_riwayat_sampel(limit=limit)
+                    self._send_json({"sukses": True, "data": data})
+                else:
+                    self._send_json({"sukses": True, "data": BUFFER_RIWAYAT[:limit]})
+            except Exception as e:
+                logger.error(f"Error ambil riwayat dari Supabase: {e}")
+                self._send_json({"sukses": True, "data": BUFFER_RIWAYAT[:limit]})
+            return
+
         self._send_json({"sukses": False, "pesan": "Endpoint tidak ditemukan"}, 404)
 
     def do_POST(self):
@@ -1236,6 +1364,12 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                     self._send_json({"sukses": False, "pesan": "Daftar hasil tidak boleh kosong"}, 400)
                     return
 
+                # Normalisasi dan pembulatan nilai jika simulasi alat Mindray
+                if "mindray" in str(alat).lower():
+                    for h in hasil:
+                        t_key = f"{h.get('test_name', '')} {h.get('test_desc', '')}"
+                        h['value'] = format_nilai_mindray(t_key, h.get('value', ''))
+
                 if not raw_hl7:
                     now_hl7 = datetime.now().strftime("%Y%m%d%H%M%S")
                     if alat == "Sysmex XP-100":
@@ -1281,6 +1415,10 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 # Sync ke database
                 adapter = get_adapter()
                 db_res = adapter.sync_hasil_alat(sample_id, hasil, alat)
+                status_map = "BELUM"
+                if db_res.get('sukses'):
+                    status_map = "TERPETAKAN" if db_res.get('total_tersimpan') == len(hasil) else "SEBAGIAN"
+                simpan_riwayat_ke_supabase(sample_id, nama_pasien, alat, hasil, raw_msg=raw_hl7, status_mapping=status_map)
 
                 self._send_json({
                     "sukses": True,
@@ -1318,6 +1456,36 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "error", "pesan": str(e)}, 500)
             return
 
+        # Endpoint hapus riwayat sampel (soft-delete)
+        if path == "/api/hapus-riwayat":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+                record_id = payload.get("id") or payload.get("record_id")
+                sample_id = payload.get("sample_id")
+                hard = payload.get("hard", False)
+                if not record_id and not sample_id:
+                    self._send_json({"sukses": False, "pesan": "Parameter 'id' atau 'sample_id' wajib diisi"}, 400)
+                    return
+
+                # Bersihkan juga dari buffer memori lokal jika ada
+                if record_id:
+                    BUFFER_RIWAYAT[:] = [x for x in BUFFER_RIWAYAT if str(x.get("id")) != str(record_id)]
+                if sample_id:
+                    BUFFER_RIWAYAT[:] = [x for x in BUFFER_RIWAYAT if str(x.get("sample_id")) != str(sample_id)]
+                    BUFFER_HASIL.pop(str(sample_id), None)
+
+                adapter = get_adapter()
+                if hasattr(adapter, 'hapus_riwayat_sampel') and record_id:
+                    ok = adapter.hapus_riwayat_sampel(record_id, hard=hard)
+                    self._send_json({"sukses": ok, "pesan": "Riwayat berhasil dihapus" if ok else "Gagal menghapus riwayat dari database"})
+                else:
+                    self._send_json({"sukses": True, "pesan": "Riwayat berhasil dihapus dari buffer"})
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
         self._send_json({"sukses": False, "pesan": "Endpoint tidak ditemukan"}, 404)
 
     def log_message(self, format, *args):
@@ -1337,6 +1505,33 @@ def api_worker():
         logger.error(f"Gagal menjalankan Local API pada port {PORT_LOCAL_API}: {e}")
 
 
+# ===========================================================================
+# 4D. HEARTBEAT WORKER - Sinkronisasi status bridge ke Supabase
+# ===========================================================================
+def heartbeat_worker():
+    """Thread yang mengirimkan heartbeat status bridge ke Supabase setiap N detik"""
+    logger.info(f"Heartbeat worker dimulai (interval: {HEARTBEAT_INTERVAL_SEC} detik)")
+    while True:
+        try:
+            adapter = get_adapter()
+            if hasattr(adapter, 'update_heartbeat'):
+                status_data = {
+                    "status": "ONLINE",
+                    "ip_pc_lab": IP_PC_LAB,
+                    "port_mindray": STATUS_LISTENER.get("mindray", {}).get("port", PORT_MINDRAY),
+                    "port_sysmex": STATUS_LISTENER.get("sysmex", {}).get("port", PORT_SYSMEX),
+                    "port_wondfo": STATUS_LISTENER.get("wondfo", {}).get("port", PORT_WONDFO),
+                    "port_api": STATUS_LISTENER.get("api", {}).get("port", PORT_LOCAL_API),
+                    "listener_json": STATUS_LISTENER,
+                    "total_buffer": len(BUFFER_RIWAYAT),
+                    "last_heartbeat": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+07:00"),
+                }
+                adapter.update_heartbeat(status_data)
+        except Exception as e:
+            logger.warning(f"Heartbeat gagal: {e}")
+        time.sleep(HEARTBEAT_INTERVAL_SEC)
+
+
 def start_bridge_threads():
     """Menjalankan seluruh listener alat dan local API dalam background thread"""
     t_mindray = threading.Thread(target=mindray_worker, daemon=True, name="MindrayListener")
@@ -1351,11 +1546,15 @@ def start_bridge_threads():
     t_api = threading.Thread(target=api_worker, daemon=True, name="LocalApiServer")
     t_api.start()
 
+    t_heartbeat = threading.Thread(target=heartbeat_worker, daemon=True, name="HeartbeatWorker")
+    t_heartbeat.start()
+
     return {
         "mindray": t_mindray,
         "sysmex": t_sysmex,
         "wondfo": t_wondfo,
-        "api": t_api
+        "api": t_api,
+        "heartbeat": t_heartbeat
     }
 
 
@@ -1370,6 +1569,7 @@ def main():
     print(f"  Sysmex XP-100  (ASTM)     : Port {PORT_SYSMEX}")
     print(f"  Wondfo III Plus (HL7 MLLP): Port {PORT_WONDFO}")
     print(f"  Local REST API (Browser)  : Port {PORT_LOCAL_API}")
+    print(f"  Heartbeat DB (Supabase)   : Setiap {HEARTBEAT_INTERVAL_SEC} detik")
     print("=" * 70)
 
     start_bridge_threads()

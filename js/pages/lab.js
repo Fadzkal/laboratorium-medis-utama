@@ -669,7 +669,16 @@ const Lab = (() => {
         namaAlat = resBridge.alat || 'Alat Medis';
         for (const itemAlat of resBridge.hasil) {
           const rawCode = (itemAlat.test_name || '').toUpperCase().trim();
-          const rawVal = itemAlat.value;
+          let rawVal = itemAlat.value;
+
+          // Pemformatan dan pembulatan nilai hasil khusus Mindray BS-240
+          if (!namaAlat || /mindray/i.test(namaAlat)) {
+            const tKey = `${rawCode} ${itemAlat.test_desc || ''}`;
+            if (typeof LabCore !== 'undefined' && LabCore.formatNilaiMindray) {
+              rawVal = LabCore.formatNilaiMindray(tKey, rawVal);
+            }
+          }
+
           const aliases = MAP_KODE_ALAT[rawCode] || [rawCode];
 
           const target = p.hasil.find(h => {
@@ -683,7 +692,7 @@ const Lab = (() => {
             const isAngka = !isNaN(numVal) && m.jenis_nilai === 'ANGKA';
             const patch = {
               nilai_angka: isAngka ? numVal : null,
-              nilai_teks: isAngka ? null : String(rawVal),
+              nilai_teks: String(rawVal),
               catatan: 'Otomatis dari ' + namaAlat
             };
 
@@ -693,7 +702,7 @@ const Lab = (() => {
 
             const inp = el.querySelector(`[data-hasil="${target.id}"]`);
             if (inp) {
-              inp.value = isAngka ? LabCore.formatNilai(numVal, m.desimal) : String(rawVal);
+              inp.value = String(rawVal);
               inp.style.transition = 'background-color 0.5s';
               inp.style.backgroundColor = '#ecfdf5';
               setTimeout(() => { if (inp) inp.style.backgroundColor = ''; }, 2500);
@@ -3649,7 +3658,16 @@ const Lab = (() => {
                 namaAlat = resBridge.alat || 'Alat Medis';
                 for (const itemAlat of resBridge.hasil) {
                   const rawCode = (itemAlat.test_name || '').toUpperCase().trim();
-                  const rawVal = itemAlat.value;
+                  let rawVal = itemAlat.value;
+
+                  // Pemformatan dan pembulatan nilai hasil khusus Mindray BS-240
+                  if (!namaAlat || /mindray/i.test(namaAlat)) {
+                    const tKey = `${rawCode} ${itemAlat.test_desc || ''}`;
+                    if (typeof LabCore !== 'undefined' && LabCore.formatNilaiMindray) {
+                      rawVal = LabCore.formatNilaiMindray(tKey, rawVal);
+                    }
+                  }
+
                   const aliases = MAP_KODE_ALAT[rawCode] || [rawCode];
 
                   const target = p.hasil.find(h => {
@@ -3666,12 +3684,12 @@ const Lab = (() => {
 
                     const patch = {
                       nilai_angka: isAngka ? numVal : null,
-                      nilai_teks: isAngka ? String(numVal) : String(rawVal),
+                      nilai_teks: String(rawVal),
                       catatan: 'Otomatis dari ' + namaAlat
                     };
 
                     const curVal = inp ? inp.value.trim() : '';
-                    const newValStr = isAngka ? LabCore.formatNilai(numVal, mRef.desimal) : String(rawVal);
+                    const newValStr = String(rawVal);
 
                     if (curVal === '' || inp?.dataset.dariAlat === '1' || curVal !== newValStr) {
                       if (inp && curVal !== newValStr) {

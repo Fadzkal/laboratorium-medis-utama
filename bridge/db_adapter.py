@@ -97,7 +97,7 @@ class BaseAdapter:
             except (ValueError, TypeError):
                 pass
 
-            nilai_teks = str(raw_val).strip() if nilai_angka is None else str(nilai_angka)
+            nilai_teks = str(raw_val).strip() if raw_val is not None else (str(nilai_angka) if nilai_angka is not None else "")
 
             ok = self.update_hasil(
                 hasil_id=target_item["id"],
