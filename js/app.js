@@ -27,7 +27,7 @@ const App = (() => {
     { rute: '#/jadwal',      label: 'Antrean & Layar', ikon: 'jam',     kode: 'antrean_pengaturan' },
     { rute: '#/migrasi',     label: 'Migrasi Portal', ikon: 'unduh',    kode: 'menu_migrasi' },
     { rute: '#/pengaturan',  label: 'Pengaturan',    ikon: 'setelan',   kode: 'menu_pengaturan' },
-    { rute: '#/lis-debug',   label: 'LIS & Integrasi Alat', ikon: 'pengaturan', peran: 'master', khususMaster: true },
+    { rute: '#/lis-debug',   label: 'LIS & Integrasi Alat', ikon: 'pengaturan', peran: ['master', 'developer', 'karyawan'] },
     { grup: 'Operasional' },
     { rute: '#/absensi',          label: 'Absensi',           ikon: 'jam',       peran: '*' },
     { rute: '#/hris',             label: 'Kinerja & Bonus Karyawan', ikon: 'laporan', kode: 'menu_hris' },
@@ -93,6 +93,7 @@ const App = (() => {
     const rute = (location.hash || '#/beranda').split('/')[1] || 'beranda';
     const terlihat = (m) => {
       if (profil?.peran === 'master' || profil?.peran === 'developer') return true;
+      if (Array.isArray(m.peran)) return m.peran.includes(profil?.peran);
       if (m.khususMaster || m.peran === 'master') return profil?.peran === 'master' || profil?.peran === 'developer';
       return m.peran === '*'
         || (Array.isArray(m.kode) ? m.kode.some(boleh) : boleh(m.kode));
@@ -152,9 +153,9 @@ const App = (() => {
     document.getElementById('sidebar').classList.remove('open');
     gambarMenu();
 
-    if (['lis-debug', 'lis_debug', 'integrasi-alat', 'integrasi_alat'].includes(nama) && !['master', 'developer'].includes(profil?.peran)) {
+    if (['lis-debug', 'lis_debug', 'integrasi-alat', 'integrasi_alat'].includes(nama) && !['master', 'developer', 'karyawan'].includes(profil?.peran)) {
       view().innerHTML = UI.kosong('Akses Dibatasi',
-        'Halaman LIS & Integrasi Alat khusus untuk pengguna dengan peran Master & Developer.',
+        'Halaman LIS & Integrasi Alat khusus untuk pengguna dengan peran Master, Developer, dan Karyawan.',
         '<a href="#/beranda" class="btn btn-primary">Kembali ke beranda</a>');
       return;
     }

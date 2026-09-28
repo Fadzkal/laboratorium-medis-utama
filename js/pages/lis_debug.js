@@ -1,7 +1,7 @@
 /* =====================================================================
    LIS & INTEGRASI ALAT — Modul Diagnostik, Troubleshooting, & Live Monitoring
    Alat Laboratorium Medis (Mindray BS-240 & Sysmex XP-100)
-   Khusus Role Master
+   Khusus Role Master, Developer & Karyawan
    ===================================================================== */
 const LisDebug = (() => {
   'use strict';
