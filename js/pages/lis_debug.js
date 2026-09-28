@@ -560,20 +560,13 @@ const LisDebug = (() => {
       const infoTgl = filterTanggal ? ` pada Tanggal ${UI.esc(filterTanggal)}` : '';
       wadah.innerHTML = `
         <div class="lis-empty-card">
-          <div style="color:#94a3b8; margin-bottom:8px;">${UI.ikon('cari', 36)}</div>
+          <div style="color:#94a3b8; margin-bottom:8px;">${UI.ikon('lab', 36)}</div>
           <div style="font-weight:700; color:#334155; font-size:13px;">Belum Ada Sampel Masuk${infoTgl}</div>
-          <div style="font-size:11px; color:#64748b; margin-top:4px; max-width:280px; text-align:center;">
-            ${filterTanggal ? 'Tidak ada riwayat sampel untuk tanggal ini. Klik "Hari Ini" atau "Semua" untuk memilih rentang lain.' : 'Pastikan kabel LAN terhubung ke BS-240 dan tekan "Connect" di layar alat, atau klik tombol simulasi di atas.'}
-          </div>
-          <div style="margin-top:12px; display:flex; gap:6px;">
-            <button class="btn btn-primary btn-sm" id="btnEmptySimBS240">
-              ${UI.ikon('plus', 13)} Simulasi BS-240
-            </button>
+          <div style="font-size:11.5px; color:#64748b; margin-top:6px; max-width:290px; text-align:center; line-height:1.45;">
+            Menunggu transmisi data dari alat medis. Pastikan kabel LAN terhubung dan lakukan pengiriman via menu Export / LIS di alat (Mindray BS-240, Sysmex XP-100, Wondfo III Plus).
           </div>
         </div>
       `;
-      const btnE = wadah.querySelector('#btnEmptySimBS240');
-      if (btnE) btnE.onclick = () => kirimSimulasiBS240();
       return;
     }
 
@@ -1793,19 +1786,6 @@ const LisDebug = (() => {
             <!-- Wadah Peringatan Penumpukan Data (> 50 sampel) -->
             <div id="wadahWarningOverflow"></div>
 
-            <!-- Tombol Uji Simulasi Langsung -->
-            <div style="padding:6px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; gap:6px;">
-              <button class="btn btn-ghost btn-sm" id="btnSimBS240" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #99f6e4; background:#f0fdfa; color:#0f766e; font-weight:700;">
-                ${UI.ikon('plus', 12)} Simulasi BS-240
-              </button>
-              <button class="btn btn-ghost btn-sm" id="btnSimSysmex" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #ddd6fe; background:#faf5ff; color:#6d28d9; font-weight:700;">
-                ${UI.ikon('plus', 12)} Simulasi Sysmex
-              </button>
-              <button class="btn btn-ghost btn-sm" id="btnSimWondfo" style="flex:1; font-size:10.5px; padding:4px 6px; border:1px solid #fed7aa; background:#fff7ed; color:#c2410c; font-weight:700;">
-                ${UI.ikon('plus', 12)} Simulasi Wondfo
-              </button>
-            </div>
-
             <!-- Kontainer Daftar Sampel -->
             <div class="lis-sample-list" id="wadahDaftarSampel">
               <div style="padding:20px; text-align:center; color:#94a3b8; font-size:12px;">Memuat sampel...</div>
@@ -1892,15 +1872,6 @@ const LisDebug = (() => {
 
     const btnReset = el.querySelector('#btnResetBuffer');
     if (btnReset) btnReset.onclick = () => bersihkanBufferBridge();
-
-    const btnSimBS = el.querySelector('#btnSimBS240');
-    if (btnSimBS) btnSimBS.onclick = () => kirimSimulasiBS240();
-
-    const btnSimSys = el.querySelector('#btnSimSysmex');
-    if (btnSimSys) btnSimSys.onclick = () => kirimSimulasiSysmex();
-
-    const btnSimWon = el.querySelector('#btnSimWondfo');
-    if (btnSimWon) btnSimWon.onclick = () => kirimSimulasiWondfo();
 
     const inpCari = el.querySelector('#inpCariSampel');
     if (inpCari) {
