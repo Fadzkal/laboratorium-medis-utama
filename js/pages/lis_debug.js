@@ -97,6 +97,17 @@ const LisDebug = (() => {
   let autoRefreshAktif = true;
   let sumberData = 'lokal';  // 'lokal' jika terhubung langsung, 'supabase' jika fallback
   let statusDariDB = null;   // Heartbeat terakhir dari lis_status_bridge
+  let langgananRealtime = null;
+  let listenerNavigasi = null;
+
+  // Format tanggal lokal YYYY-MM-DD untuk filter presisi
+  function tglHariIniLokal() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  let filterTanggal = tglHariIniLokal();
+  let alertBannerDitutup = false;
 
   // Mendapatkan peta kamus kode alat
   function ambilMapKode() {
@@ -322,24 +333,23 @@ const LisDebug = (() => {
         }
       } catch (_) {}
     } else {
-      // Fallback: ambil dari Supabase lis_riwayat_sampel
+      // Fallback: ambil dari Supabase lis_riwayat_sampel (dengan filter tanggal presisi)
       try {
-        const dataSb = await DB.ambilRiwayatSampelLIS(100);
-        if (dataSb && dataSb.length > 0) {
-          // Normalisasi field supaya konsisten dengan format bridge
-          daftarSampel = dataSb.map(r => ({
-            id: r.id,
-            sample_id: r.sample_id,
-            nama_pasien: r.nama_pasien || 'Pasien',
-            alat: r.alat || '',
-            waktu: r.waktu_terima ? new Date(r.waktu_terima).toLocaleString('id-ID') : '-',
-            hasil: Array.isArray(r.hasil_json) ? r.hasil_json : (typeof r.hasil_json === 'string' ? JSON.parse(r.hasil_json || '[]') : []),
-            raw_hl7: r.raw_data || '',
-            status_mapping: r.status_mapping || 'BELUM',
-            metadata: {}
-          }));
-          sumberData = 'supabase';
-        }
+        const dataSb = await DB.ambilRiwayatSampelLIS(100, filterTanggal);
+        daftarSampel = (dataSb || []).map(r => ({
+          id: r.id,
+          sample_id: r.sample_id,
+          nama_pasien: r.nama_pasien || 'Pasien',
+          alat: r.alat || '',
+          waktu: r.waktu_terima ? new Date(r.waktu_terima).toLocaleString('id-ID') : (r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-'),
+          waktu_terima: r.waktu_terima,
+          created_at: r.created_at,
+          hasil: Array.isArray(r.hasil_json) ? r.hasil_json : (typeof r.hasil_json === 'string' ? JSON.parse(r.hasil_json || '[]') : []),
+          raw_hl7: r.raw_data || '',
+          status_mapping: r.status_mapping || 'BELUM',
+          metadata: {}
+        }));
+        sumberData = 'supabase';
       } catch (eSb) {
         tambahLog('WARN', `Gagal memuat riwayat dari database: ${eSb.message}`);
       }
@@ -460,27 +470,100 @@ const LisDebug = (() => {
     if (!wadah) return;
 
     let filtered = daftarSampel;
+
+    // 1. Filter Tanggal Presisi
+    if (filterTanggal) {
+      filtered = filtered.filter(s => {
+        let tglStr = '';
+        if (s.waktu_terima) {
+          const d = new Date(s.waktu_terima);
+          if (!isNaN(d.getTime())) {
+            tglStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+        }
+        if (!tglStr && s.created_at) {
+          const d = new Date(s.created_at);
+          if (!isNaN(d.getTime())) {
+            tglStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+        }
+        if (!tglStr && s.waktu) {
+          const m = s.waktu.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+          if (m) {
+            tglStr = `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+          } else {
+            const m2 = s.waktu.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (m2) {
+              tglStr = `${m2[1]}-${String(m2[2]).padStart(2, '0')}-${String(m2[3]).padStart(2, '0')}`;
+            }
+          }
+        }
+        return tglStr === filterTanggal;
+      });
+    }
+
+    // 2. Filter Kata Kunci
     if (filterKata) {
       const q = filterKata.toLowerCase();
       filtered = filtered.filter(s =>
         String(s.sample_id || '').toLowerCase().includes(q) ||
         String(s.nama_pasien || '').toLowerCase().includes(q) ||
-        String(s.alat || '').toLowerCase().includes(q)
+        String(s.alat || '').toLowerCase().includes(q) ||
+        String(s.metadata?.patient_id || '').toLowerCase().includes(q) ||
+        String(s.waktu || '').toLowerCase().includes(q) ||
+        String(s.waktu_terima || '').toLowerCase().includes(q)
       );
     }
+
+    // 3. Filter Alat
     if (filterAlat) {
       filtered = filtered.filter(s => String(s.alat || '').toLowerCase().includes(filterAlat.toLowerCase()));
     }
 
     if (badgeCount) badgeCount.textContent = filtered.length;
 
+    // Render Banner Peringatan Penumpukan Data (> 50 sampel)
+    const wadahWarning = document.getElementById('wadahWarningOverflow');
+    if (wadahWarning) {
+      if (filtered.length > 50 && !alertBannerDitutup) {
+        wadahWarning.innerHTML = `
+          <div class="lis-overflow-warning" id="bannerOverflowSampel" style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:11.5px; color:#92400e; display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:flex-start; gap:8px;">
+              <span style="color:#d97706; flex-shrink:0; margin-top:2px;">${UI.ikon('peringatan', 16)}</span>
+              <div style="flex:1; line-height:1.45;">
+                <b>Perhatian:</b> Terdapat <b>${filtered.length}</b> sampel pada daftar ini. Bersihkan sampel yang sudah ditarik ke form lab agar daftar tetap rapi dan performa tetap ringan.
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; justify-content:flex-end; align-items:center; margin-top:2px;">
+              <button class="btn btn-sm" id="btnBersihkanSelesai" style="font-size:10.5px; padding:3px 8px; background:#d97706; color:#fff; border:none; border-radius:4px; font-weight:700; cursor:pointer;">
+                ${UI.ikon('hapus', 11)} Bersihkan Sampel Selesai
+              </button>
+              <button class="btn btn-ghost btn-sm" id="btnTutupBannerOverflow" style="font-size:10.5px; padding:3px 6px; color:#78350f; cursor:pointer;">
+                Tutup
+              </button>
+            </div>
+          </div>
+        `;
+        const btnSelesai = wadahWarning.querySelector('#btnBersihkanSelesai');
+        if (btnSelesai) btnSelesai.onclick = () => bersihkanSampelSelesai();
+        const btnTutup = wadahWarning.querySelector('#btnTutupBannerOverflow');
+        if (btnTutup) btnTutup.onclick = () => {
+          alertBannerDitutup = true;
+          wadahWarning.innerHTML = '';
+        };
+      } else {
+        wadahWarning.innerHTML = '';
+      }
+    }
+
     if (!filtered.length) {
+      const infoTgl = filterTanggal ? ` pada Tanggal ${UI.esc(filterTanggal)}` : '';
       wadah.innerHTML = `
         <div class="lis-empty-card">
           <div style="color:#94a3b8; margin-bottom:8px;">${UI.ikon('cari', 36)}</div>
-          <div style="font-weight:700; color:#334155; font-size:13px;">Belum Ada Sampel Masuk</div>
+          <div style="font-weight:700; color:#334155; font-size:13px;">Belum Ada Sampel Masuk${infoTgl}</div>
           <div style="font-size:11px; color:#64748b; margin-top:4px; max-width:280px; text-align:center;">
-            Pastikan kabel LAN terhubung ke BS-240 dan tekan "Connect" di layar alat, atau klik tombol simulasi di atas.
+            ${filterTanggal ? 'Tidak ada riwayat sampel untuk tanggal ini. Klik "Hari Ini" atau "Semua" untuk memilih rentang lain.' : 'Pastikan kabel LAN terhubung ke BS-240 dan tekan "Connect" di layar alat, atau klik tombol simulasi di atas.'}
           </div>
           <div style="margin-top:12px; display:flex; gap:6px;">
             <button class="btn btn-primary btn-sm" id="btnEmptySimBS240">
@@ -504,22 +587,34 @@ const LisDebug = (() => {
       if (isWondfo) alatClass = 'tag-wondfo';
       else if (isSysmex) alatClass = 'tag-sysmex';
 
-      const hasDbId = !!s.id;
+      const isTerhubung = String(s.status_mapping || '').toUpperCase() === 'TERPETAKAN' ||
+                          String(s.status_mapping || '').toUpperCase() === 'SELESAI' ||
+                          String(s.status_mapping || '').toUpperCase() === 'TERHUBUNG' ||
+                          s.terhubung === true;
+      const badgeStatusHtml = isTerhubung
+        ? `<span class="lis-badge-status status-terhubung" title="Hasil sampel sudah terhubung/diproses ke form lab">${UI.ikon('centang', 10)} Terhubung Form</span>`
+        : `<span class="lis-badge-status status-baru" title="Sampel baru masuk dari alat dan belum diproses">${UI.ikon('jam', 10)} Belum Diproses</span>`;
+
       return `
-        <div class="lis-sample-item ${isAktif ? 'aktif' : ''}" data-sid="${UI.esc(s.sample_id)}">
+        <div class="lis-sample-item ${isAktif ? 'aktif' : ''}" data-sid="${UI.esc(s.sample_id)}" data-rid="${UI.esc(s.id || '')}">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span class="lis-sample-id">${UI.esc(s.sample_id)}</span>
             <div style="display:flex; align-items:center; gap:4px;">
-              <span class="lis-sample-time">${UI.esc(s.waktu ? s.waktu.split(' ')[1] || s.waktu : '-')}</span>
-              ${hasDbId ? `<button class="btn-hapus-sampel" data-rid="${UI.esc(s.id)}" title="Hapus sampel ini" style="background:none; border:none; cursor:pointer; color:#ef4444; padding:2px 4px; font-size:14px; line-height:1;">&times;</button>` : ''}
+              <span class="lis-sample-time">${UI.esc(s.waktu ? (s.waktu.split(' ')[1] || s.waktu) : '-')}</span>
+              <button class="btn-hapus-sampel" data-sid="${UI.esc(s.sample_id)}" data-rid="${UI.esc(s.id || '')}" title="Hapus sampel ini" style="background:none; border:none; cursor:pointer; color:#ef4444; padding:2px 4px; font-size:12px; line-height:1; border-radius:4px; display:inline-flex; align-items:center;">
+                ${UI.ikon('x', 11)}
+              </button>
             </div>
           </div>
           <div style="font-weight:700; font-size:13px; color:#0f172a; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             ${UI.esc(s.nama_pasien || 'Pasien Tanpa Nama')}
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-            <span class="lis-sample-tag ${alatClass}">${UI.esc(s.alat || 'Alat Medis')}</span>
-            <span style="color:#64748b; font-weight:600;">${jmlParam} Parameter</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:2px;">
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span class="lis-sample-tag ${alatClass}">${UI.esc(s.alat || 'Alat Medis')}</span>
+              ${badgeStatusHtml}
+            </div>
+            <span style="color:#64748b; font-weight:600;">${jmlParam} Param</span>
           </div>
         </div>
       `;
@@ -542,14 +637,15 @@ const LisDebug = (() => {
       };
     });
 
-    // Pasang handler hapus
+    // Pasang handler hapus dengan dialog konfirmasi aman
     wadah.querySelectorAll('.btn-hapus-sampel').forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation();
-        const rid = btn.dataset.rid;
-        if (!rid) return;
-        if (!confirm('Hapus sampel ini dari riwayat?')) return;
-        await hapusSampelRiwayat(rid);
+        const sid = btn.dataset.sid;
+        const target = daftarSampel.find(s => String(s.sample_id) === String(sid));
+        if (target) {
+          await konfirmasiHapusSampel(target);
+        }
       };
     });
   }
@@ -1036,48 +1132,423 @@ const LisDebug = (() => {
     }
   }
 
-  // Menghapus satu riwayat sampel dari Supabase (soft-delete)
-  async function hapusSampelRiwayat(recordId) {
+  // Menghapus satu riwayat sampel dari Supabase dan bridge
+  async function hapusSampelRiwayat(recordId, sampleId = '') {
     try {
-      // Coba hapus via bridge lokal dulu
+      // 1. Sinkronisasi hapus ke bridge lokal jika terhubung ke PC Lab
       if (sumberData === 'lokal') {
         try {
-          const res = await fetch(`${BRIDGE_HOST}/api/hapus-riwayat`, {
+          await fetch(`${BRIDGE_HOST}/api/hapus-riwayat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: recordId })
+            body: JSON.stringify({ id: recordId, sample_id: sampleId })
           });
-          if (res.ok) {
-            const j = await res.json();
-            if (j.sukses) {
-              tambahLog('SUCCESS', `Riwayat sampel ${recordId} berhasil dihapus via bridge.`);
-              UI.toast('Riwayat sampel berhasil dihapus.', 'ok');
-              await periksaStatusListener(true);
-              return;
-            }
-          }
         } catch (_) {}
       }
-      // Fallback: hapus langsung via Supabase
-      const ok = await DB.hapusRiwayatSampelLIS(recordId);
-      if (ok) {
-        tambahLog('SUCCESS', `Riwayat sampel ${recordId} berhasil dihapus dari database.`);
-        UI.toast('Riwayat sampel berhasil dihapus.', 'ok');
-        // Hapus dari daftar lokal
-        daftarSampel = daftarSampel.filter(s => s.id !== recordId);
-        if (sampelTerpilih && sampelTerpilih.id === recordId) {
-          sampelTerpilih = daftarSampel[0] || null;
-        }
-        renderDaftarSampel();
-        renderDetailSampel();
-        perbaruiUIStatus();
-      } else {
-        UI.toast('Gagal menghapus riwayat sampel.', 'err');
+
+      // 2. Hapus dari database Supabase (tabel lis_riwayat_sampel & lis_samples)
+      const targetKunci = recordId || sampleId;
+      await DB.hapusRiwayatSampelLIS(targetKunci);
+
+      // 3. Hapus secara instan dari state lokal
+      daftarSampel = daftarSampel.filter(s => {
+        if (recordId && s.id === recordId) return false;
+        if (sampleId && String(s.sample_id) === String(sampleId)) return false;
+        if (String(s.sample_id) === String(targetKunci)) return false;
+        return true;
+      });
+
+      if (sampelTerpilih && (
+        (recordId && sampelTerpilih.id === recordId) ||
+        (sampleId && String(sampelTerpilih.sample_id) === String(sampleId)) ||
+        (String(sampelTerpilih.sample_id) === String(targetKunci))
+      )) {
+        sampelTerpilih = daftarSampel[0] || null;
       }
+
+      renderDaftarSampel();
+      renderDetailSampel();
+      perbaruiUIStatus();
+
+      const labelId = sampleId || recordId || '';
+      tambahLog('SUCCESS', `Sampel #${labelId} berhasil dihapus dari database.`);
+      UI.toast(`Sampel #${labelId} berhasil dihapus.`, 'ok');
     } catch (e) {
       tambahLog('ERROR', `Gagal menghapus riwayat: ${e.message}`);
       UI.toast('Gagal menghapus riwayat sampel.', 'err');
     }
+  }
+
+  // Modal dialog konfirmasi hapus sampel yang aman
+  async function konfirmasiHapusSampel(sampel) {
+    if (!sampel) return;
+    const sid = sampel.sample_id || '-';
+    const nama = sampel.nama_pasien || 'Pasien Tanpa Nama';
+    const alat = sampel.alat || 'Alat Medis';
+    const waktu = sampel.waktu || '-';
+
+    const yakin = await UI.modal({
+      judul: 'Konfirmasi Hapus Sampel',
+      isi: `
+        <div style="font-size:12.5px; color:#334155; line-height:1.5;">
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:12px; margin-bottom:12px;">
+            <div style="font-weight:700; color:#991b1b; margin-bottom:3px; font-size:13px;">
+              Apakah Anda yakin ingin menghapus sampel ini?
+            </div>
+            <div style="font-size:11.5px; color:#7f1d1d;">
+              Data yang dihapus akan disinkronkan ke seluruh komputer dan hilang dari antrean LIS.
+            </div>
+          </div>
+          <table style="width:100%; font-size:12px; border-collapse:collapse; margin-bottom:6px;">
+            <tr>
+              <td style="padding:4px 0; width:100px; color:#64748b; font-weight:600;">Sample ID:</td>
+              <td style="padding:4px 0; font-family:'JetBrains Mono',monospace; font-weight:800; color:#0f766e;">${UI.esc(sid)}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; color:#64748b; font-weight:600;">Nama Pasien:</td>
+              <td style="padding:4px 0; font-weight:700; color:#0f172a;">${UI.esc(nama)}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; color:#64748b; font-weight:600;">Asal Alat:</td>
+              <td style="padding:4px 0; color:#334155;">${UI.esc(alat)}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; color:#64748b; font-weight:600;">Waktu Terima:</td>
+              <td style="padding:4px 0; color:#334155;">${UI.esc(waktu)}</td>
+            </tr>
+          </table>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false, kelas: 'btn-secondary' },
+        { teks: 'Ya, Hapus Sampel', nilai: true, kelas: 'btn-danger' }
+      ]
+    });
+
+    if (yakin === true) {
+      await hapusSampelRiwayat(sampel.id || '', sampel.sample_id);
+    }
+  }
+
+  // Membersihkan sampel hari-hari lalu (sebelum hari ini pukul 00:00)
+  async function bersihkanSampelKemarin() {
+    const yakin = await UI.modal({
+      judul: 'Bersihkan Sampel Kemarin',
+      isi: `
+        <div style="font-size:12.5px; color:#334155; line-height:1.5;">
+          <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:12px; margin-bottom:12px;">
+            <div style="font-weight:700; color:#92400e; margin-bottom:4px; font-size:13px;">
+              Pembersihan Riwayat Hari Lalu
+            </div>
+            <div style="font-size:11.5px; color:#78350f;">
+              Tindakan ini akan mengosongkan seluruh sampel yang diterima <b>sebelum hari ini (pukul 00:00)</b> baik di database Supabase maupun di memori LIS. Sampel hari ini tetap dipertahankan.
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#64748b;">
+            Operasi ini akan disinkronkan ke seluruh layar komputer secara otomatis.
+          </div>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false, kelas: 'btn-secondary' },
+        { teks: 'Bersihkan Sampel Lalu', nilai: true, kelas: 'btn-danger' }
+      ]
+    });
+
+    if (yakin !== true) return;
+
+    try {
+      UI.toast('Membersihkan sampel hari lalu...', 'info');
+
+      // 1. Hapus di database Supabase
+      const resDb = await DB.hapusRiwayatSampelKemarinLIS();
+
+      // 2. Beritahu juga Bridge jika lokal
+      if (sumberData === 'lokal') {
+        try {
+          await fetch(`${BRIDGE_HOST}/api/hapus-kemarin`, { method: 'POST' });
+        } catch (_) {}
+      }
+
+      // 3. Filter di memori frontend
+      const now = new Date();
+      const awalHariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+      daftarSampel = daftarSampel.filter(s => {
+        if (!s.waktu || s.waktu === '-') return true;
+        let tSampel = null;
+        if (s.waktu_terima) {
+          tSampel = new Date(s.waktu_terima);
+        } else {
+          const m = s.waktu.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+          if (m) {
+            tSampel = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+          } else {
+            tSampel = new Date(s.waktu);
+          }
+        }
+        if (isNaN(tSampel.getTime())) return true;
+        return tSampel >= awalHariIni;
+      });
+
+      if (sampelTerpilih && !daftarSampel.some(s => String(s.sample_id) === String(sampelTerpilih.sample_id))) {
+        sampelTerpilih = daftarSampel[0] || null;
+      }
+
+      renderDaftarSampel();
+      renderDetailSampel();
+      perbaruiUIStatus();
+
+      const totalHapus = resDb?.total ?? 'beberapa';
+      tambahLog('SUCCESS', `Pembersihan sampel kemarin berhasil (${totalHapus} data dihapus).`);
+      UI.toast(`Sampel hari lalu berhasil dibersihkan (${totalHapus} data).`, 'ok');
+    } catch (e) {
+      tambahLog('ERROR', `Gagal membersihkan sampel kemarin: ${e.message}`);
+      UI.toast(`Gagal membersihkan sampel: ${e.message}`, 'err');
+    }
+  }
+
+  // Membersihkan hanya sampel yang statusnya sudah 'Terhubung Form' (selesai ditarik)
+  async function bersihkanSampelSelesai() {
+    const sampelSelesai = daftarSampel.filter(s =>
+      String(s.status_mapping || '').toUpperCase() === 'TERPETAKAN' ||
+      String(s.status_mapping || '').toUpperCase() === 'SELESAI' ||
+      String(s.status_mapping || '').toUpperCase() === 'TERHUBUNG' ||
+      s.terhubung === true
+    );
+
+    if (!sampelSelesai.length) {
+      UI.toast('Tidak ada sampel berstatus "Terhubung Form" pada daftar.', 'info');
+      return;
+    }
+
+    const yakin = await UI.modal({
+      judul: 'Bersihkan Sampel Selesai',
+      isi: `
+        <div style="font-size:12.5px; color:#334155; line-height:1.5;">
+          <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:6px; padding:12px; margin-bottom:12px;">
+            <div style="font-weight:700; color:#065f46; margin-bottom:4px; font-size:13px;">
+              Pembersihan Sampel Terhubung Form
+            </div>
+            <div style="font-size:11.5px; color:#047857;">
+              Ditemukan <b>${sampelSelesai.length}</b> sampel yang sudah dipetakan/ditarik ke form lab pasien. Apakah Anda ingin menghapus sampel-sampel ini dari riwayat LIS agar daftar tetap ringan?
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#64748b;">
+            Sampel baru yang belum diproses tetap aman dan tidak akan terhapus.
+          </div>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false, kelas: 'btn-secondary' },
+        { teks: `Ya, Hapus ${sampelSelesai.length} Sampel`, nilai: true, kelas: 'btn-danger' }
+      ]
+    });
+
+    if (yakin !== true) return;
+
+    try {
+      UI.toast(`Membersihkan ${sampelSelesai.length} sampel selesai...`, 'info');
+
+      // 1. Hapus di database Supabase
+      const resDb = await DB.hapusRiwayatSampelSelesaiLIS();
+
+      // 2. Beritahu Bridge jika lokal
+      if (sumberData === 'lokal') {
+        try {
+          for (const s of sampelSelesai) {
+            await fetch(`${BRIDGE_HOST}/api/hapus-riwayat`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: s.id, sample_id: s.sample_id })
+            });
+          }
+        } catch (_) {}
+      }
+
+      // 3. Hapus dari memori lokal
+      const idSelesai = new Set(sampelSelesai.map(s => String(s.sample_id)));
+      daftarSampel = daftarSampel.filter(s => !idSelesai.has(String(s.sample_id)));
+
+      if (sampelTerpilih && idSelesai.has(String(sampelTerpilih.sample_id))) {
+        sampelTerpilih = daftarSampel[0] || null;
+      }
+
+      renderDaftarSampel();
+      renderDetailSampel();
+      perbaruiUIStatus();
+
+      const totalHapus = resDb?.total ?? sampelSelesai.length;
+      tambahLog('SUCCESS', `Pembersihan sampel selesai sukses (${totalHapus} data dihapus).`);
+      UI.toast(`${totalHapus} sampel selesai berhasil dibersihkan.`, 'ok');
+    } catch (e) {
+      tambahLog('ERROR', `Gagal membersihkan sampel selesai: ${e.message}`);
+      UI.toast(`Gagal: ${e.message}`, 'err');
+    }
+  }
+
+  // Tangani event DELETE dari Supabase Realtime secara instan multi-device
+  function tanganiHapusRealtime(payload) {
+    const oldRec = payload?.old || {};
+    const targetId = oldRec.id;
+    const targetSid = oldRec.sample_id;
+
+    if (!targetId && !targetSid) {
+      periksaStatusListener(true);
+      return;
+    }
+
+    const idx = daftarSampel.findIndex(s =>
+      (targetId && s.id === targetId) ||
+      (targetSid && String(s.sample_id) === String(targetSid))
+    );
+
+    let sidDihapus = targetSid;
+    if (idx !== -1) {
+      const terhapus = daftarSampel.splice(idx, 1)[0];
+      sidDihapus = terhapus.sample_id || sidDihapus;
+      tambahLog('INFO', `Sampel #${sidDihapus} dihapus dari perangkat lain (Realtime Deletion Sync).`);
+    }
+
+    // Hapus elemen kartu sampel dari DOM secara instan
+    const wadah = document.getElementById('wadahDaftarSampel');
+    if (wadah) {
+      let elCard = null;
+      if (targetId) elCard = wadah.querySelector(`.lis-sample-item[data-rid="${targetId}"]`);
+      if (!elCard && targetSid) elCard = wadah.querySelector(`.lis-sample-item[data-sid="${targetSid}"]`);
+      if (!elCard && sidDihapus) elCard = wadah.querySelector(`.lis-sample-item[data-sid="${sidDihapus}"]`);
+
+      if (elCard) {
+        elCard.style.transition = 'all 0.22s ease';
+        elCard.style.opacity = '0';
+        elCard.style.transform = 'translateX(-16px)';
+        setTimeout(() => {
+          if (elCard && elCard.parentNode) elCard.remove();
+          const badgeCount = document.getElementById('badgeJumlahSampel');
+          if (badgeCount) badgeCount.textContent = daftarSampel.length;
+          const elTot = document.getElementById('statTotalSampel');
+          if (elTot) elTot.textContent = daftarSampel.length;
+        }, 220);
+      } else {
+        renderDaftarSampel();
+      }
+    } else {
+      renderDaftarSampel();
+    }
+
+    if (sampelTerpilih && (
+      (targetId && sampelTerpilih.id === targetId) ||
+      (targetSid && String(sampelTerpilih.sample_id) === String(targetSid)) ||
+      (sidDihapus && String(sampelTerpilih.sample_id) === String(sidDihapus))
+    )) {
+      sampelTerpilih = daftarSampel[0] || null;
+      renderDetailSampel();
+    }
+
+    perbaruiUIStatus();
+  }
+
+  // Tangani event INSERT dari Supabase Realtime secara instan
+  function tanganiTambahRealtime(payload) {
+    const newRec = payload?.new;
+    if (!newRec) return;
+
+    const ada = daftarSampel.some(s =>
+      (newRec.id && s.id === newRec.id) ||
+      (newRec.sample_id && String(s.sample_id) === String(newRec.sample_id))
+    );
+
+    if (!ada) {
+      const normalRec = {
+        id: newRec.id,
+        sample_id: newRec.sample_id,
+        nama_pasien: newRec.nama_pasien || 'Pasien',
+        alat: newRec.alat || '',
+        waktu: newRec.waktu_terima ? new Date(newRec.waktu_terima).toLocaleString('id-ID') : '-',
+        waktu_terima: newRec.waktu_terima,
+        hasil: Array.isArray(newRec.hasil_json) ? newRec.hasil_json : (typeof newRec.hasil_json === 'string' ? JSON.parse(newRec.hasil_json || '[]') : []),
+        raw_hl7: newRec.raw_data || '',
+        status_mapping: newRec.status_mapping || 'BELUM',
+        metadata: {}
+      };
+      daftarSampel.unshift(normalRec);
+      if (!sampelTerpilih) sampelTerpilih = normalRec;
+      renderDaftarSampel();
+      renderDetailSampel();
+      perbaruiUIStatus();
+      tambahLog('SUCCESS', `Sampel baru #${newRec.sample_id} diterima secara realtime dari alat.`);
+      UI.toast(`Sampel baru #${newRec.sample_id} masuk secara realtime.`, 'ok');
+    }
+  }
+
+  // Tangani event UPDATE dari Supabase Realtime
+  function tanganiUbahRealtime(payload) {
+    const updated = payload?.new;
+    if (!updated) return;
+    const target = daftarSampel.find(s =>
+      (updated.id && s.id === updated.id) ||
+      (updated.sample_id && String(s.sample_id) === String(updated.sample_id))
+    );
+    if (target) {
+      if (updated.status_mapping) target.status_mapping = updated.status_mapping;
+      if (updated.nama_pasien) target.nama_pasien = updated.nama_pasien;
+      renderDaftarSampel();
+      if (sampelTerpilih && (sampelTerpilih.id === target.id || sampelTerpilih.sample_id === target.sample_id)) {
+        renderDetailSampel();
+      }
+    }
+  }
+
+  // Berlangganan Supabase Realtime channel
+  function pasangRealtimeSync() {
+    if (langgananRealtime) return;
+
+    try {
+      const sb = DB.sb;
+      if (!sb || typeof sb.channel !== 'function') return;
+
+      const ch = sb.channel('lis_samples_changes')
+        // Event DELETE tabel lis_samples & lis_riwayat_sampel
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'lis_samples' }, payload => {
+          tanganiHapusRealtime(payload);
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'lis_riwayat_sampel' }, payload => {
+          tanganiHapusRealtime(payload);
+        })
+        // Event INSERT tabel lis_riwayat_sampel & lis_samples
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lis_riwayat_sampel' }, payload => {
+          tanganiTambahRealtime(payload);
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lis_samples' }, payload => {
+          tanganiTambahRealtime(payload);
+        })
+        // Event UPDATE tabel lis_riwayat_sampel & lis_samples
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lis_riwayat_sampel' }, payload => {
+          tanganiUbahRealtime(payload);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lis_samples' }, payload => {
+          tanganiUbahRealtime(payload);
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            tambahLog('INFO', 'Realtime sync LIS aktif (channel: lis_samples_changes).');
+          }
+        });
+
+      langgananRealtime = () => {
+        try { sb.removeChannel(ch); } catch (_) {}
+        langgananRealtime = null;
+      };
+    } catch (e) {
+      console.warn('Gagal pasang Realtime sync LIS:', e);
+    }
+  }
+
+  function lepasRealtimeSync() {
+    if (typeof langgananRealtime === 'function') {
+      langgananRealtime();
+    }
+    langgananRealtime = null;
   }
 
   // Buka modal petunjuk konfigurasi Mindray BS-240
@@ -1157,6 +1628,10 @@ const LisDebug = (() => {
         .tag-mindray { background: #ccfbf1; color: #0f766e; }
         .tag-sysmex { background: #ede9fe; color: #6d28d9; }
         .tag-wondfo { background: #ffedd5; color: #c2410c; }
+        .lis-badge-status { padding: 2px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; }
+        .lis-badge-status.status-terhubung { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .lis-badge-status.status-baru { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+        .btn-hapus-sampel:hover { background: #fee2e2 !important; color: #dc2626 !important; }
 
         /* Pane Kanan */
         .lis-right-pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
@@ -1277,26 +1752,46 @@ const LisDebug = (() => {
                 <span>Riwayat Sampel</span>
                 <span class="badge" id="badgeJumlahSampel" style="background:#e0f2fe; color:#0369a1; font-weight:800;">0</span>
               </div>
-              <div style="display:flex; gap:4px;">
+              <div style="display:flex; gap:4px; align-items:center;">
                 <button class="btn btn-ghost btn-sm" id="btnRefreshSampel" title="Segarkan daftar">
                   ${UI.ikon('ulang', 13)}
                 </button>
-                <button class="btn btn-ghost btn-sm" id="btnResetBuffer" style="color:#ef4444;" title="Bersihkan riwayat memori">
+                <button class="btn btn-ghost btn-sm" id="btnBersihkanKemarin" style="color:#b45309; font-size:11px; padding:3px 6px; font-weight:600;" title="Bersihkan sampel kemarin / hari lalu">
+                  ${UI.ikon('hapus', 12)} Hapus Kemarin
+                </button>
+                <button class="btn btn-ghost btn-sm" id="btnResetBuffer" style="color:#ef4444;" title="Bersihkan seluruh riwayat memori">
                   ${UI.ikon('hapus', 13)}
                 </button>
               </div>
             </div>
 
-            <!-- Toolbar Pencarian & Filter Cepat -->
-            <div class="lis-search-bar">
-              <input type="text" id="inpCariSampel" class="input" placeholder="Cari Sample ID, Pasien..." style="flex:1; font-size:11.5px; height:32px;">
-              <select id="selFilterAlat" class="input" style="width:125px; font-size:11px; height:32px;">
-                <option value="">Semua Alat</option>
-                <option value="Mindray">Mindray</option>
-                <option value="Sysmex">Sysmex</option>
-                <option value="Wondfo">Wondfo III Plus</option>
-              </select>
+            <!-- Toolbar Pencarian & Filter Cepat Presisi -->
+            <div class="lis-search-bar" style="flex-direction:column; gap:6px;">
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="inpCariSampel" class="input" placeholder="Cari Sample ID, Pasien..." style="flex:1; font-size:11.5px; height:32px;">
+                <select id="selFilterAlat" class="input" style="width:125px; font-size:11px; height:32px;">
+                  <option value="">Semua Alat</option>
+                  <option value="Mindray">Mindray</option>
+                  <option value="Sysmex">Sysmex</option>
+                  <option value="Wondfo">Wondfo III Plus</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <div style="display:flex; align-items:center; gap:4px; flex:1;">
+                  <span style="font-size:11px; color:#64748b; font-weight:600; white-space:nowrap;">Tgl:</span>
+                  <input type="date" id="filterTanggalSampel" class="input" style="flex:1; font-size:11px; height:28px; padding:2px 6px;">
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btnTglHariIni" style="font-size:10.5px; height:28px; padding:2px 8px; font-weight:700; white-space:nowrap;" title="Tampilkan riwayat hari ini">
+                  Hari Ini
+                </button>
+                <button class="btn btn-ghost btn-sm" id="btnTglSemua" style="font-size:10.5px; height:28px; padding:2px 6px; color:#64748b; white-space:nowrap;" title="Tampilkan semua tanggal">
+                  Semua
+                </button>
+              </div>
             </div>
+
+            <!-- Wadah Peringatan Penumpukan Data (> 50 sampel) -->
+            <div id="wadahWarningOverflow"></div>
 
             <!-- Tombol Uji Simulasi Langsung -->
             <div style="padding:6px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; gap:6px;">
@@ -1351,6 +1846,24 @@ const LisDebug = (() => {
     pasangKejadian(el);
     renderLogConsole(el.querySelector('#wadahLogConsole'));
 
+    // Aktifkan Realtime sync Supabase multi-device
+    pasangRealtimeSync();
+
+    // Hentikan channel dan timer jika pengguna navigasi ke rute lain
+    if (listenerNavigasi) {
+      window.removeEventListener('hashchange', listenerNavigasi);
+    }
+    listenerNavigasi = () => {
+      const h = location.hash || '';
+      if (!h.includes('lis-debug') && !h.includes('lis_debug') && !h.includes('integrasi-alat') && !h.includes('integrasi_alat')) {
+        if (timerPolling) { clearInterval(timerPolling); timerPolling = null; }
+        lepasRealtimeSync();
+        window.removeEventListener('hashchange', listenerNavigasi);
+        listenerNavigasi = null;
+      }
+    };
+    window.addEventListener('hashchange', listenerNavigasi);
+
     // Cek koneksi & muat riwayat
     await periksaStatusListener(false);
 
@@ -1373,6 +1886,9 @@ const LisDebug = (() => {
 
     const btnRefresh = el.querySelector('#btnRefreshSampel');
     if (btnRefresh) btnRefresh.onclick = () => periksaStatusListener(false);
+
+    const btnBersihKemarin = el.querySelector('#btnBersihkanKemarin');
+    if (btnBersihKemarin) btnBersihKemarin.onclick = () => bersihkanSampelKemarin();
 
     const btnReset = el.querySelector('#btnResetBuffer');
     if (btnReset) btnReset.onclick = () => bersihkanBufferBridge();
@@ -1402,6 +1918,33 @@ const LisDebug = (() => {
       };
     }
 
+    const inpTgl = el.querySelector('#filterTanggalSampel');
+    if (inpTgl) {
+      inpTgl.value = filterTanggal;
+      inpTgl.onchange = async () => {
+        filterTanggal = inpTgl.value.trim();
+        await periksaStatusListener(false);
+      };
+    }
+
+    const btnTglHariIni = el.querySelector('#btnTglHariIni');
+    if (btnTglHariIni) {
+      btnTglHariIni.onclick = async () => {
+        filterTanggal = tglHariIniLokal();
+        if (inpTgl) inpTgl.value = filterTanggal;
+        await periksaStatusListener(false);
+      };
+    }
+
+    const btnTglSemua = el.querySelector('#btnTglSemua');
+    if (btnTglSemua) {
+      btnTglSemua.onclick = async () => {
+        filterTanggal = '';
+        if (inpTgl) inpTgl.value = '';
+        await periksaStatusListener(false);
+      };
+    }
+
     const btnSalin = el.querySelector('#btnSalinLogTerminal');
     if (btnSalin) btnSalin.onclick = () => salinLog();
 
@@ -1415,7 +1958,12 @@ const LisDebug = (() => {
     kirimSimulasiBS240,
     kirimSimulasiSysmex,
     kirimSimulasiWondfo,
-    bersihkanLog
+    bersihkanLog,
+    bersihkanSampelKemarin,
+    bersihkanSampelSelesai,
+    konfirmasiHapusSampel,
+    pasangRealtimeSync,
+    lepasRealtimeSync
   };
 })();
 

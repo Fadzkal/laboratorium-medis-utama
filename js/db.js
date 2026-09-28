@@ -4322,12 +4322,24 @@ const DB = (() => {
     } catch (_) {}
   }
 
-  async function ambilRiwayatSampelLIS(limit = 100) {
+  async function ambilRiwayatSampelLIS(limit = 100, filterDate = null) {
     try {
-      const { data, error } = await sb.from('lis_riwayat_sampel')
-        .select('*')
+      let q = sb.from('lis_riwayat_sampel').select('*');
+
+      if (filterDate && typeof filterDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(filterDate.trim())) {
+        const parts = filterDate.trim().split('-');
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const awal = new Date(y, m, d, 0, 0, 0, 0).toISOString();
+        const akhir = new Date(y, m, d, 23, 59, 59, 999).toISOString();
+        q = q.gte('waktu_terima', awal).lte('waktu_terima', akhir);
+      }
+
+      const { data, error } = await q
         .order('waktu_terima', { ascending: false })
         .limit(limit);
+
       if (error) throw error;
       return data || [];
     } catch (e) {
@@ -4336,17 +4348,104 @@ const DB = (() => {
     }
   }
 
-  async function hapusRiwayatSampelLIS(id) {
+  async function hapusRiwayatSampelSelesaiLIS() {
     try {
-      const { error } = await sb.from('lis_riwayat_sampel')
+      let totalDihapus = 0;
+      const { data: d1, error: err1 } = await sb.from('lis_riwayat_sampel')
         .delete()
-        .eq('id', id);
-      if (error) throw error;
-      return true;
+        .in('status_mapping', ['TERPETAKAN', 'SELESAI', 'TERHUBUNG'])
+        .select('id, sample_id');
+
+      if (!err1 && Array.isArray(d1)) {
+        totalDihapus += d1.length;
+      }
+
+      // Sinkronisasi hapus dari lis_samples jika ada
+      try {
+        await sb.from('lis_samples')
+          .delete()
+          .in('status', ['SELESAI', 'TERPETAKAN', 'TERHUBUNG', 'PROCESSED']);
+      } catch (_) {}
+
+      return { sukses: true, total: totalDihapus, data: d1 || [] };
+    } catch (e) {
+      console.warn('Gagal bersihkan lis_riwayat_sampel selesai:', e);
+      return { sukses: false, error: e.message, total: 0 };
+    }
+  }
+
+  async function hapusRiwayatSampelLIS(idOrSampleId) {
+    if (!idOrSampleId) return false;
+    try {
+      const isUuid = typeof idOrSampleId === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSampleId);
+
+      let q1 = sb.from('lis_riwayat_sampel').delete();
+      if (isUuid) {
+        q1 = q1.eq('id', idOrSampleId);
+      } else {
+        q1 = q1.eq('sample_id', idOrSampleId);
+      }
+      const { error: err1 } = await q1;
+      if (err1) console.warn('Gagal hapus lis_riwayat_sampel:', err1);
+
+      // Sinkronisasi hapus ke tabel lis_samples jika ada
+      try {
+        let q2 = sb.from('lis_samples').delete();
+        if (isUuid) {
+          q2 = q2.eq('id', idOrSampleId);
+        } else {
+          q2 = q2.eq('sample_id', idOrSampleId);
+        }
+        await q2;
+      } catch (_) {}
+
+      return !err1;
     } catch (e) {
       console.warn('Gagal hapus lis_riwayat_sampel:', e);
       return false;
     }
+  }
+
+  async function hapusRiwayatSampelKemarinLIS() {
+    try {
+      const now = new Date();
+      const awalHariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).toISOString();
+
+      let totalDihapus = 0;
+      const { data: d1, error: err1 } = await sb.from('lis_riwayat_sampel')
+        .delete()
+        .lt('waktu_terima', awalHariIni)
+        .select('id, sample_id');
+
+      if (!err1 && Array.isArray(d1)) {
+        totalDihapus += d1.length;
+      } else if (err1) {
+        const { data: d2, error: err2 } = await sb.from('lis_riwayat_sampel')
+          .delete()
+          .lt('created_at', awalHariIni)
+          .select('id, sample_id');
+        if (!err2 && Array.isArray(d2)) totalDihapus += d2.length;
+      }
+
+      // Hapus juga dari lis_samples jika ada
+      try {
+        await sb.from('lis_samples').delete().lt('created_at', awalHariIni);
+      } catch (_) {}
+
+      return { sukses: true, total: totalDihapus };
+    } catch (e) {
+      console.warn('Gagal hapus riwayat sampel kemarin:', e);
+      return { sukses: false, error: e.message, total: 0 };
+    }
+  }
+
+  function langgananSampelLIS(callback) {
+    const ch = sb.channel('lis_samples_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lis_riwayat_sampel' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lis_samples' }, callback)
+      .subscribe();
+    return () => { sb.removeChannel(ch); };
   }
 
   async function ambilStatusBridge() {
@@ -4449,6 +4548,6 @@ const DB = (() => {
     daftarRekanan, simpanRekanan, hapusRekanan,
     jadwalMuatBulan, jadwalTambah, jadwalUbah, jadwalHapus,
     kasirTagihanKunjungan,
-    ambilRiwayatSampelLIS, hapusRiwayatSampelLIS, ambilStatusBridge
+    ambilRiwayatSampelLIS, hapusRiwayatSampelLIS, hapusRiwayatSampelKemarinLIS, hapusRiwayatSampelSelesaiLIS, langgananSampelLIS, ambilStatusBridge
   };
 })();
