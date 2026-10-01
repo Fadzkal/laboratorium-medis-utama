@@ -2196,14 +2196,6 @@ const Lab = (() => {
 
       tulis(`</div>`);
 
-      if (p.catatan_klinis) {
-        tulis(`
-          <div style="margin-top: 14px; margin-left: 29.2pt; font-size: 9pt; line-height: 14pt; color: #000;">
-            <b>Catatan Klinis:</b> ${UI.esc(p.catatan_klinis)}
-          </div>
-        `);
-      }
-
       // 3. Area Tanda Tangan & QR Code (Koordinat X=364.9pt untuk Penanggung Jawab)
       tulis(`
         <div style="margin-top: 60pt; break-inside: avoid; display: grid; grid-template-columns: 325.1pt 1fr; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif;">
@@ -2574,15 +2566,6 @@ const Lab = (() => {
               }).join('')}`).join('')}
           </tbody>
         </table>
-      `);
-    }
-
-    // Catatan Kaki jika ada catatan klinis
-    if (p.catatan_klinis) {
-      tulis(`
-        <div style="margin-bottom:14px; padding:6px 10px; background:#f8fafc; border-left:3px solid #0f766e; font-size:10.5px;">
-          <b>${isEng ? 'Clinical Notes / Remark:' : 'Catatan Klinis:'}</b> ${UI.esc(p.catatan_klinis)}
-        </div>
       `);
     }
 
