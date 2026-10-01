@@ -1649,10 +1649,13 @@ const Lab = (() => {
     const isF4_2 = format === 'Format 5(F4)_2';
     const isM4 = format === 'Format 4(M4)';
     const isM2 = format === 'Format 2(M2)';
+    const isM3 = format === 'Format 3(M3)';
 
     // Penentuan ukuran halaman CSS @page
     let pageSizeCss = 'size: A4 portrait; margin: 10mm 15mm;';
-    if (isF4_1 || isF4_2) {
+    if (isM3) {
+      pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
+    } else if (isF4_1 || isF4_2) {
       pageSizeCss = 'size: 215mm 330mm portrait; margin: 12mm 18mm;';
     } else if (isM2) {
       pageSizeCss = 'size: A5 landscape; margin: 8mm 12mm;';
@@ -1777,10 +1780,14 @@ const Lab = (() => {
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
           border-radius: 2px;
           box-sizing: border-box;
-          padding: ${isM2 ? '15px' : '24px 30px'};
-          ${isM2 ? 'width: 210mm; min-height: 148mm;' : 
+          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isM2 ? '15px' : '24px 30px')};
+          ${isM3 ? 'width: 215mm; min-height: 330mm;' :
+            isM2 ? 'width: 210mm; min-height: 148mm;' : 
             (isF4_1 || isF4_2) ? 'width: 215mm; min-height: 330mm;' : 
             'width: 210mm; min-height: 297mm;'}
+          font-family: ${isM3 ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
+          font-size: ${isM3 ? '9pt' : '11px'};
+          line-height: ${isM3 ? '14pt' : '1.35'};
         }
         
         /* HEADER STYLES */
@@ -1856,7 +1863,7 @@ const Lab = (() => {
           }
           .document-sheet {
             margin: 0 !important;
-            padding: 0 !important;
+            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : '0 !important'};
             box-shadow: none !important;
             border-radius: 0 !important;
             width: 100% !important;
@@ -1880,6 +1887,360 @@ const Lab = (() => {
     `);
 
     // 1. RENDER KOP HEADER
+    if (isM3) {
+      // ----------------------------------------------------------------
+      // FORMAT 3(M3) - SESUAI PERSIS DENGAN FORMAT RESMI SKYLAB / DOMPDF
+      // Dicetak pada kertas berkop fisik resmi (pre-printed letterhead)
+      // ----------------------------------------------------------------
+      const formatUmurLengkap = (tglLahir) => {
+        if (!tglLahir) return '-';
+        if (typeof UI !== 'undefined' && typeof UI.umur === 'function') {
+          const u = UI.umur(tglLahir);
+          if (u) {
+            const parts = [];
+            if (u.tahun > 0) parts.push(`${u.tahun} Thn`);
+            if (u.bulan > 0) parts.push(`${u.bulan} Bln`);
+            if (u.hari >= 0) parts.push(`${u.hari} Hari`);
+            return parts.join(' ') || '0 Hari';
+          }
+        }
+        return UI.umurTeks(tglLahir);
+      };
+
+      const umurM3 = formatUmurLengkap(p.pasien?.tanggal_lahir);
+      const jkM3 = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+      const instansiM3 = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
+      const dokterPengirimM3 = p.kunjungan?.dokter?.nama || p.peminta?.nama || '-';
+      const qrM3Url = basePath + 'qr_dr_minto.png';
+
+      let namaVerifM3 = p.verifikator || (p.penutup?.nama && p.penutup.nama.toLowerCase() !== 'master' ? p.penutup.nama : null);
+      if (!namaVerifM3) {
+        if (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') {
+          namaVerifM3 = dicetakOleh;
+        } else {
+          namaVerifM3 = 'Dede K';
+        }
+      }
+      const waktuVerifM3 = p.tgl_verifikasi
+        ? p.tgl_verifikasi.replace('T', ' ').substring(0, 26)
+        : (p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : jamSampel);
+
+      const dicetakOlehM3 = (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') ? dicetakOleh : (namaVerifM3 || 'Dede K');
+      const jamCetakM3 = `${UI.tglIndo(now)} ${UI.jam(now.toISOString())}`;
+
+      // 1. Identitas Pasien (Presisi Koordinat Sesuai PDF SkyLab)
+      tulis(`
+        <div style="display: grid; grid-template-columns: 283pt 1fr; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif;">
+          <div>
+            <div style="display: flex;">
+              <span style="width: 77pt; flex-shrink: 0;">No Lab</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 77pt; flex-shrink: 0;">Nama</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.esc(p.pasien?.nama || '-')}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 77pt; flex-shrink: 0;">Dokter Pengirim</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.esc(dokterPengirimM3)}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 77pt; flex-shrink: 0;">Alamat</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.esc(p.pasien?.alamat || '-')}</span>
+            </div>
+          </div>
+          <div>
+            <div style="display: flex;">
+              <span style="width: 62pt; flex-shrink: 0;">Umur</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.esc(umurM3)}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 62pt; flex-shrink: 0;">Jenis Kelamin</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${jkM3}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 62pt; flex-shrink: 0;">Tgl. Periksa</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.tglIndo(p.tanggal)}</span>
+            </div>
+            <div style="display: flex;">
+              <span style="width: 62pt; flex-shrink: 0;">Instansi</span>
+              <span style="width: 7pt; flex-shrink: 0;">:</span>
+              <span>${UI.esc(instansiM3)}</span>
+            </div>
+          </div>
+        </div>
+      `);
+
+      // 2. Daftar Hasil Pemeriksaan (Margin Top 82pt, Indentasi 29.2pt Sesuai PDF SkyLab)
+      const MAP_NAMA_FIX = {
+        "A01020301": "Protein Cairan Pleura",
+        "A01020302": "Glukosa Cairan Pleura",
+        "I022801": "S. Typhi O",
+        "I022802": "S. Typhi H",
+        "I022803": "S. Paratyphi A-O",
+        "I022804": "S. Paratyphi A-H",
+        "I022805": "S. Paratyphi B-O",
+        "I022806": "S. Paratyphi B-H",
+        "I022807": "S. Paratyphi C-O",
+        "I022808": "S. Paratyphi C-H",
+        "I024401": "S. Typhi O Set 2",
+        "I024402": "S. Typhi H Set 2",
+        "W010101": "S. Typhi O",
+        "W010102": "S. Typhi H",
+        "W010103": "S. Paratyphi A-O",
+        "W010104": "S. Paratyphi A-H",
+        "W010105": "S. Paratyphi B-O",
+        "W010106": "S. Paratyphi B-H",
+        "W010107": "S. Paratyphi C-O",
+        "W010108": "S. Paratyphi C-H",
+      };
+
+      const WIDAL_NAMES_ORDER = [
+        "S. Typhi O",
+        "S. Typhi H",
+        "S. Paratyphi A-O",
+        "S. Paratyphi A-H",
+        "S. Paratyphi B-O",
+        "S. Paratyphi B-H",
+        "S. Paratyphi C-O",
+        "S. Paratyphi C-H"
+      ];
+
+      const bersihkanTeksRujukan = (str) => {
+        if (!str) return '';
+        let s = String(str).trim();
+        const mapTanggalExcel = {
+          'oct-20': '10 - 20', '20-oct': '10 - 20', 'okt-20': '10 - 20', '20-okt': '10 - 20',
+          '03-may': '3 - 5', 'may-03': '3 - 5', '03-mei': '3 - 5', 'mei-03': '3 - 5',
+          '02-oct': '2 - 10', 'oct-02': '2 - 10', '02-okt': '2 - 10', 'okt-02': '2 - 10',
+          '01-apr': '1 - 4', 'apr-01': '1 - 4',
+          '01-mar': '1 - 3', 'mar-01': '1 - 3',
+          '02-apr': '2 - 4', 'apr-02': '2 - 4',
+          '02-jun': '2 - 6', 'jun-02': '2 - 6',
+          '02-aug': '2 - 8', 'aug-02': '2 - 8', '02-agu': '2 - 8', 'agu-02': '2 - 8',
+          '04-aug': '4 - 8', 'aug-04': '4 - 8', '04-agu': '4 - 8', 'agu-04': '4 - 8',
+          '04-oct': '4 - 10', 'oct-04': '4 - 10', '04-okt': '4 - 10', 'okt-04': '4 - 10',
+        };
+        const key = s.toLowerCase();
+        if (mapTanggalExcel[key]) return mapTanggalExcel[key];
+        if (s === '—' || s === '-') return '';
+        return s;
+      };
+
+      const bersihkanNilaiHasil = (str) => {
+        if (!str && str !== 0) return '';
+        let s = String(str).trim();
+        const matchJan = s.match(/^jan-(\d+)$/i);
+        if (matchJan) return '1/' + matchJan[1];
+        const matchDec = s.match(/^dec-(\d+)$/i);
+        if (matchDec) return '1/' + matchDec[1];
+        const matchFeb = s.match(/^feb-(\d+)$/i);
+        if (matchFeb) return '1/' + matchFeb[1];
+        if (s === '—' || s === '-') return '';
+        return s;
+      };
+
+      const ambilKelompokMedis = (h) => {
+        const m = h.ref || {};
+        const kode = (m.kode || h.kode || '').trim().toUpperCase();
+        const nama = (h.nama || m.nama || '').trim().toUpperCase();
+        const kAwal = (h.kelompok || m.kelompok || '').trim();
+
+        // Item non-medis / administrasi seperti Home Service, CITO, dll tidak boleh dicetak di lembar hasil lab
+        if (nama.includes('HOME SERVICE') || nama.includes('LAYANAN JEMPUT') || nama.includes('ADMINISTRASI') || nama.includes('BIAYA JEMPUT')) {
+          return null;
+        }
+
+        if (kode.startsWith('H')) return 'HEMATOLOGI';
+        if (kode.startsWith('I') || kode.startsWith('W')) return 'IMUNOSEROLOGI';
+        if (kode.startsWith('K')) return 'KIMIA KLINIK';
+        if (kode.startsWith('U')) return 'URINALISA';
+        if (kode.startsWith('F')) return 'FESES';
+        if (kode.startsWith('S')) return 'SPERMA';
+        if (kode.startsWith('M')) return 'MIKROBIOLOGI';
+        if (kode.startsWith('B')) return 'BIOMOLEKULER';
+        if (kode.startsWith('C')) return 'ANALISA CAIRAN';
+        if (kode.startsWith('A')) return 'PEMERIKSAAN FISIK & PA';
+
+        if (nama.includes('HEMO') || nama.includes('LEUKO') || nama.includes('TROMBO') || nama.includes('LED') || nama.includes('ERITRO') || nama.includes('HEMATOK') || nama.includes('MCV') || nama.includes('MCH') || nama.includes('RDW')) return 'HEMATOLOGI';
+        if (nama.includes('WIDAL') || nama.includes('TYPHI') || nama.includes('DENGUE') || nama.includes('HBSAG') || nama.includes('HIV') || nama.includes('SIFILIS') || nama.includes('IGG') || nama.includes('IGM') || nama.includes('NS1')) return 'IMUNOSEROLOGI';
+        if (nama.includes('GLUKOSA') || nama.includes('KOLESTEROL') || nama.includes('TRIGLISERIDA') || nama.includes('ASAM URAT') || nama.includes('UREUM') || nama.includes('KREATININ') || nama.includes('SGOT') || nama.includes('SGPT')) return 'KIMIA KLINIK';
+        if (nama.includes('URIN') || nama.includes('SEDIMEN')) return 'URINALISA';
+        if (nama.includes('SPERMA') || nama.includes('SEMEN')) return 'SPERMA';
+
+        if (kAwal && !/^\d+$/.test(kAwal) && kAwal.toLowerCase() !== 'lainnya') {
+          return kAwal.toUpperCase();
+        }
+
+        return 'LAINNYA';
+      };
+
+      const mapGrupM3 = new Map();
+      let widalCounter = 0;
+
+      p.hasil.forEach(h => {
+        const kat = ambilKelompokMedis(h);
+        if (!kat) return; // Lewati Home Service / non-medis
+        if (!mapGrupM3.has(kat)) mapGrupM3.set(kat, []);
+        mapGrupM3.get(kat).push(h);
+      });
+
+      const grupM3 = Array.from(mapGrupM3, ([kelompok, isi]) => ({
+        kelompok,
+        isi: isi.slice().sort((a, b) => {
+          const urutA = a.urutan || (a.ref?.urutan) || 0;
+          const urutB = b.urutan || (b.ref?.urutan) || 0;
+          if (urutA !== urutB) return urutA - urutB;
+          return (a.ref?.kode || '').localeCompare(b.ref?.kode || '');
+        })
+      }));
+
+      tulis(`
+        <div style="margin-top: 82pt; margin-left: 29.2pt; font-family: Helvetica, Arial, sans-serif; font-size: 9pt; line-height: 14pt; color: #000;">
+      `);
+
+      grupM3.forEach(g => {
+        tulis(`
+          <div style="font-weight: bold; text-transform: uppercase; font-size: 9pt; line-height: 14pt; margin-top: 2px;">
+            ${UI.esc(g.kelompok || 'PEMERIKSAAN')}
+          </div>
+        `);
+
+        g.isi.forEach(h => {
+          const m = h.ref || {};
+          const kode = (m.kode || h.kode || '').trim();
+          let rawNama = h.nama || m.nama || '';
+          let namaItem = rawNama;
+          if (kode && MAP_NAMA_FIX[kode]) {
+            namaItem = MAP_NAMA_FIX[kode];
+          } else if (!rawNama || rawNama.includes('#NAME?')) {
+            if (widalCounter >= 0 && widalCounter < WIDAL_NAMES_ORDER.length) {
+              namaItem = WIDAL_NAMES_ORDER[widalCounter];
+            } else {
+              namaItem = 'Pemeriksaan';
+            }
+          }
+          if (g.kelompok === 'IMUNOSEROLOGI' && (kode.startsWith('I0228') || namaItem.includes('Typhi') || rawNama.includes('#NAME?'))) {
+            widalCounter++;
+          }
+
+          const isPaketHeader = kode.length > 0 && kode.length <= 5;
+          const hasChildren = kode.length > 0 && g.isi.some(other => other !== h && (other.ref?.kode || other.kode || '').startsWith(kode));
+          const isHeaderItem = isPaketHeader || hasChildren || (
+            (h.nilai_angka === null || h.nilai_angka === undefined) &&
+            !h.nilai_teks &&
+            !h.satuan && !m.satuan &&
+            !h.rujukan_teks && !rujukanPakai[h.id]?.teks && !rujukanPakai[h.id]?.batas_bawah && !rujukanPakai[h.id]?.batas_atas
+          );
+
+          let indentPx = 0;
+          if (isPaketHeader) {
+            indentPx = 0;
+          } else if (kode.length >= 9) {
+            indentPx = 36;
+          } else if (kode.length === 7 || (!kode && !isHeaderItem)) {
+            indentPx = 18;
+          } else if (isHeaderItem && !isPaketHeader) {
+            indentPx = 18;
+          }
+
+          if (isHeaderItem) {
+            tulis(`
+              <div style="display: flex; line-height: 14pt; font-size: 9pt; color: #000;">
+                <div style="width: 180pt; padding-left: ${indentPx}px; box-sizing: border-box;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 96pt;"></div>
+                <div style="width: 88pt;"></div>
+                <div style="width: 60pt;"></div>
+              </div>
+            `);
+          } else {
+            const abnormal = isAbnormalItem(h);
+            let valRaw = nilaiTeks(h);
+            let valClean = bersihkanNilaiHasil(valRaw);
+            const displayVal = valClean ? `${valClean}${abnormal ? ' *' : ''}` : '';
+
+            let rujukanRaw = h.rujukan_teks || (rujukanPakai && LabCore.teksRujukan(rujukanPakai[h.id], h.ref)) || '';
+            let rujukanClean = bersihkanTeksRujukan(rujukanRaw);
+
+            const satuanString = (h.satuan || m.satuan || '').trim();
+            const displaySatuan = (satuanString === '—' || satuanString === '-') ? '' : satuanString;
+
+            tulis(`
+              <div style="display: flex; line-height: 14pt; font-size: 9pt; color: #000;">
+                <div style="width: 180pt; padding-left: ${indentPx}px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 96pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displayVal)}
+                </div>
+                <div style="width: 88pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(rujukanClean)}
+                </div>
+                <div style="width: 60pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displaySatuan)}
+                </div>
+              </div>
+            `);
+          }
+        });
+      });
+
+      tulis(`</div>`);
+
+      if (p.catatan_klinis) {
+        tulis(`
+          <div style="margin-top: 14px; margin-left: 29.2pt; font-size: 9pt; line-height: 14pt; color: #000;">
+            <b>Catatan Klinis:</b> ${UI.esc(p.catatan_klinis)}
+          </div>
+        `);
+      }
+
+      // 3. Area Tanda Tangan & QR Code (Koordinat X=364.9pt untuk Penanggung Jawab)
+      tulis(`
+        <div style="margin-top: 60pt; break-inside: avoid; display: grid; grid-template-columns: 325.1pt 1fr; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif;">
+          <div>
+            <div>Verifikator</div>
+            <div style="height: 48pt;"></div>
+            <div>${UI.esc(namaVerifM3)}</div>
+            <div>${UI.esc(waktuVerifM3)}</div>
+          </div>
+          <div>
+            <div>Penanggung Jawab</div>
+            <div style="margin: 2px 0; height: 42pt; display: flex; align-items: center;">
+              <img src="${qrM3Url}" alt="QR" style="width: 42pt; height: 42pt; object-fit: contain; display: block;" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=skylab.my.id%2Flab_utama%2Fdr_minto_rahaju_sp_pk.html'">
+            </div>
+            <div>dr. Minto Rahaju Sp. PK</div>
+          </div>
+        </div>
+      `);
+
+      // 4. Footer Bawah (Jam Sampel & Hal. 1 dari 1 Halaman / Printed By)
+      tulis(`
+        <div style="margin-top: 40pt; font-family: Helvetica, Arial, sans-serif; color: #000; break-inside: avoid;">
+          <div style="font-size: 10pt; line-height: 14pt;">
+            Jam Sampel : ${UI.esc(jamSampel)}
+          </div>
+          <div style="display: flex; align-items: baseline; line-height: 14pt; margin-top: 2px;">
+            <div style="font-size: 10pt; width: 140pt; flex-shrink: 0;">
+              Hal. 1 dari 1 Halaman
+            </div>
+            <div style="font-size: 8pt; color: #000;">
+              Printed By : ${UI.esc(dicetakOlehM3)} / ${UI.esc(jamCetakM3)}
+            </div>
+          </div>
+        </div>
+      `);
+    } else {
+    // 1. RENDER KOP HEADER (Format selain M3)
     if (is2025) {
       tulis(`
         <div class="kop-2025">
@@ -2272,6 +2633,7 @@ const Lab = (() => {
         </div>
       </div>
     `);
+    }
 
     tulis(`
         </div>
