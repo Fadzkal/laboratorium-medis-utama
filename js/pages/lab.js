@@ -1654,9 +1654,7 @@ const Lab = (() => {
 
     // Penentuan ukuran halaman CSS @page
     let pageSizeCss = 'size: A4 portrait; margin: 10mm 15mm;';
-    if (isM3) {
-      pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
-    } else if (isFormat5) {
+    if (isM3 || isFormat5 || isM4) {
       pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
     } else if (isM2) {
       pageSizeCss = 'size: A5 landscape; margin: 8mm 12mm;';
@@ -1781,13 +1779,13 @@ const Lab = (() => {
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
           border-radius: 2px;
           box-sizing: border-box;
-          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm' : (isM2 ? '15px' : '24px 30px'))};
-          ${(isM3 || isFormat5) ? 'width: 215mm; min-height: 330mm;' :
+          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm' : (isM4 ? '6.9mm 11.4mm 15mm 11.4mm' : (isM2 ? '15px' : '24px 30px')))};
+          ${(isM3 || isFormat5 || isM4) ? 'width: 215mm; min-height: 330mm;' :
             isM2 ? 'width: 210mm; min-height: 148mm;' : 
             'width: 210mm; min-height: 297mm;'}
-          font-family: ${(isM3 || isFormat5) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
-          font-size: ${isFormat5 ? '9.8pt' : (isM3 ? '9pt' : '11px')};
-          line-height: ${isFormat5 ? '14.9pt' : (isM3 ? '14pt' : '1.35')};
+          font-family: ${(isM3 || isFormat5 || isM4) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
+          font-size: ${(isFormat5 || isM4) ? '9.8pt' : (isM3 ? '9pt' : '11px')};
+          line-height: ${(isFormat5 || isM4) ? '14.9pt' : (isM3 ? '14pt' : '1.35')};
         }
         
         /* HEADER STYLES */
@@ -1863,7 +1861,7 @@ const Lab = (() => {
           }
           .document-sheet {
             margin: 0 !important;
-            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm !important' : '0 !important')};
+            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm !important' : (isM4 ? '6.9mm 11.4mm 15mm 11.4mm !important' : '0 !important'))};
             box-shadow: none !important;
             border-radius: 0 !important;
             width: 100% !important;
@@ -2505,6 +2503,256 @@ const Lab = (() => {
           </div>
           <div style="font-size: 8pt; color: #000;">
             Printed By : ${UI.esc(dicetakOlehF4)} / ${UI.esc(jamCetakF4)}
+          </div>
+        </div>
+      `);
+    } else if (isM4) {
+      // ----------------------------------------------------------------
+      // FORMAT 4(M4) - SESUAI PERSIS DENGAN FORMAT RESMI SKYLAB / DOMPDF
+      // Memiliki Kop Digital: Logo Utama di tengah/kiri + Alamat di kanan
+      // Barcode No Lab kecil di kiri atas
+      // 4 Kolom: PEMERIKSAAN | HASIL | NILAI RUJUKAN | SATUAN
+      // ----------------------------------------------------------------
+      const umurM4 = formatUmurLengkap(p.pasien?.tanggal_lahir);
+      const jkM4 = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+      const instansiM4 = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
+      const dokterPengirimM4 = p.kunjungan?.dokter?.nama || p.peminta?.nama || 'dr. Minto Rahaju, Sp.PK';
+      const qrM4Url = basePath + 'qr_dr_minto.png';
+      const logoM4Url = basePath + 'logo_kop_m4.jpg';
+
+      let namaVerifM4 = p.verifikator || (p.penutup?.nama && p.penutup.nama.toLowerCase() !== 'master' ? p.penutup.nama : null);
+      if (!namaVerifM4) {
+        if (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') {
+          namaVerifM4 = dicetakOleh;
+        } else {
+          namaVerifM4 = 'Dede K';
+        }
+      }
+      const waktuVerifM4 = p.tgl_verifikasi
+        ? p.tgl_verifikasi.replace('T', ' ').substring(0, 26)
+        : (p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : jamSampel);
+      const dicetakOlehM4 = (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') ? dicetakOleh : (namaVerifM4 || 'Dede K');
+      const jamCetakM4 = `${UI.tglIndo(now)} ${UI.jam(now.toISOString())}`;
+
+      // 1. Kop Header (Logo di tengah/kiri + Alamat di kanan)
+      tulis(`
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8pt; margin-bottom: 20pt; margin-top: 5pt;">
+          <img src="${logoM4Url}" alt="Logo" style="width: 82.5pt; height: 67.5pt; object-fit: contain; display: block;" onerror="this.src='${logoUrl}'">
+          <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9pt; line-height: 14pt; color: #000;">
+            <div style="font-weight: bold;">Laboratorium Medis UTAMA</div>
+            <div>Jl. DI Panjaitan No. 94, Purbalingga</div>
+            <div>Telp. 0281-6580099 / 08121482308</div>
+            <div>Email : laboratoriumutama@yahoo.com</div>
+          </div>
+        </div>
+
+        <!-- Barcode No Lab -->
+        <div style="margin-left: -7.5pt; margin-bottom: 2pt;">
+          <img src="${barcodeUrl}" alt="Barcode" style="height: 15pt; width: 75pt; object-fit: fill; display: block;">
+        </div>
+
+        <!-- Penanggung Jawab & Metadata Pasien -->
+        <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; line-height: 14.9pt; color: #000;">
+          <div style="font-weight: bold; margin-bottom: 0;">
+            Penanggung Jawab : dr. Minto Rahaju Sp. PK
+          </div>
+          <div style="display: grid; grid-template-columns: 312.4pt 1fr; margin-top: 0;">
+            <div>
+              <div style="display: flex;">
+                <span style="width: 80.7pt; flex-shrink: 0;">No Lab</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 80.7pt; flex-shrink: 0;">Nama</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.nama || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 80.7pt; flex-shrink: 0;">Dokter Pengirim</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(dokterPengirimM4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 80.7pt; flex-shrink: 0;">Alamat</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.alamat || p.alamat || '-')}</span>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex;">
+                <span style="width: 72pt; flex-shrink: 0;">Umur</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(umurM4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 72pt; flex-shrink: 0;">Jenis Kelamin</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(jkM4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 72pt; flex-shrink: 0;">Tgl. Periksa</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(UI.tglIndo(p.waktu_daftar || p.created_at || now))}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 72pt; flex-shrink: 0;">Instansi</span>
+                <span style="width: 13.8pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(instansiM4)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      // 2. Pengelompokan Medis & Render Tabel 4 Kolom
+      const mapGrupM4 = new Map();
+      let widalCounterM4 = 0;
+
+      p.hasil.forEach(h => {
+        const kat = ambilKelompokMedis(h);
+        if (!kat) return; // Lewati item non-medis / administrasi
+        if (!mapGrupM4.has(kat)) mapGrupM4.set(kat, []);
+        mapGrupM4.get(kat).push(h);
+      });
+
+      const grupM4 = Array.from(mapGrupM4, ([kelompok, isi]) => ({
+        kelompok,
+        isi: isi.slice().sort((a, b) => {
+          const urutA = a.urutan || (a.ref?.urutan) || 0;
+          const urutB = b.urutan || (b.ref?.urutan) || 0;
+          if (urutA !== urutB) return urutA - urutB;
+          return (a.ref?.kode || '').localeCompare(b.ref?.kode || '');
+        })
+      }));
+
+      tulis(`
+        <div style="margin-top: 15pt; font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; color: #000; line-height: 14.9pt;">
+          <div style="display: flex; margin-left: 3.75pt; text-transform: uppercase;">
+            <div style="width: 185.95pt;">PEMERIKSAAN</div>
+            <div style="width: 97.20pt;">HASIL</div>
+            <div style="width: 97.20pt;">NILAI RUJUKAN</div>
+            <div style="width: 70pt;">SATUAN</div>
+          </div>
+      `);
+
+      grupM4.forEach(g => {
+        tulis(`
+          <div style="font-weight: bold; text-transform: uppercase; font-size: 9.8pt; line-height: 14.9pt; margin-top: 2px; margin-left: 3.75pt;">
+            ${UI.esc(g.kelompok || 'PEMERIKSAAN')}
+          </div>
+        `);
+
+        g.isi.forEach(h => {
+          const m = h.ref || {};
+          const kode = (m.kode || h.kode || '').trim();
+          let rawNama = h.nama || m.nama || '';
+          let namaItem = rawNama;
+          if (kode && MAP_NAMA_FIX[kode]) {
+            namaItem = MAP_NAMA_FIX[kode];
+          } else if (!rawNama || rawNama.includes('#NAME?')) {
+            if (widalCounterM4 >= 0 && widalCounterM4 < WIDAL_NAMES_ORDER.length) {
+              namaItem = WIDAL_NAMES_ORDER[widalCounterM4];
+            } else {
+              namaItem = 'Pemeriksaan';
+            }
+          }
+          if (g.kelompok === 'IMUNOSEROLOGI' && (kode.startsWith('I0228') || namaItem.includes('Typhi') || rawNama.includes('#NAME?'))) {
+            widalCounterM4++;
+          }
+
+          const isPaketHeader = kode.length > 0 && kode.length <= 5;
+          const hasChildren = kode.length > 0 && g.isi.some(other => other !== h && (other.ref?.kode || other.kode || '').startsWith(kode));
+          const isHeaderItem = isPaketHeader || hasChildren || (
+            (h.nilai_angka === null || h.nilai_angka === undefined) &&
+            !h.nilai_teks &&
+            !h.satuan && !m.satuan &&
+            !h.rujukan_teks && !rujukanPakai[h.id]?.teks && !rujukanPakai[h.id]?.batas_bawah && !rujukanPakai[h.id]?.batas_atas
+          );
+
+          if (isHeaderItem) {
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000; margin-left: 3.75pt;">
+                <div style="width: 185.95pt; padding-left: 0; box-sizing: border-box;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 97.20pt;"></div>
+                <div style="width: 97.20pt;"></div>
+                <div style="width: 70pt;"></div>
+              </div>
+            `);
+          } else {
+            const isChild = isPaketHeader ? false : (kode.length >= 7 || g.isi.some(other => other !== h && kode.startsWith(other.ref?.kode || other.kode || '___')));
+            const indentPt = isChild ? 18 : 0;
+
+            const abnormal = isAbnormalItem(h);
+            let valRaw = nilaiTeks(h);
+            let valClean = bersihkanNilaiHasil(valRaw);
+            const displayVal = valClean ? `${valClean}${abnormal ? ' *' : ''}` : '';
+
+            let rujukanRaw = h.rujukan_teks || (rujukanPakai && LabCore.teksRujukan(rujukanPakai[h.id], h.ref)) || '';
+            let rujukanClean = bersihkanTeksRujukan(rujukanRaw);
+
+            const satuanString = (h.satuan || m.satuan || '').trim();
+            const displaySatuan = (satuanString === '—' || satuanString === '-') ? '' : satuanString;
+
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000; margin-left: 3.75pt;">
+                <div style="width: 185.95pt; padding-left: ${indentPt}pt; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 97.20pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displayVal)}
+                </div>
+                <div style="width: 97.20pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(rujukanClean)}
+                </div>
+                <div style="width: 70pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displaySatuan)}
+                </div>
+              </div>
+            `);
+          }
+        });
+      });
+
+      tulis(`</div>`);
+
+      // 3. Area Tanda Tangan & QR Code (Koordinat X=364.9pt untuk Penanggung Jawab)
+      tulis(`
+        <div style="margin-top: 45pt; break-inside: avoid; display: grid; grid-template-columns: 325.1pt 1fr; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif; margin-left: 7.5pt;">
+          <div>
+            <div>Verifikator</div>
+            <div style="height: 44pt;"></div>
+            <div>${UI.esc(namaVerifM4)}</div>
+            <div style="font-size: 9pt; color: #000;">${UI.esc(waktuVerifM4)}</div>
+          </div>
+          <div>
+            <div>Penanggung Jawab</div>
+            <div style="margin: 2px 0; height: 42pt; display: flex; align-items: center;">
+              <img src="${qrM4Url}" alt="QR" style="width: 42pt; height: 42pt; object-fit: contain; display: block;" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=skylab.my.id%2Flab_utama%2Fdr_minto_rahaju_sp_pk.html'">
+            </div>
+            <div>dr. Minto Rahaju Sp. PK</div>
+          </div>
+        </div>
+      `);
+
+      // 4. Footer Bawah (Hal. 1 dari 1 Halaman, Jam Sampel, Printed By & Disclaimer Elektronik)
+      tulis(`
+        <div style="margin-top: 36pt; font-family: Helvetica, Arial, sans-serif; color: #000; break-inside: avoid; margin-left: 7.75pt;">
+          <div style="font-size: 10pt; line-height: 14pt;">
+            Hal. 1 dari 1 Halaman
+          </div>
+          <div style="display: flex; align-items: baseline; line-height: 14pt; margin-top: 1px;">
+            <div style="font-size: 10pt; width: 260pt; flex-shrink: 0;">
+              Jam Sampel ${UI.esc(jamSampel)}
+            </div>
+            <div style="font-size: 8pt; color: #000;">
+              Printed By : ${UI.esc(dicetakOlehM4)} / ${UI.esc(jamCetakM4)}
+            </div>
+          </div>
+          <div style="font-size: 10pt; font-weight: bold; line-height: 14pt; margin-top: 1px;">
+            Hasil tidak memerlukan tanda tangan karena dicetak secara elektronik.Hasil sudah di verifikasi dan divalidasi
           </div>
         </div>
       `);
