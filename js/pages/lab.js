@@ -1647,6 +1647,7 @@ const Lab = (() => {
     const is2025 = format === 'Format 2025';
     const isF4_1 = format === 'Format 5(F4)';
     const isF4_2 = format === 'Format 5(F4)_2';
+    const isFormat5 = isF4_1 || isF4_2;
     const isM4 = format === 'Format 4(M4)';
     const isM2 = format === 'Format 2(M2)';
     const isM3 = format === 'Format 3(M3)';
@@ -1655,8 +1656,8 @@ const Lab = (() => {
     let pageSizeCss = 'size: A4 portrait; margin: 10mm 15mm;';
     if (isM3) {
       pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
-    } else if (isF4_1 || isF4_2) {
-      pageSizeCss = 'size: 215mm 330mm portrait; margin: 12mm 18mm;';
+    } else if (isFormat5) {
+      pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
     } else if (isM2) {
       pageSizeCss = 'size: A5 landscape; margin: 8mm 12mm;';
     }
@@ -1780,14 +1781,13 @@ const Lab = (() => {
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
           border-radius: 2px;
           box-sizing: border-box;
-          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isM2 ? '15px' : '24px 30px')};
-          ${isM3 ? 'width: 215mm; min-height: 330mm;' :
+          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm' : (isM2 ? '15px' : '24px 30px'))};
+          ${(isM3 || isFormat5) ? 'width: 215mm; min-height: 330mm;' :
             isM2 ? 'width: 210mm; min-height: 148mm;' : 
-            (isF4_1 || isF4_2) ? 'width: 215mm; min-height: 330mm;' : 
             'width: 210mm; min-height: 297mm;'}
-          font-family: ${isM3 ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
-          font-size: ${isM3 ? '9pt' : '11px'};
-          line-height: ${isM3 ? '14pt' : '1.35'};
+          font-family: ${(isM3 || isFormat5) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
+          font-size: ${isFormat5 ? '9.8pt' : (isM3 ? '9pt' : '11px')};
+          line-height: ${isFormat5 ? '14.9pt' : (isM3 ? '14pt' : '1.35')};
         }
         
         /* HEADER STYLES */
@@ -1863,7 +1863,7 @@ const Lab = (() => {
           }
           .document-sheet {
             margin: 0 !important;
-            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : '0 !important'};
+            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm !important' : '0 !important')};
             box-shadow: none !important;
             border-radius: 0 !important;
             width: 100% !important;
@@ -1886,27 +1886,170 @@ const Lab = (() => {
         <div class="document-sheet">
     `);
 
+    // Helper & Sanitizer Bersama untuk Cetak Presisi
+    const formatUmurLengkap = (tglLahir) => {
+      if (!tglLahir) return '-';
+      if (typeof UI !== 'undefined' && typeof UI.umur === 'function') {
+        const u = UI.umur(tglLahir);
+        if (u) {
+          const parts = [];
+          if (u.tahun > 0) parts.push(`${u.tahun} Thn`);
+          if (u.bulan > 0) parts.push(`${u.bulan} Bln`);
+          if (u.hari >= 0) parts.push(`${u.hari} Hari`);
+          return parts.join(' ') || '0 Hari';
+        }
+      }
+      return UI.umurTeks(tglLahir);
+    };
+
+    const MAP_NAMA_FIX = {
+      "A01020301": "Protein Cairan Pleura",
+      "A01020302": "Glukosa Cairan Pleura",
+      "I022801": "S. Typhi O",
+      "I022802": "S. Typhi H",
+      "I022803": "S. Paratyphi A-O",
+      "I022804": "S. Paratyphi A-H",
+      "I022805": "S. Paratyphi B-O",
+      "I022806": "S. Paratyphi B-H",
+      "I022807": "S. Paratyphi C-O",
+      "I022808": "S. Paratyphi C-H",
+      "I024401": "S. Typhi O Set 2",
+      "I024402": "S. Typhi H Set 2",
+      "W010101": "S. Typhi O",
+      "W010102": "S. Typhi H",
+      "W010103": "S. Paratyphi A-O",
+      "W010104": "S. Paratyphi A-H",
+      "W010105": "S. Paratyphi B-O",
+      "W010106": "S. Paratyphi B-H",
+      "W010107": "S. Paratyphi C-O",
+      "W010108": "S. Paratyphi C-H",
+    };
+
+    const WIDAL_NAMES_ORDER = [
+      "S. Typhi O",
+      "S. Typhi H",
+      "S. Paratyphi A-O",
+      "S. Paratyphi A-H",
+      "S. Paratyphi B-O",
+      "S. Paratyphi B-H",
+      "S. Paratyphi C-O",
+      "S. Paratyphi C-H"
+    ];
+
+    const bersihkanTeksRujukan = (str) => {
+      if (!str) return '';
+      let s = String(str).trim();
+      const mapTanggalExcel = {
+        'oct-20': '10 - 20', '20-oct': '10 - 20', 'okt-20': '10 - 20', '20-okt': '10 - 20',
+        '03-may': '3 - 5', 'may-03': '3 - 5', '03-mei': '3 - 5', 'mei-03': '3 - 5',
+        '02-oct': '2 - 10', 'oct-02': '2 - 10', '02-okt': '2 - 10', 'okt-02': '2 - 10',
+        '01-apr': '1 - 4', 'apr-01': '1 - 4',
+        '01-mar': '1 - 3', 'mar-01': '1 - 3',
+        '02-apr': '2 - 4', 'apr-02': '2 - 4',
+        '02-jun': '2 - 6', 'jun-02': '2 - 6',
+        '02-aug': '2 - 8', 'aug-02': '2 - 8', '02-agu': '2 - 8', 'agu-02': '2 - 8',
+        '04-aug': '4 - 8', 'aug-04': '4 - 8', '04-agu': '4 - 8', 'agu-04': '4 - 8',
+        '04-oct': '4 - 10', 'oct-04': '4 - 10', '04-okt': '4 - 10', 'okt-04': '4 - 10',
+      };
+      const key = s.toLowerCase();
+      if (mapTanggalExcel[key]) return mapTanggalExcel[key];
+      if (s === '—' || s === '-') return '';
+      return s;
+    };
+
+    const bersihkanNilaiHasil = (str) => {
+      if (!str && str !== 0) return '';
+      let s = String(str).trim();
+      const matchJan = s.match(/^jan-(\d+)$/i);
+      if (matchJan) return '1/' + matchJan[1];
+      const matchDec = s.match(/^dec-(\d+)$/i);
+      if (matchDec) return '1/' + matchDec[1];
+      const matchFeb = s.match(/^feb-(\d+)$/i);
+      if (matchFeb) return '1/' + matchFeb[1];
+      if (s === '—' || s === '-') return '';
+      return s;
+    };
+
+    const ambilKelompokMedis = (h) => {
+      const m = h.ref || {};
+      const kode = (m.kode || h.kode || '').trim().toUpperCase();
+      const nama = (h.nama || m.nama || '').trim().toUpperCase();
+      const kAwal = (h.kelompok || m.kelompok || '').trim();
+
+      if (nama.includes('HOME SERVICE') || nama.includes('LAYANAN JEMPUT') || nama.includes('ADMINISTRASI') || nama.includes('BIAYA JEMPUT')) {
+        return null;
+      }
+
+      if (kode.startsWith('H')) return 'HEMATOLOGI';
+      if (kode.startsWith('I') || kode.startsWith('W')) return 'IMUNOSEROLOGI';
+      if (kode.startsWith('K')) return 'KIMIA KLINIK';
+      if (kode.startsWith('U')) return 'URINALISA';
+      if (kode.startsWith('F')) return 'FESES';
+      if (kode.startsWith('S')) return 'SPERMA';
+      if (kode.startsWith('M')) return 'MIKROBIOLOGI';
+      if (kode.startsWith('B')) return 'BIOMOLEKULER';
+      if (kode.startsWith('C')) return 'ANALISA CAIRAN';
+      if (kode.startsWith('A')) return 'PEMERIKSAAN FISIK & PA';
+
+      if (nama.includes('HEMO') || nama.includes('LEUKO') || nama.includes('TROMBO') || nama.includes('LED') || nama.includes('ERITRO') || nama.includes('HEMATOK') || nama.includes('MCV') || nama.includes('MCH') || nama.includes('RDW')) return 'HEMATOLOGI';
+      if (nama.includes('WIDAL') || nama.includes('TYPHI') || nama.includes('DENGUE') || nama.includes('HBSAG') || nama.includes('HIV') || nama.includes('SIFILIS') || nama.includes('IGG') || nama.includes('IGM') || nama.includes('NS1')) return 'IMUNOSEROLOGI';
+      if (nama.includes('GLUKOSA') || nama.includes('KOLESTEROL') || nama.includes('TRIGLISERIDA') || nama.includes('ASAM URAT') || nama.includes('UREUM') || nama.includes('KREATININ') || nama.includes('SGOT') || nama.includes('SGPT')) return 'KIMIA KLINIK';
+      if (nama.includes('URIN') || nama.includes('SEDIMEN')) return 'URINALISA';
+      if (nama.includes('SPERMA') || nama.includes('SEMEN')) return 'SPERMA';
+
+      if (kAwal && !/^\d+$/.test(kAwal) && kAwal.toLowerCase() !== 'lainnya') {
+        return kAwal.toUpperCase();
+      }
+
+      return 'LAINNYA';
+    };
+
+    const MAP_METODE_FALLBACK = {
+      'H0102': 'Hematology Anayzer',
+      'H0101': 'Hematology Anayzer',
+      'H010201': 'Non Cyanide hemoglobine analysis',
+      'H010101': 'Non Cyanide hemoglobine analysis',
+      'H0137': 'Non Cyanide hemoglobine analysis',
+      'H010202': 'Detection (DC)',
+      'H010102': 'Detection (DC)',
+      'H010203': 'Detection (DC)',
+      'H010103': 'Detection (DC)',
+      'K0301': 'CHOD-POD',
+      'K0302': 'GPO-POD',
+      'K0201': 'GOD-POD',
+      'K0202': 'GOD-POD',
+      'K0203': 'GOD-POD',
+      'K0204': 'GOD-POD',
+      'K0403': 'Uricase-Peroxidase',
+      'K0401': 'Berthelot',
+      'K0402': 'Jaffe',
+      'K0501': 'IFCC',
+      'K0502': 'IFCC'
+    };
+
+    const getMetodeItem = (h) => {
+      const m = h.ref || {};
+      const raw = (h.metode || m.metode || '').trim();
+      if (raw && raw !== '-' && raw !== '—') return raw;
+      const kode = (m.kode || h.kode || '').trim().toUpperCase();
+      if (MAP_METODE_FALLBACK[kode]) return MAP_METODE_FALLBACK[kode];
+      const nama = (h.nama || m.nama || '').trim().toUpperCase();
+      if (nama.includes('CHOLESTEROL TOTAL') || nama.includes('KOLESTEROL TOTAL')) return 'CHOD-POD';
+      if (nama.includes('TRIGLISERIDA')) return 'GPO-POD';
+      if (nama.includes('ASAM URAT')) return 'Uricase-Peroxidase';
+      if (nama.includes('GLUKOSA')) return 'GOD-POD';
+      if (nama.includes('HEMATOLOGI RUTIN') || nama.includes('HEMATOLOGI LENGKAP')) return 'Hematology Anayzer';
+      if (nama === 'HEMOGLOBIN') return 'Non Cyanide hemoglobine analysis';
+      if (nama === 'LEUKOSIT' || nama === 'TROMBOSIT') return 'Detection (DC)';
+      return '';
+    };
+
     // 1. RENDER KOP HEADER
     if (isM3) {
       // ----------------------------------------------------------------
       // FORMAT 3(M3) - SESUAI PERSIS DENGAN FORMAT RESMI SKYLAB / DOMPDF
       // Dicetak pada kertas berkop fisik resmi (pre-printed letterhead)
       // ----------------------------------------------------------------
-      const formatUmurLengkap = (tglLahir) => {
-        if (!tglLahir) return '-';
-        if (typeof UI !== 'undefined' && typeof UI.umur === 'function') {
-          const u = UI.umur(tglLahir);
-          if (u) {
-            const parts = [];
-            if (u.tahun > 0) parts.push(`${u.tahun} Thn`);
-            if (u.bulan > 0) parts.push(`${u.bulan} Bln`);
-            if (u.hari >= 0) parts.push(`${u.hari} Hari`);
-            return parts.join(' ') || '0 Hari';
-          }
-        }
-        return UI.umurTeks(tglLahir);
-      };
-
       const umurM3 = formatUmurLengkap(p.pasien?.tanggal_lahir);
       const jkM3 = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
       const instansiM3 = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
@@ -1979,109 +2122,6 @@ const Lab = (() => {
       `);
 
       // 2. Daftar Hasil Pemeriksaan (Margin Top 82pt, Indentasi 29.2pt Sesuai PDF SkyLab)
-      const MAP_NAMA_FIX = {
-        "A01020301": "Protein Cairan Pleura",
-        "A01020302": "Glukosa Cairan Pleura",
-        "I022801": "S. Typhi O",
-        "I022802": "S. Typhi H",
-        "I022803": "S. Paratyphi A-O",
-        "I022804": "S. Paratyphi A-H",
-        "I022805": "S. Paratyphi B-O",
-        "I022806": "S. Paratyphi B-H",
-        "I022807": "S. Paratyphi C-O",
-        "I022808": "S. Paratyphi C-H",
-        "I024401": "S. Typhi O Set 2",
-        "I024402": "S. Typhi H Set 2",
-        "W010101": "S. Typhi O",
-        "W010102": "S. Typhi H",
-        "W010103": "S. Paratyphi A-O",
-        "W010104": "S. Paratyphi A-H",
-        "W010105": "S. Paratyphi B-O",
-        "W010106": "S. Paratyphi B-H",
-        "W010107": "S. Paratyphi C-O",
-        "W010108": "S. Paratyphi C-H",
-      };
-
-      const WIDAL_NAMES_ORDER = [
-        "S. Typhi O",
-        "S. Typhi H",
-        "S. Paratyphi A-O",
-        "S. Paratyphi A-H",
-        "S. Paratyphi B-O",
-        "S. Paratyphi B-H",
-        "S. Paratyphi C-O",
-        "S. Paratyphi C-H"
-      ];
-
-      const bersihkanTeksRujukan = (str) => {
-        if (!str) return '';
-        let s = String(str).trim();
-        const mapTanggalExcel = {
-          'oct-20': '10 - 20', '20-oct': '10 - 20', 'okt-20': '10 - 20', '20-okt': '10 - 20',
-          '03-may': '3 - 5', 'may-03': '3 - 5', '03-mei': '3 - 5', 'mei-03': '3 - 5',
-          '02-oct': '2 - 10', 'oct-02': '2 - 10', '02-okt': '2 - 10', 'okt-02': '2 - 10',
-          '01-apr': '1 - 4', 'apr-01': '1 - 4',
-          '01-mar': '1 - 3', 'mar-01': '1 - 3',
-          '02-apr': '2 - 4', 'apr-02': '2 - 4',
-          '02-jun': '2 - 6', 'jun-02': '2 - 6',
-          '02-aug': '2 - 8', 'aug-02': '2 - 8', '02-agu': '2 - 8', 'agu-02': '2 - 8',
-          '04-aug': '4 - 8', 'aug-04': '4 - 8', '04-agu': '4 - 8', 'agu-04': '4 - 8',
-          '04-oct': '4 - 10', 'oct-04': '4 - 10', '04-okt': '4 - 10', 'okt-04': '4 - 10',
-        };
-        const key = s.toLowerCase();
-        if (mapTanggalExcel[key]) return mapTanggalExcel[key];
-        if (s === '—' || s === '-') return '';
-        return s;
-      };
-
-      const bersihkanNilaiHasil = (str) => {
-        if (!str && str !== 0) return '';
-        let s = String(str).trim();
-        const matchJan = s.match(/^jan-(\d+)$/i);
-        if (matchJan) return '1/' + matchJan[1];
-        const matchDec = s.match(/^dec-(\d+)$/i);
-        if (matchDec) return '1/' + matchDec[1];
-        const matchFeb = s.match(/^feb-(\d+)$/i);
-        if (matchFeb) return '1/' + matchFeb[1];
-        if (s === '—' || s === '-') return '';
-        return s;
-      };
-
-      const ambilKelompokMedis = (h) => {
-        const m = h.ref || {};
-        const kode = (m.kode || h.kode || '').trim().toUpperCase();
-        const nama = (h.nama || m.nama || '').trim().toUpperCase();
-        const kAwal = (h.kelompok || m.kelompok || '').trim();
-
-        // Item non-medis / administrasi seperti Home Service, CITO, dll tidak boleh dicetak di lembar hasil lab
-        if (nama.includes('HOME SERVICE') || nama.includes('LAYANAN JEMPUT') || nama.includes('ADMINISTRASI') || nama.includes('BIAYA JEMPUT')) {
-          return null;
-        }
-
-        if (kode.startsWith('H')) return 'HEMATOLOGI';
-        if (kode.startsWith('I') || kode.startsWith('W')) return 'IMUNOSEROLOGI';
-        if (kode.startsWith('K')) return 'KIMIA KLINIK';
-        if (kode.startsWith('U')) return 'URINALISA';
-        if (kode.startsWith('F')) return 'FESES';
-        if (kode.startsWith('S')) return 'SPERMA';
-        if (kode.startsWith('M')) return 'MIKROBIOLOGI';
-        if (kode.startsWith('B')) return 'BIOMOLEKULER';
-        if (kode.startsWith('C')) return 'ANALISA CAIRAN';
-        if (kode.startsWith('A')) return 'PEMERIKSAAN FISIK & PA';
-
-        if (nama.includes('HEMO') || nama.includes('LEUKO') || nama.includes('TROMBO') || nama.includes('LED') || nama.includes('ERITRO') || nama.includes('HEMATOK') || nama.includes('MCV') || nama.includes('MCH') || nama.includes('RDW')) return 'HEMATOLOGI';
-        if (nama.includes('WIDAL') || nama.includes('TYPHI') || nama.includes('DENGUE') || nama.includes('HBSAG') || nama.includes('HIV') || nama.includes('SIFILIS') || nama.includes('IGG') || nama.includes('IGM') || nama.includes('NS1')) return 'IMUNOSEROLOGI';
-        if (nama.includes('GLUKOSA') || nama.includes('KOLESTEROL') || nama.includes('TRIGLISERIDA') || nama.includes('ASAM URAT') || nama.includes('UREUM') || nama.includes('KREATININ') || nama.includes('SGOT') || nama.includes('SGPT')) return 'KIMIA KLINIK';
-        if (nama.includes('URIN') || nama.includes('SEDIMEN')) return 'URINALISA';
-        if (nama.includes('SPERMA') || nama.includes('SEMEN')) return 'SPERMA';
-
-        if (kAwal && !/^\d+$/.test(kAwal) && kAwal.toLowerCase() !== 'lainnya') {
-          return kAwal.toUpperCase();
-        }
-
-        return 'LAINNYA';
-      };
-
       const mapGrupM3 = new Map();
       let widalCounter = 0;
 
@@ -2228,6 +2268,243 @@ const Lab = (() => {
             <div style="font-size: 8pt; color: #000;">
               Printed By : ${UI.esc(dicetakOlehM3)} / ${UI.esc(jamCetakM3)}
             </div>
+          </div>
+        </div>
+      `);
+    } else if (isFormat5) {
+      // ----------------------------------------------------------------
+      // FORMAT 5(F4) - SESUAI PERSIS DENGAN FORMAT RESMI SKYLAB / DOMPDF
+      // Dicetak pada kertas berkop fisik resmi (pre-printed letterhead)
+      // 5 Kolom: PEMERIKSAAN | HASIL | SATUAN | NILAI RUJUKAN | METODE
+      // ----------------------------------------------------------------
+      const umurF4 = formatUmurLengkap(p.pasien?.tanggal_lahir);
+      const jkF4 = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+      const instansiF4 = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
+      const dokterPengirimF4 = p.kunjungan?.dokter?.nama || p.peminta?.nama || 'dr. Minto Rahaju, Sp.PK';
+      const qrF4Url = basePath + 'qr_dr_minto.png';
+
+      let namaVerifF4 = p.verifikator || (p.penutup?.nama && p.penutup.nama.toLowerCase() !== 'master' ? p.penutup.nama : null);
+      if (!namaVerifF4) {
+        if (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') {
+          namaVerifF4 = dicetakOleh;
+        } else {
+          namaVerifF4 = 'Dede K';
+        }
+      }
+      const dicetakOlehF4 = (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') ? dicetakOleh : (namaVerifF4 || 'Dede K');
+      const jamCetakF4 = `${UI.tglIndo(now)} ${UI.jam(now.toISOString())}`;
+      const tglSamplingF4 = p.waktu_sampling
+        ? p.waktu_sampling.replace('T', ' ').substring(0, 19)
+        : (p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 19) : jamSampel);
+
+      // 1. Identitas Pasien (Presisi Koordinat Sesuai PDF Format 5)
+      tulis(`
+        <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; line-height: 14.9pt; color: #000; margin-left: 2.75pt;">
+          <div style="font-weight: bold; margin-bottom: 0;">
+            Penanggung Jawab : dr. Minto Rahaju, Sp.PK
+          </div>
+          <div style="display: grid; grid-template-columns: 298.4pt 1fr; margin-top: 0;">
+            <div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">No Lab</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Nama</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.nama || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Pengirim</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(dokterPengirimF4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Tgl. Daftar</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(UI.tglIndo(p.waktu_daftar || p.created_at || now))}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Alamat Pasien</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.alamat || p.alamat || '-')}</span>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Instansi</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span style="font-weight: bold;">${UI.esc(instansiF4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">JK/Umur</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(jkF4)}/${UI.esc(umurF4)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Tgl Lahir</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.tanggal_lahir ? UI.tglIndo(p.pasien.tanggal_lahir) : '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85.8pt; flex-shrink: 0;">Tgl. Sampling</span>
+                <span style="width: 12.4pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(tglSamplingF4)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      // 2. Pengelompokan Medis & Render Tabel 5 Kolom
+      const mapGrupF4 = new Map();
+      let widalCounterF4 = 0;
+
+      p.hasil.forEach(h => {
+        const kat = ambilKelompokMedis(h);
+        if (!kat) return; // Lewati item non-medis / administrasi
+        if (!mapGrupF4.has(kat)) mapGrupF4.set(kat, []);
+        mapGrupF4.get(kat).push(h);
+      });
+
+      const grupF4 = Array.from(mapGrupF4, ([kelompok, isi]) => ({
+        kelompok,
+        isi: isi.slice().sort((a, b) => {
+          const urutA = a.urutan || (a.ref?.urutan) || 0;
+          const urutB = b.urutan || (b.ref?.urutan) || 0;
+          if (urutA !== urutB) return urutA - urutB;
+          return (a.ref?.kode || '').localeCompare(b.ref?.kode || '');
+        })
+      }));
+
+      tulis(`
+        <div style="margin-top: 17.6pt; font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; color: #000;">
+          <div style="border-top: 0.75pt solid #000; border-bottom: 0.75pt solid #000; padding: 2.7pt 0; display: flex; line-height: 14pt; text-transform: uppercase;">
+            <div style="width: 146.74pt;">PEMERIKSAAN</div>
+            <div style="width: 111.81pt;">HASIL</div>
+            <div style="width: 69.88pt;">SATUAN</div>
+            <div style="width: 125.78pt;">NILAI RUJUKAN</div>
+            <div style="width: 105.52pt;">METODE</div>
+          </div>
+      `);
+
+      grupF4.forEach(g => {
+        tulis(`
+          <div style="font-weight: bold; text-transform: uppercase; font-size: 9.8pt; line-height: 14.9pt; margin-top: 2px;">
+            ${UI.esc(g.kelompok || 'PEMERIKSAAN')}
+          </div>
+        `);
+
+        g.isi.forEach(h => {
+          const m = h.ref || {};
+          const kode = (m.kode || h.kode || '').trim();
+          let rawNama = h.nama || m.nama || '';
+          let namaItem = rawNama;
+          if (kode && MAP_NAMA_FIX[kode]) {
+            namaItem = MAP_NAMA_FIX[kode];
+          } else if (!rawNama || rawNama.includes('#NAME?')) {
+            if (widalCounterF4 >= 0 && widalCounterF4 < WIDAL_NAMES_ORDER.length) {
+              namaItem = WIDAL_NAMES_ORDER[widalCounterF4];
+            } else {
+              namaItem = 'Pemeriksaan';
+            }
+          }
+          if (g.kelompok === 'IMUNOSEROLOGI' && (kode.startsWith('I0228') || namaItem.includes('Typhi') || rawNama.includes('#NAME?'))) {
+            widalCounterF4++;
+          }
+
+          const isPaketHeader = kode.length > 0 && kode.length <= 5;
+          const hasChildren = kode.length > 0 && g.isi.some(other => other !== h && (other.ref?.kode || other.kode || '').startsWith(kode));
+          const isHeaderItem = isPaketHeader || hasChildren || (
+            (h.nilai_angka === null || h.nilai_angka === undefined) &&
+            !h.nilai_teks &&
+            !h.satuan && !m.satuan &&
+            !h.rujukan_teks && !rujukanPakai[h.id]?.teks && !rujukanPakai[h.id]?.batas_bawah && !rujukanPakai[h.id]?.batas_atas
+          );
+
+          const itemMetode = getMetodeItem(h);
+
+          if (isHeaderItem) {
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000;">
+                <div style="width: 146.74pt; padding-left: 0; box-sizing: border-box;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 111.81pt;"></div>
+                <div style="width: 69.88pt;"></div>
+                <div style="width: 125.78pt;"></div>
+                <div style="width: 105.52pt; word-break: break-word;">
+                  ${UI.esc(itemMetode)}
+                </div>
+              </div>
+            `);
+          } else {
+            const isChild = isPaketHeader ? false : (kode.length >= 7 || g.isi.some(other => other !== h && kode.startsWith(other.ref?.kode || other.kode || '___')));
+            const indentPt = isChild ? 18 : 0;
+
+            const abnormal = isAbnormalItem(h);
+            let valRaw = nilaiTeks(h);
+            let valClean = bersihkanNilaiHasil(valRaw);
+            const displayVal = valClean ? `${valClean}${abnormal ? ' *' : ''}` : '';
+
+            let rujukanRaw = h.rujukan_teks || (rujukanPakai && LabCore.teksRujukan(rujukanPakai[h.id], h.ref)) || '';
+            let rujukanClean = bersihkanTeksRujukan(rujukanRaw);
+
+            const satuanString = (h.satuan || m.satuan || '').trim();
+            const displaySatuan = (satuanString === '—' || satuanString === '-') ? '' : satuanString;
+
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000;">
+                <div style="width: 146.74pt; padding-left: ${indentPt}pt; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 111.81pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displayVal)}
+                </div>
+                <div style="width: 69.88pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displaySatuan)}
+                </div>
+                <div style="width: 125.78pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(rujukanClean)}
+                </div>
+                <div style="width: 105.52pt; text-align: left; font-weight: normal; color: #000; word-break: break-word;">
+                  ${UI.esc(itemMetode)}
+                </div>
+              </div>
+            `);
+          }
+        });
+      });
+
+      tulis(`</div>`);
+
+      // 3. Area Tanda Tangan & QR Code (Koordinat X=343.88pt untuk Penanggung Jawab)
+      tulis(`
+        <div style="margin-top: 50pt; break-inside: avoid; display: grid; grid-template-columns: 311.6pt 1fr; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif;">
+          <div>
+            <div>Verifikator</div>
+            <div style="height: 48pt;"></div>
+            <div>${UI.esc(namaVerifF4)}</div>
+          </div>
+          <div>
+            <div>Penanggung Jawab</div>
+            <div style="margin: 2px 0; height: 42pt; display: flex; align-items: center;">
+              <img src="${qrF4Url}" alt="QR" style="width: 42pt; height: 42pt; object-fit: contain; display: block;" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=skylab.my.id%2Flab_utama%2Fdr_minto_rahaju_sp_pk.html'">
+            </div>
+            <div>dr. Minto Rahaju Sp. PK</div>
+          </div>
+        </div>
+      `);
+
+      // 4. Footer Bawah (Hal. 1 dari 1 Halaman & Printed By)
+      tulis(`
+        <div style="margin-top: 40pt; font-family: Helvetica, Arial, sans-serif; color: #000; break-inside: avoid; display: flex; align-items: baseline;">
+          <div style="font-size: 10pt; width: 270pt; flex-shrink: 0;">
+            Hal. 1 dari 1 Halaman
+          </div>
+          <div style="font-size: 8pt; color: #000;">
+            Printed By : ${UI.esc(dicetakOlehF4)} / ${UI.esc(jamCetakF4)}
           </div>
         </div>
       `);
