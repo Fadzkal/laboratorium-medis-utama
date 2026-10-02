@@ -1424,6 +1424,21 @@ const Lab = (() => {
     `;
   }
 
+  const formatUmurLengkap = (tglLahir) => {
+    if (!tglLahir) return '-';
+    if (typeof UI !== 'undefined' && typeof UI.umur === 'function') {
+      const u = UI.umur(tglLahir);
+      if (u) {
+        const parts = [];
+        if (u.tahun > 0) parts.push(`${u.tahun} Thn`);
+        if (u.bulan > 0) parts.push(`${u.bulan} Bln`);
+        if (u.hari >= 0) parts.push(`${u.hari} Hari`);
+        return parts.join(' ') || '0 Hari';
+      }
+    }
+    return UI.umurTeks(tglLahir);
+  };
+
   function htmlKopCetak(format, p, logoUrl, bpjsLogoUrl) {
     const is2025 = format === 'Format 2025';
     const isBpjs1 = format === 'BPJS';
@@ -1450,17 +1465,18 @@ const Lab = (() => {
     }
     if (isBpjs1 || isBpjs2) {
       return `
-        <div class="kop-wrapper" style="border-bottom-color:#059669; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;">
-          <div class="kop-bpjs" style="display: flex; align-items: center;">
-            <img src="${bpjsLogoUrl}" style="height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo BPJS">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20pt; margin-top: 5pt;">
+          <div style="display: flex; align-items: center;">
+            <img src="${bpjsLogoUrl}" alt="BPJS Kesehatan" style="height: 48pt; width: auto; object-fit: contain; display: block;" onerror="this.src='bpjs.png'">
           </div>
-          <div class="kop-center" style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
-            <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo Utama">
-          </div>
-          <div class="kop-right" style="text-align: right;">
-            <b>Laboratorium Medis UTAMA</b><br>
-            Jl. DI Panjaitan No. 94, Purbalingga<br>
-            Telp. 0281-6580099
+          <div style="display: flex; align-items: center; gap: 8pt; margin-right: 10pt;">
+            <img src="logo_kop_m4.jpg" alt="Logo Utama" style="width: 75pt; height: 60pt; object-fit: contain; display: block;" onerror="this.src='${logoUrl}'">
+            <div style="font-family: Helvetica, Arial, sans-serif; font-size: 8.5pt; line-height: 13pt; color: #000;">
+              <div style="font-weight: bold; font-size: 9.5pt;">Laboratorium Medis UTAMA</div>
+              <div>Jl. DI Panjaitan No. 94 Purbalingga</div>
+              <div>Telp. 0281-6580099 / 08121482308</div>
+              <div>Email : laboratoriumutama@yahoo.com</div>
+            </div>
           </div>
         </div>
       `;
@@ -1535,20 +1551,34 @@ const Lab = (() => {
       `;
     }
     if (isBpjs1 || isBpjs2) {
+      const dokterPengirimTeks = dokterPengirim || 'dr. Minto Rahaju, Sp.PK';
+      const instansiTeks = instansi || 'umum';
+      const umurLengkap = typeof formatUmurLengkap === 'function' ? formatUmurLengkap(p.pasien?.tanggal_lahir) : umurTeks;
+      const tglLahirText = p.pasien?.tanggal_lahir ? UI.tglIndo(p.pasien.tanggal_lahir) : '';
+      const tglLahirDanUsia = (tglLahirText && umurLengkap && umurLengkap !== '-') ? `${tglLahirText} / ${umurLengkap}` : (tglLahirText || umurLengkap || '-');
+      const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(p.no_lab)}&code=Code128&translate-esc=on&dpi=96`;
       return `
-        <div class="patient-card" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 14px;">
-          <div>
-            <div class="meta-row"><span class="label">No. Kartu BPJS</span><span class="colon">:</span><span class="value mono" style="font-size:12px; color:#065f46;">${UI.esc(noBpjs)}</span></div>
-            <div class="meta-row"><span class="label">No. Lab</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
-            <div class="meta-row"><span class="label">Nama Pasien</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.nama)}</span></div>
-            <div class="meta-row"><span class="label">No. RM / NIK</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.no_rm)} / ${UI.esc(p.pasien.nik || '—')}</span></div>
+        <!-- Barcode No Lab -->
+        <div style="margin-left: -7.5pt; margin-bottom: 2pt;">
+          <img src="${barcodeUrl}" alt="Barcode" style="height: 15pt; width: 75pt; object-fit: fill; display: block;">
+        </div>
+        <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; line-height: 14.9pt; color: #000;">
+          <div style="font-weight: bold; margin-bottom: 2pt;">
+            Penanggung Jawab : dr. Minto Rahaju Sp. PK
           </div>
-          <div>
-            <div class="meta-row"><span class="label">Tgl. Pemeriksaan</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
-            <div class="meta-row"><span class="label">Umur / JK</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)} / ${jkText}</span></div>
-            <div class="meta-row"><span class="label">Dokter Perujuk</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
-            <div class="meta-row"><span class="label">Diagnosa (ICD-10)</span><span class="colon">:</span><span class="value">${UI.esc(p.kunjungan?.diagnosa || '—')}</span></div>
-            ${isBpjs2 ? `<div class="meta-row"><span class="label" style="color:#059669; font-weight:700;">Status Prolanis</span><span class="colon">:</span><span class="value" style="color:#059669;">Pemantauan Siklus 6 Bulan</span></div>` : ''}
+          <div style="display: grid; grid-template-columns: 312.4pt 1fr; margin-top: 0;">
+            <div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">No Lab</span><span style="width: 14pt; flex-shrink: 0;">:</span><span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Dokter Pengirim</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(dokterPengirimTeks)}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Nama</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(p.pasien?.nama || '-')}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Alamat</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(p.pasien?.alamat || p.alamat || '-')}</span></div>
+            </div>
+            <div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Tgl. Lahir/Usia</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(tglLahirDanUsia)}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Jenis Kelamin</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(jkText)}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Tgl. Periksa</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(UI.tglIndo(p.tanggal))}</span></div>
+              <div style="display: flex;"><span style="width: 85pt; flex-shrink: 0;">Instansi</span><span style="width: 14pt; flex-shrink: 0;">:</span><span>${UI.esc(instansiTeks)}</span></div>
+            </div>
           </div>
         </div>
       `;
@@ -1654,7 +1684,9 @@ const Lab = (() => {
 
     // Penentuan ukuran halaman CSS @page
     let pageSizeCss = 'size: A4 portrait; margin: 10mm 15mm;';
-    if (isM3 || isFormat5 || isM4) {
+    if (isBpjs2) {
+      pageSizeCss = 'size: A5 portrait; margin: 0;';
+    } else if (isM3 || isFormat5 || isM4 || isBpjs1) {
       pageSizeCss = 'size: 215mm 330mm portrait; margin: 0;';
     } else if (isM2) {
       pageSizeCss = 'size: A5 landscape; margin: 8mm 12mm;';
@@ -1769,7 +1801,9 @@ const Lab = (() => {
           padding-top: 64px;
           padding-bottom: 48px;
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          align-items: center;
+          gap: 24px;
           min-height: 100vh;
           box-sizing: border-box;
         }
@@ -1779,13 +1813,11 @@ const Lab = (() => {
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
           border-radius: 2px;
           box-sizing: border-box;
-          padding: ${isM3 ? '68mm 14mm 20mm 14mm' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm' : (isM4 ? '6.9mm 11.4mm 15mm 11.4mm' : (isM2 ? '15px' : '24px 30px')))};
-          ${(isM3 || isFormat5 || isM4) ? 'width: 215mm; min-height: 330mm;' :
-            isM2 ? 'width: 210mm; min-height: 148mm;' : 
-            'width: 210mm; min-height: 297mm;'}
-          font-family: ${(isM3 || isFormat5 || isM4) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
-          font-size: ${(isFormat5 || isM4) ? '9.8pt' : (isM3 ? '9pt' : '11px')};
-          line-height: ${(isFormat5 || isM4) ? '14.9pt' : (isM3 ? '14pt' : '1.35')};
+          padding: ${isBpjs2 ? '6mm 12.8mm 8mm 12.8mm' : (isM3 ? '68mm 14mm 20mm 14mm' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm' : ((isM4 || isBpjs1) ? '6.9mm 11.4mm 15mm 11.4mm' : (isM2 ? '15px' : '24px 30px'))))};
+          ${isBpjs2 ? 'width: 148mm; min-height: 210mm;' : ((isM3 || isFormat5 || isM4 || isBpjs1) ? 'width: 215mm; min-height: 330mm;' : (isM2 ? 'width: 210mm; min-height: 148mm;' : 'width: 210mm; min-height: 297mm;'))}
+          font-family: ${(isM3 || isFormat5 || isM4 || isBpjs1 || isBpjs2) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : "'Inter', system-ui, -apple-system, sans-serif"};
+          font-size: ${(isFormat5 || isM4 || isBpjs1 || isBpjs2) ? '9.8pt' : (isM3 ? '9pt' : '11px')};
+          line-height: ${(isFormat5 || isM4 || isBpjs1 || isBpjs2) ? '14.9pt' : (isM3 ? '14pt' : '1.35')};
         }
         
         /* HEADER STYLES */
@@ -1861,11 +1893,17 @@ const Lab = (() => {
           }
           .document-sheet {
             margin: 0 !important;
-            padding: ${isM3 ? '68mm 14mm 20mm 14mm !important' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm !important' : (isM4 ? '6.9mm 11.4mm 15mm 11.4mm !important' : '0 !important'))};
+            padding: ${isBpjs2 ? '6mm 12.8mm 8mm 12.8mm !important' : (isM3 ? '68mm 14mm 20mm 14mm !important' : (isFormat5 ? '62.8mm 11.4mm 20mm 11.4mm !important' : ((isM4 || isBpjs1) ? '6.9mm 11.4mm 15mm 11.4mm !important' : '0 !important')))};
             box-shadow: none !important;
             border-radius: 0 !important;
             width: 100% !important;
             min-height: auto !important;
+            page-break-after: always;
+            break-after: page;
+          }
+          .document-sheet:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
         }
       </style>
@@ -1903,35 +1941,35 @@ const Lab = (() => {
     const MAP_NAMA_FIX = {
       "A01020301": "Protein Cairan Pleura",
       "A01020302": "Glukosa Cairan Pleura",
-      "I022801": "S. Typhi O",
-      "I022802": "S. Typhi H",
-      "I022803": "S. Paratyphi A-O",
-      "I022804": "S. Paratyphi A-H",
-      "I022805": "S. Paratyphi B-O",
-      "I022806": "S. Paratyphi B-H",
-      "I022807": "S. Paratyphi C-O",
-      "I022808": "S. Paratyphi C-H",
-      "I024401": "S. Typhi O Set 2",
-      "I024402": "S. Typhi H Set 2",
-      "W010101": "S. Typhi O",
-      "W010102": "S. Typhi H",
-      "W010103": "S. Paratyphi A-O",
-      "W010104": "S. Paratyphi A-H",
-      "W010105": "S. Paratyphi B-O",
-      "W010106": "S. Paratyphi B-H",
-      "W010107": "S. Paratyphi C-O",
-      "W010108": "S. Paratyphi C-H",
+      "I022801": " - S.Typhi O",
+      "I022802": " - S.Typhi H",
+      "I022803": " - S.Paratyphi AO",
+      "I022804": " - S.Paratyphi AH",
+      "I022805": " - S.Paratyphi BO",
+      "I022806": " - S.Paratyphi BH",
+      "I022807": " - S.Paratyphi CO",
+      "I022808": " - S.Paratyphi CH",
+      "I024401": " - S.Typhi O Set 2",
+      "I024402": " - S.Typhi H Set 2",
+      "W010101": " - S.Typhi O",
+      "W010102": " - S.Typhi H",
+      "W010103": " - S.Paratyphi AO",
+      "W010104": " - S.Paratyphi AH",
+      "W010105": " - S.Paratyphi BO",
+      "W010106": " - S.Paratyphi BH",
+      "W010107": " - S.Paratyphi CO",
+      "W010108": " - S.Paratyphi CH",
     };
 
     const WIDAL_NAMES_ORDER = [
-      "S. Typhi O",
-      "S. Typhi H",
-      "S. Paratyphi A-O",
-      "S. Paratyphi A-H",
-      "S. Paratyphi B-O",
-      "S. Paratyphi B-H",
-      "S. Paratyphi C-O",
-      "S. Paratyphi C-H"
+      " - S.Typhi O",
+      " - S.Paratyphi AO",
+      " - S.Paratyphi BO",
+      " - S.Paratyphi CO",
+      " - S.Typhi H",
+      " - S.Paratyphi AH",
+      " - S.Paratyphi BH",
+      " - S.Paratyphi CH"
     ];
 
     const bersihkanTeksRujukan = (str) => {
@@ -2756,6 +2794,618 @@ const Lab = (() => {
           </div>
         </div>
       `);
+    } else if (isBpjs1) {
+      // ----------------------------------------------------------------
+      // FORMAT BPJS (BPJS 1) - SESUAI PERSIS DENGAN TEMPLATE RESMI LAB UTAMA / SKYLAB
+      // Memiliki Kop Digital:
+      // - Kiri: Logo BPJS Kesehatan (bpjs.png)
+      // - Tengah/Kanan: Logo Utama (logo_kop_m4.jpg) + Alamat Lengkap
+      // Barcode No Lab kecil di kiri atas
+      // Penanggung Jawab : dr. Minto Rahaju Sp. PK
+      // Metadata Pasien 2 Kolom (No Lab, Dokter Pengirim, Nama, Alamat | Tgl. Lahir/Usia, JK, Tgl. Periksa, Instansi)
+      // 4 Kolom: PEMERIKSAAN | HASIL | NILAI RUJUKAN | SATUAN
+      // Footer 3 Kolom:
+      // - Kiri: Jam Sampel, Hal. 1 dari 1 Halaman, Printed By
+      // - Tengah: Keterangan : (*) Diluar nilai normal, Verifikator, Nama Verifikator, Timestamp
+      // - Kanan: Penanggung Jawab, QR Code, dr. Minto Rahaju, Sp. PK,
+      // ----------------------------------------------------------------
+      const umurBpjs = formatUmurLengkap(p.pasien?.tanggal_lahir);
+      const tglLahirBpjs = p.pasien?.tanggal_lahir ? UI.tglIndo(p.pasien.tanggal_lahir) : '';
+      const tglLahirDanUsiaBpjs = (tglLahirBpjs && umurBpjs && umurBpjs !== '-')
+        ? `${tglLahirBpjs} / ${umurBpjs}`
+        : (tglLahirBpjs || umurBpjs || '-');
+
+      const jkBpjs = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+      const instansiBpjs = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
+      const dokterPengirimBpjs = p.kunjungan?.dokter?.nama || p.peminta?.nama || 'dr. Minto Rahaju, Sp.PK';
+      const qrBpjsUrl = basePath + 'qr_dr_minto.png';
+      const logoBpjsKopUrl = basePath + 'logo_kop_m4.jpg';
+
+      let namaVerifBpjs = p.verifikator || (p.penutup?.nama && p.penutup.nama.toLowerCase() !== 'master' ? p.penutup.nama : null);
+      if (!namaVerifBpjs) {
+        if (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') {
+          namaVerifBpjs = dicetakOleh;
+        } else {
+          namaVerifBpjs = 'Nabila Nadhifatul Jannah, S.Tr. Kes';
+        }
+      }
+      const waktuVerifBpjs = p.tgl_verifikasi
+        ? p.tgl_verifikasi.replace('T', ' ').substring(0, 26)
+        : (p.waktu_selesai ? p.waktu_selesai.replace('T', ' ').substring(0, 26) : jamSampel);
+      const dicetakOlehBpjs = (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') ? dicetakOleh : 'Dede K';
+      const jamCetakBpjs = `${UI.tglIndo(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      // 1. Kop Header (Kiri: Logo BPJS, Kanan/Tengah: Logo Utama + Alamat)
+      tulis(`
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20pt; margin-top: 5pt;">
+          <div style="display: flex; align-items: center;">
+            <img src="${bpjsLogoUrl}" alt="BPJS Kesehatan" style="height: 48pt; width: auto; object-fit: contain; display: block;" onerror="this.src='bpjs.png'">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8pt; margin-right: 10pt;">
+            <img src="${logoBpjsKopUrl}" alt="Logo Utama" style="width: 75pt; height: 60pt; object-fit: contain; display: block;" onerror="this.src='${logoUrl}'">
+            <div style="font-family: Helvetica, Arial, sans-serif; font-size: 8.5pt; line-height: 13pt; color: #000;">
+              <div style="font-weight: bold; font-size: 9.5pt;">Laboratorium Medis UTAMA</div>
+              <div>Jl. DI Panjaitan No. 94 Purbalingga</div>
+              <div>Telp. 0281-6580099 / 08121482308</div>
+              <div>Email : laboratoriumutama@yahoo.com</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barcode No Lab -->
+        <div style="margin-left: -7.5pt; margin-bottom: 2pt;">
+          <img src="${barcodeUrl}" alt="Barcode" style="height: 15pt; width: 75pt; object-fit: fill; display: block;">
+        </div>
+
+        <!-- Penanggung Jawab & Metadata Pasien -->
+        <div style="font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; line-height: 14.9pt; color: #000;">
+          <div style="font-weight: bold; margin-bottom: 2pt;">
+            Penanggung Jawab : dr. Minto Rahaju Sp. PK
+          </div>
+          <div style="display: grid; grid-template-columns: 312.4pt 1fr; margin-top: 0;">
+            <div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">No Lab</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Dokter Pengirim</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(dokterPengirimBpjs)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Nama</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.nama || '-')}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Alamat</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(p.pasien?.alamat || p.alamat || '-')}</span>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Tgl. Lahir/Usia</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(tglLahirDanUsiaBpjs)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Jenis Kelamin</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(jkBpjs)}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Tgl. Periksa</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(UI.tglIndo(p.waktu_daftar || p.created_at || p.tanggal || now))}</span>
+              </div>
+              <div style="display: flex;">
+                <span style="width: 85pt; flex-shrink: 0;">Instansi</span>
+                <span style="width: 14pt; flex-shrink: 0;">:</span>
+                <span>${UI.esc(instansiBpjs)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+
+      // 2. Pengelompokan Medis & Render Tabel 4 Kolom
+      const mapGrupBpjs = new Map();
+      let widalCounterBpjs = 0;
+
+      p.hasil.forEach(h => {
+        const kat = ambilKelompokMedis(h);
+        if (!kat) return; // Lewati item non-medis / administrasi
+        if (!mapGrupBpjs.has(kat)) mapGrupBpjs.set(kat, []);
+        mapGrupBpjs.get(kat).push(h);
+      });
+
+      const widalUrutBpjs = (item) => {
+        const nm = (item.nama || item.ref?.nama || '').trim();
+        const kd = (item.kode || item.ref?.kode || '').trim().toUpperCase();
+        if (kd === 'W010101' || kd === 'I022801' || nm.includes('Typhi O') || nm.includes('Typhi  O')) return 1;
+        if (kd === 'W010103' || kd === 'I022803' || nm.includes('Paratyphi AO') || nm.includes('Paratyphi A-O')) return 2;
+        if (kd === 'W010105' || kd === 'I022805' || nm.includes('Paratyphi BO') || nm.includes('Paratyphi B-O')) return 3;
+        if (kd === 'W010107' || kd === 'I022807' || nm.includes('Paratyphi CO') || nm.includes('Paratyphi C-O')) return 4;
+        if (kd === 'W010102' || kd === 'I022802' || nm.includes('Typhi H') || nm.includes('Typhi  H')) return 5;
+        if (kd === 'W010104' || kd === 'I022804' || nm.includes('Paratyphi AH') || nm.includes('Paratyphi A-H')) return 6;
+        if (kd === 'W010106' || kd === 'I022806' || nm.includes('Paratyphi BH') || nm.includes('Paratyphi B-H')) return 7;
+        if (kd === 'W010108' || kd === 'I022808' || nm.includes('Paratyphi CH') || nm.includes('Paratyphi C-H')) return 8;
+        return 0;
+      };
+
+      const dengueUrutBpjs = (item) => {
+        const nm = (item.nama || item.ref?.nama || '').trim().toUpperCase();
+        if (nm.includes('DENGUE IGG') || nm.includes('IGG')) return 1;
+        if (nm.includes('DENGUE IGM') || nm.includes('IGM')) return 2;
+        if (nm.includes('DENGUE NS1') || nm.includes('NS1')) return 3;
+        return 0;
+      };
+
+      const grupBpjs = Array.from(mapGrupBpjs, ([kelompok, isi]) => ({
+        kelompok,
+        isi: isi.slice().sort((a, b) => {
+          const wA = widalUrutBpjs(a);
+          const wB = widalUrutBpjs(b);
+          if (wA > 0 && wB > 0) return wA - wB;
+          const dA = dengueUrutBpjs(a);
+          const dB = dengueUrutBpjs(b);
+          if (dA > 0 && dB > 0) return dA - dB;
+          const urutA = a.urutan || (a.ref?.urutan) || 0;
+          const urutB = b.urutan || (b.ref?.urutan) || 0;
+          if (urutA !== urutB) return urutA - urutB;
+          return (a.ref?.kode || '').localeCompare(b.ref?.kode || '');
+        })
+      }));
+
+      tulis(`
+        <div style="margin-top: 15pt; font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; color: #000; line-height: 14.9pt;">
+          <div style="display: flex; margin-left: 3.75pt; text-transform: uppercase; font-weight: bold;">
+            <div style="width: 185.95pt;">PEMERIKSAAN</div>
+            <div style="width: 97.20pt;">HASIL</div>
+            <div style="width: 97.20pt;">NILAI RUJUKAN</div>
+            <div style="width: 70pt;">SATUAN</div>
+          </div>
+      `);
+
+      grupBpjs.forEach(g => {
+        let grupNamaTampil = g.kelompok || 'PEMERIKSAAN';
+        if (grupNamaTampil === 'IMUNOSEROLOGI' || grupNamaTampil === 'IMUNOLOGI & SEROLOGI') {
+          grupNamaTampil = 'IMMUNOLOGI SEROLOGI';
+        }
+
+        tulis(`
+          <div style="font-weight: bold; text-transform: uppercase; font-size: 9.8pt; line-height: 14.9pt; margin-top: 6pt; margin-left: 3.75pt;">
+            ${UI.esc(grupNamaTampil)}
+          </div>
+        `);
+
+        g.isi.forEach(h => {
+          const m = h.ref || {};
+          const kode = (m.kode || h.kode || '').trim();
+          let rawNama = h.nama || m.nama || '';
+          let namaItem = rawNama;
+          if (kode && MAP_NAMA_FIX[kode]) {
+            namaItem = MAP_NAMA_FIX[kode];
+          } else if (!rawNama || rawNama.includes('#NAME?')) {
+            if (widalCounterBpjs >= 0 && widalCounterBpjs < WIDAL_NAMES_ORDER.length) {
+              namaItem = WIDAL_NAMES_ORDER[widalCounterBpjs];
+            } else {
+              namaItem = 'Pemeriksaan';
+            }
+          }
+          if ((grupNamaTampil === 'IMMUNOLOGI SEROLOGI' || g.kelompok === 'IMUNOSEROLOGI') && (kode.startsWith('I0228') || kode.startsWith('W0101') || namaItem.includes('Typhi') || rawNama.includes('#NAME?'))) {
+            widalCounterBpjs++;
+          }
+
+          const isPaketHeader = kode.length > 0 && kode.length <= 5;
+          const hasChildren = kode.length > 0 && g.isi.some(other => other !== h && (other.ref?.kode || other.kode || '').startsWith(kode));
+          const isHeaderItem = isPaketHeader || hasChildren || (
+            (h.nilai_angka === null || h.nilai_angka === undefined) &&
+            !h.nilai_teks &&
+            !h.satuan && !m.satuan &&
+            !h.rujukan_teks && !rujukanPakai[h.id]?.teks && !rujukanPakai[h.id]?.batas_bawah && !rujukanPakai[h.id]?.batas_atas
+          );
+
+          if (isHeaderItem) {
+            let indentPt = 0;
+            if (kode.length === 7 || (!isPaketHeader && hasChildren && kode.length > 5)) {
+              indentPt = 12;
+            }
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000; margin-left: 3.75pt;">
+                <div style="width: 185.95pt; padding-left: ${indentPt}pt; box-sizing: border-box;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 97.20pt;"></div>
+                <div style="width: 97.20pt;"></div>
+                <div style="width: 70pt;"></div>
+              </div>
+            `);
+          } else {
+            let indentPt = 0;
+            if (isPaketHeader) {
+              indentPt = 0;
+            } else if (kode.length >= 9) {
+              indentPt = 24;
+            } else if (kode.length === 7) {
+              indentPt = 12;
+            } else if (namaItem.startsWith(' - ') || namaItem.startsWith('- ')) {
+              indentPt = 4;
+            } else {
+              const isChild = g.isi.some(other => other !== h && kode.startsWith(other.ref?.kode || other.kode || '___'));
+              indentPt = isChild ? 12 : (grupNamaTampil.includes('IMMUNOLOGI') || grupNamaTampil.includes('HEMATOLOGI') ? 12 : 0);
+            }
+
+            const abnormal = isAbnormalItem(h);
+            let valRaw = nilaiTeks(h);
+            let valClean = bersihkanNilaiHasil(valRaw);
+            const displayVal = valClean ? `${valClean}${abnormal ? ' *' : ''}` : '';
+
+            let rujukanRaw = h.rujukan_teks || (rujukanPakai && LabCore.teksRujukan(rujukanPakai[h.id], h.ref)) || '';
+            let rujukanClean = bersihkanTeksRujukan(rujukanRaw);
+
+            const satuanString = (h.satuan || m.satuan || '').trim();
+            const displaySatuan = (satuanString === '—' || satuanString === '-') ? '' : satuanString;
+
+            tulis(`
+              <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000; margin-left: 3.75pt;">
+                <div style="width: 185.95pt; padding-left: ${indentPt}pt; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${UI.esc(namaItem)}
+                </div>
+                <div style="width: 97.20pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displayVal)}
+                </div>
+                <div style="width: 97.20pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(rujukanClean)}
+                </div>
+                <div style="width: 70pt; text-align: left; font-weight: normal; color: #000;">
+                  ${UI.esc(displaySatuan)}
+                </div>
+              </div>
+            `);
+          }
+        });
+      });
+
+      tulis(`</div>`);
+
+      // 3. Area Tanda Tangan & Footer BPJS (Layout 3 Kolom: Jam Sampel di kiri bawah, Verifikator & Keterangan di tengah, Penanggung Jawab di kanan)
+      tulis(`
+        <div style="margin-top: 32pt; break-inside: avoid; font-size: 9pt; line-height: 14pt; color: #000; font-family: Helvetica, Arial, sans-serif; margin-left: 3.75pt;">
+          <div style="display: grid; grid-template-columns: 145pt 195pt 1fr; align-items: end;">
+            <!-- Kolom 1: Jam Sampel & Printed By (Pojok Kiri Bawah) -->
+            <div style="font-size: 9pt; line-height: 13.5pt;">
+              <div>Jam Sampel : ${UI.esc(jamSampel)}</div>
+              <div>Hal. 1 dari 1 Halaman</div>
+              <div style="font-size: 8pt; color: #000; margin-top: 1px;">
+                Printed By : ${UI.esc(dicetakOlehBpjs)} / ${UI.esc(jamCetakBpjs)}
+              </div>
+            </div>
+
+            <!-- Kolom 2: Verifikator & Keterangan (Tengah) -->
+            <div>
+              <div style="font-weight: bold; margin-bottom: 2pt;">
+                Keterangan : (*) Diluar nilai normal
+              </div>
+              <div>Verifikator,</div>
+              <div style="height: 38pt;"></div>
+              <div style="font-weight: bold;">${UI.esc(namaVerifBpjs)}</div>
+              <div style="font-size: 8.5pt; color: #000;">${UI.esc(waktuVerifBpjs)}</div>
+            </div>
+
+            <!-- Kolom 3: Penanggung Jawab & QR (Kanan) -->
+            <div style="margin-left: 10pt;">
+              <div style="height: 14pt;"></div>
+              <div>Penanggung Jawab,</div>
+              <div style="margin: 2px 0; height: 38pt; display: flex; align-items: center;">
+                <img src="${qrBpjsUrl}" alt="QR" style="width: 40pt; height: 40pt; object-fit: contain; display: block;" onerror="this.src='https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=skylab.my.id%2Flab_utama%2Fdr_minto_rahaju_sp_pk.html'">
+              </div>
+              <div style="font-weight: bold;">dr. Minto Rahaju, Sp. PK,</div>
+            </div>
+          </div>
+        </div>
+      `);
+    } else if (isBpjs2) {
+      // ----------------------------------------------------------------
+      // FORMAT BPJS.2 - TEMPLATE A5 PORTRAIT MULTI-HALAMAN
+      // Sesuai template media_1790927207204.pdf:
+      // - Ukuran kertas A5 Portrait (148 x 210 mm)
+      // - Maksimum 21 baris per halaman
+      // - Kop BPJS & Logo Utama di setiap halaman
+      // - Barcode No Lab & Penanggung Jawab di setiap halaman
+      // - Metadata Pasien 4 baris 2 kolom (No Lab, Nama, Dokter Pengirim, Alamat | Umur, JK, Tgl. Periksa, Instansi)
+      // - Header Tabel PEMERIKSAAN | HASIL | NILAI RUJUKAN | SATUAN dengan garis atas & bawah 0.75pt
+      // - Footer: Jam Sampel, Hal. X dari Y Halaman, Printed By di kiri; Pemeriksa, spasi tanda tangan, dr. Minto Rahayu, Sp.PK di kanan
+      // ----------------------------------------------------------------
+      const umurBpjs = formatUmurLengkap(p.pasien?.tanggal_lahir);
+      const jkBpjs = p.pasien?.jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan';
+      const instansiBpjs = (p.pasien?.jenis_asuransi === 'UMUM' ? 'umum' : (p.pasien?.jenis_asuransi || p.kunjungan?.cara_bayar || 'umum')).toLowerCase();
+      const dokterPengirimBpjs = p.kunjungan?.dokter?.nama || p.peminta?.nama || 'dr. Minto Rahaju, Sp.PK';
+      const logoBpjsKopUrl = basePath + 'logo_kop_m4.jpg';
+      const dicetakOlehBpjs = (dicetakOleh && dicetakOleh.toLowerCase() !== 'master') ? dicetakOleh : 'Dede K';
+      const jamCetakBpjs = `${UI.tglIndo(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const mapGrupBpjs = new Map();
+      let widalCounterBpjs = 0;
+
+      p.hasil.forEach(h => {
+        const kat = ambilKelompokMedis(h);
+        if (!kat) return;
+        if (!mapGrupBpjs.has(kat)) mapGrupBpjs.set(kat, []);
+        mapGrupBpjs.get(kat).push(h);
+      });
+
+      const widalUrutBpjs = (item) => {
+        const nm = (item.nama || item.ref?.nama || '').trim();
+        const kd = (item.kode || item.ref?.kode || '').trim().toUpperCase();
+        if (kd === 'W010101' || kd === 'I022801' || nm.includes('Typhi O') || nm.includes('Typhi  O')) return 1;
+        if (kd === 'W010103' || kd === 'I022803' || nm.includes('Paratyphi AO') || nm.includes('Paratyphi A-O')) return 2;
+        if (kd === 'W010105' || kd === 'I022805' || nm.includes('Paratyphi BO') || nm.includes('Paratyphi B-O')) return 3;
+        if (kd === 'W010107' || kd === 'I022807' || nm.includes('Paratyphi CO') || nm.includes('Paratyphi C-O')) return 4;
+        if (kd === 'W010102' || kd === 'I022802' || nm.includes('Typhi H') || nm.includes('Typhi  H')) return 5;
+        if (kd === 'W010104' || kd === 'I022804' || nm.includes('Paratyphi AH') || nm.includes('Paratyphi A-H')) return 6;
+        if (kd === 'W010106' || kd === 'I022806' || nm.includes('Paratyphi BH') || nm.includes('Paratyphi B-H')) return 7;
+        if (kd === 'W010108' || kd === 'I022808' || nm.includes('Paratyphi CH') || nm.includes('Paratyphi C-H')) return 8;
+        return 0;
+      };
+
+      const dengueUrutBpjs = (item) => {
+        const nm = (item.nama || item.ref?.nama || '').trim().toUpperCase();
+        if (nm.includes('DENGUE IGG') || nm.includes('IGG')) return 1;
+        if (nm.includes('DENGUE IGM') || nm.includes('IGM')) return 2;
+        if (nm.includes('DENGUE NS1') || nm.includes('NS1')) return 3;
+        return 0;
+      };
+
+      const grupBpjs = Array.from(mapGrupBpjs, ([kelompok, isi]) => ({
+        kelompok,
+        isi: isi.slice().sort((a, b) => {
+          const wA = widalUrutBpjs(a);
+          const wB = widalUrutBpjs(b);
+          if (wA > 0 && wB > 0) return wA - wB;
+          const dA = dengueUrutBpjs(a);
+          const dB = dengueUrutBpjs(b);
+          if (dA > 0 && dB > 0) return dA - dB;
+          const urutA = a.urutan || (a.ref?.urutan) || 0;
+          const urutB = b.urutan || (b.ref?.urutan) || 0;
+          if (urutA !== urutB) return urutA - urutB;
+          return (a.ref?.kode || '').localeCompare(b.ref?.kode || '');
+        })
+      }));
+
+      const listBarisBpjs2 = [];
+
+      grupBpjs.forEach(g => {
+        let grupNamaTampil = g.kelompok || 'PEMERIKSAAN';
+        if (grupNamaTampil === 'IMUNOSEROLOGI' || grupNamaTampil === 'IMUNOLOGI & SEROLOGI') {
+          grupNamaTampil = 'IMMUNOLOGI SEROLOGI';
+        }
+
+        listBarisBpjs2.push({
+          type: 'group',
+          html: `
+            <div style="font-weight: bold; text-transform: uppercase; font-size: 9.8pt; line-height: 14.9pt; color: #000;">
+              ${UI.esc(grupNamaTampil)}
+            </div>
+          `
+        });
+
+        g.isi.forEach(h => {
+          const m = h.ref || {};
+          const kode = (m.kode || h.kode || '').trim();
+          let rawNama = h.nama || m.nama || '';
+          let namaItem = rawNama;
+          if (kode && MAP_NAMA_FIX[kode]) {
+            namaItem = MAP_NAMA_FIX[kode];
+          } else if (!rawNama || rawNama.includes('#NAME?')) {
+            if (widalCounterBpjs >= 0 && widalCounterBpjs < WIDAL_NAMES_ORDER.length) {
+              namaItem = WIDAL_NAMES_ORDER[widalCounterBpjs];
+            } else {
+              namaItem = 'Pemeriksaan';
+            }
+          }
+          if ((grupNamaTampil === 'IMMUNOLOGI SEROLOGI' || g.kelompok === 'IMUNOSEROLOGI') && (kode.startsWith('I0228') || kode.startsWith('W0101') || namaItem.includes('Typhi') || rawNama.includes('#NAME?'))) {
+            widalCounterBpjs++;
+          }
+
+          const isPaketHeader = kode.length > 0 && kode.length <= 5;
+          const hasChildren = kode.length > 0 && g.isi.some(other => other !== h && (other.ref?.kode || other.kode || '').startsWith(kode));
+          const isHeaderItem = isPaketHeader || hasChildren || (
+            (h.nilai_angka === null || h.nilai_angka === undefined) &&
+            !h.nilai_teks &&
+            !h.satuan && !m.satuan &&
+            !h.rujukan_teks && !rujukanPakai[h.id]?.teks && !rujukanPakai[h.id]?.batas_bawah && !rujukanPakai[h.id]?.batas_atas
+          );
+
+          if (isHeaderItem) {
+            let indentPt = 0;
+            if (kode.length === 7 || (!isPaketHeader && hasChildren && kode.length > 5)) {
+              indentPt = 12;
+            }
+            listBarisBpjs2.push({
+              type: 'header',
+              html: `
+                <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000;">
+                  <div style="width: 111.75pt; padding-left: ${indentPt}pt; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${UI.esc(namaItem)}
+                  </div>
+                  <div style="width: 81.75pt;"></div>
+                  <div style="width: 93pt;"></div>
+                  <div style="width: 55pt;"></div>
+                </div>
+              `
+            });
+          } else {
+            let indentPt = 0;
+            if (isPaketHeader) {
+              indentPt = 0;
+            } else if (kode.length >= 9) {
+              indentPt = 24;
+            } else if (kode.length === 7) {
+              indentPt = 12;
+            } else if (namaItem.startsWith(' - ') || namaItem.startsWith('- ')) {
+              indentPt = 6;
+            } else {
+              const isChild = g.isi.some(other => other !== h && kode.startsWith(other.ref?.kode || other.kode || '___'));
+              indentPt = isChild ? 24 : (grupNamaTampil.includes('IMMUNOLOGI') || grupNamaTampil.includes('HEMATOLOGI') ? 12 : 0);
+            }
+
+            const abnormal = isAbnormalItem(h);
+            let valRaw = nilaiTeks(h);
+            let valClean = bersihkanNilaiHasil(valRaw);
+            const displayVal = valClean ? `${valClean}${abnormal ? ' *' : ''}` : '';
+
+            let rujukanRaw = h.rujukan_teks || (rujukanPakai && LabCore.teksRujukan(rujukanPakai[h.id], h.ref)) || '';
+            let rujukanClean = bersihkanTeksRujukan(rujukanRaw);
+
+            const satuanString = (h.satuan || m.satuan || '').trim();
+            const displaySatuan = (satuanString === '—' || satuanString === '-') ? '' : satuanString;
+
+            listBarisBpjs2.push({
+              type: 'item',
+              html: `
+                <div style="display: flex; line-height: 14.9pt; font-size: 9.8pt; color: #000;">
+                  <div style="width: 111.75pt; padding-left: ${indentPt}pt; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${UI.esc(namaItem)}
+                  </div>
+                  <div style="width: 81.75pt; text-align: left; font-weight: normal; color: #000;">
+                    ${UI.esc(displayVal)}
+                  </div>
+                  <div style="width: 93pt; text-align: left; font-weight: normal; color: #000;">
+                    ${UI.esc(rujukanClean)}
+                  </div>
+                  <div style="width: 55pt; text-align: left; font-weight: normal; color: #000;">
+                    ${UI.esc(displaySatuan)}
+                  </div>
+                </div>
+              `
+            });
+          }
+        });
+      });
+
+      const ROWS_PER_PAGE = 21;
+      const totalPages = Math.ceil(listBarisBpjs2.length / ROWS_PER_PAGE) || 1;
+
+      for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+        const pageRows = listBarisBpjs2.slice(pageIdx * ROWS_PER_PAGE, (pageIdx + 1) * ROWS_PER_PAGE);
+
+        if (pageIdx > 0) {
+          tulis(`</div><div class="document-sheet">`);
+        }
+
+        tulis(`
+          <div class="bpjs2-page" style="min-height: 186mm; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+            <div>
+              <!-- Kop Header -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12pt; margin-top: 0;">
+                <div style="display: flex; align-items: center;">
+                  <img src="${bpjsLogoUrl}" alt="BPJS Kesehatan" style="height: 22.5pt; width: 90pt; object-fit: contain; display: block;" onerror="this.src='bpjs.png'">
+                </div>
+                <div style="display: flex; align-items: center; gap: 6pt; margin-right: 0;">
+                  <img src="${logoBpjsKopUrl}" alt="Logo Utama" style="width: 45pt; height: 30pt; object-fit: contain; display: block;" onerror="this.src='${logoUrl}'">
+                  <div style="font-family: Helvetica, Arial, sans-serif; font-size: 6.8pt; line-height: 10.5pt; color: #000;">
+                    <div style="font-weight: bold; font-size: 6.8pt;">Laboratorium Medis UTAMA</div>
+                    <div>Jl. DI Panjaitan No. 94 Purbalingga</div>
+                    <div>Telp. 0281-6580099 / 08121482308</div>
+                    <div>Email : laboratoriumutama@yahoo.com</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barcode No Lab -->
+              <div style="margin-left: -7.5pt; margin-bottom: 2pt;">
+                <img src="${barcodeUrl}" alt="Barcode" style="height: 15pt; width: 75pt; object-fit: fill; display: block;">
+              </div>
+
+              <!-- Penanggung Jawab & Metadata Pasien -->
+              <div style="font-family: Helvetica, Arial, sans-serif; font-size: 8.2pt; line-height: 13.1pt; color: #000;">
+                <div style="font-weight: bold; margin-bottom: 1pt;">
+                  Penanggung Jawab : dr. Minto Rahaju Sp. PK
+                </div>
+                <div style="display: grid; grid-template-columns: 214pt 1fr; margin-top: 0;">
+                  <div>
+                    <div style="display: flex;">
+                      <span style="width: 63pt; flex-shrink: 0;">No Lab</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span style="font-weight: bold;">${UI.esc(p.no_lab || '-')}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 63pt; flex-shrink: 0;">Nama</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(p.pasien?.nama || '-')}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 63pt; flex-shrink: 0;">Dokter Pengirim</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(dokterPengirimBpjs)}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 63pt; flex-shrink: 0;">Alamat</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(p.pasien?.alamat || p.alamat || '-')}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="display: flex;">
+                      <span style="width: 55pt; flex-shrink: 0;">Umur</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(umurBpjs)}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 55pt; flex-shrink: 0;">Jenis Kelamin</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(jkBpjs)}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 55pt; flex-shrink: 0;">Tgl. Periksa</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(UI.tglIndo(p.waktu_daftar || p.created_at || p.tanggal || now))}</span>
+                    </div>
+                    <div style="display: flex;">
+                      <span style="width: 55pt; flex-shrink: 0;">Instansi</span>
+                      <span style="width: 13pt; flex-shrink: 0;">:</span>
+                      <span>${UI.esc(instansiBpjs)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Table Header -->
+              <div style="margin-top: 10pt; font-family: Helvetica, Arial, sans-serif; font-size: 9.8pt; color: #000; line-height: 14.9pt;">
+                <div style="display: flex; text-transform: uppercase; font-weight: bold; border-top: 0.75pt solid #000; border-bottom: 0.75pt solid #000; padding: 2.5pt 0;">
+                  <div style="width: 111.75pt;">PEMERIKSAAN</div>
+                  <div style="width: 81.75pt;">HASIL</div>
+                  <div style="width: 93pt;">NILAI RUJUKAN</div>
+                  <div style="width: 55pt;">SATUAN</div>
+                </div>
+
+                <!-- Rows for this page -->
+                ${pageRows.map(r => r.html).join('')}
+              </div>
+            </div>
+
+            <!-- Footer for this page -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; font-family: Helvetica, Arial, sans-serif; margin-bottom: 0; padding-top: 15pt;">
+              <div style="font-size: 9.5pt; line-height: 13.5pt; color: #000;">
+                <div>Jam Sampel : ${UI.esc(jamSampel)}</div>
+                <div>Hal. ${pageIdx + 1} dari ${totalPages} Halaman</div>
+                <div style="font-size: 7.5pt; color: #000; margin-top: 1px;">
+                  Printed By : ${UI.esc(dicetakOlehBpjs)} / ${UI.esc(jamCetakBpjs)}
+                </div>
+              </div>
+              <div style="font-size: 9pt; line-height: 13.5pt; color: #000; text-align: left; width: 140pt;">
+                <div style="font-weight: bold;">Pemeriksa,</div>
+                <div style="height: 38pt;"></div>
+                <div style="font-weight: bold;">dr. Minto Rahayu, Sp.PK</div>
+              </div>
+            </div>
+          </div>
+        `);
+      }
     } else {
     // 1. RENDER KOP HEADER (Format selain M3)
     if (is2025) {
@@ -2772,22 +3422,6 @@ const Lab = (() => {
           <div class="badge-tag">
             <div>LAPORAN RESMI 2025</div>
             <div style="font-size:9px; font-weight:400; opacity:0.9;">No: ${UI.esc(p.no_lab)}</div>
-          </div>
-        </div>
-      `);
-    } else if (isBpjs1 || isBpjs2) {
-      tulis(`
-        <div class="kop-wrapper" style="border-bottom-color:#059669; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;">
-          <div class="kop-bpjs" style="display: flex; align-items: center;">
-            <img src="${bpjsLogoUrl}" style="height: 42px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo BPJS">
-          </div>
-          <div class="kop-center" style="display: flex; justify-content: center; align-items: center; padding: 0 10px;">
-            <img src="${logoUrl}" style="height: 55px; width: auto; object-fit: contain;" onerror="this.style.display='none'" alt="Logo Utama">
-          </div>
-          <div class="kop-right" style="text-align: right;">
-            <b>Laboratorium Medis UTAMA</b><br>
-            Jl. DI Panjaitan No. 94, Purbalingga<br>
-            Telp. 0281-6580099
           </div>
         </div>
       `);
@@ -2872,24 +3506,6 @@ const Lab = (() => {
             <div class="meta-row"><span class="label">Tgl. Periksa</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
             <div class="meta-row"><span class="label">Pengirim</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
             <div class="meta-row"><span class="label">Penjamin</span><span class="colon">:</span><span class="value">${UI.esc(instansi)}</span></div>
-          </div>
-        </div>
-      `);
-    } else if (isBpjs1 || isBpjs2) {
-      tulis(`
-        <div class="patient-card" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 14px;">
-          <div>
-            <div class="meta-row"><span class="label">No. Kartu BPJS</span><span class="colon">:</span><span class="value mono" style="font-size:12px; color:#065f46;">${UI.esc(noBpjs)}</span></div>
-            <div class="meta-row"><span class="label">No. Lab</span><span class="colon">:</span><span class="value mono">${UI.esc(p.no_lab)}</span></div>
-            <div class="meta-row"><span class="label">Nama Pasien</span><span class="colon">:</span><span class="value">${UI.esc(p.pasien.nama)}</span></div>
-            <div class="meta-row"><span class="label">No. RM / NIK</span><span class="colon">:</span><span class="value mono">${UI.esc(p.pasien.no_rm)} / ${UI.esc(p.pasien.nik || '—')}</span></div>
-          </div>
-          <div>
-            <div class="meta-row"><span class="label">Tgl. Pemeriksaan</span><span class="colon">:</span><span class="value">${UI.tglIndo(p.tanggal)}</span></div>
-            <div class="meta-row"><span class="label">Umur / JK</span><span class="colon">:</span><span class="value">${UI.esc(umurTeks)} / ${jkText}</span></div>
-            <div class="meta-row"><span class="label">Dokter Perujuk</span><span class="colon">:</span><span class="value">${UI.esc(dokterPengirim)}</span></div>
-            <div class="meta-row"><span class="label">Diagnosa (ICD-10)</span><span class="colon">:</span><span class="value">${UI.esc(p.kunjungan?.diagnosa || '—')}</span></div>
-            ${isBpjs2 ? `<div class="meta-row"><span class="label" style="color:#059669; font-weight:700;">Status Prolanis</span><span class="colon">:</span><span class="value" style="color:#059669;">Pemantauan Siklus 6 Bulan</span></div>` : ''}
           </div>
         </div>
       `);
@@ -3739,7 +4355,8 @@ const Lab = (() => {
 
   let skylabState = {
     dari: null, sampai: null,
-    cari: '', status: '',
+    cari: '', optDokterPasien: '',
+    status: '',
     instansi: '', optInstansi: '',
     bayar: '', optBayar: '',
     px: '', optPx: '',
@@ -3749,6 +4366,374 @@ const Lab = (() => {
     daftar: [],
     syncTimer: null
   };
+
+  /* ================================================================== */
+  /*  HELPER FILTER PENCARIAN & AUTO-FOCUS SKYLAB                       */
+  /* ================================================================== */
+  let cacheDokterMap = null;
+  let cacheRekananList = null;
+
+  async function ambilDokterMap() {
+    if (cacheDokterMap) return cacheDokterMap;
+    try {
+      const { data: dList } = await DB.sb.from('pegawai')
+        .select('id, nama, peran, kode_dokter_pcare, kode_detailer, nik')
+        .eq('aktif', true);
+      cacheDokterMap = {};
+      (dList || []).forEach(doc => {
+        const nm = (doc.nama || '').trim().toLowerCase();
+        cacheDokterMap[nm] = doc;
+        cacheDokterMap[doc.id] = doc;
+        if (doc.kode_detailer) cacheDokterMap[doc.kode_detailer.toLowerCase()] = doc;
+        if (doc.kode_dokter_pcare) cacheDokterMap[doc.kode_dokter_pcare.toLowerCase()] = doc;
+      });
+      return cacheDokterMap;
+    } catch(e) {
+      return {};
+    }
+  }
+
+  async function ambilRekananList() {
+    if (cacheRekananList) return cacheRekananList;
+    try {
+      const { data: rList } = await DB.sb.from('ref_rekanan').select('id, nama');
+      cacheRekananList = rList || [];
+      return cacheRekananList;
+    } catch(e) {
+      return [];
+    }
+  }
+
+  function opsiFilterInstansi(terpilih = '') {
+    return `
+      <option value="" ${!terpilih ? 'selected' : ''}>Semua Instansi</option>
+      <option value="umum" ${terpilih === 'umum' ? 'selected' : ''}>Umum</option>
+      <option value="kode_instansi" ${terpilih === 'kode_instansi' ? 'selected' : ''}>Kode Instansi</option>
+      <option value="kode_rekanan" ${terpilih === 'kode_rekanan' ? 'selected' : ''}>Kode Rekanan</option>
+      <option value="bpjs" ${terpilih === 'bpjs' ? 'selected' : ''}>BPJS(NO BPJS)</option>
+    `;
+  }
+
+  function opsiFilterDokterPasien(terpilih = '') {
+    return `
+      <option value="" ${!terpilih ? 'selected' : ''}>Semua Dokter/Pasien</option>
+      <option value="aps" ${terpilih === 'aps' ? 'selected' : ''}>APS</option>
+      <option value="kode_dokter" ${terpilih === 'kode_dokter' ? 'selected' : ''}>Kode Dokter</option>
+      <option value="nama_pasien" ${terpilih === 'nama_pasien' ? 'selected' : ''}>Nama Pasien</option>
+      <option value="no_lab" ${terpilih === 'no_lab' ? 'selected' : ''}>No Lab</option>
+      <option value="nik" ${terpilih === 'nik' ? 'selected' : ''}>NIK</option>
+    `;
+  }
+
+  function opsiFilterPx(tab = 'hasil', terpilih = '') {
+    if (tab === 'hasil') {
+      return `
+        <option value="" ${!terpilih ? 'selected' : ''}>Semua Px</option>
+        <option value="kode_px" ${terpilih === 'kode_px' ? 'selected' : ''}>Kode PX</option>
+        <option value="nama_px" ${terpilih === 'nama_px' ? 'selected' : ''}>Nama Pemeriksaan</option>
+        <option value="Hematologi" ${terpilih === 'Hematologi' ? 'selected' : ''}>Hematologi</option>
+        <option value="Kimia Klinik" ${terpilih === 'Kimia Klinik' ? 'selected' : ''}>Kimia Klinik</option>
+        <option value="Urin" ${terpilih === 'Urin' ? 'selected' : ''}>Urin</option>
+        <option value="Imunologi" ${terpilih === 'Imunologi' ? 'selected' : ''}>Imunologi</option>
+      `;
+    }
+    if (tab === 'fisik') {
+      return `
+        <option value="" ${!terpilih ? 'selected' : ''}>Semua Px</option>
+        <option value="kode_px" ${terpilih === 'kode_px' ? 'selected' : ''}>Kode PX</option>
+        <option value="nama_px" ${terpilih === 'nama_px' ? 'selected' : ''}>Nama Pemeriksaan</option>
+        <option value="Tanda Vital" ${terpilih === 'Tanda Vital' ? 'selected' : ''}>Tanda Vital</option>
+        <option value="BMI" ${terpilih === 'BMI' ? 'selected' : ''}>BMI</option>
+      `;
+    }
+    if (tab === 'anamnesa') {
+      return `
+        <option value="" ${!terpilih ? 'selected' : ''}>Semua Px</option>
+        <option value="kode_px" ${terpilih === 'kode_px' ? 'selected' : ''}>Kode PX</option>
+        <option value="nama_px" ${terpilih === 'nama_px' ? 'selected' : ''}>Nama Pemeriksaan</option>
+        <option value="Keluhan" ${terpilih === 'Keluhan' ? 'selected' : ''}>Keluhan Saat Ini</option>
+        <option value="RPD" ${terpilih === 'RPD' ? 'selected' : ''}>RPD</option>
+        <option value="RPK" ${terpilih === 'RPK' ? 'selected' : ''}>RPK</option>
+        <option value="Kebiasaan" ${terpilih === 'Kebiasaan' ? 'selected' : ''}>Kebiasaan</option>
+      `;
+    }
+    return `
+      <option value="" ${!terpilih ? 'selected' : ''}>Semua Px</option>
+      <option value="kode_px" ${terpilih === 'kode_px' ? 'selected' : ''}>Kode PX</option>
+      <option value="nama_px" ${terpilih === 'nama_px' ? 'selected' : ''}>Nama Pemeriksaan</option>
+      <option value="Sperma" ${terpilih === 'Sperma' ? 'selected' : ''}>Analisa Sperma</option>
+      <option value="Semen" ${terpilih === 'Semen' ? 'selected' : ''}>Semen</option>
+    `;
+  }
+
+  function placeholderFilterInstansi(opt) {
+    if (opt === 'umum') return 'Umum (Pasien Mandiri)...';
+    if (opt === 'kode_instansi') return 'Ketik Kode Instansi...';
+    if (opt === 'kode_rekanan') return 'Ketik Kode Rekanan...';
+    if (opt === 'bpjs') return 'Ketik No BPJS...';
+    return 'Ketik instansi / rekanan...';
+  }
+
+  function placeholderFilterDokterPasien(opt) {
+    if (opt === 'aps') return 'APS (Ketik nama/no lab jika ada)...';
+    if (opt === 'kode_dokter') return 'Ketik Kode Dokter...';
+    if (opt === 'nama_pasien') return 'Ketik Nama Pasien...';
+    if (opt === 'no_lab') return 'Ketik No Lab...';
+    if (opt === 'nik') return 'Ketik NIK Pasien...';
+    return 'Nama/No Lab/Pengirim/NIK...';
+  }
+
+  function placeholderFilterPx(opt) {
+    if (opt === 'kode_px') return 'Ketik Kode PX (misal: H0101)...';
+    if (opt === 'nama_px') return 'Ketik Nama Pemeriksaan (misal: Hemoglobin)...';
+    if (opt) return `Ketik pemeriksaan di ${opt}...`;
+    return 'Ketik kode / nama PX...';
+  }
+
+  function hubungkanFilterFokus({ selEl, inpEl, propSel, propInp, updatePlaceholderFn, onCari }) {
+    if (!selEl || !inpEl) return;
+
+    if (updatePlaceholderFn) {
+      inpEl.placeholder = updatePlaceholderFn(selEl.value);
+    }
+
+    selEl.addEventListener('change', () => {
+      skylabState[propSel] = selEl.value;
+      if (updatePlaceholderFn) {
+        inpEl.placeholder = updatePlaceholderFn(selEl.value);
+      }
+      inpEl.focus();
+      inpEl.select?.();
+      onCari?.();
+    });
+
+    let debounce;
+    inpEl.addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        skylabState[propInp] = e.target.value;
+        onCari?.();
+      }, 250);
+    });
+
+    inpEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(debounce);
+        skylabState[propInp] = inpEl.value;
+        onCari?.();
+      }
+    });
+  }
+
+  function jalankanFilterSkylab(data) {
+    if (!data || !data.length) return [];
+    let hasil = data;
+
+    // 1. Filter Instansi
+    if (skylabState.optInstansi === 'umum') {
+      hasil = hasil.filter(d => {
+        const cb = (d.cara_bayar || '').toUpperCase();
+        return cb === 'UMUM' || (!cb.includes('BPJS') && !d.no_bpjs);
+      });
+    } else if (skylabState.optInstansi === 'bpjs') {
+      hasil = hasil.filter(d => {
+        const cb = (d.cara_bayar || '').toUpperCase();
+        return cb.includes('BPJS') || !!d.no_bpjs;
+      });
+    }
+
+    if (skylabState.instansi) {
+      const ki = skylabState.instansi.toLowerCase().trim();
+      if (skylabState.optInstansi === 'kode_instansi') {
+        hasil = hasil.filter(d => 
+          (d.plant || '').toLowerCase().includes(ki) || 
+          (d.bagian || '').toLowerCase().includes(ki) || 
+          (d.nrp || '').toLowerCase().includes(ki) ||
+          (d.cara_bayar || '').toLowerCase().includes(ki)
+        );
+      } else if (skylabState.optInstansi === 'kode_rekanan') {
+        hasil = hasil.filter(d => 
+          (d.kode_rekanan || '').toLowerCase().includes(ki) ||
+          (d.kode_rekanan_dokter || '').toLowerCase().includes(ki) ||
+          (d.plant || '').toLowerCase().includes(ki) || 
+          (d.bagian || '').toLowerCase().includes(ki) || 
+          (d.nrp || '').toLowerCase().includes(ki) ||
+          (d.nama_lab_luar || '').toLowerCase().includes(ki) ||
+          (d.cara_bayar || '').toLowerCase().includes(ki)
+        );
+      } else if (skylabState.optInstansi === 'bpjs') {
+        hasil = hasil.filter(d => 
+          (d.no_bpjs || '').toLowerCase().includes(ki) || 
+          (d.nrp || '').toLowerCase().includes(ki) ||
+          (d.cara_bayar || '').toLowerCase().includes(ki)
+        );
+      } else {
+        hasil = hasil.filter(d => 
+          (d.cara_bayar || '').toLowerCase().includes(ki) || 
+          (d.nama_poli || '').toLowerCase().includes(ki) ||
+          (d.plant || '').toLowerCase().includes(ki) ||
+          (d.bagian || '').toLowerCase().includes(ki) ||
+          (d.nrp || '').toLowerCase().includes(ki) ||
+          (d.kode_rekanan || '').toLowerCase().includes(ki)
+        );
+      }
+    }
+
+    // 2. Filter Dokter / Pasien
+    if (skylabState.optDokterPasien === 'aps') {
+      hasil = hasil.filter(d => {
+        const asal = (d.asal || '').toUpperCase();
+        const doc = (d.nama_dokter || '').toLowerCase().trim();
+        const luar = (d.nama_lab_luar || '').toLowerCase();
+        return asal === 'APS' || doc.includes('aps') || doc.includes('sendiri') || !doc || doc === '-' || luar.includes('aps');
+      });
+    }
+
+    if (skylabState.cari) {
+      const k = skylabState.cari.toLowerCase().trim();
+      if (skylabState.optDokterPasien === 'kode_dokter') {
+        hasil = hasil.filter(d => 
+          (d.kode_dokter || '').toLowerCase().includes(k) ||
+          (d.kode_rekanan_dokter || '').toLowerCase().includes(k) ||
+          (d.nama_dokter || '').toLowerCase().includes(k)
+        );
+      } else if (skylabState.optDokterPasien === 'nama_pasien') {
+        hasil = hasil.filter(d => (d.nama_pasien || '').toLowerCase().includes(k));
+      } else if (skylabState.optDokterPasien === 'no_lab') {
+        hasil = hasil.filter(d => (d.no_lab || '').toLowerCase().includes(k));
+      } else if (skylabState.optDokterPasien === 'nik') {
+        hasil = hasil.filter(d => (d.nik || '').toLowerCase().includes(k));
+      } else {
+        hasil = hasil.filter(d => 
+          (d.nama_pasien || '').toLowerCase().includes(k) || 
+          (d.no_lab || '').toLowerCase().includes(k) ||
+          (d.no_rm || '').toLowerCase().includes(k) ||
+          (d.nama_dokter || '').toLowerCase().includes(k) ||
+          (d.kode_dokter || '').toLowerCase().includes(k) ||
+          (d.nik || '').toLowerCase().includes(k)
+        );
+      }
+    }
+
+    // 3. Filter Pembayaran
+    if (skylabState.optBayar) {
+      const ob = skylabState.optBayar.toLowerCase();
+      if (ob === 'lunas') {
+        hasil = hasil.filter(d => d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI');
+      } else if (ob === 'belum lunas') {
+        hasil = hasil.filter(d => d.status_bayar !== 'LUNAS' && d.lunas !== true && d.status !== 'SELESAI');
+      } else {
+        hasil = hasil.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
+      }
+    }
+    if (skylabState.bayar) {
+      const kb = skylabState.bayar.toLowerCase().trim();
+      hasil = hasil.filter(d => 
+        (d.cara_bayar||'').toLowerCase().includes(kb) ||
+        (d.status_bayar||'').toLowerCase().includes(kb) ||
+        (kb === 'lunas' && (d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI')) ||
+        (kb.includes('belum') && d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI')
+      );
+    }
+
+    // 4. Filter PX (Pemeriksaan)
+    if (skylabState.optPx) {
+      const opx = skylabState.optPx.toLowerCase();
+      if (opx === 'kode_px') {
+        if (skylabState.px) {
+          const kpx = skylabState.px.toLowerCase().trim();
+          hasil = hasil.filter(d => (d.daftar_px_items || []).some(x => (x.kode || '').toLowerCase().includes(kpx)));
+        }
+      } else if (opx === 'nama_px') {
+        if (skylabState.px) {
+          const kpx = skylabState.px.toLowerCase().trim();
+          hasil = hasil.filter(d => (d.daftar_px_items || []).some(x => (x.nama || '').toLowerCase().includes(kpx)));
+        }
+      } else {
+        hasil = hasil.filter(d => (d.daftar_px_items || []).some(x => (x.kelompok || '').toLowerCase().includes(opx) || (x.nama || '').toLowerCase().includes(opx)));
+        if (skylabState.px) {
+          const kpx = skylabState.px.toLowerCase().trim();
+          hasil = hasil.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
+        }
+      }
+    } else if (skylabState.px) {
+      const kpx = skylabState.px.toLowerCase().trim();
+      hasil = hasil.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
+    }
+
+    // 5. Filter No Lab
+    if (skylabState.noLab) {
+      const knl = skylabState.noLab.toLowerCase().trim();
+      hasil = hasil.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
+    }
+
+    return hasil;
+  }
+
+  function pasangFilterSkylabEvents(w, pfx, onCari) {
+    const elDari = w.querySelector('#' + pfx + 'Dari');
+    if (elDari) elDari.addEventListener('change', e => { skylabState.dari = e.target.value; onCari(); });
+
+    const elStat = w.querySelector('#' + pfx + 'Status');
+    if (elStat) elStat.addEventListener('change', e => { skylabState.status = e.target.value; onCari(); });
+
+    hubungkanFilterFokus({
+      selEl: w.querySelector('#' + pfx + 'OptInstansi'),
+      inpEl: w.querySelector('#' + pfx + 'Instansi'),
+      propSel: 'optInstansi',
+      propInp: 'instansi',
+      updatePlaceholderFn: placeholderFilterInstansi,
+      onCari
+    });
+
+    hubungkanFilterFokus({
+      selEl: w.querySelector('#' + pfx + 'OptDokterPasien'),
+      inpEl: w.querySelector('#' + pfx + 'Cari'),
+      propSel: 'optDokterPasien',
+      propInp: 'cari',
+      updatePlaceholderFn: placeholderFilterDokterPasien,
+      onCari
+    });
+
+    hubungkanFilterFokus({
+      selEl: w.querySelector('#' + pfx + 'OptBayar'),
+      inpEl: w.querySelector('#' + pfx + 'Bayar'),
+      propSel: 'optBayar',
+      propInp: 'bayar',
+      updatePlaceholderFn: (opt) => opt ? `Ketik filter ${opt}...` : 'Ketik status / bayar...',
+      onCari
+    });
+
+    hubungkanFilterFokus({
+      selEl: w.querySelector('#' + pfx + 'OptPx'),
+      inpEl: w.querySelector('#' + pfx + 'Px'),
+      propSel: 'optPx',
+      propInp: 'px',
+      updatePlaceholderFn: placeholderFilterPx,
+      onCari
+    });
+
+    const elNoLab = w.querySelector('#' + pfx + 'NoLab');
+    if (elNoLab) {
+      let debounce;
+      elNoLab.addEventListener('input', e => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => { skylabState.noLab = e.target.value; onCari(); }, 250);
+      });
+      elNoLab.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          clearTimeout(debounce);
+          skylabState.noLab = elNoLab.value;
+          onCari();
+        }
+      });
+    }
+
+    const btnRef = w.querySelector('#' + pfx + 'BtnRefresh');
+    if (btnRef) btnRef.onclick = onCari;
+  }
 
   function gantiTab(targetTab, pId) {
     if (skylabState.syncTimer) {
@@ -3775,15 +4760,22 @@ const Lab = (() => {
   async function filterAntreanPerTab(data, tab) {
     if (!data || !data.length) return [];
     const pIds = data.map(d => d.id);
+    const pasienIds = [...new Set(data.map(d => d.pasien_id).filter(Boolean))];
 
     try {
-      // 1. Ambil detail pemeriksaan dari lab_hasil
-      const { data: hList } = await DB.sb.from('lab_hasil')
-        .select('permintaan_id, ref:lab_id(kode, nama, kelompok)')
-        .in('permintaan_id', pIds);
+      // 1. Ambil detail pemeriksaan, ID khusus, data pasien, serta master dokter/rekanan
+      const [hRes, resSp, resFs, resAn, pRes, docMap, rknList] = await Promise.all([
+        DB.sb.from('lab_hasil').select('permintaan_id, ref:lab_id(kode, nama, kelompok)').in('permintaan_id', pIds),
+        (async () => { try { return await DB.sb.from('lab_sperma').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
+        (async () => { try { return await DB.sb.from('lab_fisik').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
+        (async () => { try { return await DB.sb.from('lab_anamnesa').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
+        pasienIds.length ? (async () => { try { return await DB.sb.from('pasien').select('id, nik, no_bpjs, nrp, plant, bagian').in('id', pasienIds); } catch(e) { return { data: [] }; } })() : Promise.resolve({ data: [] }),
+        ambilDokterMap(),
+        ambilRekananList()
+      ]);
 
       const mapItems = {};
-      (hList || []).forEach(h => {
+      (hRes?.data || []).forEach(h => {
         if (!mapItems[h.permintaan_id]) mapItems[h.permintaan_id] = [];
         if (h.ref) mapItems[h.permintaan_id].push({
           kode: h.ref.kode || '',
@@ -3792,12 +4784,10 @@ const Lab = (() => {
         });
       });
 
-      // 2. Ambil ID permintaan yang sudah tersimpan di tabel khusus
-      const [resSp, resFs, resAn] = await Promise.all([
-        (async () => { try { return await DB.sb.from('lab_sperma').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
-        (async () => { try { return await DB.sb.from('lab_fisik').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })(),
-        (async () => { try { return await DB.sb.from('lab_anamnesa').select('permintaan_id').in('permintaan_id', pIds); } catch(e) { return { data: [] }; } })()
-      ]);
+      const mapPasien = {};
+      (pRes?.data || []).forEach(p => {
+        mapPasien[p.id] = p;
+      });
 
       const setSp = new Set((resSp?.data || []).map(x => x.permintaan_id));
       const setFs = new Set((resFs?.data || []).map(x => x.permintaan_id));
@@ -3806,8 +4796,30 @@ const Lab = (() => {
       return data.filter(d => {
         const items = mapItems[d.id] || [];
 
-        // Simpan daftar_px untuk filter input teks pencarian Px
+        // Simpan objek detail untuk filter kode vs nama PX
+        d.daftar_px_items = items;
+        // Simpan daftar_px untuk backward compatibility
         d.daftar_px = items.map(x => x.nama).concat(items.map(x => x.kode.toLowerCase())).concat(items.map(x => x.kelompok));
+
+        // Tempelkan data pasien
+        const pInfo = mapPasien[d.pasien_id] || {};
+        d.nik = pInfo.nik || d.nik || '';
+        d.no_bpjs = pInfo.no_bpjs || d.no_bpjs || '';
+        d.nrp = pInfo.nrp || d.nrp || '';
+        d.plant = pInfo.plant || d.plant || '';
+        d.bagian = pInfo.bagian || d.bagian || '';
+
+        // Dokter code lookup
+        const docObj = docMap[(d.nama_dokter || '').trim().toLowerCase()] || {};
+        d.kode_dokter = docObj.kode_detailer || docObj.kode_dokter_pcare || docObj.id || '';
+
+        // Rekanan lookup
+        const rknDoc = (rknList || []).find(r => (d.nama_dokter || '').toLowerCase().includes(r.nama.toLowerCase()) || r.nama.toLowerCase().includes((d.nama_dokter || '').toLowerCase()));
+        d.kode_rekanan_dokter = rknDoc ? rknDoc.id : '';
+
+        const strGabungIns = `${d.plant} ${d.bagian} ${d.cara_bayar} ${d.nama_lab_luar || ''}`.toLowerCase();
+        const rknIns = (rknList || []).find(r => strGabungIns.includes(r.nama.toLowerCase()));
+        d.kode_rekanan = rknIns ? rknIns.id : (d.nrp || d.plant || '');
 
         const isSperma = setSp.has(d.id) || !!localStorage.getItem('lab_sperma_' + d.id) || items.some(x => 
           x.kode === 'S0102' || x.kelompok.includes('sperma') || x.nama.includes('sperma') || x.nama.includes('semen')
@@ -3883,15 +4895,15 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="hsOptInstansi" style="width:130px;">
-                <option value="">Semua Instansi</option>
-                <option value="umum" ${skylabState.optInstansi==='umum'?'selected':''}>Umum</option>
-                <option value="bpjs" ${skylabState.optInstansi==='bpjs'?'selected':''}>BPJS</option>
+                ${opsiFilterInstansi(skylabState.optInstansi)}
               </select>
-              <input type="text" id="hsInstansi" class="f-inp" placeholder="Ketik instansi..." value="${UI.esc(skylabState.instansi||'')}">
+              <input type="text" id="hsInstansi" class="f-inp" placeholder="${placeholderFilterInstansi(skylabState.optInstansi)}" value="${UI.esc(skylabState.instansi||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Dokter/Pasien</option></select>
-              <input type="text" id="hsCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
+              <select class="f-sel" id="hsOptDokterPasien" style="width:130px;">
+                ${opsiFilterDokterPasien(skylabState.optDokterPasien)}
+              </select>
+              <input type="text" id="hsCari" class="f-inp" placeholder="${placeholderFilterDokterPasien(skylabState.optDokterPasien)}" value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="hsOptBayar" style="width:130px;">
@@ -3905,13 +4917,9 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="hsOptPx" style="width:130px;">
-                <option value="">Semua Px</option>
-                <option value="Hematologi" ${skylabState.optPx==='Hematologi'?'selected':''}>Hematologi</option>
-                <option value="Kimia Klinik" ${skylabState.optPx==='Kimia Klinik'?'selected':''}>Kimia Klinik</option>
-                <option value="Urin" ${skylabState.optPx==='Urin'?'selected':''}>Urin</option>
-                <option value="Imunologi" ${skylabState.optPx==='Imunologi'?'selected':''}>Imunologi</option>
+                ${opsiFilterPx('hasil', skylabState.optPx)}
               </select>
-              <input type="text" id="hsPx" class="f-inp" placeholder="Ketik nama Px..." value="${UI.esc(skylabState.px||'')}">
+              <input type="text" id="hsPx" class="f-inp" placeholder="${placeholderFilterPx(skylabState.optPx)}" value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="hsStatus" style="width:130px;">
@@ -3941,66 +4949,24 @@ const Lab = (() => {
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
         data = await filterAntreanPerTab(data, 'hasil');
+        data = jalankanFilterSkylab(data);
 
-        let cariIns = skylabState.instansi || '';
-        if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
-        if (cariIns) {
-          const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
-        }
-
-        if (skylabState.cari) {
-          const k = skylabState.cari.toLowerCase();
-          data = data.filter(d => 
-            (d.nama_pasien||'').toLowerCase().includes(k) || 
-            (d.no_lab||'').toLowerCase().includes(k) ||
-            (d.no_rm||'').toLowerCase().includes(k) ||
-            (d.nama_dokter||'').toLowerCase().includes(k)
-          );
-        }
-
-        // Filter Pembayaran
-        if (skylabState.optBayar) {
-          const ob = skylabState.optBayar.toLowerCase();
-          if (ob === 'lunas') {
-            data = data.filter(d => d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI');
-          } else if (ob === 'belum lunas') {
-            data = data.filter(d => d.status_bayar !== 'LUNAS' && d.lunas !== true && d.status !== 'SELESAI');
-          } else {
-            data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
-          }
-        }
-        if (skylabState.bayar) {
-          const kb = skylabState.bayar.toLowerCase().trim();
-          data = data.filter(d => 
-            (d.cara_bayar||'').toLowerCase().includes(kb) ||
-            (d.status_bayar||'').toLowerCase().includes(kb) ||
-            (kb === 'lunas' && (d.status_bayar === 'LUNAS' || d.lunas === true || d.status === 'SELESAI')) ||
-            (kb.includes('belum') && d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI')
-          );
-        }
-
-        // Filter Px (Pemeriksaan)
-        if (skylabState.optPx) {
-          const opx = skylabState.optPx.toLowerCase();
-          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(opx)));
-        }
-        if (skylabState.px) {
-          const kpx = skylabState.px.toLowerCase().trim();
-          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
-        }
-
-        // Filter No Lab spesifik
-        if (skylabState.noLab) {
-          const knl = skylabState.noLab.toLowerCase().trim();
-          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
-        }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
           const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
           const pId = match ? match.id : data[0].id;
           bukaHasil(pId);
+        } else {
+          const kanan = document.getElementById('skyKanan');
+          if (kanan) {
+            kanan.innerHTML = `
+              <div class="skylab-empty" style="height:100%">
+                <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
+                <span>Tidak ada pasien sesuai filter pencarian</span>
+              </div>
+            `;
+          }
         }
       } catch(e) {
         daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
@@ -4840,34 +5806,7 @@ const Lab = (() => {
       }
     };
 
-    const bind = (id, prop, fn) => {
-      const el = w.querySelector('#' + id);
-      if (el) el.addEventListener(fn || 'change', e => { skylabState[prop] = e.target.value; muat(); });
-    };
-    bind('hsDari', 'dari');
-    bind('hsStatus', 'status');
-    bind('hsOptInstansi', 'optInstansi');
-    bind('hsOptBayar', 'optBayar');
-    bind('hsOptPx', 'optPx');
-
-    const pasangInputDebounce = (id, prop) => {
-      const el = w.querySelector('#' + id);
-      if (el) {
-        let debounce;
-        el.addEventListener('input', e => {
-          clearTimeout(debounce);
-          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
-        });
-      }
-    };
-
-    pasangInputDebounce('hsCari', 'cari');
-    pasangInputDebounce('hsInstansi', 'instansi');
-    pasangInputDebounce('hsBayar', 'bayar');
-    pasangInputDebounce('hsPx', 'px');
-    pasangInputDebounce('hsNoLab', 'noLab');
-    const btnRefresh = w.querySelector('#hsBtnRefresh');
-    if (btnRefresh) btnRefresh.onclick = muat;
+    pasangFilterSkylabEvents(w, 'hs', muat);
 
     await muat();
   }
@@ -4891,15 +5830,15 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="fsOptInstansi" style="width:130px;">
-                <option value="">Semua Instansi</option>
-                <option value="umum" ${skylabState.optInstansi==='umum'?'selected':''}>Umum</option>
-                <option value="bpjs" ${skylabState.optInstansi==='bpjs'?'selected':''}>BPJS</option>
+                ${opsiFilterInstansi(skylabState.optInstansi)}
               </select>
-              <input type="text" id="fsInstansi" class="f-inp" placeholder="Ketik instansi..." value="${UI.esc(skylabState.instansi||'')}">
+              <input type="text" id="fsInstansi" class="f-inp" placeholder="${placeholderFilterInstansi(skylabState.optInstansi)}" value="${UI.esc(skylabState.instansi||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Dokter/Pasien</option></select>
-              <input type="text" id="fsCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
+              <select class="f-sel" id="fsOptDokterPasien" style="width:130px;">
+                ${opsiFilterDokterPasien(skylabState.optDokterPasien)}
+              </select>
+              <input type="text" id="fsCari" class="f-inp" placeholder="${placeholderFilterDokterPasien(skylabState.optDokterPasien)}" value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="fsOptBayar" style="width:130px;">
@@ -4913,11 +5852,9 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="fsOptPx" style="width:130px;">
-                <option value="">Semua Px</option>
-                <option value="Tanda Vital" ${skylabState.optPx==='Tanda Vital'?'selected':''}>Tanda Vital</option>
-                <option value="BMI" ${skylabState.optPx==='BMI'?'selected':''}>BMI</option>
+                ${opsiFilterPx('fisik', skylabState.optPx)}
               </select>
-              <input type="text" id="fsPx" class="f-inp" placeholder="Ketik fisik..." value="${UI.esc(skylabState.px||'')}">
+              <input type="text" id="fsPx" class="f-inp" placeholder="${placeholderFilterPx(skylabState.optPx)}" value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="fsStatus" style="width:130px;">
@@ -4947,45 +5884,24 @@ const Lab = (() => {
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
         data = await filterAntreanPerTab(data, 'fisik');
-        let cariIns = skylabState.instansi || '';
-        if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
-        if (cariIns) {
-          const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
-        }
-        if (skylabState.cari) {
-          const k = skylabState.cari.toLowerCase();
-          data = data.filter(d => 
-            (d.nama_pasien||'').toLowerCase().includes(k) || 
-            (d.no_lab||'').toLowerCase().includes(k) ||
-            (d.no_rm||'').toLowerCase().includes(k) ||
-            (d.nama_dokter||'').toLowerCase().includes(k)
-          );
-        }
+        data = jalankanFilterSkylab(data);
 
-        // Filter Pembayaran
-        if (skylabState.optBayar) {
-          const ob = skylabState.optBayar.toLowerCase();
-          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
-          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
-          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
-        }
-        if (skylabState.bayar) {
-          const kb = skylabState.bayar.toLowerCase().trim();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
-        }
-
-        // Filter No Lab
-        if (skylabState.noLab) {
-          const knl = skylabState.noLab.toLowerCase().trim();
-          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
-        }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
           const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
           const pId = match ? match.id : data[0].id;
           bukaFisik(pId);
+        } else {
+          const kanan = document.getElementById('fsKanan');
+          if (kanan) {
+            kanan.innerHTML = `
+              <div class="skylab-empty" style="height:100%">
+                <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
+                <span>Tidak ada pasien sesuai filter pencarian</span>
+              </div>
+            `;
+          }
         }
       } catch(e) {
         daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
@@ -5239,34 +6155,7 @@ const Lab = (() => {
       }
     };
 
-    const bindF = (id, prop, fn) => {
-      const el = w.querySelector('#' + id);
-      if (el) el.addEventListener(fn || 'change', e => { skylabState[prop] = e.target.value; muat(); });
-    };
-    bindF('fsDari', 'dari');
-    bindF('fsStatus', 'status');
-    bindF('fsOptInstansi', 'optInstansi');
-    bindF('fsOptBayar', 'optBayar');
-    bindF('fsOptPx', 'optPx');
-
-    const pasangInputDebounceF = (id, prop) => {
-      const el = w.querySelector('#' + id);
-      if (el) {
-        let debounce;
-        el.addEventListener('input', e => {
-          clearTimeout(debounce);
-          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
-        });
-      }
-    };
-
-    pasangInputDebounceF('fsCari', 'cari');
-    pasangInputDebounceF('fsInstansi', 'instansi');
-    pasangInputDebounceF('fsBayar', 'bayar');
-    pasangInputDebounceF('fsPx', 'px');
-    pasangInputDebounceF('fsNoLab', 'noLab');
-    const btnRefresh = w.querySelector('#fsBtnRefresh');
-    if (btnRefresh) btnRefresh.onclick = muat;
+    pasangFilterSkylabEvents(w, 'fs', muat);
 
     await muat();
   }
@@ -5290,15 +6179,15 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="asOptInstansi" style="width:130px;">
-                <option value="">Semua Instansi</option>
-                <option value="umum" ${skylabState.optInstansi==='umum'?'selected':''}>Umum</option>
-                <option value="bpjs" ${skylabState.optInstansi==='bpjs'?'selected':''}>BPJS</option>
+                ${opsiFilterInstansi(skylabState.optInstansi)}
               </select>
-              <input type="text" id="asInstansi" class="f-inp" placeholder="Ketik instansi..." value="${UI.esc(skylabState.instansi||'')}">
+              <input type="text" id="asInstansi" class="f-inp" placeholder="${placeholderFilterInstansi(skylabState.optInstansi)}" value="${UI.esc(skylabState.instansi||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Dokter/Pasien</option></select>
-              <input type="text" id="asCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
+              <select class="f-sel" id="asOptDokterPasien" style="width:130px;">
+                ${opsiFilterDokterPasien(skylabState.optDokterPasien)}
+              </select>
+              <input type="text" id="asCari" class="f-inp" placeholder="${placeholderFilterDokterPasien(skylabState.optDokterPasien)}" value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="asOptBayar" style="width:130px;">
@@ -5312,13 +6201,9 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="asOptPx" style="width:130px;">
-                <option value="">Semua Px</option>
-                <option value="Keluhan" ${skylabState.optPx==='Keluhan'?'selected':''}>Keluhan Saat Ini</option>
-                <option value="RPD" ${skylabState.optPx==='RPD'?'selected':''}>RPD</option>
-                <option value="RPK" ${skylabState.optPx==='RPK'?'selected':''}>RPK</option>
-                <option value="Kebiasaan" ${skylabState.optPx==='Kebiasaan'?'selected':''}>Kebiasaan</option>
+                ${opsiFilterPx('anamnesa', skylabState.optPx)}
               </select>
-              <input type="text" id="asPx" class="f-inp" placeholder="Ketik anamnesa..." value="${UI.esc(skylabState.px||'')}">
+              <input type="text" id="asPx" class="f-inp" placeholder="${placeholderFilterPx(skylabState.optPx)}" value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="asStatus" style="width:130px;">
@@ -5348,45 +6233,24 @@ const Lab = (() => {
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
         data = await filterAntreanPerTab(data, 'anamnesa');
-        let cariIns = skylabState.instansi || '';
-        if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
-        if (cariIns) {
-          const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
-        }
-        if (skylabState.cari) {
-          const k = skylabState.cari.toLowerCase();
-          data = data.filter(d => 
-            (d.nama_pasien||'').toLowerCase().includes(k) || 
-            (d.no_lab||'').toLowerCase().includes(k) ||
-            (d.no_rm||'').toLowerCase().includes(k) ||
-            (d.nama_dokter||'').toLowerCase().includes(k)
-          );
-        }
+        data = jalankanFilterSkylab(data);
 
-        // Filter Pembayaran
-        if (skylabState.optBayar) {
-          const ob = skylabState.optBayar.toLowerCase();
-          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
-          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
-          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
-        }
-        if (skylabState.bayar) {
-          const kb = skylabState.bayar.toLowerCase().trim();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
-        }
-
-        // Filter No Lab
-        if (skylabState.noLab) {
-          const knl = skylabState.noLab.toLowerCase().trim();
-          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
-        }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
           const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
           const pId = match ? match.id : data[0].id;
           bukaAnamnesa(pId);
+        } else {
+          const kanan = document.getElementById('asKanan');
+          if (kanan) {
+            kanan.innerHTML = `
+              <div class="skylab-empty" style="height:100%">
+                <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
+                <span>Tidak ada pasien sesuai filter pencarian</span>
+              </div>
+            `;
+          }
         }
       } catch(e) {
         daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
@@ -5625,34 +6489,7 @@ const Lab = (() => {
       }
     };
 
-    const bindA = (id, prop, fn) => {
-      const el = w.querySelector('#' + id);
-      if (el) el.addEventListener(fn || 'change', e => { skylabState[prop] = e.target.value; muat(); });
-    };
-    bindA('asDari', 'dari');
-    bindA('asStatus', 'status');
-    bindA('asOptInstansi', 'optInstansi');
-    bindA('asOptBayar', 'optBayar');
-    bindA('asOptPx', 'optPx');
-
-    const pasangInputDebounceA = (id, prop) => {
-      const el = w.querySelector('#' + id);
-      if (el) {
-        let debounce;
-        el.addEventListener('input', e => {
-          clearTimeout(debounce);
-          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
-        });
-      }
-    };
-
-    pasangInputDebounceA('asCari', 'cari');
-    pasangInputDebounceA('asInstansi', 'instansi');
-    pasangInputDebounceA('asBayar', 'bayar');
-    pasangInputDebounceA('asPx', 'px');
-    pasangInputDebounceA('asNoLab', 'noLab');
-    const btnRefresh = w.querySelector('#asBtnRefresh');
-    if (btnRefresh) btnRefresh.onclick = muat;
+    pasangFilterSkylabEvents(w, 'as', muat);
 
     await muat();
   }
@@ -5683,15 +6520,15 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="spOptInstansi" style="width:130px;">
-                <option value="">Semua Instansi</option>
-                <option value="umum" ${skylabState.optInstansi==='umum'?'selected':''}>Umum</option>
-                <option value="bpjs" ${skylabState.optInstansi==='bpjs'?'selected':''}>BPJS</option>
+                ${opsiFilterInstansi(skylabState.optInstansi)}
               </select>
-              <input type="text" id="spInstansi" class="f-inp" placeholder="Ketik instansi..." value="${UI.esc(skylabState.instansi||'')}">
+              <input type="text" id="spInstansi" class="f-inp" placeholder="${placeholderFilterInstansi(skylabState.optInstansi)}" value="${UI.esc(skylabState.instansi||'')}">
             </div>
             <div class="frow">
-              <select class="f-sel" style="width:130px;"><option>Semua Dokter/Pasien</option></select>
-              <input type="text" id="spCari" class="f-inp" placeholder="Nama/No Lab/Pengirim..." value="${UI.esc(skylabState.cari||'')}">
+              <select class="f-sel" id="spOptDokterPasien" style="width:130px;">
+                ${opsiFilterDokterPasien(skylabState.optDokterPasien)}
+              </select>
+              <input type="text" id="spCari" class="f-inp" placeholder="${placeholderFilterDokterPasien(skylabState.optDokterPasien)}" value="${UI.esc(skylabState.cari||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="spOptBayar" style="width:130px;">
@@ -5705,11 +6542,9 @@ const Lab = (() => {
             </div>
             <div class="frow">
               <select class="f-sel" id="spOptPx" style="width:130px;">
-                <option value="">Semua Px</option>
-                <option value="Sperma" ${skylabState.optPx==='Sperma'?'selected':''}>Analisa Sperma</option>
-                <option value="Semen" ${skylabState.optPx==='Semen'?'selected':''}>Semen</option>
+                ${opsiFilterPx('sperma', skylabState.optPx)}
               </select>
-              <input type="text" id="spPx" class="f-inp" placeholder="Ketik analisa sperma..." value="${UI.esc(skylabState.px||'')}">
+              <input type="text" id="spPx" class="f-inp" placeholder="${placeholderFilterPx(skylabState.optPx)}" value="${UI.esc(skylabState.px||'')}">
             </div>
             <div class="frow">
               <select class="f-sel" id="spStatus" style="width:130px;">
@@ -5739,56 +6574,24 @@ const Lab = (() => {
       try {
         let data = await DB.labAntrean(skylabState.dari, skylabState.sampai, skylabState.status || null);
         data = await filterAntreanPerTab(data, 'sperma');
+        data = jalankanFilterSkylab(data);
 
-        let cariIns = skylabState.instansi || '';
-        if (skylabState.optInstansi) cariIns = skylabState.optInstansi;
-        if (cariIns) {
-          const ins = cariIns.toLowerCase();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ins) || (d.nama_poli||'').toLowerCase().includes(ins));
-        }
-        if (skylabState.cari) {
-          const k = skylabState.cari.toLowerCase();
-          data = data.filter(d => 
-            (d.nama_pasien||'').toLowerCase().includes(k) || 
-            (d.no_lab||'').toLowerCase().includes(k) ||
-            (d.no_rm||'').toLowerCase().includes(k) ||
-            (d.nama_dokter||'').toLowerCase().includes(k)
-          );
-        }
-
-        // Filter Pembayaran
-        if (skylabState.optBayar) {
-          const ob = skylabState.optBayar.toLowerCase();
-          if (ob === 'lunas') data = data.filter(d => d.status_bayar === 'LUNAS' || d.status === 'SELESAI');
-          else if (ob === 'belum lunas') data = data.filter(d => d.status_bayar !== 'LUNAS' && d.status !== 'SELESAI');
-          else data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(ob));
-        }
-        if (skylabState.bayar) {
-          const kb = skylabState.bayar.toLowerCase().trim();
-          data = data.filter(d => (d.cara_bayar||'').toLowerCase().includes(kb) || (d.status_bayar||'').toLowerCase().includes(kb));
-        }
-
-        // Filter Px (Pemeriksaan)
-        if (skylabState.optPx) {
-          const opx = skylabState.optPx.toLowerCase();
-          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(opx)));
-        }
-        if (skylabState.px) {
-          const kpx = skylabState.px.toLowerCase().trim();
-          data = data.filter(d => (d.daftar_px || []).some(p => p.includes(kpx)));
-        }
-
-        // Filter No Lab
-        if (skylabState.noLab) {
-          const knl = skylabState.noLab.toLowerCase().trim();
-          data = data.filter(d => (d.no_lab||'').toLowerCase().includes(knl));
-        }
         skylabState.daftar = data;
         gambarDaftar(daftar, data);
         if (data.length > 0) {
           const match = skylabState.terpilih ? data.find(d => d.id === skylabState.terpilih || d.kunjungan_id === skylabState.terpilih) : null;
           const pId = match ? match.id : data[0].id;
           bukaSperma(pId);
+        } else {
+          const kanan = document.getElementById('spKanan');
+          if (kanan) {
+            kanan.innerHTML = `
+              <div class="skylab-empty" style="height:100%">
+                <div style="color:var(--ink-400); margin-bottom:8px;">${UI.ikon('dokumen', 36)}</div>
+                <span>Tidak ada pasien sesuai filter pencarian</span>
+              </div>
+            `;
+          }
         }
       } catch(e) {
         daftar.innerHTML = `<div class="skylab-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
@@ -6193,38 +6996,7 @@ const Lab = (() => {
       });
     }
 
-    const bindS = (id, prop, fn) => {
-      const el = w.querySelector('#' + id);
-      if (el) el.addEventListener(fn || 'change', e => {
-        skylabState[prop] = e.target.value;
-        if (prop === 'dari') skylabState.sampai = e.target.value;
-        muat();
-      });
-    };
-    bindS('spDari', 'dari');
-    bindS('spStatus', 'status');
-    bindS('spOptInstansi', 'optInstansi');
-    bindS('spOptBayar', 'optBayar');
-    bindS('spOptPx', 'optPx');
-
-    const pasangInputDebounceS = (id, prop) => {
-      const el = w.querySelector('#' + id);
-      if (el) {
-        let debounce;
-        el.addEventListener('input', e => {
-          clearTimeout(debounce);
-          debounce = setTimeout(() => { skylabState[prop] = e.target.value; muat(); }, 300);
-        });
-      }
-    };
-
-    pasangInputDebounceS('spCari', 'cari');
-    pasangInputDebounceS('spInstansi', 'instansi');
-    pasangInputDebounceS('spBayar', 'bayar');
-    pasangInputDebounceS('spPx', 'px');
-    pasangInputDebounceS('spNoLab', 'noLab');
-    const btnRefresh = w.querySelector('#spBtnRefresh');
-    if (btnRefresh) btnRefresh.onclick = muat;
+    pasangFilterSkylabEvents(w, 'sp', muat);
 
     await muat();
   }
