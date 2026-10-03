@@ -485,6 +485,7 @@ const Pasien = (() => {
     let daftarPasien = [];
     let sedangMemuat = false;
     let adaLanjutanData = false;
+    let cacheInfoKronis = null;
 
     async function muat({ reset = false, muatLebih = false, batasKhusus = null } = {}) {
       if (sedangMemuat) return;
@@ -511,20 +512,30 @@ const Pasien = (() => {
       }
 
       try {
+        const offsetKueri = muatLebih ? offsetAktif : 0;
         const data = await DB.daftarPasienLengkap({
           kata, tipe, kronis, urut, jk, umur, kelengkapan,
           batas,
-          offset: offsetAktif,
+          offset: offsetKueri,
           ambilKronis: false
         });
 
         adaLanjutanData = (data.length >= batas);
 
+        if (cacheInfoKronis && cacheInfoKronis.mapPasien) {
+          data.forEach(p => {
+            const kr = cacheInfoKronis.mapPasien.get(p.id);
+            if (kr) p.kronis = kr;
+          });
+        }
+
         if (muatLebih) {
           daftarPasien = daftarPasien.concat(data);
+          offsetAktif += data.length;
           tambahBarisTabel(hasil, data, () => muat({ reset: true }));
         } else {
           daftarPasien = data;
+          offsetAktif = data.length;
           gambarDaftar(hasil, daftarPasien, kata, () => muat({ reset: true }));
         }
 
@@ -537,7 +548,6 @@ const Pasien = (() => {
         }
 
         perbaruiNavigasiBawah(el, adaLanjutanData, daftarPasien.length, async () => {
-          offsetAktif += batas;
           await muat({ muatLebih: true });
         });
 
@@ -559,6 +569,7 @@ const Pasien = (() => {
       if (!wadah) return;
       try {
         const info = await DB.dataKronisBpjsPasien();
+        cacheInfoKronis = info;
         const ringkasan = (info && info.ringkasan) ? info.ringkasan : {
           totalBpjsKronis: 0, bpjsSudahKlaim: 0, bpjsJatuhTempo: 0,
           persenBpjsSudahKlaim: 0, persenBpjsJatuhTempo: 0,
@@ -750,7 +761,10 @@ const Pasien = (() => {
           ? `<span class="badge b-bpjs" style="font-size:10.5px; padding:2px 6px; margin-right:4px;">BPJS</span><span class="mono text-xs">${UI.esc(p.no_bpjs)}</span>`
           : `<span class="badge b-umum" style="font-size:10.5px; padding:2px 6px;">Umum</span>`
         }
-        ${(p.bagian || p.plant) ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc([p.bagian, p.plant].filter(Boolean).join(' - '))}</div>` : ''}
+        ${(() => {
+          const list = Array.from(new Set([p.bagian, p.plant].filter(Boolean))).filter(x => x.trim().toLowerCase() !== 'umum');
+          return list.length > 0 ? `<div class="text-xs text-muted" style="margin-top:2px;">${UI.esc(list.join(' - '))}</div>` : '';
+        })()}
         ${isBpjs && kr.status_klaim_bpjs === 'SUDAH_KLAIM_6BLN' ? `<div class="text-xs text-ok font-bold" style="margin-top:2px;">Klaim Aktif (&le; 6 Bln)</div>` : ''}
         ${isBpjs && (kr.status_klaim_bpjs === 'JATUH_TEMPO_6BLN' || kr.status_klaim_bpjs === 'BELUM_KLAIM') ? `<div class="text-xs text-danger font-bold" style="margin-top:2px;">Jatuh Tempo 6 Bln</div>` : ''}
       </td>
@@ -801,7 +815,12 @@ const Pasien = (() => {
   }
 
   function pasangAksiBaris(root, onMuat) {
-    root.querySelectorAll('tr.clickable').forEach(tr => {
+    if (!root) return;
+    const barisList = (root.matches && root.matches('tr.clickable'))
+      ? [root]
+      : Array.from(root.querySelectorAll('tr.clickable'));
+
+    barisList.forEach(tr => {
       tr.addEventListener('click', (e) => {
         if (e.target.closest('.btn-hapus-pasien')) return;
         const id = tr.dataset.id;
@@ -809,7 +828,11 @@ const Pasien = (() => {
       });
     });
 
-    root.querySelectorAll('.btn-hapus-pasien').forEach(btn => {
+    const tombolHapusList = (root.matches && root.matches('.btn-hapus-pasien'))
+      ? [root]
+      : Array.from(root.querySelectorAll('.btn-hapus-pasien'));
+
+    tombolHapusList.forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = btn.dataset.id;
@@ -858,9 +881,12 @@ const Pasien = (() => {
     const tbody = wadah.querySelector('tbody');
     if (!tbody || !dataBaru.length) return;
 
-    const frag = document.createRange().createContextualFragment(dataBaru.map(buatBarisPasien).join(''));
-    pasangAksiBaris(frag, onMuat);
-    tbody.appendChild(frag);
+    const startIdx = tbody.children.length;
+    tbody.insertAdjacentHTML('beforeend', dataBaru.map(buatBarisPasien).join(''));
+
+    for (let i = startIdx; i < tbody.children.length; i++) {
+      pasangAksiBaris(tbody.children[i], onMuat);
+    }
   }
 
   function gambarDaftarKurang(wadah, data, onMuat) {

@@ -559,7 +559,7 @@ const DB = (() => {
       } else if (tipe === 'umum') {
         q = q.or('no_bpjs.is.null,no_bpjs.eq.,no_bpjs.eq.-');
       } else if (tipe === 'rekanan') {
-        q = q.or('nrp.not.is.null,bagian.not.is.null,plant.not.is.null');
+        q = q.or('nrp.not.is.null,and(bagian.not.is.null,bagian.not.ilike.umum),and(plant.not.is.null,plant.not.ilike.umum)');
       }
 
       // Pengurutan DB
@@ -609,6 +609,8 @@ const DB = (() => {
         q = q.not('no_bpjs', 'is', null).neq('no_bpjs', '').neq('no_bpjs', '-');
       } else if (tipe === 'umum') {
         q = q.or('no_bpjs.is.null,no_bpjs.eq.,no_bpjs.eq.-');
+      } else if (tipe === 'rekanan') {
+        q = q.or('nrp.not.is.null,and(bagian.not.is.null,bagian.not.ilike.umum),and(plant.not.is.null,plant.not.ilike.umum)');
       }
 
       if (urut === 'nama_asc') q = q.order('nama', { ascending: true });
@@ -802,12 +804,36 @@ const DB = (() => {
     return data.filter(d => adaLabIds.has(d.id));
   }
   async function daftarKunjungan(filter = {}) {
-    let q = sb.from('v_riwayat_kunjungan').select('*').limit(filter.batas || 100);
+    let q = sb.from('v_riwayat_kunjungan').select('*');
     if (filter.pasien_id) q = q.eq('pasien_id', filter.pasien_id);
     if (filter.dari) q = q.gte('tanggal', filter.dari);
     if (filter.sampai) q = q.lte('tanggal', filter.sampai);
+    q = q.order('tanggal', { ascending: false }).limit(filter.batas || 100);
     const { data, error } = await q;
-    if (error) throw error; return data;
+    if (error) throw error;
+
+    if (data && data.length) {
+      const tanpaDokter = data.filter(r => !r.nama_dokter);
+      if (tanpaDokter.length > 0) {
+        try {
+          const ids = tanpaDokter.map(r => r.id);
+          const { data: kData } = await sb.from('kunjungan').select('id, keluhan_singkat').in('id', ids);
+          if (kData) {
+            const peta = {};
+            kData.forEach(k => {
+              if (k.keluhan_singkat) {
+                peta[k.id] = k.keluhan_singkat.replace(/^Dokter Pengirim:\s*/i, '').trim();
+              }
+            });
+            tanpaDokter.forEach(r => {
+              if (peta[r.id]) r.nama_dokter = peta[r.id];
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    return data;
   }
   async function buatKunjungan(rec) {
     const { data, error } = await sb.from('kunjungan').insert(rec).select().single();
@@ -1163,6 +1189,31 @@ const DB = (() => {
      jumlahnya, dan disortir descending. Filter opsional: status permintaan
      dan kelompok lab (Hematologi, Kimia Klinik, dll.). */
   async function pemeriksaanLabTeratas({ dari, sampai, status, kelompok, batas = 15 } = {}) {
+    // 0. Cek jika data analitik 2021 (Riwayat CSV) aktif
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      if (Laporan2021.isMurni2021(dari, sampai)) {
+        return await Laporan2021.pemeriksaanTeratas({ dari, sampai, kelompok, batas });
+      }
+      // Rentang campuran (misal: Semua Waktu)
+      const data2021 = await Laporan2021.pemeriksaanTeratas({ dari, sampai, kelompok, batas: 0 });
+      let dataDb = [];
+      try {
+        dataDb = await ambilPemeriksaanDb({ dari, sampai, status, kelompok, batas: 0 });
+      } catch (e) {}
+      const peta = {};
+      (data2021 || []).forEach(d => { peta[d.nama] = { ...d }; });
+      (dataDb || []).forEach(d => {
+        if (!peta[d.nama]) peta[d.nama] = { ...d };
+        else peta[d.nama].jml += d.jml;
+      });
+      const hasil = Object.values(peta).sort((a, b) => b.jml - a.jml);
+      return (batas && batas > 0) ? hasil.slice(0, batas) : hasil;
+    }
+
+    return await ambilPemeriksaanDb({ dari, sampai, status, kelompok, batas });
+  }
+
+  async function ambilPemeriksaanDb({ dari, sampai, status, kelompok, batas = 15 } = {}) {
     // 1. Coba fungsi agregasi database langsung (sangat cepat, mengembalikan data teragregasi < 50ms)
     try {
       const { data, error } = await sb.rpc('rpc_top_pemeriksaan_lab', {
@@ -1227,6 +1278,12 @@ const DB = (() => {
 
   /* Agregasi porsi kelompok / kategori pemeriksaan lab untuk Donut Chart */
   async function distribusiKategoriLab({ dari, sampai } = {}) {
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      if (Laporan2021.isMurni2021(dari, sampai)) {
+        return await Laporan2021.distribusiKelompok({ dari, sampai });
+      }
+    }
+
     try {
       const { data, error } = await sb.rpc('rpc_distribusi_kategori_lab', {
         p_dari: dari || '1970-01-01',
@@ -1253,14 +1310,202 @@ const DB = (() => {
     }
   }
 
+  /* Dokter pengirim dan rekap pemeriksaan laboratorium yang dirujuk */
+  async function laporanDokterPengirimLab({ dari, sampai, query = '', batas = 20 } = {}) {
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.isMurni2021(dari, sampai)) {
+      return await Laporan2021.dokterPengirim({ dari, sampai, query, batas });
+    }
+
+    let dataLive = [];
+    try {
+      const { data: rows } = await sb.from('lab_permintaan')
+        .select(`
+          id, tanggal, status,
+          kunjungan:kunjungan_id (
+            id, keluhan_singkat,
+            dokter:dokter_id (nama)
+          ),
+          lab_hasil (nama)
+        `)
+        .gte('tanggal', dari)
+        .lte('tanggal', sampai)
+        .neq('status', 'BATAL')
+        .limit(3000);
+
+      if (rows && rows.length) {
+        const peta = {};
+        rows.forEach(lp => {
+          let dok = lp.kunjungan?.dokter?.nama;
+          if (!dok && lp.kunjungan?.keluhan_singkat) {
+            dok = lp.kunjungan.keluhan_singkat.replace(/^Dokter Pengirim:\s*/i, '').trim();
+          }
+          if (!dok) dok = 'APS (Atas Permintaan Sendiri)';
+
+          if (!peta[dok]) {
+            peta[dok] = { nama: dok, total_kunjungan: 0, total_tes: 0, tesPeta: {} };
+          }
+          peta[dok].total_kunjungan++;
+          const hasilList = lp.lab_hasil || [];
+          peta[dok].total_tes += (hasilList.length || 1);
+          hasilList.forEach(h => {
+            if (h.nama) {
+              peta[dok].tesPeta[h.nama] = (peta[dok].tesPeta[h.nama] || 0) + 1;
+            }
+          });
+        });
+
+        dataLive = Object.values(peta).map(d => ({
+          nama: d.nama,
+          total_kunjungan: d.total_kunjungan,
+          total_tes: d.total_tes,
+          top_tes: Object.entries(d.tesPeta)
+            .map(([nama, jml]) => ({ nama, jml }))
+            .sort((a, b) => b.jml - a.jml)
+            .slice(0, 15)
+        })).sort((a, b) => b.total_tes - a.total_tes);
+      }
+    } catch (eLive) {
+      console.warn('Gagal ambil dokter lab live:', eLive);
+    }
+
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      const data2021 = await Laporan2021.dokterPengirim({ dari, sampai, query, batas: 0 });
+      const gabung = {};
+      (data2021 || []).forEach(d => { gabung[d.nama] = { ...d, top_tes: [...(d.top_tes || [])] }; });
+      dataLive.forEach(d => {
+        if (!gabung[d.nama]) {
+          gabung[d.nama] = { ...d };
+        } else {
+          gabung[d.nama].total_kunjungan += d.total_kunjungan;
+          gabung[d.nama].total_tes += d.total_tes;
+          const mapTes = {};
+          (gabung[d.nama].top_tes || []).forEach(t => { mapTes[t.nama] = (mapTes[t.nama] || 0) + t.jml; });
+          (d.top_tes || []).forEach(t => { mapTes[t.nama] = (mapTes[t.nama] || 0) + t.jml; });
+          gabung[d.nama].top_tes = Object.entries(mapTes)
+            .map(([nama, jml]) => ({ nama, jml }))
+            .sort((a, b) => b.jml - a.jml);
+        }
+      });
+      let res = Object.values(gabung).sort((a, b) => b.total_tes - a.total_tes);
+      if (query) res = res.filter(x => x.nama.toLowerCase().includes(query.toLowerCase()));
+      return batas > 0 ? res.slice(0, batas) : res;
+    }
+
+    if (query) dataLive = dataLive.filter(x => x.nama.toLowerCase().includes(query.toLowerCase()));
+    return batas > 0 ? dataLive.slice(0, batas) : dataLive;
+  }
+
+  async function tesPerDokterLab(namaDokter) {
+    if (typeof Laporan2021 !== 'undefined') {
+      const tes2021 = await Laporan2021.tesPerDokter(namaDokter);
+      if (tes2021 && tes2021.length) return tes2021;
+    }
+    return [];
+  }
+
+  async function laporanInstansiLab({ dari, sampai, query = '', batas = 20 } = {}) {
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.isMurni2021(dari, sampai)) {
+      return await Laporan2021.instansiPengirim({ query, batas });
+    }
+
+    let dataLive = [];
+    try {
+      const { data: rows } = await sb.from('lab_permintaan')
+        .select(`
+          id, tanggal, status, catatan_klinis,
+          pasien:pasien_id (plant, bagian),
+          lab_hasil (nama)
+        `)
+        .gte('tanggal', dari)
+        .lte('tanggal', sampai)
+        .neq('status', 'BATAL')
+        .limit(3000);
+
+      if (rows && rows.length) {
+        const peta = {};
+        rows.forEach(lp => {
+          let ins = lp.pasien?.plant || lp.pasien?.bagian || lp.catatan_klinis;
+          if (!ins || ins.trim().toLowerCase() === 'umum' || ins.trim() === '-') {
+            ins = 'Umum';
+          }
+          if (!peta[ins]) {
+            peta[ins] = { nama: ins, total_kunjungan: 0, total_tes: 0, tesPeta: {} };
+          }
+          peta[ins].total_kunjungan++;
+          const hasilList = lp.lab_hasil || [];
+          peta[ins].total_tes += (hasilList.length || 1);
+          hasilList.forEach(h => {
+            if (h.nama) {
+              peta[ins].tesPeta[h.nama] = (peta[ins].tesPeta[h.nama] || 0) + 1;
+            }
+          });
+        });
+
+        dataLive = Object.values(peta).map(i => ({
+          nama: i.nama,
+          total_kunjungan: i.total_kunjungan,
+          total_tes: i.total_tes,
+          top_tes: Object.entries(i.tesPeta)
+            .map(([nama, jml]) => ({ nama, jml }))
+            .sort((a, b) => b.jml - a.jml)
+            .slice(0, 15)
+        })).sort((a, b) => b.total_tes - a.total_tes);
+      }
+    } catch (eLive) {}
+
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      const data2021 = await Laporan2021.instansiPengirim({ query, batas: 0 });
+      const gabung = {};
+      (data2021 || []).forEach(d => { gabung[d.nama] = { ...d, top_tes: [...(d.top_tes || [])] }; });
+      dataLive.forEach(d => {
+        if (!gabung[d.nama]) {
+          gabung[d.nama] = { ...d };
+        } else {
+          gabung[d.nama].total_kunjungan += d.total_kunjungan;
+          gabung[d.nama].total_tes += d.total_tes;
+          const mapTes = {};
+          (gabung[d.nama].top_tes || []).forEach(t => { mapTes[t.nama] = (mapTes[t.nama] || 0) + t.jml; });
+          (d.top_tes || []).forEach(t => { mapTes[t.nama] = (mapTes[t.nama] || 0) + t.jml; });
+          gabung[d.nama].top_tes = Object.entries(mapTes)
+            .map(([nama, jml]) => ({ nama, jml }))
+            .sort((a, b) => b.jml - a.jml);
+        }
+      });
+      let res = Object.values(gabung).sort((a, b) => b.total_tes - a.total_tes);
+      if (query) res = res.filter(x => x.nama.toLowerCase().includes(query.toLowerCase()));
+      return batas > 0 ? res.slice(0, batas) : res;
+    }
+
+    if (query) dataLive = dataLive.filter(x => x.nama.toLowerCase().includes(query.toLowerCase()));
+    return batas > 0 ? dataLive.slice(0, batas) : dataLive;
+  }
+
+  async function tesPerInstansiLab(namaInstansi) {
+    if (typeof Laporan2021 !== 'undefined') {
+      const tes2021 = await Laporan2021.tesPerInstansi(namaInstansi);
+      if (tes2021 && tes2021.length) return tes2021;
+    }
+    return [];
+  }
+
   async function daftarKelompokLab() {
+    const bawaan = [
+      'Imunoserologi',
+      'Hematologi',
+      'Kimia Klinik',
+      'Urinalisa & Feses',
+      'Patologi Anatomi',
+      'Radiologi & Penunjang',
+      'Pemeriksaan Fisik'
+    ];
     try {
       const ref = await refLab(true);
-      const set = new Set();
-      ref.forEach(r => { if (r.kelompok) set.add(r.kelompok); });
-      set.add('Pemeriksaan Fisik');
-      return Array.from(set).sort();
-    } catch (e) { return ['Pemeriksaan Fisik']; }
+      const setKel = new Set(bawaan);
+      (ref || []).forEach(r => { if (r.kelompok) setKel.add(r.kelompok); });
+      return Array.from(setKel);
+    } catch (e) {
+      return bawaan;
+    }
   }
 
 
@@ -3211,10 +3456,59 @@ const DB = (() => {
   }
 
   async function laporanRujukan({ dari, sampai }) {
-    return await ambilSemua(() =>
-      sb.from('v_laporan_rujukan').select('*')
-        .gte('tanggal', dari).lte('tanggal', sampai)
-        .order('tanggal', { ascending: false }));
+    let rujukanAktif = [];
+    try {
+      rujukanAktif = await ambilSemua(() =>
+        sb.from('v_laporan_rujukan').select('*')
+          .gte('tanggal', dari).lte('tanggal', sampai)
+          .order('tanggal', { ascending: false }));
+    } catch (_) {
+      rujukanAktif = [];
+    }
+
+    // Dukungan data riwayat 2021: rujukan dokter pengirim dari kunjungan
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      try {
+        const batas2021 = '2021-12-31';
+        const awal2021 = '2021-01-01';
+        const d21 = dari > awal2021 ? dari : awal2021;
+        const s21 = sampai < batas2021 ? sampai : batas2021;
+        if (d21 <= s21) {
+          const { data: rows21 } = await sb.from('kunjungan')
+            .select('id, no_kunjungan, tanggal, status, keluhan_singkat, cara_bayar, pasien:pasien_id(id, no_rm, nama, no_bpjs, no_hp)')
+            .gte('tanggal', d21).lte('tanggal', s21)
+            .not('keluhan_singkat', 'is', null)
+            .order('tanggal', { ascending: false })
+            .limit(2000);
+
+          if (rows21 && rows21.length) {
+            const rujukan2021 = rows21.map(k => {
+              const dok = (k.keluhan_singkat || '').replace(/^Dokter Pengirim:\s*/i, '').trim();
+              const isBpjs = (k.cara_bayar || '').toUpperCase() === 'BPJS';
+              return {
+                id: k.id,
+                tanggal: k.tanggal,
+                nama_pasien: k.pasien?.nama || '—',
+                no_rm: k.pasien?.no_rm || '—',
+                no_bpjs: k.pasien?.no_bpjs || '',
+                no_hp: k.pasien?.no_hp || '',
+                nama_poli_asal: 'Laboratorium Medis',
+                nama_dokter: dok || 'APS (Atas Permintaan Sendiri)',
+                jenis_rujukan: isBpjs ? 'RUJUK_LANJUT' : 'RUJUK_INTERNAL',
+                tujuan: 'Pemeriksaan Laboratorium',
+                rujuk_alasan: 'Pemeriksaan Spesimen Laboratorium Medis',
+                daftar_diagnosa: dok && !dok.toUpperCase().includes('APS') ? `Rujukan Klinis (${dok})` : 'Permintaan Mandiri (APS)'
+              };
+            });
+            return [...rujukanAktif, ...rujukan2021];
+          }
+        }
+      } catch (e21) {
+        console.warn('Gagal memuat rujukan dokter 2021:', e21);
+      }
+    }
+
+    return rujukanAktif;
   }
 
   async function laporanKeuanganTagihan({ dari, sampai }) {
@@ -3294,6 +3588,35 @@ const DB = (() => {
         }
       }
     } catch (eFisik) {}
+
+    // Lengkapi nama_dokter dari keluhan_singkat jika kosong (misal riwayat impor 2021)
+    try {
+      if (rows && rows.length) {
+        const tanpaDokter = rows.filter(r => !r.nama_dokter);
+        if (tanpaDokter.length > 0) {
+          const batchIds = tanpaDokter.map(r => r.id);
+          const chunk = 500;
+          for (let i = 0; i < batchIds.length; i += chunk) {
+            const subIds = batchIds.slice(i, i + chunk);
+            const { data: kData } = await sb.from('kunjungan')
+              .select('id, keluhan_singkat')
+              .in('id', subIds);
+            if (kData) {
+              const peta = {};
+              kData.forEach(k => {
+                if (k.keluhan_singkat) {
+                  const m = k.keluhan_singkat.replace(/^Dokter Pengirim:\s*/i, '').trim();
+                  if (m) peta[k.id] = m;
+                }
+              });
+              tanpaDokter.forEach(r => {
+                if (peta[r.id]) r.nama_dokter = peta[r.id];
+              });
+            }
+          }
+        }
+      }
+    } catch (eDok) {}
 
     return rows;
   }
@@ -4533,6 +4856,7 @@ const DB = (() => {
     laporanRujukan, distribusiKategoriLab,
     laporanKeuanganTagihan, laporanKeuanganPembayaran,
     laporanKaryawanAktivitas,
+    laporanDokterPengirimLab, tesPerDokterLab, laporanInstansiLab, tesPerInstansiLab,
     laporanRegisterPoli, laporanTindakanUntukKunjungan, laporanDiagnosaPuskesmas,
     absensiPegawai, absensiHariIni, absensiMasuk, absensiKeluar, absensiLaporan,
     daftarMasterLokasi, simpanMasterLokasi, hapusMasterLokasi, absensiSemuaHariIni, tetapkanShiftKaryawan,

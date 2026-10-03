@@ -1434,5 +1434,88 @@ table.tbl td.check-cell > label.check {
   color: #d97706;
 }
 
+/* =====================================================================
+   LAPORAN — Pilihan Periode Cepat & Panel Analitik Dokter / Rekanan
+   ===================================================================== */
+.preset-periode-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.btn-preset {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--ink-200);
+  background: var(--surface);
+  color: var(--ink-700);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-preset:hover {
+  background: var(--ink-100);
+  border-color: var(--ink-300);
+  color: var(--ink-900);
+}
+.btn-preset.active {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border-color: var(--brand-500);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.btn-preset-csv {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-preset-csv:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #14532d;
+}
+.btn-preset-csv.active {
+  background: #166534;
+  border-color: #166534;
+  color: #ffffff;
+}
+
+.dok-item, .instansi-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.dok-item:hover, .instansi-item:hover {
+  background: var(--ink-50, #f8fafc);
+  border-color: var(--ink-200);
+}
+.dok-item.active, .instansi-item.active {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.dok-item.active b, .instansi-item.active b {
+  color: #166534;
+}
+
+.sub-panel-box {
+  background: var(--surface-alt, #fafafa);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius, 8px);
+  padding: 16px;
+}
+
 
 

@@ -29,3 +29,16 @@ Thumbs.db
 .env
 .env.*
 *.local
+
+# Database & Local Storage
+*.sqlite
+*.sqlite3
+*.db
+database.sqlite
+
+# Scratch & Temporary Patches
+*.patch
+patch_*.js
+extracted_*.js
+test_*.js
+find_results.txt

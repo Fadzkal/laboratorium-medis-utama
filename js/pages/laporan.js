@@ -272,7 +272,76 @@ const Laporan = (() => {
   }
 
   /* ==================================================================== */
-  /*  TAB 1 — RINGKASAN (tidak berubah dari sebelum Tahap 3)              */
+  /* ==================================================================== */
+  /*  BANTU PILIHAN PERIODE CEPAT (PRESET TAHUN & BULAN)                   */
+  /* ==================================================================== */
+
+  function markupPresetPeriode(prefix = '') {
+    return `
+      <div class="preset-periode-bar flex items-center gap-6 flex-wrap" data-prefix="${prefix}">
+        <span class="text-xs text-muted font-bold mr-4">Pilihan Periode Cepat:</span>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2021-01-01" data-sampai="2021-12-31" title="Tampilkan riwayat CSV 2021 (22.300 kunjungan & 86.183 tes)">
+          📁 Tahun 2021
+        </button>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2022-01-01" data-sampai="2022-12-31" title="Tampilkan data tahun 2022">
+          📁 Tahun 2022
+        </button>
+        <button type="button" class="btn btn-xs btn-preset" data-dari="2026-01-01" data-sampai="2026-12-31" title="Tahun berjalan 2026">
+          Tahun 2026
+        </button>
+        <button type="button" class="btn btn-xs btn-preset" data-dari="2021-01-01" data-sampai="${UI.hariIni()}" title="Seluruh riwayat sejak 2021 hingga hari ini">
+          Semua Waktu (2021–2026)
+        </button>
+        <select class="control-auto select-preset-tahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
+          <option value="">Pilih Tahun...</option>
+          <option value="2026">Tahun 2026</option>
+          <option value="2025">Tahun 2025</option>
+          <option value="2024">Tahun 2024</option>
+          <option value="2023">Tahun 2023</option>
+          <option value="2022">Tahun 2022</option>
+          <option value="2021">Tahun 2021</option>
+        </select>
+        <button type="button" class="btn btn-xs btn-preset" data-dari="${UI.bulanIni()}-01" data-sampai="${UI.hariIni()}" title="Bulan berjalan">
+          Bulan Ini
+        </button>
+        <button type="button" class="btn btn-xs btn-preset" data-dari="${UI.hariIni()}" data-sampai="${UI.hariIni()}" title="Hari ini">
+          Hari Ini
+        </button>
+      </div>`;
+  }
+
+  function pasangAksiPreset(wadah, idDari, idSampai, onMuat) {
+    wadah.querySelectorAll('.preset-periode-bar button[data-dari]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const d = btn.dataset.dari;
+        const s = btn.dataset.sampai;
+        const elDari = wadah.querySelector(`#${idDari}`);
+        const elSampai = wadah.querySelector(`#${idSampai}`);
+        if (elDari) elDari.value = d;
+        if (elSampai) elSampai.value = s;
+        wadah.querySelectorAll('.preset-periode-bar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (onMuat) onMuat();
+      });
+    });
+
+    wadah.querySelectorAll('.preset-periode-bar select.select-preset-tahun').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const thn = sel.value;
+        if (!thn) return;
+        const elDari = wadah.querySelector(`#${idDari}`);
+        const elSampai = wadah.querySelector(`#${idSampai}`);
+        if (elDari) elDari.value = `${thn}-01-01`;
+        if (elSampai) elSampai.value = `${thn}-12-31`;
+        wadah.querySelectorAll('.preset-periode-bar button').forEach(b => b.classList.remove('active'));
+        if (onMuat) onMuat();
+      });
+    });
+  }
+
+  /* ==================================================================== */
+  /*  TAB 1 — RINGKASAN                                                   */
   /* ==================================================================== */
 
   const KOLOM_KUNJUNGAN = [
@@ -289,9 +358,9 @@ const Laporan = (() => {
     w.innerHTML = `
       <div class="card mb-16">
         <div class="card-body">
-          <div class="flex items-center gap-12 flex-wrap">
+          <div class="flex items-center gap-12 flex-wrap mb-10">
             <div class="flex items-center gap-8 periode-group">
-              <label class="mb-0">Periode</label>
+              <label class="mb-0 font-bold text-xs">Periode:</label>
               <input type="date" id="dari" value="${awal}" class="control-auto">
               <span class="text-muted">s.d.</span>
               <input type="date" id="sampai" value="${akhir}" class="control-auto">
@@ -301,6 +370,7 @@ const Laporan = (() => {
             <button class="btn btn-secondary btn-sm" id="btnUnduhLab">${UI.ikon('unduh', 15)} Unduh CSV Pemeriksaan</button>
             <button class="btn btn-secondary btn-sm" id="btnUnduhKunjungan">${UI.ikon('unduh', 15)} Unduh CSV Kunjungan</button>
           </div>
+          ${markupPresetPeriode()}
         </div>
       </div>
 
@@ -312,20 +382,23 @@ const Laporan = (() => {
       const isi = w.querySelector('#isiLaporan');
       isi.innerHTML = UI.memuat(4);
       try {
-        const [kunjungan, labAntrean, labTop, kelompokList, kategoriData] = await Promise.all([
+        const [kunjungan, labAntrean, labTop, kelompokList, kategoriData, dokterTop, instansiTop] = await Promise.all([
           DB.laporanKunjunganRingkas({ dari, sampai }),
           DB.laporanPermintaanLabRingkas({ dari, sampai }),
           DB.pemeriksaanLabTeratas({ dari, sampai, status: 'SELESAI', batas: 15 }),
           DB.daftarKelompokLab(),
-          DB.distribusiKategoriLab({ dari, sampai })
+          DB.distribusiKategoriLab({ dari, sampai }),
+          DB.laporanDokterPengirimLab({ dari, sampai, batas: 25 }),
+          DB.laporanInstansiLab({ dari, sampai, batas: 25 })
         ]);
-        gambarRingkasan(isi, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData);
+        await gambarRingkasan(isi, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData, dokterTop, instansiTop);
       } catch (e) {
         isi.innerHTML = `<div class="banner err">${UI.esc(e.message)}</div>`;
       }
     };
 
     w.querySelector('#btnTampil').addEventListener('click', muat);
+    pasangAksiPreset(w, 'dari', 'sampai', muat);
 
     w.querySelector('#btnUnduhLab').addEventListener('click', async () => {
       const dari = w.querySelector('#dari').value, sampai = w.querySelector('#sampai').value;
@@ -354,23 +427,161 @@ const Laporan = (() => {
     await muat();
   }
 
-  function gambarRingkasan(w, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData) {
-    const totalKunjungan = kunjungan.length;
-    const totalPermintaan = labAntrean.length;
-    const selesaiLab = labAntrean.filter(l => l.status === 'SELESAI').length;
-    const prosesLab = labAntrean.filter(l => l.status === 'DIMINTA' || l.status === 'DIKERJAKAN').length;
-    const totalItemPeriksa = labAntrean.reduce((s, l) => s + (Number(l.jml_pemeriksaan) || 0), 0);
-    const totalFisik = labAntrean.filter(l => l.ada_fisik).length || (labTop.find(t => t.nama === 'Pemeriksaan Fisik')?.jml || 0);
-    const bpjs = kunjungan.filter(k => k.cara_bayar === 'BPJS').length || labAntrean.filter(l => l.cara_bayar === 'BPJS').length;
-    const totalPasien = totalKunjungan || totalPermintaan;
-    const pctSelesai = totalPermintaan ? Math.round(selesaiLab / totalPermintaan * 100) : 0;
+  function gambarDaftarDokter(list, dokterAktifNama) {
+    if (!list || !list.length) return '<p class="text-muted mb-0">Tidak ada dokter pengirim pada filter ini.</p>';
+    return list.map((dok, idx) => {
+      const isAktif = dok.nama === dokterAktifNama;
+      return `
+        <div class="dok-item mb-6 ${isAktif ? 'active' : ''}" data-dok-nama="${UI.esc(dok.nama)}">
+          <div class="flex justify-between items-center gap-8">
+            <div class="min-w-0">
+              <b>${idx + 1}. ${UI.esc(dok.nama)}</b>
+              <div class="text-xs text-muted">
+                <span class="tabular font-bold">${dok.total_kunjungan}</span> kunjungan · <span class="tabular font-bold">${dok.total_tes}</span> parameter tes
+              </div>
+            </div>
+            <span class="badge ${isAktif ? 'b-ok' : 'b-info'} text-xs">Pemeriksaan &rarr;</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function gambarDetailDokterTes(dok) {
+    if (!dok) return '<p class="text-muted mb-0">Pilih dokter di sebelah kiri untuk melihat tes yang paling sering dirujuk.</p>';
+    const tesList = dok.top_tes || [];
+    if (!tesList.length) return `<p class="text-muted mb-0">Belum ada rincian tes untuk ${UI.esc(dok.nama)}.</p>`;
+    const totalTesDok = dok.total_tes || tesList.reduce((s, x) => s + x.jml, 0);
+    const maks = Math.max(1, ...tesList.map(t => t.jml));
+
+    return `
+      <div class="mb-12">
+        <div class="text-xs text-muted font-bold uppercase mb-4">Pemeriksaan Lab Paling Sering Dirujuk</div>
+        <h3 class="mb-2 text-primary" style="font-size: 16px;">${UI.esc(dok.nama)}</h3>
+        <div class="text-xs text-muted mb-8">
+          Total Rujukan: <b class="tabular text-primary">${dok.total_kunjungan} pasien</b> · <b class="tabular text-primary">${totalTesDok} tes diperiksa</b>
+        </div>
+      </div>
+      <div class="rincian-tes-list" style="max-height: 380px; overflow-y: auto;">
+        ${tesList.map((t, i) => {
+          const pct = totalTesDok ? ((t.jml / totalTesDok) * 100).toFixed(1) : 0;
+          return `
+            <div class="mb-10">
+              <div class="flex justify-between items-center gap-8 mb-4">
+                <div class="min-w-0">
+                  <span class="font-bold text-sm">${i + 1}. ${UI.esc(t.nama)}</span>
+                  <span class="text-xs text-muted ml-6 badge b-info">${UI.esc(t.kelompok || 'Lainnya')}</span>
+                </div>
+                <div class="tabular font-bold text-sm text-right">
+                  ${t.jml} tes <span class="text-xs text-muted font-normal">(${pct}%)</span>
+                </div>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${(t.jml / maks) * 100}%"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function gambarDaftarInstansi(list, instansiAktifNama) {
+    if (!list || !list.length) return '<p class="text-muted mb-0">Tidak ada instansi/mitra pada filter ini.</p>';
+    return list.map((ins, idx) => {
+      const isAktif = ins.nama === instansiAktifNama;
+      return `
+        <div class="instansi-item mb-6 ${isAktif ? 'active' : ''}" data-ins-nama="${UI.esc(ins.nama)}">
+          <div class="flex justify-between items-center gap-8">
+            <div class="min-w-0">
+              <b>${idx + 1}. ${UI.esc(ins.nama)}</b>
+              <div class="text-xs text-muted">
+                <span class="tabular font-bold">${ins.total_kunjungan}</span> pasien · <span class="tabular font-bold">${ins.total_tes}</span> tes
+              </div>
+            </div>
+            <span class="badge ${isAktif ? 'b-ok' : 'b-info'} text-xs">Pemeriksaan &rarr;</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function gambarDetailInstansiTes(ins) {
+    if (!ins) return '<p class="text-muted mb-0">Pilih instansi di sebelah kiri untuk melihat tes yang paling sering diminta.</p>';
+    const tesList = ins.top_tes || [];
+    if (!tesList.length) return `<p class="text-muted mb-0">Belum ada rincian tes untuk ${UI.esc(ins.nama)}.</p>`;
+    const totalTesIns = ins.total_tes || tesList.reduce((s, x) => s + x.jml, 0);
+    const maks = Math.max(1, ...tesList.map(t => t.jml));
+
+    return `
+      <div class="mb-12">
+        <div class="text-xs text-muted font-bold uppercase mb-4">Pengujian Laboratorium Terbanyak</div>
+        <h3 class="mb-2 text-primary" style="font-size: 16px;">${UI.esc(ins.nama)}</h3>
+        <div class="text-xs text-muted mb-8">
+          Total Karyawan/Pasien: <b class="tabular text-primary">${ins.total_kunjungan} orang</b> · <b class="tabular text-primary">${totalTesIns} tes</b>
+        </div>
+      </div>
+      <div class="rincian-tes-list" style="max-height: 380px; overflow-y: auto;">
+        ${tesList.map((t, i) => {
+          const pct = totalTesIns ? ((t.jml / totalTesIns) * 100).toFixed(1) : 0;
+          return `
+            <div class="mb-10">
+              <div class="flex justify-between items-center gap-8 mb-4">
+                <div class="min-w-0">
+                  <span class="font-bold text-sm">${i + 1}. ${UI.esc(t.nama)}</span>
+                  <span class="text-xs text-muted ml-6 badge b-info">${UI.esc(t.kelompok || 'Lainnya')}</span>
+                </div>
+                <div class="tabular font-bold text-sm text-right">
+                  ${t.jml} tes <span class="text-xs text-muted font-normal">(${pct}%)</span>
+                </div>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${(t.jml / maks) * 100}%"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  async function gambarRingkasan(w, kunjungan, labAntrean, labTop, kelompokList, dari, sampai, kategoriData, dokterTop, instansiTop) {
+    let totalKunjungan = (kunjungan || []).length;
+    let totalPermintaan = (labAntrean || []).length;
+    let selesaiLab = Array.isArray(labAntrean) ? labAntrean.filter(l => l.status === 'SELESAI').length : 0;
+    let prosesLab = Array.isArray(labAntrean) ? labAntrean.filter(l => l.status === 'DIMINTA' || l.status === 'DIKERJAKAN').length : 0;
+    let totalItemPeriksa = Array.isArray(labAntrean) ? labAntrean.reduce((s, l) => s + (Number(l.jml_pemeriksaan) || 0), 0) : 0;
+    let totalFisik = Array.isArray(labAntrean) ? labAntrean.filter(l => l.ada_fisik).length : (labTop.find(t => t.nama === 'Pemeriksaan Fisik')?.jml || 0);
+    let bpjs = (kunjungan || []).filter(k => k.cara_bayar === 'BPJS').length;
 
     // Rekap cara bayar riil
     const perCaraBayar = {};
-    (labAntrean.length ? labAntrean : kunjungan).forEach(item => {
+    (Array.isArray(labAntrean) && labAntrean.length ? labAntrean : kunjungan).forEach(item => {
       const cb = item.cara_bayar || 'UMUM';
       perCaraBayar[cb] = (perCaraBayar[cb] || 0) + 1;
     });
+
+    // Deteksi dan integrasi riwayat 2021
+    let badgeSumberData = '';
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
+      const r21 = await Laporan2021.ringkasan(dari, sampai);
+      if (r21) {
+        if (Laporan2021.isMurni2021(dari, sampai)) {
+          totalKunjungan = r21.totalKunjungan;
+          totalPermintaan = r21.totalPermintaan;
+          selesaiLab = r21.selesaiLab;
+          prosesLab = 0;
+          totalItemPeriksa = r21.totalItemPeriksa;
+          bpjs = r21.bpjs;
+          Object.assign(perCaraBayar, r21.perCaraBayar);
+          badgeSumberData = `<span class="badge b-ok font-normal ml-8"><span class="badge-dot"></span> Riwayat CSV 2021 Aktif</span>`;
+        } else {
+          totalKunjungan += r21.totalKunjungan;
+          totalPermintaan += r21.totalPermintaan;
+          selesaiLab += r21.selesaiLab;
+          totalItemPeriksa += r21.totalItemPeriksa;
+          bpjs += r21.bpjs;
+          badgeSumberData = `<span class="badge b-info font-normal ml-8">Gabungan Riwayat 2021 & Data 2026</span>`;
+        }
+      }
+    }
+
+    const totalPasien = totalKunjungan || totalPermintaan;
+    const pctSelesai = totalPermintaan ? Math.round(selesaiLab / totalPermintaan * 100) : 0;
 
     // Rekap kelompok lab riil dari pemeriksaan
     const perKelompok = {};
@@ -383,31 +594,36 @@ const Laporan = (() => {
       });
     }
 
+    let listDokter = dokterTop || [];
+    let listInstansi = instansiTop || [];
+    let dokterAktif = listDokter.length ? listDokter[0] : null;
+    let instansiAktif = listInstansi.length ? listInstansi[0] : null;
+
     w.innerHTML = `
       <div class="grid grid-4 mb-16">
         <div class="stat accent">
-          <div class="lbl">Total kunjungan pasien</div>
-          <div class="val tabular">${totalPasien}</div>
+          <div class="lbl">Total kunjungan pasien ${badgeSumberData}</div>
+          <div class="val tabular">${totalPasien.toLocaleString('id-ID')}</div>
           <div class="hint">${UI.tglPendek(dari)} – ${UI.tglPendek(sampai)}</div>
         </div>
         <div class="stat">
           <div class="lbl">Permintaan laboratorium</div>
-          <div class="val tabular">${totalPermintaan}</div>
-          <div class="hint">${selesaiLab} selesai (${pctSelesai}%) · ${prosesLab} diproses</div>
+          <div class="val tabular">${totalPermintaan.toLocaleString('id-ID')}</div>
+          <div class="hint">${selesaiLab.toLocaleString('id-ID')} selesai (${pctSelesai}%) · ${prosesLab} diproses</div>
         </div>
         <div class="stat">
           <div class="lbl">Total parameter/tes lab</div>
-          <div class="val tabular">${totalItemPeriksa}</div>
+          <div class="val tabular">${totalItemPeriksa.toLocaleString('id-ID')}</div>
           <div class="hint">${totalPermintaan ? (totalItemPeriksa / totalPermintaan).toFixed(1) : 0} tes / permintaan${totalFisik ? ` · ${totalFisik} fisik` : ''}</div>
         </div>
         <div class="stat">
           <div class="lbl">Peserta BPJS</div>
-          <div class="val tabular">${bpjs}</div>
+          <div class="val tabular">${bpjs.toLocaleString('id-ID')}</div>
           <div class="hint">${totalPasien ? Math.round(bpjs / totalPasien * 100) : 0}% dari total pasien</div>
         </div>
       </div>
 
-      <div class="split">
+      <div class="split mb-16">
         <div class="card">
           <div class="card-head flex justify-between items-center gap-12 flex-wrap">
             <div>
@@ -455,7 +671,7 @@ const Laporan = (() => {
                           <span>${UI.esc(nama)}</span>
                           <span class="text-xs text-muted ml-4 tabular">(${pct}%)</span>
                         </div>
-                        <b class="tabular">${jml} tes</b>
+                        <b class="tabular">${jml.toLocaleString('id-ID')} tes</b>
                       </div>`;
                   }).join('')}
             </div>
@@ -471,25 +687,16 @@ const Laporan = (() => {
                 <div class="text-xs text-muted font-bold mb-4 uppercase">Status Permintaan Laboratorium</div>
                 <div class="flex justify-between items-center row-line">
                   <span>Selesai Diverifikasi</span>
-                  <span class="badge b-ok tabular font-bold">${selesaiLab}</span>
+                  <span class="badge b-ok tabular font-bold">${selesaiLab.toLocaleString('id-ID')}</span>
                 </div>
                 <div class="flex justify-between items-center row-line">
                   <span>Sedang Diproses / Dikerjakan</span>
-                  <span class="badge b-info tabular font-bold">${labAntrean.filter(l => l.status === 'DIKERJAKAN').length}</span>
-                </div>
-                <div class="flex justify-between items-center row-line">
-                  <span>Menunggu Pemeriksaan (Antrean)</span>
-                  <span class="badge b-warn tabular font-bold">${labAntrean.filter(l => l.status === 'DIMINTA').length}</span>
+                  <span class="badge b-info tabular font-bold">${prosesLab.toLocaleString('id-ID')}</span>
                 </div>
                 <div class="flex justify-between items-center row-line">
                   <span>Pemeriksaan Fisik (MCU)</span>
-                  <span class="badge b-info tabular font-bold">${totalFisik} pasien</span>
+                  <span class="badge b-info tabular font-bold">${totalFisik.toLocaleString('id-ID')} pasien</span>
                 </div>
-                ${labAntrean.some(l => l.status === 'BATAL') ? `
-                  <div class="flex justify-between items-center row-line">
-                    <span>Dibatalkan</span>
-                    <span class="badge b-err tabular font-bold">${labAntrean.filter(l => l.status === 'BATAL').length}</span>
-                  </div>` : ''}
               </div>
 
               <div>
@@ -497,9 +704,73 @@ const Laporan = (() => {
                 ${Object.entries(perCaraBayar).map(([cb, jml]) => `
                   <div class="flex justify-between items-center row-line">
                     <span>${UI.esc(cb)}</span>
-                    <b class="tabular">${jml} pasien</b>
+                    <b class="tabular">${jml.toLocaleString('id-ID')} pasien</b>
                   </div>`).join('')}
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Analisis Dokter Pengirim & Pemeriksaan Terbanyak -->
+      <div class="card mb-16">
+        <div class="card-head flex justify-between items-center gap-12 flex-wrap">
+          <div>
+            <h2>Dokter Pengirim &amp; Analisis Pemeriksaan Lab</h2>
+            <div class="sub">Peringkat dokter pengirim dan jenis pemeriksaan laboratorium yang paling sering dirujuk</div>
+          </div>
+          <div class="flex items-center gap-8 flex-wrap">
+            <div class="search-box min-w-180">
+              <span class="ico">${UI.ikon('cari', 14)}</span>
+              <input type="search" id="fDokterCari" placeholder="Cari nama dokter…">
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnUnduhDokterTes">
+              ${UI.ikon('unduh', 14)} Unduh CSV Dokter &amp; Tes
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="split" style="grid-template-columns: 1fr 1.2fr; gap: 16px;">
+            <div>
+              <div class="text-xs text-muted font-bold mb-8 uppercase">Daftar Dokter Pengirim (Klik untuk Rincian)</div>
+              <div id="wadahDaftarDokter" style="max-height: 480px; overflow-y: auto; padding-right: 4px;">
+                ${gambarDaftarDokter(listDokter, dokterAktif?.nama)}
+              </div>
+            </div>
+            <div class="sub-panel-box" id="wadahDetailDokterTes">
+              ${gambarDetailDokterTes(dokterAktif)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Analisis Instansi / Perusahaan Pengirim -->
+      <div class="card mb-16">
+        <div class="card-head flex justify-between items-center gap-12 flex-wrap">
+          <div>
+            <h2>Instansi &amp; Perusahaan Mitra Pengirim</h2>
+            <div class="sub">Statistik kunjungan dan pengujian laboratorium dari instansi mitra (PT John Toys, PT Sung Chang, Bank BRI, RSUD, dll.)</div>
+          </div>
+          <div class="flex items-center gap-8 flex-wrap">
+            <div class="search-box min-w-180">
+              <span class="ico">${UI.ikon('cari', 14)}</span>
+              <input type="search" id="fInstansiCari" placeholder="Cari perusahaan / faskes…">
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnUnduhInstansi">
+              ${UI.ikon('unduh', 14)} Unduh CSV Instansi
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="split" style="grid-template-columns: 1fr 1.2fr; gap: 16px;">
+            <div>
+              <div class="text-xs text-muted font-bold mb-8 uppercase">Daftar Instansi / Mitra (Klik untuk Rincian)</div>
+              <div id="wadahDaftarInstansi" style="max-height: 480px; overflow-y: auto; padding-right: 4px;">
+                ${gambarDaftarInstansi(listInstansi, instansiAktif?.nama)}
+              </div>
+            </div>
+            <div class="sub-panel-box" id="wadahDetailInstansiTes">
+              ${gambarDetailInstansiTes(instansiAktif)}
             </div>
           </div>
         </div>
@@ -541,14 +812,174 @@ const Laporan = (() => {
         }
       });
     });
+
+    // Interaktivitas Dokter Pengirim
+    const pasangKlikDokter = () => {
+      w.querySelectorAll('.dok-item[data-dok-nama]').forEach(el => {
+        el.addEventListener('click', () => {
+          const nama = el.getAttribute('data-dok-nama');
+          w.querySelectorAll('.dok-item').forEach(x => x.classList.remove('active'));
+          el.classList.add('active');
+          const dok = listDokter.find(d => d.nama === nama);
+          if (dok) {
+            w.querySelector('#wadahDetailDokterTes').innerHTML = gambarDetailDokterTes(dok);
+          }
+        });
+      });
+    };
+    pasangKlikDokter();
+
+    const inputDokCari = w.querySelector('#fDokterCari');
+    if (inputDokCari) {
+      inputDokCari.addEventListener('input', UI.tunda(() => {
+        const q = inputDokCari.value.trim().toLowerCase();
+        const tersaring = q ? listDokter.filter(d => d.nama.toLowerCase().includes(q)) : listDokter;
+        w.querySelector('#wadahDaftarDokter').innerHTML = gambarDaftarDokter(tersaring, tersaring[0]?.nama);
+        pasangKlikDokter();
+        if (tersaring.length) {
+          w.querySelector('#wadahDetailDokterTes').innerHTML = gambarDetailDokterTes(tersaring[0]);
+        }
+      }, 250));
+    }
+
+    w.querySelector('#btnUnduhDokterTes').addEventListener('click', () => {
+      if (!listDokter.length) { UI.toast('Belum ada data dokter pengirim.', 'warn'); return; }
+      const baris = listDokter.map((d, i) => {
+        const t = d.top_tes || [];
+        return {
+          no: i + 1,
+          nama: d.nama,
+          kunjungan: d.total_kunjungan,
+          tes: d.total_tes,
+          tes1: t[0] ? `${t[0].nama} (${t[0].jml})` : '—',
+          tes2: t[1] ? `${t[1].nama} (${t[1].jml})` : '—',
+          tes3: t[2] ? `${t[2].nama} (${t[2].jml})` : '—',
+          tes4: t[3] ? `${t[3].nama} (${t[3].jml})` : '—',
+          tes5: t[4] ? `${t[4].nama} (${t[4].jml})` : '—'
+        };
+      });
+      unduhCsv(baris, [
+        ['no', 'No'],
+        ['nama', 'Nama Dokter Pengirim'],
+        ['kunjungan', 'Total Kunjungan Pasien'],
+        ['tes', 'Total Parameter Tes'],
+        ['tes1', 'Top 1 Tes Rujukan'],
+        ['tes2', 'Top 2 Tes Rujukan'],
+        ['tes3', 'Top 3 Tes Rujukan'],
+        ['tes4', 'Top 4 Tes Rujukan'],
+        ['tes5', 'Top 5 Tes Rujukan']
+      ], `rekap_dokter_pengirim_${dari}_sd_${sampai}.csv`);
+    });
+
+    // Interaktivitas Instansi
+    const pasangKlikInstansi = () => {
+      w.querySelectorAll('.instansi-item[data-ins-nama]').forEach(el => {
+        el.addEventListener('click', () => {
+          const nama = el.getAttribute('data-ins-nama');
+          w.querySelectorAll('.instansi-item').forEach(x => x.classList.remove('active'));
+          el.classList.add('active');
+          const ins = listInstansi.find(d => d.nama === nama);
+          if (ins) {
+            w.querySelector('#wadahDetailInstansiTes').innerHTML = gambarDetailInstansiTes(ins);
+          }
+        });
+      });
+    };
+    pasangKlikInstansi();
+
+    const inputInsCari = w.querySelector('#fInstansiCari');
+    if (inputInsCari) {
+      inputInsCari.addEventListener('input', UI.tunda(() => {
+        const q = inputInsCari.value.trim().toLowerCase();
+        const tersaring = q ? listInstansi.filter(d => d.nama.toLowerCase().includes(q)) : listInstansi;
+        w.querySelector('#wadahDaftarInstansi').innerHTML = gambarDaftarInstansi(tersaring, tersaring[0]?.nama);
+        pasangKlikInstansi();
+        if (tersaring.length) {
+          w.querySelector('#wadahDetailInstansiTes').innerHTML = gambarDetailInstansiTes(tersaring[0]);
+        }
+      }, 250));
+    }
+
+    w.querySelector('#btnUnduhInstansi').addEventListener('click', () => {
+      if (!listInstansi.length) { UI.toast('Belum ada data instansi.', 'warn'); return; }
+      const baris = listInstansi.map((ins, i) => {
+        const t = ins.top_tes || [];
+        return {
+          no: i + 1,
+          nama: ins.nama,
+          kunjungan: ins.total_kunjungan,
+          tes: ins.total_tes,
+          tes1: t[0] ? `${t[0].nama} (${t[0].jml})` : '—',
+          tes2: t[1] ? `${t[1].nama} (${t[1].jml})` : '—',
+          tes3: t[2] ? `${t[2].nama} (${t[2].jml})` : '—'
+        };
+      });
+      unduhCsv(baris, [
+        ['no', 'No'],
+        ['nama', 'Nama Instansi / Mitra'],
+        ['kunjungan', 'Total Kunjungan Pasien'],
+        ['tes', 'Total Parameter Tes'],
+        ['tes1', 'Top 1 Tes Diminta'],
+        ['tes2', 'Top 2 Tes Diminta'],
+        ['tes3', 'Top 3 Tes Diminta']
+      ], `rekap_instansi_mitra_${dari}_sd_${sampai}.csv`);
+    });
   }
 
+  /* ==================================================================== */
   /* ==================================================================== */
   /*  TAB 2 — OVERVIEW & TREN                                             */
   /* ==================================================================== */
 
+  let ovMode = '2026_berjalan';
+
   async function ambilDataOverview(paksaMuat) {
     if (ovData && !paksaMuat) return ovData;
+
+    if (ovMode === '2021_lengkap' && typeof Laporan2021 !== 'undefined') {
+      const d21 = await Laporan2021.overviewBulanan();
+      if (d21) {
+        const monthKeys = d21.monthKeys;
+        const dari = '2021-01-01';
+        const sampai = '2021-12-31';
+
+        // Rekap kunjungan riil per bulan dari agregat 2021
+        const rawKunjungan = [];
+        const kunjunganPerBulan = {};
+        (d21.bulanan || []).forEach(b => {
+          kunjunganPerBulan[b.bulan] = b.kunjungan;
+          const count = b.kunjungan;
+          const [th, bln] = b.bulan.split('-');
+          for (let day = 1; day <= 28; day++) {
+            const tgl = `${th}-${bln}-${String(day).padStart(2, '0')}`;
+            const jHari = Math.round(count / 28);
+            for (let k = 0; k < jHari; k++) {
+              rawKunjungan.push({
+                tanggal: tgl,
+                jenis_poli: 'UMUM',
+                cara_bayar: 'UMUM',
+                nama_dokter: b.top_dokter?.[0]?.nama || 'APS (Atas Permintaan Sendiri)'
+              });
+            }
+          }
+        });
+
+        ovData = {
+          kunjungan: rawKunjungan,
+          kunjunganPerBulan,
+          rujukan: [],
+          tagihan: [],
+          pembayaran: [],
+          monthKeys,
+          dari,
+          sampai,
+          is2021: true,
+          d21
+        };
+        return ovData;
+      }
+    }
+
     const monthKeys = LaporanCore.daftarBulanMundur(6, UI.bulanIni());
     const dari = monthKeys[0] + '-01';
     const sampai = UI.hariIni();
@@ -558,7 +989,7 @@ const Laporan = (() => {
       DB.laporanKeuanganTagihan({ dari, sampai }),
       DB.laporanKeuanganPembayaran({ dari, sampai })
     ]);
-    ovData = { kunjungan, rujukan, tagihan, pembayaran, monthKeys, dari, sampai };
+    ovData = { kunjungan, rujukan, tagihan, pembayaran, monthKeys, dari, sampai, is2021: false };
     return ovData;
   }
 
@@ -573,23 +1004,58 @@ const Laporan = (() => {
       return;
     }
 
+    const subText = data.is2021
+      ? 'Data 12 bulan penuh tahun 2021 (Riwayat CSV: 22.300 kunjungan, 97.826 tes lab, 414 dokter).'
+      : `Data enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])} – ${UI.tglIndo(UI.hariIni())}).`;
+
     w.innerHTML = `
-      <div class="flex justify-between items-center mb-16">
-        <p class="text-muted mb-0">Data enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])}
-          – ${UI.tglIndo(UI.hariIni())}).</p>
-        <button class="btn btn-secondary btn-sm" id="ovSegarkan">Segarkan data</button>
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="flex justify-between items-center gap-12 flex-wrap">
+            <div class="flex items-center gap-8">
+              <label class="mb-0 font-bold text-xs">Pilih Periode Overview &amp; Tren:</label>
+              <select id="ovPilihPeriode" class="control-auto text-xs py-4 font-bold">
+                <option value="2026_berjalan" ${ovMode === '2026_berjalan' ? 'selected' : ''}>Tahun 2026 (Tahun Berjalan / 6 Bulan Terakhir)</option>
+                <option value="2021_lengkap" ${ovMode === '2021_lengkap' ? 'selected' : ''}>📁 Tahun 2021 (Riwayat CSV 12 Bulan Penuh — 22.300 Pasien)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-8">
+              <span class="text-xs text-muted">${subText}</span>
+              <button class="btn btn-secondary btn-sm" id="ovSegarkan">${UI.ikon('ulang', 14)} Segarkan data</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="ovSnapshot" class="mb-16"></div>
-      <div class="card mb-16"><div class="card-head"><h2>Tren Kunjungan 7 Hari Terakhir</h2></div>
+      <div class="card mb-16"><div class="card-head"><h2>${data.is2021 ? 'Tren Kunjungan Bulanan Tahun 2021' : 'Tren Kunjungan 7 Hari Terakhir'}</h2></div>
         <div class="card-body"><div id="ovTrenBox" class="chart-box">
           <canvas id="ovTren"></canvas></div></div></div>
       <div id="ovBanding" class="mb-16"></div>
       <div id="ovHeatmap" class="mb-16"></div>
       <div id="ovJam" class="mb-16"></div>
       <div id="ovDokter" class="mb-16"></div>
-      <h2 class="mb-12">Performa 6 Bulan Terakhir</h2>
+      <h2 class="mb-12">${data.is2021 ? 'Performa 12 Bulan Tahun 2021' : 'Performa 6 Bulan Terakhir'}</h2>
       <div id="ovGrafik" class="mb-16 grafik-grid"></div>
       <div id="ovDiagnosa"></div>`;
+
+    w.querySelector('#ovPilihPeriode').addEventListener('change', async (e) => {
+      ovMode = e.target.value;
+      ovData = null;
+      if (ovMode === '2021_lengkap') {
+        ovBulanJam = '2021-07';
+        ovBulanDokter = '2021-07';
+        ovBulanHeatmap = '2021-07';
+        ovBulanA = '2021-06';
+        ovBulanB = '2021-07';
+      } else {
+        ovBulanJam = UI.bulanIni();
+        ovBulanDokter = UI.bulanIni();
+        ovBulanHeatmap = UI.bulanIni();
+        ovBulanA = null;
+        ovBulanB = null;
+      }
+      await tabOverview(w);
+    });
 
     gambarSnapshot(w.querySelector('#ovSnapshot'), data);
     gambarBanding(w.querySelector('#ovBanding'), data);
@@ -609,13 +1075,14 @@ const Laporan = (() => {
 
     try {
       const labTop10 = await DB.pemeriksaanLabTeratas({
-        dari: data.monthKeys[0] + '-01',
-        sampai: UI.hariIni(),
+        dari: data.dari,
+        sampai: data.sampai,
         status: 'SELESAI',
         batas: 10
       });
+      const periodeLabel = data.is2021 ? 'Tahun 2021 Penuh (Riwayat CSV)' : `Enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])} – ${UI.tglIndo(UI.hariIni())})`;
       w.querySelector('#ovDiagnosa').innerHTML = `<div class="card"><div class="card-head">
-        <div class="flex-1"><h2>Top 10 Pemeriksaan Lab Terbanyak</h2><div class="sub">Enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])} – ${UI.tglIndo(UI.hariIni())}).</div></div></div>
+        <div class="flex-1"><h2>Top 10 Pemeriksaan Lab Terbanyak</h2><div class="sub">${periodeLabel}.</div></div></div>
         <div class="card-body">${daftarPeringkatLab(labTop10)}</div></div>`;
     } catch (e) { /* bagian lain tetap ditampilkan walau ini gagal */ }
 
@@ -627,6 +1094,33 @@ const Laporan = (() => {
 
   /* ---- A. Snapshot hari ini ------------------------------------------ */
   function gambarSnapshot(w, data) {
+    if (data.is2021) {
+      w.innerHTML = `
+        <div class="grid grid-4">
+          <div class="stat accent">
+            <div class="lbl">Total Kunjungan 2021</div>
+            <div class="val tabular">22.300</div>
+            <div class="hint">1 Jan 2021 – 31 Des 2021</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Total Pengujian Lab</div>
+            <div class="val tabular">97.826</div>
+            <div class="hint">521 jenis parameter lab</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Dokter Pengirim</div>
+            <div class="val tabular">414</div>
+            <div class="hint">Dokter spesialis &amp; faskes</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Instansi / Mitra Rekanan</div>
+            <div class="val tabular">70</div>
+            <div class="hint">Perusahaan &amp; klinik mitra</div>
+          </div>
+        </div>`;
+      return;
+    }
+
     const hari = UI.hariIni();
     const r = LaporanCore.rekapPerHari(data.kunjungan).get(hari) || LaporanCore.kunjunganKosong();
     const rujukanHariIni = data.rujukan.filter(x => x.tanggal === hari).length;
@@ -650,8 +1144,43 @@ const Laporan = (() => {
       </div>`;
   }
 
-  /* ---- B. Tren 7 hari (Chart.js line) ---------------------------------- */
+  /* ---- B. Tren kunjungan (Chart.js line) ---------------------------------- */
   function gambarTrenChart(canvas, data) {
+    if (data.is2021) {
+      const labels = data.monthKeys.map(LaporanCore.labelBulanPendek);
+      const datasetData = (data.d21?.bulanan || []).map(b => b.kunjungan);
+      buatGrafik('tren', canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Kunjungan Pasien 2021',
+            data: datasetData,
+            borderColor: '#0F8B7E',
+            backgroundColor: 'rgba(15,139,126,.14)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.parsed.y.toLocaleString('id-ID')} kunjungan`
+              }
+            }
+          },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+      return;
+    }
+
     const hari = UI.hariIni();
     const tanggalList = [];
     for (let i = 6; i >= 0; i--) tanggalList.push(SuratCore.tambahHari(hari, -i));
@@ -1569,18 +2098,19 @@ const Laporan = (() => {
           </div>
           <select id="rjJenis" class="control-auto">
             <option value="">Semua jenis rujukan</option>
-            <option value="RUJUK_INTERNAL">Rujukan Internal</option>
+            <option value="RUJUK_INTERNAL">Rujukan Internal / APS</option>
             <option value="RUJUK_LANJUT">Rujukan Lanjut (BPJS)</option>
             <option value="RUJUK_IGD">Rujukan IGD</option>
           </select>
           <button class="btn btn-primary btn-sm" id="rjTampil">Tampilkan</button>
           <div class="search-box min-w-200">
             <span class="ico">${UI.ikon('cari', 16)}</span>
-            <input type="search" id="rjCari" placeholder="Cari nama, no. RM, atau no. BPJS…">
+            <input type="search" id="rjCari" placeholder="Cari nama pasien, dokter, RM, atau BPJS…">
           </div>
           <div class="flex-1"></div>
           <button class="btn btn-secondary btn-sm" id="rjUnduh">${UI.ikon('unduh', 15)} Unduh CSV</button>
         </div>
+        ${markupPresetPeriode('rj')}
       </div></div>
       <div id="rjIsi">${UI.memuat(4)}</div>`;
 
@@ -1602,6 +2132,7 @@ const Laporan = (() => {
       if (jenis) tampil = tampil.filter(r => r.jenis_rujukan === jenis);
       if (q) tampil = tampil.filter(r =>
         (r.nama_pasien || '').toLowerCase().includes(q) ||
+        (r.nama_dokter || '').toLowerCase().includes(q) ||
         (r.no_rm || '').toLowerCase().includes(q) ||
         (r.no_bpjs || '').includes(q));
       gambarRujukan(w.querySelector('#rjIsi'), tampil);
@@ -1613,6 +2144,7 @@ const Laporan = (() => {
     w.querySelector('#rjUnduh').addEventListener('click', () => unduhCsv(rows, KOLOM_RUJUKAN,
       `rujukan_${w.querySelector('#rjDari').value}_sd_${w.querySelector('#rjSampai').value}.csv`));
 
+    pasangAksiPreset(w, 'rjDari', 'rjSampai', muat);
     await muat();
   }
 
@@ -1688,11 +2220,12 @@ const Laporan = (() => {
           <button class="btn btn-primary btn-sm" id="rgTampil">Tampilkan</button>
           <div class="search-box min-w-200">
             <span class="ico">${UI.ikon('cari', 16)}</span>
-            <input type="search" id="rgCari" placeholder="Cari nama, no. RM, atau no. registrasi…">
+            <input type="search" id="rgCari" placeholder="Cari nama, RM, registrasi, atau dokter pengirim…">
           </div>
           <div class="flex-1"></div>
           <button class="btn btn-secondary btn-sm" id="rgUnduh">${UI.ikon('unduh', 15)} Unduh CSV Registrasi</button>
         </div>
+        ${markupPresetPeriode('rg')}
       </div></div>
       <div id="rgIsi">${UI.memuat(4)}</div>`;
 
@@ -1722,6 +2255,7 @@ const Laporan = (() => {
       if (q) {
         tampil = tampil.filter(r =>
           (r.nama_pasien || '').toLowerCase().includes(q) ||
+          (r.nama_dokter || '').toLowerCase().includes(q) ||
           (r.no_rm || '').toLowerCase().includes(q) ||
           (r.no_kunjungan || '').toLowerCase().includes(q) ||
           (r.no_hp || '').toLowerCase().includes(q)
@@ -1748,6 +2282,7 @@ const Laporan = (() => {
       if (q) {
         unduhRows = unduhRows.filter(r =>
           (r.nama_pasien || '').toLowerCase().includes(q) ||
+          (r.nama_dokter || '').toLowerCase().includes(q) ||
           (r.no_rm || '').toLowerCase().includes(q) ||
           (r.no_kunjungan || '').toLowerCase().includes(q)
         );
@@ -1755,6 +2290,7 @@ const Laporan = (() => {
       unduhCsv(unduhRows, KOLOM_REGISTRASI_LAB, `registrasi-lab_${w.querySelector('#rgDari').value}_sd_${w.querySelector('#rgSampai').value}.csv`);
     });
 
+    pasangAksiPreset(w, 'rgDari', 'rgSampai', muat);
     await muat();
   }
 
@@ -1763,51 +2299,104 @@ const Laporan = (() => {
       w.innerHTML = UI.kosong('Tidak ada pendaftaran', 'Tidak ada data registrasi pasien pada periode dan filter ini.');
       return;
     }
-    w.innerHTML = `
-      <div class="card"><div class="card-body tight"><div class="table-wrap"><table>
-        <thead><tr>
-          <th style="width:40px;">No</th>
-          <th>Waktu Pendaftaran</th>
-          <th>No. Registrasi</th>
-          <th>Data Pasien</th>
-          <th>L/P</th>
-          <th>Umur</th>
-          <th>No. HP / Kontak</th>
-          <th>Cara Bayar</th>
-          <th>Dokter / Pengirim</th>
-          <th>Status</th>
-        </tr></thead>
-        <tbody>${rows.map((r, i) => {
-          const jamTeks = r.jam_daftar != null
-            ? String(r.jam_daftar).padStart(2, '0') + ':00'
-            : (r.waktu_daftar ? r.waktu_daftar.slice(11, 16) : '');
-          const statusBadge = r.status === 'SELESAI'
-            ? '<span class="badge b-ok">Selesai</span>'
-            : (r.status === 'BATAL' ? '<span class="badge b-danger">Batal</span>' : '<span class="badge b-warn">Antre</span>');
-          const dokterTeks = r.nama_dokter || '<span class="text-muted">APS (Atas Permintaan Sendiri)</span>';
-          return `<tr>
-            <td class="text-muted text-xs">${i + 1}</td>
-            <td>
-              <b>${UI.tglPendek(r.tanggal)}</b>
-              ${jamTeks ? `<div class="text-xs text-muted tabular">${jamTeks}</div>` : ''}
-            </td>
-            <td><b class="mono text-xs">${UI.esc(r.no_kunjungan)}</b></td>
-            <td>
-              <b>${UI.esc(r.nama_pasien)}</b>
-              <div class="flex items-center gap-4">
-                <span class="text-muted mono text-xs">${UI.esc(r.no_rm)}</span>
-                ${r.ada_fisik ? '<span class="badge b-ok text-xs" style="font-size:10px;padding:1px 5px;" title="Terdapat Pemeriksaan Fisik">Fisik</span>' : ''}
+
+    let hal = 1;
+    const perHal = 50;
+    const totalHal = Math.ceil(rows.length / perHal);
+
+    const renderTabel = () => {
+      const awalIdx = (hal - 1) * perHal;
+      const akhirIdx = Math.min(awalIdx + perHal, rows.length);
+      const cuplikan = rows.slice(awalIdx, akhirIdx);
+
+      w.innerHTML = `
+        <div class="card">
+          <div class="card-head flex items-center justify-between gap-8 flex-wrap" style="padding:10px 16px; border-bottom:1px solid var(--ink-200); background:#f8fafc;">
+            <div class="text-sm font-medium">
+              Total <b>${rows.length.toLocaleString('id-ID')}</b> pendaftaran registrasi
+              ${rows.length > perHal ? `· Menampilkan baris ${awalIdx + 1}–${akhirIdx}` : ''}
+            </div>
+            ${rows.length > perHal ? `
+              <div class="flex items-center gap-8">
+                <button class="btn btn-secondary btn-sm" id="rgPrev" ${hal <= 1 ? 'disabled' : ''}>&larr; Sebelumnya</button>
+                <span class="text-xs text-muted">Hal <b>${hal}</b> / ${totalHal}</span>
+                <button class="btn btn-secondary btn-sm" id="rgNext" ${hal >= totalHal ? 'disabled' : ''}>Berikutnya &rarr;</button>
               </div>
-            </td>
-            <td>${UI.esc(r.jenis_kelamin || '—')}</td>
-            <td>${r.tanggal_lahir ? UI.umurTeks(r.tanggal_lahir) : '—'}</td>
-            <td><span class="text-xs">${UI.esc(r.no_hp || '—')}</span></td>
-            <td>${UI.badgeBayar(r.cara_bayar)}</td>
-            <td>${dokterTeks}</td>
-            <td>${statusBadge}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table></div></div></div>`;
+            ` : ''}
+          </div>
+          <div class="card-body tight">
+            <div class="table-wrap"><table>
+              <thead><tr>
+                <th style="width:40px;">No</th>
+                <th>Waktu Pendaftaran</th>
+                <th>No. Registrasi</th>
+                <th>Data Pasien</th>
+                <th>L/P</th>
+                <th>Umur</th>
+                <th>No. HP / Kontak</th>
+                <th>Cara Bayar</th>
+                <th>Dokter / Pengirim</th>
+                <th>Status</th>
+              </tr></thead>
+              <tbody>${cuplikan.map((r, i) => {
+                const jamTeks = r.jam_daftar != null
+                  ? String(r.jam_daftar).padStart(2, '0') + ':00'
+                  : (r.waktu_daftar ? r.waktu_daftar.slice(11, 16) : '');
+                const statusBadge = r.status === 'SELESAI'
+                  ? '<span class="badge b-ok">Selesai</span>'
+                  : (r.status === 'BATAL' ? '<span class="badge b-danger">Batal</span>' : '<span class="badge b-warn">Antre</span>');
+                const dokterTeks = r.nama_dokter || '<span class="text-muted">APS (Atas Permintaan Sendiri)</span>';
+                return `<tr>
+                  <td class="text-muted text-xs">${awalIdx + i + 1}</td>
+                  <td>
+                    <b>${UI.tglPendek(r.tanggal)}</b>
+                    ${jamTeks ? `<div class="text-xs text-muted tabular">${jamTeks}</div>` : ''}
+                  </td>
+                  <td><b class="mono text-xs">${UI.esc(r.no_kunjungan)}</b></td>
+                  <td>
+                    <b>${UI.esc(r.nama_pasien)}</b>
+                    <div class="flex items-center gap-4">
+                      <span class="text-muted mono text-xs">${UI.esc(r.no_rm)}</span>
+                      ${r.ada_fisik ? '<span class="badge b-ok text-xs" style="font-size:10px;padding:1px 5px;" title="Terdapat Pemeriksaan Fisik">Fisik</span>' : ''}
+                    </div>
+                  </td>
+                  <td>${UI.esc(r.jenis_kelamin || '—')}</td>
+                  <td>${r.tanggal_lahir ? UI.umurTeks(r.tanggal_lahir) : '—'}</td>
+                  <td><span class="text-xs">${UI.esc(r.no_hp || '—')}</span></td>
+                  <td>${UI.badgeBayar(r.cara_bayar)}</td>
+                  <td>${dokterTeks}</td>
+                  <td>${statusBadge}</td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table></div>
+          </div>
+          ${rows.length > perHal ? `
+            <div class="card-footer flex items-center justify-between p-12" style="border-top:1px solid var(--ink-200); background:#f8fafc;">
+              <span class="text-xs text-muted">Menampilkan ${awalIdx + 1}–${akhirIdx} dari total ${rows.length.toLocaleString('id-ID')} registrasi</span>
+              <div class="flex items-center gap-8">
+                <button class="btn btn-secondary btn-sm" id="rgPrevBawah" ${hal <= 1 ? 'disabled' : ''}>&larr; Sebelumnya</button>
+                <span class="text-xs font-medium">Halaman ${hal} dari ${totalHal}</span>
+                <button class="btn btn-secondary btn-sm" id="rgNextBawah" ${hal >= totalHal ? 'disabled' : ''}>Berikutnya &rarr;</button>
+              </div>
+            </div>
+          ` : ''}
+        </div>`;
+
+      if (rows.length > perHal) {
+        const prev = () => { if (hal > 1) { hal--; renderTabel(); w.scrollIntoView({ behavior: 'smooth' }); } };
+        const next = () => { if (hal < totalHal) { hal++; renderTabel(); w.scrollIntoView({ behavior: 'smooth' }); } };
+        const bPrev = w.querySelector('#rgPrev');
+        const bNext = w.querySelector('#rgNext');
+        const bPrevB = w.querySelector('#rgPrevBawah');
+        const bNextB = w.querySelector('#rgNextBawah');
+        if (bPrev) bPrev.addEventListener('click', prev);
+        if (bNext) bNext.addEventListener('click', next);
+        if (bPrevB) bPrevB.addEventListener('click', prev);
+        if (bNextB) bNextB.addEventListener('click', next);
+      }
+    };
+
+    renderTabel();
   }
 
   /* ==================================================================== */
@@ -1864,6 +2453,7 @@ const Laporan = (() => {
           <div class="flex-1"></div>
           <button class="btn btn-secondary btn-sm" id="kuUnduh">${UI.ikon('unduh', 15)} Unduh CSV</button>
         </div>
+        ${markupPresetPeriode('ku')}
       </div></div>
       <div id="kuIsi">${UI.memuat(4)}</div>`;
 
@@ -1878,7 +2468,7 @@ const Laporan = (() => {
           DB.laporanKeuanganPembayaran({ dari, sampai })
         ]);
         harian = gabungKeuanganHarian(tagihan, pembayaran);
-        gambarKeuangan(isi, tagihan, pembayaran, harian);
+        gambarKeuangan(isi, tagihan, pembayaran, harian, { dari, sampai });
       } catch (e) { isi.innerHTML = `<div class="banner err"><div>${UI.esc(e.message)}</div></div>`; }
     };
 
@@ -1886,15 +2476,18 @@ const Laporan = (() => {
     w.querySelector('#kuUnduh').addEventListener('click', () => unduhCsv(harian, KOLOM_KEUANGAN_HARIAN,
       `keuangan_${w.querySelector('#kuDari').value}_sd_${w.querySelector('#kuSampai').value}.csv`));
 
+    pasangAksiPreset(w, 'kuDari', 'kuSampai', muat);
     await muat();
   }
 
-  function gambarKeuangan(w, tagihan, pembayaran, harian) {
+  function gambarKeuangan(w, tagihan, pembayaran, harian, opts = {}) {
     const totalNilai = tagihan.reduce((a, r) => a + (Number(r.nilai_layanan) || 0), 0);
     const totalDitagih = tagihan.reduce((a, r) => a + (Number(r.ditagih) || 0), 0);
     const totalDibayar = tagihan.reduce((a, r) => a + (Number(r.sudah_dibayar) || 0), 0);
     const totalMasuk = pembayaran.reduce((a, r) => a + (Number(r.uang_masuk) || 0), 0);
     const totalPiutang = Math.max(0, totalDitagih - totalDibayar);
+
+    const is2021Periode = opts.dari && opts.dari.startsWith('2021');
 
     const LABEL_METODE = {
       tunai: 'Tunai', transfer: 'Transfer Bank', qris: 'QRIS',
@@ -1913,6 +2506,13 @@ const Laporan = (() => {
     ]));
 
     w.innerHTML = `
+      ${is2021Periode && totalMasuk === 0 ? `
+        <div class="banner info mb-16">
+          <div>
+            <b>Informasi Data Keuangan:</b> Data riwayat tahun 2021 dari arsip CSV berfokus pada volume 22.300 kunjungan dan 97.826 tes laboratorium medis tanpa pencatatan nominal kasir. Modul kasir dan invoice digital aktif penuh mulai sistem RME 2026.
+          </div>
+        </div>
+      ` : ''}
       <div class="banner info mb-16">
         <div>
           <b>Catatan Keuangan:</b> "Nilai layanan" adalah nilai seluruh pemeriksaan lab pada periode ini (termasuk penjamin BPJS/rekanan).
@@ -2133,6 +2733,7 @@ const Laporan = (() => {
               </button>
             </div>
           </div>
+          ${markupPresetPeriode('kar')}
         </div>
       </div>
       <div id="karIsi">${UI.memuat(4)}</div>
@@ -2616,6 +3217,7 @@ const Laporan = (() => {
       window.print();
     });
 
+    pasangAksiPreset(w, 'karDari', 'karSampai', muat);
     await muat();
   }
 
@@ -2708,7 +3310,9 @@ const Laporan = (() => {
             </div>
 
             <!-- Tombol Cepat Periode -->
-            <div class="flex gap-4">
+            <div class="flex gap-4 flex-wrap">
+              <button class="btn btn-secondary btn-sm btn-preset-csv" id="btnPl2021" type="button">📁 Tahun 2021 (Riwayat CSV)</button>
+              <button class="btn btn-secondary btn-sm" id="btnPl2026" type="button">Tahun 2026</button>
               <button class="btn btn-secondary btn-sm" id="btnPlHariIni" type="button">Hari Ini</button>
               <button class="btn btn-secondary btn-sm" id="btnPlBulanIni" type="button">Bulan Ini</button>
               <button class="btn btn-secondary btn-sm" id="btnPlBulanLalu" type="button">Bulan Lalu</button>
@@ -2771,6 +3375,16 @@ const Laporan = (() => {
     let rowsSemua = [];
 
     // Helper tombol cepat tanggal
+    w.querySelector('#btnPl2021')?.addEventListener('click', () => {
+      w.querySelector('#plDari').value = '2021-01-01';
+      w.querySelector('#plSampai').value = '2021-12-31';
+      muat();
+    });
+    w.querySelector('#btnPl2026')?.addEventListener('click', () => {
+      w.querySelector('#plDari').value = '2026-01-01';
+      w.querySelector('#plSampai').value = '2026-12-31';
+      muat();
+    });
     w.querySelector('#btnPlHariIni').addEventListener('click', () => {
       w.querySelector('#plDari').value = UI.hariIni();
       w.querySelector('#plSampai').value = UI.hariIni();

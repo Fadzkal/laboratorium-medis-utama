@@ -396,64 +396,205 @@ const Rekam = (() => {
     const awal = new Date(Date.now() - 29 * 864e5).toISOString().slice(0, 10);
 
     el.innerHTML = `
-      <div class="mb-16"><h1>Riwayat Kunjungan</h1>
-        <p class="text-muted mb-0">Seluruh kunjungan yang tercatat di klinik.</p></div>
+      <div class="mb-16">
+        <h1>Riwayat Kunjungan</h1>
+        <p class="text-muted mb-0">Seluruh kunjungan pasien yang tercatat di klinik dan riwayat laboratorium.</p>
+      </div>
 
-      <div class="card">
-        <div class="card-head flex-wrap gap-8">
-          <div class="flex items-center gap-8">
-            <label style="margin:0">Dari</label>
-            <input type="date" id="dari" value="${awal}" style="width:auto">
-            <label style="margin:0">sampai</label>
-            <input type="date" id="sampai" value="${akhir}" style="width:auto">
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="flex items-center gap-12 flex-wrap mb-10">
+            <div class="flex items-center gap-8 periode-group">
+              <label style="margin:0" class="text-xs font-bold">Periode:</label>
+              <input type="date" id="dari" value="${awal}" class="control-auto">
+              <span class="text-muted">s.d.</span>
+              <input type="date" id="sampai" value="${akhir}" class="control-auto">
+            </div>
+            <select id="rwCaraBayar" class="control-auto" title="Filter Cara Bayar">
+              <option value="">Semua Cara Bayar</option>
+              <option value="UMUM">Umum / Mandiri</option>
+              <option value="BPJS">BPJS Kesehatan</option>
+              <option value="PERUSAHAAN">Perusahaan / Rekanan</option>
+            </select>
+            <div class="search-box flex-1" style="min-width:220px">
+              <span class="ico">${UI.ikon('cari', 16)}</span>
+              <input type="search" id="cari" placeholder="Cari pasien, no. RM, dokter pengirim, atau no. registrasi…">
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnRwMuat">${UI.ikon('ulang', 14)} Tampilkan</button>
           </div>
-          <div class="search-box flex-1" style="min-width:200px">
-            <span class="ico">${UI.ikon('cari',16)}</span>
-            <input type="search" id="cari" placeholder="Saring nama pasien atau diagnosa…">
+
+          <!-- Quick Preset Buttons -->
+          <div class="preset-periode-bar flex items-center gap-6 flex-wrap" style="padding-top:8px; border-top:1px solid var(--ink-200);">
+            <span class="text-xs text-muted font-bold" style="margin-right:2px;">Filter Cepat:</span>
+            <button class="btn-preset btn-preset-csv" id="btnRw2021" type="button">📁 Tahun 2021</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2022" type="button">📁 Tahun 2022</button>
+            <button class="btn-preset" id="btnRw2026" type="button">Tahun 2026</button>
+            <button class="btn-preset" id="btnRwSemua" type="button">Semua Waktu (2021–2026)</button>
+            <select class="control-auto select-preset-tahun" id="selectRwTahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
+              <option value="">Pilih Tahun...</option>
+              <option value="2026">Tahun 2026</option>
+              <option value="2025">Tahun 2025</option>
+              <option value="2024">Tahun 2024</option>
+              <option value="2023">Tahun 2023</option>
+              <option value="2022">Tahun 2022</option>
+              <option value="2021">Tahun 2021</option>
+            </select>
+            <button class="btn-preset" id="btnRwBulanIni" type="button">Bulan Ini</button>
+            <button class="btn-preset" id="btnRwHariIni" type="button">Hari Ini</button>
           </div>
         </div>
-        <div class="card-body tight" id="hasil">${UI.memuat(4)}</div>
-      </div>`;
+      </div>
+
+      <div id="hasil">${UI.memuat(4)}</div>`;
 
     let semua = [];
+    let hal = 1;
+    const perHal = 50;
+
     const gambar = () => {
-      const kata = (el.querySelector('#cari').value || '').toLowerCase();
-      const d = !kata ? semua : semua.filter(x =>
-        (x.nama_pasien || '').toLowerCase().includes(kata) ||
-        (x.daftar_diagnosa || '').toLowerCase().includes(kata) ||
-        (x.no_rm || '').includes(kata));
+      const kata = (el.querySelector('#cari').value || '').toLowerCase().trim();
+      const cb = (el.querySelector('#rwCaraBayar').value || '').toUpperCase();
+
+      let d = semua;
+      if (cb) {
+        d = d.filter(x => (x.cara_bayar || '').toUpperCase() === cb);
+      }
+      if (kata) {
+        d = d.filter(x =>
+          (x.nama_pasien || '').toLowerCase().includes(kata) ||
+          (x.nama_dokter || '').toLowerCase().includes(kata) ||
+          (x.daftar_diagnosa || '').toLowerCase().includes(kata) ||
+          (x.no_kunjungan || '').toLowerCase().includes(kata) ||
+          (x.no_rm || '').includes(kata)
+        );
+      }
+
       const w = el.querySelector('#hasil');
-      if (!d.length) { w.innerHTML = UI.kosong('Tidak ada kunjungan', 'Coba ubah rentang tanggal atau kata pencarian.'); return; }
-      w.innerHTML = `<div class="table-wrap"><table class="tbl">
-        <thead><tr><th>Tanggal</th><th>Pasien</th><th>Poli</th><th>Diagnosa</th>
-          <th>Dokter</th><th>Status</th><th></th></tr></thead>
-        <tbody>${d.map(k => `
-          <tr class="clickable" onclick="location.hash='#/rekam/${k.id}'">
-            <td class="nowrap"><b>${UI.tglPendek(k.tanggal)}</b>
-              <div class="text-xs text-muted mono">${UI.esc(k.no_kunjungan)}</div></td>
-            <td><b>${UI.esc(k.nama_pasien)}</b>
-              <div class="text-xs text-muted mono">${UI.esc(k.no_rm)}</div></td>
-            <td>${UI.esc(k.nama_poli)}</td>
-            <td>${k.daftar_diagnosa ? UI.esc(k.daftar_diagnosa) : '<span class="muted">—</span>'}</td>
-            <td class="muted">${UI.esc(k.nama_dokter || '—')}</td>
-            <td>${UI.badgeStatus(k.status)}</td>
-            <td>${UI.ikon('kembali',14)}</td>
-          </tr>`).join('')}</tbody></table></div>`;
+      if (!d.length) {
+        w.innerHTML = UI.kosong('Tidak ada kunjungan', 'Coba ubah rentang tanggal atau kata pencarian.');
+        return;
+      }
+
+      const totalHal = Math.ceil(d.length / perHal);
+      if (hal > totalHal) hal = totalHal;
+      if (hal < 1) hal = 1;
+
+      const awalIdx = (hal - 1) * perHal;
+      const akhirIdx = Math.min(awalIdx + perHal, d.length);
+      const cuplikan = d.slice(awalIdx, akhirIdx);
+
+      w.innerHTML = `
+        <div class="card">
+          <div class="card-head flex items-center justify-between gap-8 flex-wrap" style="padding:10px 16px; border-bottom:1px solid var(--ink-200); background:#f8fafc;">
+            <div class="text-sm font-medium">
+              Total <b>${d.length.toLocaleString('id-ID')}</b> kunjungan
+              ${d.length > perHal ? `· Menampilkan ${awalIdx + 1}–${akhirIdx}` : ''}
+            </div>
+            ${d.length > perHal ? `
+              <div class="flex items-center gap-8">
+                <button class="btn btn-secondary btn-sm" id="rwPrev" ${hal <= 1 ? 'disabled' : ''}>&larr; Sebelumnya</button>
+                <span class="text-xs text-muted">Hal <b>${hal}</b> / ${totalHal}</span>
+                <button class="btn btn-secondary btn-sm" id="rwNext" ${hal >= totalHal ? 'disabled' : ''}>Berikutnya &rarr;</button>
+              </div>
+            ` : ''}
+          </div>
+          <div class="card-body tight">
+            <div class="table-wrap"><table class="tbl">
+              <thead><tr>
+                <th style="width:36px; text-align:center;">#</th>
+                <th>Tanggal &amp; No. Reg</th>
+                <th>Pasien</th>
+                <th>Poli</th>
+                <th>Diagnosa / Keterangan</th>
+                <th>Dokter Pengirim</th>
+                <th>Cara Bayar</th>
+                <th>Status</th>
+                <th></th>
+              </tr></thead>
+              <tbody>${cuplikan.map((k, idx) => `
+                <tr class="clickable" onclick="location.hash='#/rekam/${k.id}'">
+                  <td class="text-muted text-xs text-center">${awalIdx + idx + 1}</td>
+                  <td class="nowrap">
+                    <b>${UI.tglPendek(k.tanggal)}</b>
+                    <div class="text-xs text-muted mono">${UI.esc(k.no_kunjungan)}</div>
+                  </td>
+                  <td>
+                    <b>${UI.esc(k.nama_pasien)}</b>
+                    <div class="text-xs text-muted mono">${UI.esc(k.no_rm)}</div>
+                  </td>
+                  <td>${UI.esc(k.nama_poli || 'Laboratorium')}</td>
+                  <td>${k.daftar_diagnosa ? UI.esc(k.daftar_diagnosa) : '<span class="muted">—</span>'}</td>
+                  <td><b>${UI.esc(k.nama_dokter || 'APS (Atas Permintaan Sendiri)')}</b></td>
+                  <td>${UI.badgeBayar(k.cara_bayar)}</td>
+                  <td>${UI.badgeStatus(k.status)}</td>
+                  <td>${UI.ikon('kembali', 14)}</td>
+                </tr>`).join('')}</tbody>
+            </table></div>
+          </div>
+          ${d.length > perHal ? `
+            <div class="card-footer flex items-center justify-between p-12" style="border-top:1px solid var(--ink-200); background:#f8fafc;">
+              <span class="text-xs text-muted">Menampilkan ${awalIdx + 1}–${akhirIdx} dari ${d.length.toLocaleString('id-ID')} data</span>
+              <div class="flex items-center gap-8">
+                <button class="btn btn-secondary btn-sm" id="rwPrevBawah" ${hal <= 1 ? 'disabled' : ''}>&larr; Sebelumnya</button>
+                <span class="text-xs font-medium">Halaman ${hal} dari ${totalHal}</span>
+                <button class="btn btn-secondary btn-sm" id="rwNextBawah" ${hal >= totalHal ? 'disabled' : ''}>Berikutnya &rarr;</button>
+              </div>
+            </div>
+          ` : ''}
+        </div>`;
+
+      if (d.length > perHal) {
+        const kePrev = () => { if (hal > 1) { hal--; gambar(); w.scrollIntoView({ behavior: 'smooth' }); } };
+        const keNext = () => { if (hal < totalHal) { hal++; gambar(); w.scrollIntoView({ behavior: 'smooth' }); } };
+        w.querySelector('#rwPrev')?.addEventListener('click', kePrev);
+        w.querySelector('#rwNext')?.addEventListener('click', keNext);
+        w.querySelector('#rwPrevBawah')?.addEventListener('click', kePrev);
+        w.querySelector('#rwNextBawah')?.addEventListener('click', keNext);
+      }
     };
 
     const muat = async () => {
       el.querySelector('#hasil').innerHTML = UI.memuat(4);
-      semua = await DB.daftarKunjungan({
-        dari: el.querySelector('#dari').value,
-        sampai: el.querySelector('#sampai').value,
-        batas: 500
-      });
+      hal = 1;
+      try {
+        semua = await DB.daftarKunjungan({
+          dari: el.querySelector('#dari').value,
+          sampai: el.querySelector('#sampai').value,
+          batas: 1000
+        });
+      } catch (err) {
+        console.error(err);
+        semua = [];
+      }
       gambar();
     };
 
+    // Wiring preset buttons
+    const setPreset = (d1, s1, idTombol) => {
+      el.querySelector('#dari').value = d1;
+      el.querySelector('#sampai').value = s1;
+      el.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      el.querySelector('#' + idTombol)?.classList.add('active');
+      muat();
+    };
+
+    el.querySelector('#btnRw2021')?.addEventListener('click', () => setPreset('2021-01-01', '2021-12-31', 'btnRw2021'));
+    el.querySelector('#btnRw2022')?.addEventListener('click', () => setPreset('2022-01-01', '2022-12-31', 'btnRw2022'));
+    el.querySelector('#btnRw2026')?.addEventListener('click', () => setPreset('2026-01-01', '2026-12-31', 'btnRw2026'));
+    el.querySelector('#btnRwSemua')?.addEventListener('click', () => setPreset('2021-01-01', '2026-12-31', 'btnRwSemua'));
+    el.querySelector('#selectRwTahun')?.addEventListener('change', (e) => {
+      const thn = e.target.value;
+      if (thn) setPreset(`${thn}-01-01`, `${thn}-12-31`, '');
+    });
+    el.querySelector('#btnRwBulanIni')?.addEventListener('click', () => setPreset(UI.bulanIni() + '-01', UI.hariIni(), 'btnRwBulanIni'));
+    el.querySelector('#btnRwHariIni')?.addEventListener('click', () => setPreset(UI.hariIni(), UI.hariIni(), 'btnRwHariIni'));
+
+    el.querySelector('#btnRwMuat').addEventListener('click', muat);
+    el.querySelector('#rwCaraBayar').addEventListener('change', () => { hal = 1; gambar(); });
     el.querySelector('#dari').addEventListener('change', muat);
     el.querySelector('#sampai').addEventListener('change', muat);
-    el.querySelector('#cari').addEventListener('input', UI.tunda(gambar, 200));
+    el.querySelector('#cari').addEventListener('input', UI.tunda(() => { hal = 1; gambar(); }, 200));
+
     await muat();
   }
 
