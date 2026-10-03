@@ -426,18 +426,21 @@ const Rekam = (() => {
           <!-- Quick Preset Buttons -->
           <div class="preset-periode-bar flex items-center gap-6 flex-wrap" style="padding-top:8px; border-top:1px solid var(--ink-200);">
             <span class="text-xs text-muted font-bold" style="margin-right:2px;">Filter Cepat:</span>
-            <button class="btn-preset btn-preset-csv" id="btnRw2021" type="button">📁 Tahun 2021</button>
-            <button class="btn-preset btn-preset-csv" id="btnRw2022" type="button">📁 Tahun 2022</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2019" type="button">📁 2019</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2020" type="button">📁 2020</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2021" type="button">📁 2021</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2022" type="button">📁 2022</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2023" type="button">📁 2023</button>
             <button class="btn-preset" id="btnRw2026" type="button">Tahun 2026</button>
-            <button class="btn-preset" id="btnRwSemua" type="button">Semua Waktu (2021–2026)</button>
+            <button class="btn-preset" id="btnRwSemua" type="button">Semua Waktu (2019–2026)</button>
             <select class="control-auto select-preset-tahun" id="selectRwTahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
               <option value="">Pilih Tahun...</option>
               <option value="2026">Tahun 2026</option>
-              <option value="2025">Tahun 2025</option>
-              <option value="2024">Tahun 2024</option>
               <option value="2023">Tahun 2023</option>
               <option value="2022">Tahun 2022</option>
               <option value="2021">Tahun 2021</option>
+              <option value="2020">Tahun 2020</option>
+              <option value="2019">Tahun 2019</option>
             </select>
             <button class="btn-preset" id="btnRwBulanIni" type="button">Bulan Ini</button>
             <button class="btn-preset" id="btnRwHariIni" type="button">Hari Ini</button>
@@ -578,10 +581,13 @@ const Rekam = (() => {
       muat();
     };
 
+    el.querySelector('#btnRw2019')?.addEventListener('click', () => setPreset('2019-01-01', '2019-12-31', 'btnRw2019'));
+    el.querySelector('#btnRw2020')?.addEventListener('click', () => setPreset('2020-01-01', '2020-12-31', 'btnRw2020'));
     el.querySelector('#btnRw2021')?.addEventListener('click', () => setPreset('2021-01-01', '2021-12-31', 'btnRw2021'));
     el.querySelector('#btnRw2022')?.addEventListener('click', () => setPreset('2022-01-01', '2022-12-31', 'btnRw2022'));
+    el.querySelector('#btnRw2023')?.addEventListener('click', () => setPreset('2023-01-01', '2023-12-31', 'btnRw2023'));
     el.querySelector('#btnRw2026')?.addEventListener('click', () => setPreset('2026-01-01', '2026-12-31', 'btnRw2026'));
-    el.querySelector('#btnRwSemua')?.addEventListener('click', () => setPreset('2021-01-01', '2026-12-31', 'btnRwSemua'));
+    el.querySelector('#btnRwSemua')?.addEventListener('click', () => setPreset('2019-01-01', '2026-12-31', 'btnRwSemua'));
     el.querySelector('#selectRwTahun')?.addEventListener('change', (e) => {
       const thn = e.target.value;
       if (thn) setPreset(`${thn}-01-01`, `${thn}-12-31`, '');

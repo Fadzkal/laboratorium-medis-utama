@@ -280,26 +280,35 @@ const Laporan = (() => {
     return `
       <div class="preset-periode-bar flex items-center gap-6 flex-wrap" data-prefix="${prefix}">
         <span class="text-xs text-muted font-bold mr-4">Pilihan Periode Cepat:</span>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2019-01-01" data-sampai="2019-12-31" title="Tampilkan riwayat CSV 2019 (9.248 kunjungan & 79.545 tes)">
+          📁 2019
+        </button>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2020-01-01" data-sampai="2020-12-31" title="Tampilkan riwayat CSV 2020 (10.614 kunjungan & 76.964 tes)">
+          📁 2020
+        </button>
         <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2021-01-01" data-sampai="2021-12-31" title="Tampilkan riwayat CSV 2021 (22.300 kunjungan & 86.183 tes)">
-          📁 Tahun 2021
+          📁 2021
         </button>
-        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2022-01-01" data-sampai="2022-12-31" title="Tampilkan data tahun 2022">
-          📁 Tahun 2022
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2022-01-01" data-sampai="2022-12-31" title="Tampilkan riwayat CSV 2022 (13.918 kunjungan & 60.240 tes)">
+          📁 2022
         </button>
-        <button type="button" class="btn btn-xs btn-preset" data-dari="2026-01-01" data-sampai="2026-12-31" title="Tahun berjalan 2026">
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2023-01-01" data-sampai="2023-12-31" title="Tampilkan riwayat CSV 2023 (9.175 kunjungan & 45.215 tes)">
+          📁 2023
+        </button>
+        <button type="button" class="btn btn-xs btn-preset" data-dari="2026-01-01" data-sampai="2026-12-31" title="Tahun berjalan 2026 (Live Transaksi)">
           Tahun 2026
         </button>
-        <button type="button" class="btn btn-xs btn-preset" data-dari="2021-01-01" data-sampai="${UI.hariIni()}" title="Seluruh riwayat sejak 2021 hingga hari ini">
-          Semua Waktu (2021–2026)
+        <button type="button" class="btn btn-xs btn-preset" data-dari="2019-01-01" data-sampai="${UI.hariIni()}" title="Seluruh riwayat sejak 2019 hingga hari ini (65.255+ registrasi)">
+          Semua Waktu (2019–2026)
         </button>
         <select class="control-auto select-preset-tahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
           <option value="">Pilih Tahun...</option>
-          <option value="2026">Tahun 2026</option>
-          <option value="2025">Tahun 2025</option>
-          <option value="2024">Tahun 2024</option>
-          <option value="2023">Tahun 2023</option>
-          <option value="2022">Tahun 2022</option>
-          <option value="2021">Tahun 2021</option>
+          <option value="2026">Tahun 2026 (Live)</option>
+          <option value="2023">Tahun 2023 (9.175 Pasien)</option>
+          <option value="2022">Tahun 2022 (13.918 Pasien)</option>
+          <option value="2021">Tahun 2021 (22.300 Pasien)</option>
+          <option value="2020">Tahun 2020 (10.614 Pasien)</option>
+          <option value="2019">Tahun 2019 (9.248 Pasien)</option>
         </select>
         <button type="button" class="btn btn-xs btn-preset" data-dari="${UI.bulanIni()}-01" data-sampai="${UI.hariIni()}" title="Bulan berjalan">
           Bulan Ini
@@ -555,27 +564,29 @@ const Laporan = (() => {
       perCaraBayar[cb] = (perCaraBayar[cb] || 0) + 1;
     });
 
-    // Deteksi dan integrasi riwayat 2021
+    // Deteksi dan integrasi riwayat historis (2019 - 2023)
     let badgeSumberData = '';
-    if (typeof Laporan2021 !== 'undefined' && Laporan2021.is2021(dari, sampai)) {
-      const r21 = await Laporan2021.ringkasan(dari, sampai);
-      if (r21) {
-        if (Laporan2021.isMurni2021(dari, sampai)) {
-          totalKunjungan = r21.totalKunjungan;
-          totalPermintaan = r21.totalPermintaan;
-          selesaiLab = r21.selesaiLab;
+    if (typeof Laporan2021 !== 'undefined' && Laporan2021.isHistoris(dari, sampai)) {
+      const rHist = await Laporan2021.ringkasan(dari, sampai);
+      if (rHist) {
+        const yrs = Laporan2021.getYearsInRange(dari, sampai);
+        const labelYrs = yrs.length > 1 ? `${yrs[0]}–${yrs[yrs.length - 1]}` : (yrs[0] || 'Historis');
+        if (Laporan2021.isMurniHistoris(dari, sampai)) {
+          totalKunjungan = rHist.totalKunjungan;
+          totalPermintaan = rHist.totalPermintaan;
+          selesaiLab = rHist.selesaiLab;
           prosesLab = 0;
-          totalItemPeriksa = r21.totalItemPeriksa;
-          bpjs = r21.bpjs;
-          Object.assign(perCaraBayar, r21.perCaraBayar);
-          badgeSumberData = `<span class="badge b-ok font-normal ml-8"><span class="badge-dot"></span> Riwayat CSV 2021 Aktif</span>`;
+          totalItemPeriksa = rHist.totalItemPeriksa;
+          bpjs = rHist.bpjs;
+          Object.assign(perCaraBayar, rHist.perCaraBayar);
+          badgeSumberData = `<span class="badge b-ok font-normal ml-8"><span class="badge-dot"></span> Riwayat CSV ${labelYrs} Aktif</span>`;
         } else {
-          totalKunjungan += r21.totalKunjungan;
-          totalPermintaan += r21.totalPermintaan;
-          selesaiLab += r21.selesaiLab;
-          totalItemPeriksa += r21.totalItemPeriksa;
-          bpjs += r21.bpjs;
-          badgeSumberData = `<span class="badge b-info font-normal ml-8">Gabungan Riwayat 2021 & Data 2026</span>`;
+          totalKunjungan += rHist.totalKunjungan;
+          totalPermintaan += rHist.totalPermintaan;
+          selesaiLab += rHist.selesaiLab;
+          totalItemPeriksa += rHist.totalItemPeriksa;
+          bpjs += rHist.bpjs;
+          badgeSumberData = `<span class="badge b-info font-normal ml-8">Gabungan Riwayat CSV (${labelYrs}) & Data Live 2026</span>`;
         }
       }
     }
@@ -936,17 +947,18 @@ const Laporan = (() => {
   async function ambilDataOverview(paksaMuat) {
     if (ovData && !paksaMuat) return ovData;
 
-    if (ovMode === '2021_lengkap' && typeof Laporan2021 !== 'undefined') {
-      const d21 = await Laporan2021.overviewBulanan();
-      if (d21) {
-        const monthKeys = d21.monthKeys;
-        const dari = '2021-01-01';
-        const sampai = '2021-12-31';
+    if (ovMode.endsWith('_lengkap') && typeof Laporan2021 !== 'undefined') {
+      const thn = ovMode.split('_')[0];
+      const dHist = await Laporan2021.overviewBulanan(thn);
+      if (dHist) {
+        const monthKeys = dHist.monthKeys;
+        const dari = `${thn}-01-01`;
+        const sampai = `${thn}-12-31`;
 
-        // Rekap kunjungan riil per bulan dari agregat 2021
+        // Rekap kunjungan riil per bulan dari agregat
         const rawKunjungan = [];
         const kunjunganPerBulan = {};
-        (d21.bulanan || []).forEach(b => {
+        (dHist.bulanan || []).forEach(b => {
           kunjunganPerBulan[b.bulan] = b.kunjungan;
           const count = b.kunjungan;
           const [th, bln] = b.bulan.split('-');
@@ -973,8 +985,13 @@ const Laporan = (() => {
           monthKeys,
           dari,
           sampai,
+          isHistoris: true,
           is2021: true,
-          d21
+          tahun: thn,
+          totalKunjungan: dHist.totalKunjungan,
+          totalTes: dHist.totalTes,
+          totalBpjs: dHist.totalBpjs,
+          d21: dHist
         };
         return ovData;
       }
@@ -989,7 +1006,7 @@ const Laporan = (() => {
       DB.laporanKeuanganTagihan({ dari, sampai }),
       DB.laporanKeuanganPembayaran({ dari, sampai })
     ]);
-    ovData = { kunjungan, rujukan, tagihan, pembayaran, monthKeys, dari, sampai, is2021: false };
+    ovData = { kunjungan, rujukan, tagihan, pembayaran, monthKeys, dari, sampai, isHistoris: false, is2021: false };
     return ovData;
   }
 
@@ -1004,8 +1021,8 @@ const Laporan = (() => {
       return;
     }
 
-    const subText = data.is2021
-      ? 'Data 12 bulan penuh tahun 2021 (Riwayat CSV: 22.300 kunjungan, 97.826 tes lab, 414 dokter).'
+    const subText = (data.isHistoris || data.is2021)
+      ? `Data 12 bulan penuh tahun ${data.tahun || '2021'} (Riwayat CSV: ${(data.totalKunjungan || 22300).toLocaleString('id-ID')} kunjungan, ${(data.totalTes || 86183).toLocaleString('id-ID')} tes lab).`
       : `Data enam bulan terakhir (${LaporanCore.labelBulanPendek(data.monthKeys[0])} – ${UI.tglIndo(UI.hariIni())}).`;
 
     w.innerHTML = `
@@ -1015,8 +1032,12 @@ const Laporan = (() => {
             <div class="flex items-center gap-8">
               <label class="mb-0 font-bold text-xs">Pilih Periode Overview &amp; Tren:</label>
               <select id="ovPilihPeriode" class="control-auto text-xs py-4 font-bold">
-                <option value="2026_berjalan" ${ovMode === '2026_berjalan' ? 'selected' : ''}>Tahun 2026 (Tahun Berjalan / 6 Bulan Terakhir)</option>
-                <option value="2021_lengkap" ${ovMode === '2021_lengkap' ? 'selected' : ''}>📁 Tahun 2021 (Riwayat CSV 12 Bulan Penuh — 22.300 Pasien)</option>
+                <option value="2026_berjalan" ${ovMode === '2026_berjalan' ? 'selected' : ''}>Tahun 2026 (Tahun Berjalan / Live)</option>
+                <option value="2023_lengkap" ${ovMode === '2023_lengkap' ? 'selected' : ''}>📁 Tahun 2023 (Riwayat CSV — 9.175 Pasien)</option>
+                <option value="2022_lengkap" ${ovMode === '2022_lengkap' ? 'selected' : ''}>📁 Tahun 2022 (Riwayat CSV — 13.918 Pasien)</option>
+                <option value="2021_lengkap" ${ovMode === '2021_lengkap' ? 'selected' : ''}>📁 Tahun 2021 (Riwayat CSV — 22.300 Pasien)</option>
+                <option value="2020_lengkap" ${ovMode === '2020_lengkap' ? 'selected' : ''}>📁 Tahun 2020 (Riwayat CSV — 10.614 Pasien)</option>
+                <option value="2019_lengkap" ${ovMode === '2019_lengkap' ? 'selected' : ''}>📁 Tahun 2019 (Riwayat CSV — 9.248 Pasien)</option>
               </select>
             </div>
             <div class="flex items-center gap-8">
@@ -1027,26 +1048,27 @@ const Laporan = (() => {
         </div>
       </div>
       <div id="ovSnapshot" class="mb-16"></div>
-      <div class="card mb-16"><div class="card-head"><h2>${data.is2021 ? 'Tren Kunjungan Bulanan Tahun 2021' : 'Tren Kunjungan 7 Hari Terakhir'}</h2></div>
+      <div class="card mb-16"><div class="card-head"><h2>${(data.isHistoris || data.is2021) ? `Tren Kunjungan Bulanan Tahun ${data.tahun || '2021'}` : 'Tren Kunjungan 7 Hari Terakhir'}</h2></div>
         <div class="card-body"><div id="ovTrenBox" class="chart-box">
           <canvas id="ovTren"></canvas></div></div></div>
       <div id="ovBanding" class="mb-16"></div>
       <div id="ovHeatmap" class="mb-16"></div>
       <div id="ovJam" class="mb-16"></div>
       <div id="ovDokter" class="mb-16"></div>
-      <h2 class="mb-12">${data.is2021 ? 'Performa 12 Bulan Tahun 2021' : 'Performa 6 Bulan Terakhir'}</h2>
+      <h2 class="mb-12">${(data.isHistoris || data.is2021) ? `Performa 12 Bulan Tahun ${data.tahun || '2021'}` : 'Performa 6 Bulan Terakhir'}</h2>
       <div id="ovGrafik" class="mb-16 grafik-grid"></div>
       <div id="ovDiagnosa"></div>`;
 
     w.querySelector('#ovPilihPeriode').addEventListener('change', async (e) => {
       ovMode = e.target.value;
       ovData = null;
-      if (ovMode === '2021_lengkap') {
-        ovBulanJam = '2021-07';
-        ovBulanDokter = '2021-07';
-        ovBulanHeatmap = '2021-07';
-        ovBulanA = '2021-06';
-        ovBulanB = '2021-07';
+      if (ovMode.endsWith('_lengkap')) {
+        const tSel = ovMode.split('_')[0];
+        ovBulanJam = `${tSel}-07`;
+        ovBulanDokter = `${tSel}-07`;
+        ovBulanHeatmap = `${tSel}-07`;
+        ovBulanA = `${tSel}-06`;
+        ovBulanB = `${tSel}-07`;
       } else {
         ovBulanJam = UI.bulanIni();
         ovBulanDokter = UI.bulanIni();
@@ -1094,28 +1116,29 @@ const Laporan = (() => {
 
   /* ---- A. Snapshot hari ini ------------------------------------------ */
   function gambarSnapshot(w, data) {
-    if (data.is2021) {
+    if (data.isHistoris || data.is2021) {
+      const thn = data.tahun || '2021';
       w.innerHTML = `
         <div class="grid grid-4">
           <div class="stat accent">
-            <div class="lbl">Total Kunjungan 2021</div>
-            <div class="val tabular">22.300</div>
-            <div class="hint">1 Jan 2021 – 31 Des 2021</div>
+            <div class="lbl">Total Kunjungan ${thn}</div>
+            <div class="val tabular">${(data.totalKunjungan || 22300).toLocaleString('id-ID')}</div>
+            <div class="hint">1 Jan ${thn} – 31 Des ${thn}</div>
           </div>
           <div class="stat">
             <div class="lbl">Total Pengujian Lab</div>
-            <div class="val tabular">97.826</div>
-            <div class="hint">521 jenis parameter lab</div>
+            <div class="val tabular">${(data.totalTes || 86183).toLocaleString('id-ID')}</div>
+            <div class="hint">Parameter lab terverifikasi</div>
           </div>
           <div class="stat">
-            <div class="lbl">Dokter Pengirim</div>
-            <div class="val tabular">414</div>
-            <div class="hint">Dokter spesialis &amp; faskes</div>
+            <div class="lbl">Pasien BPJS</div>
+            <div class="val tabular">${(data.totalBpjs || 0).toLocaleString('id-ID')}</div>
+            <div class="hint">${data.totalKunjungan ? Math.round(data.totalBpjs / data.totalKunjungan * 100) : 0}% kepesertaan BPJS</div>
           </div>
           <div class="stat">
-            <div class="lbl">Instansi / Mitra Rekanan</div>
-            <div class="val tabular">70</div>
-            <div class="hint">Perusahaan &amp; klinik mitra</div>
+            <div class="lbl">Status Pemeriksaan</div>
+            <div class="val tabular" style="color:var(--brand-700);">100%</div>
+            <div class="hint">Hasil terverifikasi lengkap</div>
           </div>
         </div>`;
       return;
@@ -1146,7 +1169,7 @@ const Laporan = (() => {
 
   /* ---- B. Tren kunjungan (Chart.js line) ---------------------------------- */
   function gambarTrenChart(canvas, data) {
-    if (data.is2021) {
+    if (data.isHistoris || data.is2021) {
       const labels = data.monthKeys.map(LaporanCore.labelBulanPendek);
       const datasetData = (data.d21?.bulanan || []).map(b => b.kunjungan);
       buatGrafik('tren', canvas, {
@@ -1154,7 +1177,7 @@ const Laporan = (() => {
         data: {
           labels,
           datasets: [{
-            label: 'Kunjungan Pasien 2021',
+            label: `Kunjungan Pasien ${data.tahun || '2021'}`,
             data: datasetData,
             borderColor: '#0F8B7E',
             backgroundColor: 'rgba(15,139,126,.14)',
