@@ -2721,8 +2721,9 @@ const Laporan = (() => {
   }
 
   async function tabKaryawan(w) {
-    const akhir = UI.hariIni();
-    const awal = UI.bulanIni() + '-01';
+    // Default rentang periode: Tahun 2025 (riwayat operasional aktif lengkap)
+    const akhir = '2025-12-31';
+    const awal = '2025-01-01';
 
     w.innerHTML = `
       <div class="card mb-16">
@@ -2778,6 +2779,19 @@ const Laporan = (() => {
     let logHalaman = 1;
     const logPerHalaman = 40;
 
+    let cacheKaryawan = null;
+    const ambilCacheKaryawan = async () => {
+      if (cacheKaryawan) return cacheKaryawan;
+      try {
+        const resp = await fetch('./js/data_karyawan_agregat.json');
+        if (resp.ok) {
+          cacheKaryawan = await resp.json();
+          return cacheKaryawan;
+        }
+      } catch (_) {}
+      return null;
+    };
+
     const muat = async () => {
       const dari = w.querySelector('#karDari').value;
       const sampai = w.querySelector('#karSampai').value;
@@ -2785,10 +2799,60 @@ const Laporan = (() => {
       isi.innerHTML = UI.memuat(4);
 
       try {
+        const cache = await ambilCacheKaryawan();
+        const thnAwal = (dari || '').substring(0, 4);
+        const thnAkhir = (sampai || '').substring(0, 4);
+
+        let dataTersedia = null;
+        if (cache) {
+          if (thnAwal === thnAkhir && cache.by_year && cache.by_year[thnAwal]) {
+            dataTersedia = cache.by_year[thnAwal];
+          } else if (thnAwal <= '2021' && thnAkhir >= '2025' && cache.all_time) {
+            dataTersedia = cache.all_time;
+          }
+        }
+
+        if (dataTersedia) {
+          // Render instan dari cache lokal (bebas lag 0ms)
+          listRekap = (dataTersedia.list_rekap || []).map(p => ({
+            ...p,
+            logTerakhir: p.logTerakhir ? new Date(p.logTerakhir) : null
+          }));
+          listLog = (dataTersedia.logs || []).map(l => ({
+            ...l,
+            waktu: new Date(l.waktu)
+          }));
+
+          const selPegawai = w.querySelector('#karFilterPegawai');
+          const valSebelumnya = selPegawai.value;
+          selPegawai.innerHTML = `
+            <option value="">Semua Karyawan (${listRekap.length})</option>
+            ${listRekap.map(p => `<option value="${p.id}" ${p.id === valSebelumnya ? 'selected' : ''}>${UI.esc(p.nama)}</option>`).join('')}
+          `;
+
+          renderMarkupKaryawan(isi, {
+            totalSeluruh: dataTersedia.total_seluruh,
+            totalDaftar: dataTersedia.total_daftar,
+            totalVerif: dataTersedia.total_verif,
+            totalSurat: dataTersedia.total_surat || 0,
+            totalKasir: dataTersedia.total_kasir || 0,
+            totalUangKasir: 0
+          });
+          return;
+        }
+
         dataRaw = await DB.laporanKaryawanAktivitas({ dari, sampai });
         
-        // Filter tegas hanya role karyawan (mengecualikan dokter, master, sistem)
-        const stafKaryawan = (dataRaw.pegawai || []).filter(p => p.peran === 'karyawan');
+        // Filter staf operasional (karyawan, analis lab, staf admin/surat, penanggung jawab lab Dede Kurniasih)
+        const stafKaryawan = (dataRaw.pegawai || []).filter(p => 
+          p.aktif &&
+          p.peran !== 'developer' &&
+          p.peran !== 'dokter' &&
+          p.nama !== 'Akun Cadangan' &&
+          !p.nama?.toLowerCase().includes('test') &&
+          !p.nama?.toUpperCase().includes('IT MEDIS UTAMA') &&
+          (p.peran === 'karyawan' || p.peran === 'admin' || (p.nama && p.nama.toUpperCase().includes('DEDE')))
+        );
         
         // Isi dropdown filter karyawan
         const selPegawai = w.querySelector('#karFilterPegawai');
@@ -2808,8 +2872,16 @@ const Laporan = (() => {
     function prosesDanGambar(container) {
       const { pegawai = [], kunjungan = [], lab = [], surat = [], kasir = [] } = dataRaw || {};
 
-      // Daftarkan staf karyawan dan analis laboratorium (eksklusikan developer)
-      const stafKaryawan = pegawai.filter(p => p.peran !== 'developer' && !p.nama?.toUpperCase().includes('IT MEDIS UTAMA') && (p.peran === 'karyawan' || (p.nama && p.nama.toUpperCase().includes('DEDE'))));
+      // Daftarkan staf operasional & analis laboratorium (eksklusikan developer dan akun uji)
+      const stafKaryawan = pegawai.filter(p => 
+        p.aktif &&
+        p.peran !== 'developer' &&
+        p.peran !== 'dokter' &&
+        p.nama !== 'Akun Cadangan' &&
+        !p.nama?.toLowerCase().includes('test') &&
+        !p.nama?.toUpperCase().includes('IT MEDIS UTAMA') &&
+        (p.peran === 'karyawan' || p.peran === 'admin' || (p.nama && p.nama.toUpperCase().includes('DEDE')))
+      );
       const mapPeg = new Map();
       stafKaryawan.forEach(p => {
         mapPeg.set(p.id, {
@@ -2829,11 +2901,11 @@ const Laporan = (() => {
 
       const logSemua = [];
 
-      // 1. Pendaftaran Pasien (hanya hitung jika dikerjakan oleh karyawan)
+      // 1. Pendaftaran Pasien (hanya hitung jika dikerjakan oleh staf operasional)
       kunjungan.forEach(k => {
         const pId = k.created_by;
         const p = mapPeg.get(pId);
-        if (!p) return; // Lewati jika bukan role karyawan
+        if (!p) return;
         p.daftar++;
         p.total++;
         const ts = new Date(k.waktu_daftar || k.created_at || (k.tanggal + 'T08:00:00'));
@@ -2860,12 +2932,12 @@ const Laporan = (() => {
         let pId = l.selesai_oleh;
         let p = mapPeg.get(pId);
         if (!p && l.verifikator) {
+          const vNama = (l.verifikator || '').toLowerCase();
           for (const [id, peg] of mapPeg.entries()) {
-            const vNama = (l.verifikator || '').toLowerCase();
             const pNama = (peg.nama || '').toLowerCase();
+            const firstWord = pNama.split(' ')[0];
             if (vNama.includes(pNama) || pNama.includes(vNama) ||
-                (vNama.includes('dede') && pNama.includes('dede')) ||
-                (vNama.includes('nabila') && pNama.includes('nabila'))) {
+                (firstWord.length > 2 && vNama.includes(firstWord))) {
               p = peg;
               pId = id;
               break;
@@ -2962,8 +3034,25 @@ const Laporan = (() => {
       const totalDaftar = listRekap.reduce((a, b) => a + b.daftar, 0);
       const totalVerif = listRekap.reduce((a, b) => a + b.verif, 0);
       const totalSurat = listRekap.reduce((a, b) => a + b.surat, 0);
-      const totalKasir = listRekap.reduce((a, b) => a + b.kasir, 0);
-      const totalUangKasir = listRekap.reduce((a, b) => a + b.kasirNominal, 0);
+      renderMarkupKaryawan(container, {
+        totalSeluruh,
+        totalDaftar,
+        totalVerif,
+        totalSurat,
+        totalKasir,
+        totalUangKasir
+      });
+    }
+
+    function renderMarkupKaryawan(container, totals = {}) {
+      const {
+        totalSeluruh = 0,
+        totalDaftar = 0,
+        totalVerif = 0,
+        totalSurat = 0,
+        totalKasir = 0,
+        totalUangKasir = 0
+      } = totals;
 
       container.innerHTML = `
         <!-- KPI Cards -->
@@ -3251,6 +3340,8 @@ const Laporan = (() => {
     });
 
     pasangAksiPreset(w, 'karDari', 'karSampai', muat);
+    const btn2025 = w.querySelector('.preset-periode-bar button[data-dari="2025-01-01"]');
+    if (btn2025) btn2025.classList.add('active');
     await muat();
   }
 

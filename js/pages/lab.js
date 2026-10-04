@@ -1085,23 +1085,37 @@ const Lab = (() => {
     const jam = now.getHours();
     const menit = now.getMinutes();
     const totalMenit = jam * 60 + menit;
-
-    // Shift Pagi: 07:00 (420) s/d 14:30 (870)
-    // Shift Malam: 14:31 s/d 22:00 (atau di luar shift pagi)
     const isPagi = totalMenit >= 420 && totalMenit <= 870;
-    const defaultVerifikator = isPagi ? 'DEDE KURNIASIH' : 'Nabila Nadhifatul Jannah';
 
-    // Ambil daftar analis dari master pegawai jika tersedia
+    // Ambil daftar analis dari master pegawai
     let listPegawai = [];
     try {
       if (typeof DB !== 'undefined' && DB.daftarPegawai) {
         listPegawai = (await DB.daftarPegawai().catch(() => []))
-          .filter(x => x.peran !== 'developer' && !x.nama?.toUpperCase().includes('IT MEDIS UTAMA'));
+          .filter(x => x.aktif && x.peran !== 'developer' && x.peran !== 'dokter' &&
+                       x.nama !== 'Akun Cadangan' && !x.nama?.toLowerCase().includes('test') &&
+                       !x.nama?.toUpperCase().includes('IT MEDIS UTAMA'));
       }
     } catch (_) {}
 
-    const pegDede = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('DEDE'));
-    const pegNabila = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('NABILA'));
+    // Urutkan: Analis utama (Dede, Nabila, Awit, Patriani, Erisa, Ita, Uci) di atas
+    const namaPrioritas = ['DEDE', 'NABILA', 'AWIT', 'PATRIANI', 'ERISA', 'ITA', 'UCI'];
+    listPegawai.sort((a, b) => {
+      const idxA = namaPrioritas.findIndex(n => (a.nama || '').toUpperCase().includes(n));
+      const idxB = namaPrioritas.findIndex(n => (b.nama || '').toUpperCase().includes(n));
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return (a.nama || '').localeCompare(b.nama || '');
+    });
+
+    const userLogin = typeof App !== 'undefined' && App.siapa ? App.siapa() : null;
+    let selectedId = userLogin?.id;
+    if (!selectedId || !listPegawai.some(x => x.id === selectedId)) {
+      const pegDede = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('DEDE'));
+      const pegNabila = listPegawai.find(x => x.nama && x.nama.toUpperCase().includes('NABILA'));
+      selectedId = (isPagi ? pegDede?.id : pegNabila?.id) || listPegawai[0]?.id;
+    }
 
     const namaPasien = p?.nama || p?.pasien?.nama || 'Pasien';
     const noLab = p?.no_lab || p?.no_medrec || '-';
@@ -1111,7 +1125,7 @@ const Lab = (() => {
         <div style="background: #f1f5f9; padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; border-left: 4px solid #0f766e;">
           <div style="font-weight: 700; color: #0f172a; font-size: 13.5px;">${UI.esc(namaPasien)}</div>
           <div style="color: #64748b; font-size: 11.5px; margin-top: 2px;">
-            No. Lab: <b style="color: #0f766e;">${UI.esc(noLab)}</b> · Jam Saat Ini: <b>${('0'+jam).slice(-2)}:${('0'+menit).slice(-2)} WIB</b>
+            No. Lab: <b style="color: #0f766e;">${UI.esc(noLab)}</b> · Jam Saat Ini: <b>${('0'+jam).slice(-2)}:${('0'+menit).slice(-2)} WIB</b> (${isPagi ? 'Shift Pagi' : 'Shift Sore/Malam'})
           </div>
         </div>
 
@@ -1119,28 +1133,30 @@ const Lab = (() => {
           Pilih Analis yang Bertugas Memverifikasi:
         </label>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;" id="boxPilihanVerifikator">
-          <label style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid ${defaultVerifikator === 'DEDE KURNIASIH' ? '#0f766e' : '#cbd5e1'}; background: ${defaultVerifikator === 'DEDE KURNIASIH' ? '#f0fdfa' : '#fff'}; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">
-            <input type="radio" name="optVerifikator" value="DEDE KURNIASIH" data-id="${pegDede?.id || ''}" ${defaultVerifikator === 'DEDE KURNIASIH' ? 'checked' : ''} style="accent-color: #0f766e; width: 16px; height: 16px;">
-            <div style="flex: 1;">
-              <div style="font-weight: 700; color: #0f172a;">DEDE KURNIASIH</div>
-              <div style="font-size: 11px; color: #64748b;">Analis Shift Pagi (07:00 - 14:30 WIB)</div>
-            </div>
-            ${isPagi ? `<span style="font-size: 10.5px; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Shift Aktif</span>` : ''}
-          </label>
+        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px; margin-bottom: 14px;" id="boxPilihanVerifikator">
+          ${listPegawai.map(peg => {
+            const isSelected = peg.id === selectedId;
+            const isDede = peg.nama?.toUpperCase().includes('DEDE');
+            const isNabila = peg.nama?.toUpperCase().includes('NABILA');
+            let keterangan = 'Staf Analis Laboratorium';
+            if (isDede) keterangan = 'Penanggung Jawab / Analis Shift Pagi';
+            else if (isNabila) keterangan = 'Analis Shift Sore / Malam';
 
-          <label style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? '#0f766e' : '#cbd5e1'}; background: ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? '#f0fdfa' : '#fff'}; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">
-            <input type="radio" name="optVerifikator" value="Nabila Nadhifatul Jannah" data-id="${pegNabila?.id || ''}" ${defaultVerifikator === 'Nabila Nadhifatul Jannah' ? 'checked' : ''} style="accent-color: #0f766e; width: 16px; height: 16px;">
-            <div style="flex: 1;">
-              <div style="font-weight: 700; color: #0f172a;">Nabila Nadhifatul Jannah</div>
-              <div style="font-size: 11px; color: #64748b;">Analis Shift Malam (14:31 - 22:00 WIB)</div>
-            </div>
-            ${!isPagi ? `<span style="font-size: 10.5px; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Shift Aktif</span>` : ''}
-          </label>
+            return `
+              <label style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1.5px solid ${isSelected ? '#0f766e' : '#cbd5e1'}; background: ${isSelected ? '#f0fdfa' : '#fff'}; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;">
+                <input type="radio" name="optVerifikator" value="${UI.esc(peg.nama)}" data-id="${peg.id}" ${isSelected ? 'checked' : ''} style="accent-color: #0f766e; width: 16px; height: 16px;">
+                <div style="flex: 1;">
+                  <div style="font-weight: 700; color: #0f172a;">${UI.esc(peg.nama)}</div>
+                  <div style="font-size: 11px; color: #64748b;">${keterangan}</div>
+                </div>
+                ${(isDede && isPagi) || (isNabila && !isPagi) ? `<span style="font-size: 10.5px; background: #0f766e; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Shift Aktif</span>` : ''}
+              </label>
+            `;
+          }).join('')}
         </div>
 
         <p style="margin: 0; font-size: 11px; color: #64748b; font-style: italic;">
-          * Nama analis yang dipilih akan tercatat permanen pada lembar cetak hasil dan dihitung pada bonus kinerja laboratorium.
+          * Nama analis yang dipilih akan tercatat permanen pada lembar cetak hasil dan dihitung pada produktivitas kinerja laboratorium.
         </p>
       </div>
     `;
@@ -1176,7 +1192,7 @@ const Lab = (() => {
               return false;
             }
             const nama = checked.value;
-            const id = checked.dataset.id || (nama === 'DEDE KURNIASIH' ? pegDede?.id : pegNabila?.id) || null;
+            const id = checked.dataset.id || null;
             return { nama, id, waktu: new Date().toISOString() };
           }
         }

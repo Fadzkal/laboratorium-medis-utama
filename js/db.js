@@ -3527,16 +3527,20 @@ const DB = (() => {
      Pendaftaran, Verifikasi Lab, Pembuatan Surat, dan Kasir beserta timestamp jam lengkap. */
   async function laporanKaryawanAktivitas({ dari, sampai }) {
     const [pegawai, kunjungan, lab, surat, kasir] = await Promise.all([
-      sb.from('pegawai').select('id, nama, peran, aktif').neq('peran', 'developer').or('peran.eq.karyawan,nama.ilike.%DEDE%').order('nama').then(r => (r.data || []).filter(x => x.peran !== 'developer' && !x.nama?.toUpperCase().includes('IT MEDIS UTAMA'))),
+      sb.from('pegawai')
+        .select('id, nama, peran, aktif')
+        .neq('peran', 'developer')
+        .neq('peran', 'dokter')
+        .order('nama')
+        .then(r => (r.data || []).filter(x => x.peran !== 'developer' && x.aktif && !x.nama?.toUpperCase().includes('IT MEDIS UTAMA') && x.nama !== 'Akun Cadangan')),
       ambilSemua(() =>
         sb.from('kunjungan')
           .select('id, no_kunjungan, tanggal, waktu_daftar, created_at, created_by, status, cara_bayar, pasien:pasien_id(id, no_rm, nama)')
           .gte('tanggal', dari).lte('tanggal', sampai)),
       ambilSemua(() =>
         sb.from('lab_permintaan')
-          .select('id, no_lab, tanggal, waktu_selesai, selesai_oleh, status, catatan_klinis, pasien:pasien_id(id, no_rm, nama)')
-          .gte('tanggal', dari).lte('tanggal', sampai)
-          .not('selesai_oleh', 'is', null)),
+          .select('id, no_lab, tanggal, waktu_selesai, selesai_oleh, verifikator, status, catatan_klinis, pasien:pasien_id(id, no_rm, nama)')
+          .gte('tanggal', dari).lte('tanggal', sampai)),
       ambilSemua(() =>
         sb.from('surat')
           .select('id, nomor_surat, tanggal_surat, dibuat_oleh, dibuat_pada, perihal, jenis_kode, status, pasien:pasien_id(id, no_rm, nama)')
