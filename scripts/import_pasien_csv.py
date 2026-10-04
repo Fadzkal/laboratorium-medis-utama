@@ -4,16 +4,11 @@ IMPORT & DEDUPLIKASI LENGKAP DATA PASIEN DAN HASIL LAB (2021 - 2026)
 LABORATORIUM MEDIS UTAMA
 ================================================================================
 Penggunaan:
-  python scripts/import_pasien_csv.py --file "c:/lab_utama/hasil_lab_2021_NIK_utuh_22300_pasien.csv"
-  python scripts/import_pasien_csv.py --file "c:/path/ke/file_tahun_2022.csv"
+  python scripts/import_pasien_csv.py
+  (Secara default akan mengimpor file 2024 dan 2025)
 
-Alur:
-1. Deduplikasi Cerdas Pasien:
-   - Menghubungkan kunjungan berulang ke pasien yang sama (berdasarkan NIK, Nama+DOB, No RM).
-   - Memastikan tidak ada pasien duplikat/dobel di tabel master 'pasien'.
-2. Memasukkan riwayat 'kunjungan' sehingga statistik jumlah kunjungan (1x, 2x, dst) tercatat.
-3. Memasukkan lembar 'lab_permintaan'.
-4. Memasukkan seluruh rincian nilai pemeriksaan ke 'lab_hasil' (parameter, hasil, satuan, rujukan, tanda).
+  Atau spesifik file tertentu:
+  python scripts/import_pasien_csv.py --file "c:/lab_utama/hasil_lab_2024_NIK_utuh_8991_pasien.csv"
 ================================================================================
 """
 
@@ -40,18 +35,25 @@ AUTH_PASS = "lab123456"
 POLI_LAB_ID = "613b9f46-3f48-490f-81a7-97061e623d21"
 
 parser = argparse.ArgumentParser(description="Impor dan deduplikasi pasien beserta hasil lab dari CSV")
-parser.add_argument("--file", "-f", default=r"c:\lab_utama\hasil_lab_2021_NIK_utuh_22300_pasien.csv", help="Path file CSV")
+parser.add_argument(
+    "--file", "-f",
+    nargs="*",
+    default=[
+        r"c:\lab_utama\hasil_lab_2024_NIK_utuh_8991_pasien.csv",
+        r"c:\lab_utama\hasil_lab_2025_NIK_utuh_teks_8014.csv"
+    ],
+    help="Path satu atau beberapa file CSV"
+)
 args = parser.parse_args()
 
-csv_path = args.file
-if not os.path.exists(csv_path):
-    print(f"[GAGAL] File CSV tidak ditemukan: {csv_path}")
-    sys.exit(1)
+file_list = args.file
+if isinstance(file_list, str):
+    file_list = [file_list]
 
-print(f"=== MEMULAI IMPOR LENGKAP DARI: {os.path.basename(csv_path)} ===")
+print(f"=== PERSIAPAN IMPOR DATA RME ({len(file_list)} berkas) ===")
 
 # 1. Login
-print("1. Melakukan autentikasi...")
+print("\n1. Melakukan autentikasi ke database...")
 r_auth = requests.post(
     f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
     headers={"apikey": ANON_KEY, "Content-Type": "application/json"},
@@ -72,25 +74,44 @@ headers = {
 print("   [OK] Berhasil login sebagai Master.")
 
 # 2. Ambil master ref_lab dan dokter
-print("2. Memuat master pemeriksaan lab dan daftar dokter...")
-r_ref = requests.get(f"{SUPABASE_URL}/rest/v1/ref_lab?select=id,kode,nama", headers=headers, timeout=30)
-ref_map = {x['kode'].strip().lower(): x['id'] for x in r_ref.json()}
+print("\n2. Memuat master pemeriksaan lab dan daftar dokter (terpaginasi)...")
+ref_map = {}
+offset = 0
+limit = 1000
+while True:
+    r_ref = requests.get(f"{SUPABASE_URL}/rest/v1/ref_lab?select=id,kode,nama&offset={offset}&limit={limit}", headers=headers, timeout=30)
+    if r_ref.status_code != 200 or not r_ref.json():
+        break
+    rows = r_ref.json()
+    for x in rows:
+        ref_map[x['kode'].strip().lower()] = x['id']
+    offset += len(rows)
+    if len(rows) < limit:
+        break
+print(f"   [OK] Terindeks {len(ref_map)} parameter lab di ref_lab.")
 
-r_dok = requests.get(f"{SUPABASE_URL}/rest/v1/pegawai?peran=eq.dokter&select=id,nama", headers=headers, timeout=15)
 dokter_map = {}
-if r_dok.status_code == 200:
-    for d in r_dok.json():
+offset = 0
+while True:
+    r_dok = requests.get(f"{SUPABASE_URL}/rest/v1/pegawai?peran=eq.dokter&select=id,nama&offset={offset}&limit={limit}", headers=headers, timeout=30)
+    if r_dok.status_code != 200 or not r_dok.json():
+        break
+    rows = r_dok.json()
+    for d in rows:
         clean_d = re.sub(r'[^a-zA-Z0-9]', '', d['nama'].lower())
         dokter_map[clean_d] = d['id']
+    offset += len(rows)
+    if len(rows) < limit:
+        break
+print(f"   [OK] Terindeks {len(dokter_map)} dokter aktif.")
 
 # 3. Indeks pasien yang sudah ada
-print("3. Memuat indeks pasien yang sudah ada di database...")
+print("\n3. Memuat indeks seluruh pasien eksisting di database...")
 existing_patients_by_nik = {}
 existing_patients_by_namedob = {}
 existing_patients_by_rm = {}
 
 offset = 0
-limit = 5000
 while True:
     r_ex = requests.get(
         f"{SUPABASE_URL}/rest/v1/pasien?select=id,no_rm,nama,nik,tanggal_lahir&offset={offset}&limit={limit}",
@@ -103,25 +124,26 @@ while True:
     for row in rows:
         p_id = row['id']
         if row.get('nik'):
-            existing_patients_by_nik[row['nik']] = p_id
+            existing_patients_by_nik[row['nik'].strip()] = p_id
         if row.get('nama') and row.get('tanggal_lahir'):
             clean_n = re.sub(r'\s+', ' ', row['nama'].strip().upper())
-            existing_patients_by_namedob[(clean_n, row['tanggal_lahir'])] = p_id
+            existing_patients_by_namedob[(clean_n, row['tanggal_lahir'].strip())] = p_id
         if row.get('no_rm'):
             existing_patients_by_rm[row['no_rm'].strip()] = p_id
     offset += len(rows)
+    print(f"   Mengunduh indeks pasien: {offset} terproses...", end='\r', flush=True)
     if len(rows) < limit:
         break
 
-print(f"   [OK] Terindeks {len(existing_patients_by_rm)} pasien eksisting di database.")
+print(f"\n   [OK] Total {len(existing_patients_by_rm)} pasien eksisting terindeks di memori.")
 
 # Helper
 bulan_map = {
     'januari': '01', 'jan': '01', 'februari': '02', 'feb': '02', 'maret': '03', 'mar': '03',
     'april': '04', 'apr': '04', 'mei': '05', 'may': '05', 'juni': '06', 'jun': '06',
-    'juli': '07', 'jul': '07', 'agustus': '08', 'agu': '08', 'september': '09',
-    'sep': '09', 'oktober': '10', 'okt': '10', 'oct': '10', 'november': '11', 'nov': '11',
-    'desember': '12', 'des': '12', 'dec': '12'
+    'juli': '07', 'jul': '07', 'agustus': '08', 'agu': '08', 'aug': '08',
+    'september': '09', 'sep': '09', 'oktober': '10', 'okt': '10', 'oct': '10',
+    'november': '11', 'nov': '11', 'desember': '12', 'des': '12', 'dec': '12'
 }
 
 def clean_val(val):
@@ -163,212 +185,261 @@ def uuid_from_str(s):
     h = hashlib.md5(s.encode('utf-8')).hexdigest()
     return f"{h[:8]}-{h[8:12]}-4{h[13:16]}-a{h[17:20]}-{h[20:32]}"
 
-# 4. Parsing CSV
-print("4. Memproses CSV...")
-seen_orders = set()
-new_patients = {}
-visits = []
-permintaan = []
-hasil_list = []
-seen_per_order_hasil = set()
-order_item_counter = Counter()
-missing_masters = {}
+def normalize_chunk_keys(chunk):
+    """Memastikan seluruh object dalam batch memiliki set key yang persis sama (diisi None jika kosong)"""
+    if not chunk:
+        return chunk
+    all_keys = sorted(list(set().union(*(d.keys() for d in chunk))))
+    return [{k: d.get(k, None) for k in all_keys} for d in chunk]
 
-with open(csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
-    f.readline()
-    for line in f:
-        cols = line.strip().split(';')
-        if len(cols) < 20:
-            continue
-        no_lab = clean_val(cols[0])
-        no_rm = clean_val(cols[2])
-        if not no_lab:
-            continue
-
-        raw_name = clean_val(cols[1])
-        title, c_name = extract_title_and_clean_name(raw_name)
-        nik_raw = clean_val(cols[3])
-        digits = re.sub(r'\D', '', nik_raw)
-        valid_nik = digits if len(digits) == 16 else None
-        valid_bpjs = digits if (len(digits) == 13 and digits.startswith('00')) else None
-        dob = parse_date(cols[5])
-        gender_raw = clean_val(cols[4])
-        gender = 'P' if 'perempuan' in gender_raw.lower() else 'L'
-        alamat = clean_val(cols[7])
-        tgl_periksa = parse_date(cols[8])
-        dokter_nama = clean_val(cols[10])
-        instansi = clean_val(cols[11])
-
-        # Temukan atau tentukan pasien_id
-        p_id = None
-        if valid_nik and valid_nik in existing_patients_by_nik:
-            p_id = existing_patients_by_nik[valid_nik]
-        elif c_name and dob and (c_name.upper(), dob) in existing_patients_by_namedob:
-            p_id = existing_patients_by_namedob[(c_name.upper(), dob)]
-        elif no_rm and no_rm in existing_patients_by_rm:
-            p_id = existing_patients_by_rm[no_rm]
-
-        if not p_id:
-            if valid_nik:
-                can_key = f"NIK_{valid_nik}"
-            elif valid_bpjs:
-                can_key = f"BPJS_{valid_bpjs}"
-            elif c_name and dob:
-                can_key = f"ND_{c_name.upper()}_{dob}"
-            elif no_rm:
-                can_key = f"RM_{no_rm}"
-            else:
-                can_key = f"NA_{c_name.upper()}_{alamat.upper()}"
-
-            if can_key not in new_patients:
-                p_id = uuid_from_str(f"PASIEN_{can_key}")
-                new_patients[can_key] = {
-                    'id': p_id,
-                    'no_rm': no_rm or f"RM-{len(existing_patients_by_rm) + len(new_patients) + 1:06d}",
-                    'title': title,
-                    'nama': c_name,
-                    'nik': valid_nik,
-                    'no_bpjs': valid_bpjs,
-                    'jenis_kelamin': gender,
-                    'tanggal_lahir': dob or '2000-01-01',
-                    'alamat': alamat or None,
-                    'bagian': instansi or None,
-                    'plant': instansi or None,
-                    'aktif': True
-                }
-                if valid_nik:
-                    existing_patients_by_nik[valid_nik] = p_id
-                if c_name and dob:
-                    existing_patients_by_namedob[(c_name.upper(), dob)] = p_id
-                if no_rm:
-                    existing_patients_by_rm[no_rm] = p_id
-            else:
-                p_id = new_patients[can_key]['id']
-
-        kunjungan_id = uuid_from_str(f"KUNJUNGAN_{no_lab}")
-        permintaan_id = uuid_from_str(f"PERMINTAAN_{no_lab}")
-
-        if (no_rm, no_lab) not in seen_orders:
-            seen_orders.add((no_rm, no_lab))
-
-            dok_clean = re.sub(r'[^a-zA-Z0-9]', '', dokter_nama.lower())
-            dok_id = dokter_map.get(dok_clean, None)
-
-            is_bpjs_visit = bool(valid_bpjs or instansi.upper() == 'BPJS')
-            visits.append({
-                'id': kunjungan_id,
-                'no_kunjungan': no_lab,
-                'pasien_id': p_id,
-                'tanggal': tgl_periksa or '2021-01-01',
-                'poli_id': POLI_LAB_ID,
-                'dokter_id': dok_id,
-                'cara_bayar': 'BPJS' if is_bpjs_visit else 'UMUM',
-                'keluhan_singkat': f"Dokter Pengirim: {dokter_nama}" if dokter_nama else None,
-                'status': 'SELESAI'
-            })
-
-            permintaan.append({
-                'id': permintaan_id,
-                'no_lab': no_lab,
-                'pasien_id': p_id,
-                'kunjungan_id': kunjungan_id,
-                'tanggal': tgl_periksa or '2021-01-01',
-                'asal': 'EKSTERNAL',
-                'status': 'SELESAI',
-                'catatan_klinis': instansi or None
-            })
-
-        # Proses rincian hasil lab
-        code = clean_val(cols[14])
-        name = clean_val(cols[15])
-        val = clean_val(cols[16])
-        flag = clean_val(cols[17])
-        unit = clean_val(cols[18])
-        normal = clean_val(cols[19])
-
-        if code and val:
-            if code.lower() not in ref_map and code.lower() not in missing_masters:
-                missing_masters[code.lower()] = {
-                    'id': uuid_from_str(f"REFLAB_{code.upper()}"),
-                    'kode': code.upper(),
-                    'nama': name or code.upper(),
-                    'satuan': unit or None,
-                    'kelompok': 'Lainnya',
-                    'jenis_nilai': 'ANGKA' if val.replace(',', '.').replace('.', '', 1).isdigit() else 'TEKS',
-                    'aktif': True
-                }
-
-            lab_id = ref_map.get(code.lower()) or (missing_masters[code.lower()]['id'] if code.lower() in missing_masters else None)
-            if lab_id:
-                hasil_key = (permintaan_id, lab_id)
-                if hasil_key not in seen_per_order_hasil:
-                    seen_per_order_hasil.add(hasil_key)
-                    order_item_counter[permintaan_id] += 1
-                    urutan = order_item_counter[permintaan_id]
-
-                    nilai_angka = None
-                    try:
-                        nilai_angka = float(val.replace(',', '.'))
-                    except (ValueError, TypeError):
-                        pass
-
-                    flag_u = flag.upper()
-                    if flag_u in ('L', 'LOW', 'RENDAH'):
-                        tanda = 'RENDAH'
-                    elif flag_u in ('H', 'HIGH', 'TINGGI'):
-                        tanda = 'TINGGI'
-                    elif flag_u in ('*', 'A', 'ABNORMAL', 'POSITIF', 'REAKTIF'):
-                        tanda = 'ABNORMAL'
-                    elif flag_u in ('N', 'NORMAL', 'NEGATIF', 'NON REAKTIF'):
-                        tanda = 'NORMAL'
-                    else:
-                        tanda = 'NORMAL'
-
-                    hasil_list.append({
-                        'id': uuid_from_str(f"HASIL_{permintaan_id}_{lab_id}"),
-                        'permintaan_id': permintaan_id,
-                        'lab_id': lab_id,
-                        'nama': name or code,
-                        'satuan': unit or None,
-                        'nilai_angka': nilai_angka,
-                        'nilai_teks': val,
-                        'rujukan_teks': normal or None,
-                        'tanda': tanda,
-                        'urutan': urutan
-                    })
-
-print(f"   [OK] Ditemukan {len(new_patients)} pasien baru, {len(visits)} kunjungan, dan {len(hasil_list)} rincian hasil lab.")
-
-# Tambah master lab jika ada
-if missing_masters:
-    print(f"   Menambahkan {len(missing_masters)} master lab baru...")
-    requests.post(f"{SUPABASE_URL}/rest/v1/ref_lab?on_conflict=kode", headers=headers, json=list(missing_masters.values()), timeout=30)
-    for k, v in missing_masters.items():
-        ref_map[k] = v['id']
-
-# 5. Batch Insert
-def batch_insert(table_name, data_list, chunk_size=1000):
+def batch_insert(table_name, data_list, chunk_size=500):
     total = len(data_list)
     if total == 0:
         return
     print(f"\nMengunggah {total} baris ke '{table_name}'...")
     sukses = 0
     for i in range(0, total, chunk_size):
-        chunk = data_list[i : i + chunk_size]
+        raw_chunk = data_list[i : i + chunk_size]
+        chunk = normalize_chunk_keys(raw_chunk)
         url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
-        resp = requests.post(url, headers=headers, json=chunk, timeout=60)
+        resp = requests.post(url, headers=headers, json=chunk, timeout=90)
         if resp.status_code in (200, 201, 204):
             sukses += len(chunk)
             print(f"  [OK] {sukses}/{total} baris terunggah ke '{table_name}'.", flush=True)
         else:
-            print(f"  [ERR] {resp.status_code} {resp.text[:100]}", flush=True)
-        time.sleep(0.05)
+            print(f"  [ERR] Batch {i} gagal ({resp.status_code}): {resp.text[:150]}. Menunggu retry...", flush=True)
+            time.sleep(1)
+            resp2 = requests.post(url, headers=headers, json=chunk, timeout=90)
+            if resp2.status_code in (200, 201, 204):
+                sukses += len(chunk)
+                print(f"  [RETRY OK] {sukses}/{total} baris terunggah ke '{table_name}'.", flush=True)
+            else:
+                print(f"  [RETRY GAGAL] {resp2.status_code} {resp2.text[:200]}", flush=True)
+        time.sleep(0.04)
 
-if new_patients:
-    batch_insert('pasien', list(new_patients.values()))
+# Iterasi file yang akan diimpor
+for csv_path in file_list:
+    if not os.path.exists(csv_path):
+        print(f"\n[PERINGATAN] File tidak ditemukan, dilewati: {csv_path}")
+        continue
 
-batch_insert('kunjungan', visits)
-batch_insert('lab_permintaan', permintaan)
-batch_insert('lab_hasil', hasil_list)
+    fname = os.path.basename(csv_path)
+    print(f"\n" + "=" * 76)
+    print(f"  MEMPROSES BERKAS: {fname}")
+    print("=" * 76)
 
-print("\n=== SELURUH PROSES IMPOR SELESAI DENGAN SUKSES ===")
+    year_match = re.search(r'202\d', fname)
+    default_year = year_match.group(0) if year_match else '2024'
+    default_date = f"{default_year}-01-01"
+
+    seen_orders = set()
+    new_patients = {}
+    visits = []
+    permintaan = []
+    hasil_list = []
+    seen_per_order_hasil = set()
+    order_item_counter = Counter()
+    missing_masters = {}
+
+    with open(csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+        f.readline()  # Skip header
+        for line in f:
+            cols = line.strip().split(';')
+            if len(cols) < 20:
+                continue
+            no_lab = clean_val(cols[0])
+            no_rm = clean_val(cols[2])
+            if not no_lab:
+                continue
+
+            raw_name = clean_val(cols[1])
+            title, c_name = extract_title_and_clean_name(raw_name)
+            nik_raw = clean_val(cols[3])
+            digits = re.sub(r'\D', '', nik_raw)
+            valid_nik = digits if len(digits) == 16 else None
+            valid_bpjs = digits if (len(digits) == 13 and digits.startswith('00')) else None
+            dob = parse_date(cols[5])
+            gender_raw = clean_val(cols[4])
+            gender = 'P' if 'perempuan' in gender_raw.lower() else 'L'
+            alamat = clean_val(cols[7])
+            tgl_periksa = parse_date(cols[8]) or default_date
+            jam_periksa = clean_val(cols[9])
+            dokter_nama = clean_val(cols[10])
+            instansi = clean_val(cols[11])
+            encounter_ss = clean_val(cols[12]) if len(cols) > 12 else ''
+            verifikator = clean_val(cols[13]) if len(cols) > 13 else ''
+
+            # Temukan atau tentukan pasien_id (Deduplikasi)
+            p_id = None
+            if valid_nik and valid_nik in existing_patients_by_nik:
+                p_id = existing_patients_by_nik[valid_nik]
+            elif c_name and dob and (c_name.upper(), dob) in existing_patients_by_namedob:
+                p_id = existing_patients_by_namedob[(c_name.upper(), dob)]
+            elif no_rm and no_rm in existing_patients_by_rm:
+                p_id = existing_patients_by_rm[no_rm]
+
+            if not p_id:
+                if valid_nik:
+                    can_key = f"NIK_{valid_nik}"
+                elif valid_bpjs:
+                    can_key = f"BPJS_{valid_bpjs}"
+                elif c_name and dob:
+                    can_key = f"ND_{c_name.upper()}_{dob}"
+                elif no_rm:
+                    can_key = f"RM_{no_rm}"
+                else:
+                    can_key = f"NA_{c_name.upper()}_{alamat.upper()}"
+
+                if can_key not in new_patients:
+                    p_id = uuid_from_str(f"PASIEN_{can_key}")
+                    assigned_rm = no_rm or f"RM-{len(existing_patients_by_rm) + len(new_patients) + 1:06d}"
+                    new_patients[can_key] = {
+                        'id': p_id,
+                        'no_rm': assigned_rm,
+                        'title': title,
+                        'nama': c_name,
+                        'nik': valid_nik,
+                        'no_bpjs': valid_bpjs,
+                        'jenis_kelamin': gender,
+                        'tanggal_lahir': dob or default_date,
+                        'alamat': alamat or None,
+                        'bagian': instansi or None,
+                        'plant': instansi or None,
+                        'aktif': True
+                    }
+                    if valid_nik:
+                        existing_patients_by_nik[valid_nik] = p_id
+                    if c_name and dob:
+                        existing_patients_by_namedob[(c_name.upper(), dob)] = p_id
+                    if no_rm:
+                        existing_patients_by_rm[no_rm] = p_id
+                else:
+                    p_id = new_patients[can_key]['id']
+
+            kunjungan_id = uuid_from_str(f"KUNJUNGAN_{no_lab}")
+            permintaan_id = uuid_from_str(f"PERMINTAAN_{no_lab}")
+
+            if (no_rm, no_lab) not in seen_orders:
+                seen_orders.add((no_rm, no_lab))
+
+                dok_clean = re.sub(r'[^a-zA-Z0-9]', '', dokter_nama.lower())
+                dok_id = dokter_map.get(dok_clean, None)
+
+                is_bpjs_visit = bool(valid_bpjs or instansi.upper() == 'BPJS')
+                has_encounter = bool(encounter_ss and len(encounter_ss) > 10)
+                v_entry = {
+                    'id': kunjungan_id,
+                    'no_kunjungan': no_lab,
+                    'pasien_id': p_id,
+                    'tanggal': tgl_periksa,
+                    'poli_id': POLI_LAB_ID,
+                    'dokter_id': dok_id,
+                    'cara_bayar': 'BPJS' if is_bpjs_visit else 'UMUM',
+                    'keluhan_singkat': f"Dokter Pengirim: {dokter_nama}" if dokter_nama else None,
+                    'status': 'SELESAI',
+                    'satusehat_encounter_id': encounter_ss if has_encounter else None,
+                    'satusehat_status': 'TERKIRIM' if has_encounter else 'BELUM'
+                }
+                visits.append(v_entry)
+
+                p_entry = {
+                    'id': permintaan_id,
+                    'no_lab': no_lab,
+                    'pasien_id': p_id,
+                    'kunjungan_id': kunjungan_id,
+                    'tanggal': tgl_periksa,
+                    'asal': 'EKSTERNAL',
+                    'status': 'SELESAI',
+                    'catatan_klinis': instansi or None,
+                    'verifikator': verifikator or None
+                }
+                permintaan.append(p_entry)
+
+            # Rincian hasil lab
+            code = clean_val(cols[14])
+            name = clean_val(cols[15])
+            val = clean_val(cols[16])
+            flag = clean_val(cols[17])
+            unit = clean_val(cols[18])
+            normal = clean_val(cols[19])
+
+            if code:
+                if code.lower() not in ref_map and code.lower() not in missing_masters:
+                    missing_masters[code.lower()] = {
+                        'id': uuid_from_str(f"REFLAB_{code.upper()}"),
+                        'kode': code.upper(),
+                        'nama': name or code.upper(),
+                        'satuan': unit or None,
+                        'kelompok': 'Lainnya',
+                        'jenis_nilai': 'ANGKA' if (val and val.replace(',', '.').replace('.', '', 1).isdigit()) else 'TEKS',
+                        'aktif': True
+                    }
+
+                lab_id = ref_map.get(code.lower()) or (missing_masters[code.lower()]['id'] if code.lower() in missing_masters else None)
+                if lab_id:
+                    hasil_key = (permintaan_id, lab_id)
+                    if hasil_key not in seen_per_order_hasil:
+                        seen_per_order_hasil.add(hasil_key)
+                        order_item_counter[permintaan_id] += 1
+                        urutan = order_item_counter[permintaan_id]
+
+                        nilai_angka = None
+                        if val:
+                            try:
+                                nilai_angka = float(val.replace(',', '.'))
+                            except (ValueError, TypeError):
+                                pass
+
+                        flag_u = flag.upper()
+                        if flag_u in ('L', 'LOW', 'RENDAH'):
+                            tanda = 'RENDAH'
+                        elif flag_u in ('H', 'HIGH', 'TINGGI'):
+                            tanda = 'TINGGI'
+                        elif flag_u in ('*', 'A', 'ABNORMAL', 'POSITIF', 'REAKTIF'):
+                            tanda = 'ABNORMAL'
+                        elif flag_u in ('N', 'NORMAL', 'NEGATIF', 'NON REAKTIF'):
+                            tanda = 'NORMAL'
+                        elif val:
+                            tanda = 'NORMAL'
+                        else:
+                            tanda = 'BELUM'
+
+                        hasil_list.append({
+                            'id': uuid_from_str(f"HASIL_{permintaan_id}_{lab_id}"),
+                            'permintaan_id': permintaan_id,
+                            'lab_id': lab_id,
+                            'nama': name or code,
+                            'satuan': unit or None,
+                            'nilai_angka': nilai_angka,
+                            'nilai_teks': val if val else None,
+                            'rujukan_teks': normal or None,
+                            'tanda': tanda,
+                            'urutan': urutan
+                        })
+
+    print(f"   [OK] Parsed: {len(new_patients)} pasien baru, {len(visits)} kunjungan, {len(hasil_list)} item hasil lab.")
+
+    # Tambah master lab jika ada
+    if missing_masters:
+        print(f"   Menambahkan {len(missing_masters)} master lab baru ke ref_lab...")
+        resp_m = requests.post(f"{SUPABASE_URL}/rest/v1/ref_lab?on_conflict=kode", headers=headers, json=normalize_chunk_keys(list(missing_masters.values())), timeout=30)
+        if resp_m.status_code in (200, 201, 204):
+            print(f"   [OK] Master lab baru berhasil tersinkronisasi.")
+        else:
+            print(f"   [WARN] Status sinkron master lab: {resp_m.status_code}")
+        for k, v in missing_masters.items():
+            ref_map[k] = v['id']
+
+    # Batch Insert per tabel
+    if new_patients:
+        batch_insert('pasien', list(new_patients.values()))
+
+    batch_insert('kunjungan', visits)
+    batch_insert('lab_permintaan', permintaan)
+    batch_insert('lab_hasil', hasil_list)
+
+    print(f"\n[OK] Selesai memproses berkas {fname}.")
+
+print("\n" + "=" * 76)
+print("=== SELURUH PROSES IMPOR SELESAI DENGAN SUKSES ===")
+print("=" * 76)

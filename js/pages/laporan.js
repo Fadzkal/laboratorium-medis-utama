@@ -295,15 +295,23 @@ const Laporan = (() => {
         <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2023-01-01" data-sampai="2023-12-31" title="Tampilkan riwayat CSV 2023 (9.175 kunjungan & 45.215 tes)">
           📁 2023
         </button>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2024-01-01" data-sampai="2024-12-31" title="Tampilkan riwayat CSV 2024 (8.991 kunjungan & 46.388 tes)">
+          📁 2024
+        </button>
+        <button type="button" class="btn btn-xs btn-preset-csv" data-dari="2025-01-01" data-sampai="2025-12-31" title="Tampilkan riwayat CSV 2025 (8.014 kunjungan & 38.960 tes)">
+          📁 2025
+        </button>
         <button type="button" class="btn btn-xs btn-preset" data-dari="2026-01-01" data-sampai="2026-12-31" title="Tahun berjalan 2026 (Live Transaksi)">
           Tahun 2026
         </button>
-        <button type="button" class="btn btn-xs btn-preset" data-dari="2019-01-01" data-sampai="${UI.hariIni()}" title="Seluruh riwayat sejak 2019 hingga hari ini (65.255+ registrasi)">
+        <button type="button" class="btn btn-xs btn-preset" data-dari="2019-01-01" data-sampai="${UI.hariIni()}" title="Seluruh riwayat sejak 2019 hingga hari ini (82.260+ registrasi)">
           Semua Waktu (2019–2026)
         </button>
         <select class="control-auto select-preset-tahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
           <option value="">Pilih Tahun...</option>
           <option value="2026">Tahun 2026 (Live)</option>
+          <option value="2025">Tahun 2025 (8.014 Pasien)</option>
+          <option value="2024">Tahun 2024 (8.991 Pasien)</option>
           <option value="2023">Tahun 2023 (9.175 Pasien)</option>
           <option value="2022">Tahun 2022 (13.918 Pasien)</option>
           <option value="2021">Tahun 2021 (22.300 Pasien)</option>
@@ -1033,6 +1041,8 @@ const Laporan = (() => {
               <label class="mb-0 font-bold text-xs">Pilih Periode Overview &amp; Tren:</label>
               <select id="ovPilihPeriode" class="control-auto text-xs py-4 font-bold">
                 <option value="2026_berjalan" ${ovMode === '2026_berjalan' ? 'selected' : ''}>Tahun 2026 (Tahun Berjalan / Live)</option>
+                <option value="2025_lengkap" ${ovMode === '2025_lengkap' ? 'selected' : ''}>📁 Tahun 2025 (Riwayat CSV — 8.014 Pasien)</option>
+                <option value="2024_lengkap" ${ovMode === '2024_lengkap' ? 'selected' : ''}>📁 Tahun 2024 (Riwayat CSV — 8.991 Pasien)</option>
                 <option value="2023_lengkap" ${ovMode === '2023_lengkap' ? 'selected' : ''}>📁 Tahun 2023 (Riwayat CSV — 9.175 Pasien)</option>
                 <option value="2022_lengkap" ${ovMode === '2022_lengkap' ? 'selected' : ''}>📁 Tahun 2022 (Riwayat CSV — 13.918 Pasien)</option>
                 <option value="2021_lengkap" ${ovMode === '2021_lengkap' ? 'selected' : ''}>📁 Tahun 2021 (Riwayat CSV — 22.300 Pasien)</option>
