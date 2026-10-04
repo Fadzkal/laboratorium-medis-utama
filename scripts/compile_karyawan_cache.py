@@ -53,7 +53,8 @@ analyst_map = {
 csv_files = {
     '2021': r"c:\lab_utama\hasil_lab_2021_NIK_utuh_22300_pasien.csv",
     '2024': r"c:\lab_utama\hasil_lab_2024_NIK_utuh_8991_pasien.csv",
-    '2025': r"c:\lab_utama\hasil_lab_2025_NIK_utuh_teks_8014.csv"
+    '2025': r"c:\lab_utama\hasil_lab_2025_NIK_utuh_teks_8014.csv",
+    '2026': r"c:\lab_utama\hasil_lab_2026_lengkap_NIK_utuh_4332_pasien.csv"
 }
 
 bulan_map = {

@@ -72,6 +72,7 @@ csv_files = [
     ("2023", r"c:\lab_utama\hasil_lab_2023_NIK_utuh_9175_pasien.csv"),
     ("2024", r"c:\lab_utama\hasil_lab_2024_NIK_utuh_8991_pasien.csv"),
     ("2025", r"c:\lab_utama\hasil_lab_2025_NIK_utuh_teks_8014.csv"),
+    ("2026", r"c:\lab_utama\hasil_lab_2026_lengkap_NIK_utuh_4332_pasien.csv"),
 ]
 
 data_by_year = {}
@@ -325,7 +326,7 @@ for inst, v_set in global_instansi_visits.items():
 global_instansi_list.sort(key=lambda x: x['total_kunjungan'], reverse=True)
 
 final_historis = {
-    'available_years': ['2019', '2020', '2021', '2022', '2023', '2024', '2025'],
+    'available_years': [yr for yr, _ in csv_files],
     'summary': {
         'total_kunjungan_all': global_total_kunjungan,
         'total_tes_all': global_total_tes,

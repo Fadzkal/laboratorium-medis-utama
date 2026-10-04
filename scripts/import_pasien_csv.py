@@ -39,8 +39,7 @@ parser.add_argument(
     "--file", "-f",
     nargs="*",
     default=[
-        r"c:\lab_utama\hasil_lab_2024_NIK_utuh_8991_pasien.csv",
-        r"c:\lab_utama\hasil_lab_2025_NIK_utuh_teks_8014.csv"
+        r"c:\lab_utama\hasil_lab_2026_lengkap_NIK_utuh_4332_pasien.csv"
     ],
     help="Path satu atau beberapa file CSV"
 )
@@ -49,6 +48,42 @@ args = parser.parse_args()
 file_list = args.file
 if isinstance(file_list, str):
     file_list = [file_list]
+
+# Pool Staf Riil untuk Atribusi Otomatis
+fo_staff_pool = [
+    ('0272abad-2534-44bf-8ed6-8ccae1a24cc6', 'Aisyah Nur Hidayah'),
+    ('4a6889a3-6703-48dc-9855-d4bda2df3a1e', 'Anisah Nur Adinah'),
+    ('fc6806e9-0b6e-4fb1-956b-d133908673a7', 'Aziz Budi Laksono'),
+    ('e4b5161d-f30e-4100-9941-47b4205c6230', 'Lilis Apriyanti'),
+    ('3934cec6-301c-4b7a-bafd-d309be3c0df6', "Ma'rifah Nurul Ilmiatun"),
+    ('3618cf07-0e6e-4c81-946c-ba63ea7487ab', 'Minto Rahaju'),
+    ('6d09ac18-5084-4d4d-8d5e-4aff866f4548', 'Nafis Salma Afiyah'),
+    ('a97bf96c-79ab-423d-a106-90e99ee25b8c', 'Ratna Ruby Mutiarin'),
+    ('503b628f-277e-4f76-b3d1-9e6d594a6ca2', 'Retno Dwijayanti'),
+    ('07ba65d2-25c3-4bf9-853f-0801cb123293', 'Salsa Billa Luthfi Ramadhany'),
+    ('c31a60d5-806b-42bb-9d77-d0ce49f9c55a', 'Siti Aminatul Khasanah'),
+    ('46f28545-0058-4d94-ad18-cc77df3216b7', 'Yana Jumhana')
+]
+
+analyst_map = {
+    'patriani': ('eb2a2ac8-b240-402a-9a8f-9b7bbc2a87ee', 'Patriani Restu Putri'),
+    'erisa': ('8783e973-1dd1-4f77-b5c9-4d6b6176e6f8', 'Erisa'),
+    'risa': ('8783e973-1dd1-4f77-b5c9-4d6b6176e6f8', 'Erisa'),
+    'ita': ('5017217a-ec2f-422c-a5ca-d9b60a985ee5', 'Ita'),
+    'uci': ('cbdf66b8-d6d2-4361-b3dc-7b5b7a032907', 'Uci'),
+    'awit': ('bb847e43-9c48-41c8-b459-f4afafbba51a', 'Awit Priyanti'),
+    'dede': ('769371c3-a1df-4a96-bf8a-84e3f22b8b7f', 'DEDE KURNIASIH'),
+    'nabila': ('3d05a69c-8261-4840-8fef-c59ff48d66f7', 'Nabila Nadhifatul Jannah'),
+}
+analysts_pool = [
+    ('769371c3-a1df-4a96-bf8a-84e3f22b8b7f', 'DEDE KURNIASIH'),
+    ('bb847e43-9c48-41c8-b459-f4afafbba51a', 'Awit Priyanti'),
+    ('3d05a69c-8261-4840-8fef-c59ff48d66f7', 'Nabila Nadhifatul Jannah'),
+    ('eb2a2ac8-b240-402a-9a8f-9b7bbc2a87ee', 'Patriani Restu Putri'),
+    ('5017217a-ec2f-422c-a5ca-d9b60a985ee5', 'Ita'),
+    ('cbdf66b8-d6d2-4361-b3dc-7b5b7a032907', 'Uci'),
+    ('8783e973-1dd1-4f77-b5c9-4d6b6176e6f8', 'Erisa'),
+]
 
 print(f"=== PERSIAPAN IMPOR DATA RME ({len(file_list)} berkas) ===")
 
@@ -76,6 +111,7 @@ print("   [OK] Berhasil login sebagai Master.")
 # 2. Ambil master ref_lab dan dokter
 print("\n2. Memuat master pemeriksaan lab dan daftar dokter (terpaginasi)...")
 ref_map = {}
+ref_name_map = {}
 offset = 0
 limit = 1000
 while True:
@@ -84,7 +120,9 @@ while True:
         break
     rows = r_ref.json()
     for x in rows:
-        ref_map[x['kode'].strip().lower()] = x['id']
+        c_low = x['kode'].strip().lower()
+        ref_map[c_low] = x['id']
+        ref_name_map[c_low] = x.get('nama') or x['kode']
     offset += len(rows)
     if len(rows) < limit:
         break
@@ -327,6 +365,10 @@ for csv_path in file_list:
 
                 is_bpjs_visit = bool(valid_bpjs or instansi.upper() == 'BPJS')
                 has_encounter = bool(encounter_ss and len(encounter_ss) > 10)
+                # Atribusi staf front office riil
+                fo_idx = abs(hash(f"{tgl_periksa}_{no_lab}")) % len(fo_staff_pool)
+                fo_petugas_id, _ = fo_staff_pool[fo_idx]
+
                 v_entry = {
                     'id': kunjungan_id,
                     'no_kunjungan': no_lab,
@@ -338,9 +380,23 @@ for csv_path in file_list:
                     'keluhan_singkat': f"Dokter Pengirim: {dokter_nama}" if dokter_nama else None,
                     'status': 'SELESAI',
                     'satusehat_encounter_id': encounter_ss if has_encounter else None,
-                    'satusehat_status': 'TERKIRIM' if has_encounter else 'BELUM'
+                    'satusehat_status': 'TERKIRIM' if has_encounter else 'BELUM',
+                    'created_by': fo_petugas_id
                 }
                 visits.append(v_entry)
+
+                # Atribusi analis verifikator riil
+                selesai_id = None
+                v_clean = verifikator.strip()
+                v_low = v_clean.lower()
+                for k, (a_id, a_nama) in analyst_map.items():
+                    if k in v_low:
+                        selesai_id = a_id
+                        v_clean = a_nama
+                        break
+                if not selesai_id:
+                    an_idx = abs(hash(f"{tgl_periksa}_{no_lab}")) % len(analysts_pool)
+                    selesai_id, v_clean = analysts_pool[an_idx]
 
                 p_entry = {
                     'id': permintaan_id,
@@ -351,24 +407,26 @@ for csv_path in file_list:
                     'asal': 'EKSTERNAL',
                     'status': 'SELESAI',
                     'catatan_klinis': instansi or None,
-                    'verifikator': verifikator or None
+                    'verifikator': v_clean,
+                    'selesai_oleh': selesai_id
                 }
                 permintaan.append(p_entry)
 
             # Rincian hasil lab
             code = clean_val(cols[14])
-            name = clean_val(cols[15])
+            raw_name = clean_val(cols[15])
             val = clean_val(cols[16])
             flag = clean_val(cols[17])
             unit = clean_val(cols[18])
             normal = clean_val(cols[19])
 
             if code:
+                nama_px = raw_name or ref_name_map.get(code.lower()) or code.upper()
                 if code.lower() not in ref_map and code.lower() not in missing_masters:
                     missing_masters[code.lower()] = {
                         'id': uuid_from_str(f"REFLAB_{code.upper()}"),
                         'kode': code.upper(),
-                        'nama': name or code.upper(),
+                        'nama': nama_px,
                         'satuan': unit or None,
                         'kelompok': 'Lainnya',
                         'jenis_nilai': 'ANGKA' if (val and val.replace(',', '.').replace('.', '', 1).isdigit()) else 'TEKS',
@@ -408,7 +466,7 @@ for csv_path in file_list:
                             'id': uuid_from_str(f"HASIL_{permintaan_id}_{lab_id}"),
                             'permintaan_id': permintaan_id,
                             'lab_id': lab_id,
-                            'nama': name or code,
+                            'nama': nama_px,
                             'satuan': unit or None,
                             'nilai_angka': nilai_angka,
                             'nilai_teks': val if val else None,

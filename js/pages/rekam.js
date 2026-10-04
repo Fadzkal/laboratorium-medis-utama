@@ -431,11 +431,15 @@ const Rekam = (() => {
             <button class="btn-preset btn-preset-csv" id="btnRw2021" type="button">📁 2021</button>
             <button class="btn-preset btn-preset-csv" id="btnRw2022" type="button">📁 2022</button>
             <button class="btn-preset btn-preset-csv" id="btnRw2023" type="button">📁 2023</button>
-            <button class="btn-preset" id="btnRw2026" type="button">Tahun 2026</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2024" type="button">📁 2024</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2025" type="button">📁 2025</button>
+            <button class="btn-preset btn-preset-csv" id="btnRw2026" type="button">📁 2026</button>
             <button class="btn-preset" id="btnRwSemua" type="button">Semua Waktu (2019–2026)</button>
             <select class="control-auto select-preset-tahun" id="selectRwTahun" style="padding:2px 8px; font-size:12px; height:26px; border-radius:4px;" title="Pilih tahun spesifik">
               <option value="">Pilih Tahun...</option>
               <option value="2026">Tahun 2026</option>
+              <option value="2025">Tahun 2025</option>
+              <option value="2024">Tahun 2024</option>
               <option value="2023">Tahun 2023</option>
               <option value="2022">Tahun 2022</option>
               <option value="2021">Tahun 2021</option>
@@ -586,6 +590,8 @@ const Rekam = (() => {
     el.querySelector('#btnRw2021')?.addEventListener('click', () => setPreset('2021-01-01', '2021-12-31', 'btnRw2021'));
     el.querySelector('#btnRw2022')?.addEventListener('click', () => setPreset('2022-01-01', '2022-12-31', 'btnRw2022'));
     el.querySelector('#btnRw2023')?.addEventListener('click', () => setPreset('2023-01-01', '2023-12-31', 'btnRw2023'));
+    el.querySelector('#btnRw2024')?.addEventListener('click', () => setPreset('2024-01-01', '2024-12-31', 'btnRw2024'));
+    el.querySelector('#btnRw2025')?.addEventListener('click', () => setPreset('2025-01-01', '2025-12-31', 'btnRw2025'));
     el.querySelector('#btnRw2026')?.addEventListener('click', () => setPreset('2026-01-01', '2026-12-31', 'btnRw2026'));
     el.querySelector('#btnRwSemua')?.addEventListener('click', () => setPreset('2019-01-01', '2026-12-31', 'btnRwSemua'));
     el.querySelector('#selectRwTahun')?.addEventListener('change', (e) => {

@@ -16,7 +16,7 @@ const Laporan2021 = (() => {
 
   let dataCache = null;
   let muatPromise = null;
-  const ALL_YEARS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025'];
+  const ALL_YEARS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'];
 
   async function muatData() {
     if (dataCache) return dataCache;
@@ -65,7 +65,7 @@ const Laporan2021 = (() => {
   function isMurniHistoris(dari, sampai) {
     if (!dari || !sampai) return false;
     const s = sampai.substring(0, 4);
-    return isHistoris(dari, sampai) && s <= '2025';
+    return isHistoris(dari, sampai) && s <= '2026';
   }
 
   // Aliases for 2021 backwards compatibility
