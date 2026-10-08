@@ -1438,22 +1438,31 @@ const Pengaturan = (() => {
         </div>
 
         <div class="card">
-          <div class="card-head"><div class="flex-1"><h2>SatuSehat</h2>
-            <div class="sub">Kirim data kunjungan ke platform Kemenkes</div></div>
+          <div class="card-head"><div class="flex-1"><h2>SatuSehat Kemenkes (Sandbox)</h2>
+            <div class="sub">Kredensial API &amp; Uji Coba Bridging Sandbox</div></div>
             <span class="badge ${CONFIG.BRIDGING.SATUSEHAT_AKTIF ? 'b-ok' : 'b-batal'}">
               ${CONFIG.BRIDGING.SATUSEHAT_AKTIF ? 'Aktif' : 'Belum aktif'}</span></div>
           <div class="card-body text-sm">
-            <p><b>Yang perlu disiapkan:</b></p>
-            <ol class="list-tight-12">
-              <li>Registrasi klinik di platform SatuSehat (butuh kode registrasi faskes Kemenkes)</li>
-              <li>Dapatkan <code>client_id</code>, <code>client_secret</code>, dan
-                  <code>Organization ID</code></li>
-              <li>Daftarkan <i>Location</i> untuk tiap poli, dan <i>Practitioner</i> (nomor IHS)
-                  untuk tiap tenaga medis</li>
-              <li>Uji di lingkungan <i>staging</i>, ajukan <i>go-live</i></li>
-            </ol>
-            <p class="mb-0">Isi Organization ID dan Location ID di tab <b>Profil Klinik</b>,
-              nomor IHS tenaga medis di tab <b>Pengguna</b>.</p>
+            <div class="banner info mb-12">
+              <div>Lingkungan aktif: <b>SANDBOX (Staging)</b>. Kredensial disimpan di server lokal (LIS Bridge Port 7119).</div>
+            </div>
+            <div class="field mb-8">
+              <label>Organization ID</label>
+              <input type="text" id="ssOrgId" class="mono ctl-sm w-full" value="6a80f69d-2493-422a-b0ac-ca2b5bea38dd" placeholder="Organization ID SatuSehat">
+            </div>
+            <div class="field mb-8">
+              <label>Client ID <span class="req">*</span></label>
+              <input type="text" id="ssClientId" class="mono ctl-sm w-full" placeholder="Tempel Client ID dari portal SatuSehat">
+            </div>
+            <div class="field mb-12">
+              <label>Client Secret <span class="req">*</span></label>
+              <input type="password" id="ssClientSecret" class="mono ctl-sm w-full" placeholder="Tempel Client Secret dari portal SatuSehat">
+            </div>
+            <div class="flex items-center gap-8 mb-4">
+              <button class="btn btn-primary btn-sm" id="btnSimpanSS">Simpan Kredensial</button>
+              <button class="btn btn-secondary btn-sm" id="btnTesSS">Uji Koneksi Sandbox</button>
+              <span id="ssStatusBadge" class="text-xs"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1469,6 +1478,93 @@ const Pengaturan = (() => {
           <div class="sub">Diperbarui terus selama klinik berjalan</div></div></div>
         <div class="card-body" id="kesiapanData">${UI.memuat(2)}</div>
       </div>`;
+
+    // Inisialisasi status kredensial SatuSehat dari LIS Bridge
+    const inpOrg = w.querySelector('#ssOrgId');
+    const inpClient = w.querySelector('#ssClientId');
+    const inpSecret = w.querySelector('#ssClientSecret');
+    const badgeSS = w.querySelector('#ssStatusBadge');
+
+    fetch('http://127.0.0.1:7119/api/satusehat/config')
+      .then(r => r.json())
+      .then(j => {
+        if (j.sukses) {
+          if (j.organization_id && inpOrg) inpOrg.value = j.organization_id;
+          if (j.client_id && inpClient) inpClient.value = j.client_id;
+          if (j.has_secret && inpSecret) inpSecret.placeholder = '•••••••••••••••••••••••••••••••• (tersimpan)';
+          if (badgeSS) {
+            badgeSS.innerHTML = j.configured
+              ? '<span class="badge b-ok">Kredensial Tersimpan</span>'
+              : '<span class="badge b-warn">Kredensial Belum Lengkap</span>';
+          }
+        }
+      })
+      .catch(() => {
+        if (badgeSS) badgeSS.innerHTML = '<span class="badge b-danger">LIS Bridge (7119) Offline</span>';
+      });
+
+    const btnSimpanSS = w.querySelector('#btnSimpanSS');
+    if (btnSimpanSS) {
+      btnSimpanSS.addEventListener('click', async () => {
+        const cId = inpClient.value.trim();
+        const cSec = inpSecret.value.trim();
+        const oId = inpOrg.value.trim();
+        if (!cId) { UI.toast('Client ID wajib diisi.', 'warn'); return; }
+        if (!cSec && !inpSecret.placeholder.includes('tersimpan')) {
+          UI.toast('Client Secret wajib diisi.', 'warn'); return;
+        }
+        btnSimpanSS.disabled = true;
+        btnSimpanSS.textContent = 'Menyimpan...';
+        try {
+          const payload = { organization_id: oId, client_id: cId };
+          if (cSec) payload.client_secret = cSec;
+          const res = await fetch('http://127.0.0.1:7119/api/satusehat/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const j = await res.json();
+          if (j.sukses) {
+            UI.toast('Kredensial SATUSEHAT berhasil disimpan!', 'ok');
+            if (badgeSS) badgeSS.innerHTML = '<span class="badge b-ok">Kredensial Tersimpan</span>';
+            if (oId && typeof DB.sb !== 'undefined') {
+              await DB.sb.from('faskes').update({ satusehat_org_id: oId }).eq('id', 1);
+            }
+          } else {
+            UI.toast('Gagal: ' + j.pesan, 'err');
+          }
+        } catch(e) {
+          UI.toast('Gagal menghubungi LIS Bridge: ' + e.message, 'err');
+        } finally {
+          btnSimpanSS.disabled = false;
+          btnSimpanSS.textContent = 'Simpan Kredensial';
+        }
+      });
+    }
+
+    const btnTesSS = w.querySelector('#btnTesSS');
+    if (btnTesSS) {
+      btnTesSS.addEventListener('click', async () => {
+        btnTesSS.disabled = true;
+        btnTesSS.textContent = 'Menguji...';
+        try {
+          const res = await fetch('http://127.0.0.1:7119/api/satusehat/tes-koneksi', { method: 'POST' });
+          const j = await res.json();
+          if (j.sukses) {
+            UI.toast('Koneksi SATUSEHAT Sandbox Berhasil! Token valid.', 'ok', 6000);
+            if (badgeSS) badgeSS.innerHTML = '<span class="badge b-ok">Terhubung &amp; Terverifikasi</span>';
+          } else {
+            UI.toast('Uji Koneksi Gagal: ' + (j.pesan || 'Periksa kredensial'), 'err', 6000);
+            if (badgeSS) badgeSS.innerHTML = '<span class="badge b-danger">Gagal Terhubung</span>';
+          }
+        } catch(e) {
+          UI.toast('Bridge offline: ' + e.message, 'err');
+        } finally {
+          btnTesSS.disabled = false;
+          btnTesSS.textContent = 'Uji Koneksi Sandbox';
+        }
+      });
+    }
 
     // Periksa kelengkapan data yang dibutuhkan bridging
     const f = await DB.faskes(true);

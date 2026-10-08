@@ -92,13 +92,16 @@ const DisplayHarian = (() => {
         .dh-list table { width:100%; border-collapse:collapse; font-size:11px; }
         .dh-list th { background:#3c5a9a; color:#fff; padding:4px 6px; font-size:10px;
                       position:sticky; top:0; }
-        .dh-list tr.baris { cursor:pointer; border-bottom:1px solid #f0f0f0; }
+        .dh-list tr.baris { cursor:pointer; border-bottom:1px solid #f0f0f0; transition: background 0.15s ease; }
         .dh-list tr.baris:hover { background:#e8f0fe; }
-        .dh-list tr.baris.aktif { background:#1a73e8; color:#fff; }
-        .dh-list tr.baris.aktif td { color:#fff; }
+        .dh-list tr.baris.verified { background:#1a73e8 !important; color:#fff !important; }
+        .dh-list tr.baris.verified td { color:#fff !important; }
+        .dh-list tr.baris.verified .no-lab { color:#fff !important; font-weight:700; }
+        .dh-list tr.baris.verified:hover { opacity:0.92; }
+        .dh-list tr.baris.aktif { outline:2px solid #f97316 !important; outline-offset:-1px; }
+        .dh-list tr.baris:not(.verified).aktif { background:#e8f0fe; color:#1a73e8; font-weight:600; }
         .dh-list td { padding:4px 6px; }
         .dh-list .no-lab { color:#1a73e8; font-weight:600; }
-        .dh-list tr.baris.aktif .no-lab { color:#fff; }
 
         .dh-right { flex:1; display:flex; flex-direction:column; overflow:hidden; background:#f5f5f5; }
         .dh-empty { display:flex; align-items:center; justify-content:center; height:100%;
@@ -301,12 +304,13 @@ const DisplayHarian = (() => {
     await muat();
 
     /* ---- Fungsi load daftar ---- */
-    async function muat() {
+    async function muat(silent = false) {
       const daftar = el.querySelector('#dhDaftar');
-      daftar.innerHTML = '<div class="dh-empty">Memuat...</div>';
+      if (!silent) daftar.innerHTML = '<div class="dh-empty">Memuat...</div>';
       try {
         const { dari, sampai } = rentangBulan(state.bulanTahun);
-        let data = await DB.labAntrean(dari, sampai, state.status || null);
+        const filterStatus = state.status === 'AKTIF' ? ['DIMINTA', 'DIKERJAKAN'] : (state.status || null);
+        let data = await DB.labAntrean(dari, sampai, filterStatus);
 
         // Ambil daftar nama pemeriksaan (Px) jika ada filter Px aktif
         if (data.length > 0 && (state.px || state.optPx)) {
@@ -403,11 +407,15 @@ const DisplayHarian = (() => {
         }
 
         state.daftar = data;
+        const prevScroll = daftar ? daftar.scrollTop : 0;
         gambarDaftar(data);
+        if (daftar && silent) daftar.scrollTop = prevScroll;
+
         if (state.aktifId) {
           const masih = data.find(d => d.id === state.aktifId);
-          if (masih) bukaDetail(masih.id);
-          else if (data.length > 0) {
+          if (masih) {
+            if (!silent) bukaDetail(masih.id);
+          } else if (data.length > 0) {
             state.aktifId = data[0].id;
             bukaDetail(data[0].id);
           } else {
@@ -421,7 +429,7 @@ const DisplayHarian = (() => {
           el.querySelector('#dhKanan').innerHTML = `<div class="dh-empty">${UI.ikon('rekam', 44)}<span>Pilih pasien dari daftar</span></div>`;
         }
       } catch (e) {
-        daftar.innerHTML = `<div class="dh-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
+        if (!silent) daftar.innerHTML = `<div class="dh-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
       }
     }
 
@@ -439,13 +447,16 @@ const DisplayHarian = (() => {
             <th>Nama Pasien</th>
           </tr></thead>
           <tbody>
-            ${data.map((d, i) => `
-              <tr class="baris ${d.id === state.aktifId ? 'aktif' : ''}" data-id="${d.id}">
+            ${data.map((d, i) => {
+              const verified = d.status === 'SELESAI';
+              const aktif = d.id === state.aktifId;
+              return `
+              <tr class="baris ${verified ? 'verified' : ''} ${aktif ? 'aktif' : ''}" data-id="${d.id}" title="${verified ? '✓ Hasil Lab Sudah Diverifikasi' : 'Belum Diverifikasi'}">
                 <td style="text-align:center">${i + 1}</td>
                 <td class="no-lab">${UI.esc(d.no_lab || '')}</td>
                 <td>${UI.esc(d.nama_pasien || '')}</td>
               </tr>
-            `).join('')}
+            `;}).join('')}
           </tbody>
         </table>
       `;
@@ -536,20 +547,23 @@ const DisplayHarian = (() => {
               </div>
               <div>
                 <div class="hr"><span class="hl">No Lab/No MR</span><span class="hv">${UI.esc(noLab)} / ${UI.esc(noMR)}</span></div>
+                <div class="hr"><span class="hl">Status Lab</span><span class="hv">${p.status === 'SELESAI' ? '<span style="background:#15803d;color:#fff;padding:1px 8px;border-radius:3px;font-size:10px;font-weight:700;">✓ TERVERIFIKASI</span>' : '<span style="background:#eab308;color:#000;padding:1px 8px;border-radius:3px;font-size:10px;font-weight:600;">MENUNGGU VERIFIKASI</span>'}</span></div>
                 <div class="hr"><span class="hl">Pengirim</span><span class="hv">${UI.esc(pengirim)}</span></div>
                 <div class="hr"><span class="hl">Instansi</span><span class="hv">${UI.esc(instansiVal)}</span></div>
-                <div class="hr"><span class="hl">Encounter SS</span><span class="hv" id="dhEncId">-</span></div>
+                <div class="hr"><span class="hl">Encounter SS</span><span class="hv" id="dhEncId">${UI.esc(kunjungan.satusehat_encounter_id || '-')}</span></div>
+                <div class="hr"><span class="hl">DiagReport SS</span><span class="hv" id="dhReportId">-</span></div>
               </div>
             </div>
           </div>
 
           <!-- TOMBOL AKSI SS -->
-          <div class="dh-actions">
+          <div class="dh-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button class="btn-barcode" id="btnBarcode">${UI.ikon('cetak', 13)} Print Barcode</button>
             <button class="btn-checknik" id="btnCheckNIK">CHECK NIK</button>
             <button class="btn-enc" id="btnEnc">1. Encounter SS</button>
             <button class="btn-srv" id="btnSrv">2. Service Req SS</button>
-            <button class="btn-spec" id="btnSpec">3. Speciment SS</button>
+            <button class="btn-spec" id="btnSpec">3. Specimen SS</button>
+            <button class="btn-kirim-ss" id="btnKirimLabSS" style="background:#16a34a;color:#fff;font-weight:700;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">🚀 Kirim Hasil Lab ke SATUSEHAT</button>
           </div>
 
           <!-- TABEL RINCIAN PEMERIKSAAN -->
@@ -652,8 +666,8 @@ const DisplayHarian = (() => {
                     <td class="ang">${fmt(disc)}</td>
                     <td class="ang">${fmt(net)}</td>
                     <td style="font-size:10px">${fmtTgl(tgl)}</td>
-                    <td style="font-size:10px;color:#888">-</td>
-                    <td style="font-size:10px;color:#888">-</td>
+                    <td style="font-size:10px;color:#888" class="cell-ss-srv">-</td>
+                    <td style="font-size:10px;color:#888" class="cell-ss-spec">-</td>
                     <td style="font-size:10px">${UI.esc(ref.kode_loinc || '')}</td>
                     <td style="font-size:10px">${UI.esc(ref.kode_specimen || '')}</td>
                   </tr>`;
@@ -685,20 +699,225 @@ const DisplayHarian = (() => {
           }
         };
 
-        // Tombol Check NIK — notifikasi (implementasi SatuSehat)
-        kanan.querySelector('#btnCheckNIK').onclick = () => {
-          if (!pasien.nik) { UI.toast('NIK pasien belum diisi', 'warn'); return; }
-          UI.toast('Check NIK: ' + pasien.nik + ' (SatuSehat API belum dikonfigurasi)', 'info');
+        // Tombol Check NIK — integrasi SATUSEHAT Sandbox
+        kanan.querySelector('#btnCheckNIK').onclick = async () => {
+          if (!pasien.nik) {
+            UI.toast('NIK pasien belum diisi', 'warn');
+            return;
+          }
+          const nikBersih = String(pasien.nik).trim();
+          UI.toast('Mencari NIK ' + nikBersih + ' di SATUSEHAT...', 'info');
+          try {
+            const res = await fetch('http://127.0.0.1:7119/api/satusehat/pasien?nik=' + encodeURIComponent(nikBersih));
+            const json = await res.json();
+            if (!json.sukses) {
+              UI.toast('Gagal cek NIK: ' + (json.pesan || 'Bridge offline / belum aktif'), 'err', 5000);
+              return;
+            }
+            const d = json.data;
+            if (d && d.ditemukan) {
+              UI.toast('Pasien Ditemukan! IHS ID: ' + d.ihs_id + ' (' + d.nama + ')', 'ok', 6000);
+              if (pasien.id && typeof DB.sb !== 'undefined') {
+                await DB.sb.from('pasien').update({
+                  satusehat_patient_id: d.ihs_id,
+                  satusehat_sinkron_pada: new Date().toISOString()
+                }).eq('id', pasien.id);
+                pasien.satusehat_patient_id = d.ihs_id;
+              }
+            } else {
+              UI.toast(d.pesan || 'Pasien tidak ditemukan di SATUSEHAT Sandbox.', 'warn', 5000);
+            }
+          } catch(err) {
+            UI.toast('LIS Bridge (Port 7119) belum berjalan. Jalankan jalankan.bat terlebih dahulu.', 'err', 5000);
+          }
         };
 
-        kanan.querySelector('#btnEnc').onclick = () => UI.toast('Encounter SS: belum terhubung ke SatuSehat', 'info');
-        kanan.querySelector('#btnSrv').onclick = () => UI.toast('Service Req SS: belum terhubung ke SatuSehat', 'info');
-        kanan.querySelector('#btnSpec').onclick = () => UI.toast('Speciment SS: belum terhubung ke SatuSehat', 'info');
+        // Tombol 1. Encounter SS — Buat Encounter Kunjungan Lab
+        kanan.querySelector('#btnEnc').onclick = async () => {
+          if (!pasien.nik) {
+            UI.toast('NIK pasien wajib ada untuk membuat Encounter SATUSEHAT', 'warn');
+            return;
+          }
+          let patientIhs = pasien.satusehat_patient_id;
+          UI.toast('Memproses Encounter ke SATUSEHAT Sandbox...', 'info');
+          try {
+            if (!patientIhs) {
+              const resCari = await fetch('http://127.0.0.1:7119/api/satusehat/pasien?nik=' + encodeURIComponent(pasien.nik));
+              const jsonCari = await resCari.json();
+              if (jsonCari.sukses && jsonCari.data && jsonCari.data.ditemukan) {
+                patientIhs = jsonCari.data.ihs_id;
+                pasien.satusehat_patient_id = patientIhs;
+                if (pasien.id && typeof DB.sb !== 'undefined') {
+                  await DB.sb.from('pasien').update({ satusehat_patient_id: patientIhs }).eq('id', pasien.id);
+                }
+              } else {
+                UI.toast('Pasien belum terdaftar di SATUSEHAT Sandbox. Periksa NIK.', 'err', 5000);
+                return;
+              }
+            }
+
+            const payload = {
+              no_lab: noLab,
+              patient_ihs: patientIhs,
+              patient_name: pasien.nama || '-',
+              practitioner_name: pengirim || ''
+            };
+            const rEnc = await fetch('http://127.0.0.1:7119/api/satusehat/encounter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const jEnc = await rEnc.json();
+            if (jEnc.sukses && jEnc.encounter_id) {
+              UI.toast('Encounter SATUSEHAT Berhasil Dibuat: ' + jEnc.encounter_id, 'ok', 6000);
+              const encEl = kanan.querySelector('#dhEncId');
+              if (encEl) encEl.textContent = jEnc.encounter_id;
+              if (kunjId && typeof DB.sb !== 'undefined') {
+                await DB.sb.from('kunjungan').update({
+                  satusehat_encounter_id: jEnc.encounter_id,
+                  satusehat_status: 'TERKIRIM'
+                }).eq('id', kunjId);
+              }
+            } else {
+              UI.toast('Gagal membuat Encounter: ' + (jEnc.pesan || 'Periksa kredensial'), 'err', 5000);
+            }
+          } catch(err) {
+            UI.toast('LIS Bridge (Port 7119) belum berjalan: ' + err.message, 'err', 5000);
+          }
+        };
+
+        const prosesKirimLabSS = async () => {
+          if (!pasien.nik && !pasien.satusehat_patient_id) {
+            UI.toast('NIK pasien wajib ada untuk pengiriman SATUSEHAT', 'warn');
+            return;
+          }
+          const btnKirim = kanan.querySelector('#btnKirimLabSS');
+          if (btnKirim) {
+            btnKirim.disabled = true;
+            btnKirim.textContent = '⏳ Mengirim ke SATUSEHAT...';
+          }
+          UI.toast('Memproses pengiriman seluruh hasil lab ke SATUSEHAT...', 'info', 4000);
+          try {
+            const res = await (typeof SatuSehat !== 'undefined' ? SatuSehat.kirimHasilLab(p) : (async () => {
+              const items = (p.hasil || []).map(h => {
+                const ref = h.ref || {};
+                const val = (h.nilai_angka !== null && h.nilai_angka !== undefined) ? String(h.nilai_angka) : (h.nilai_teks || '');
+                return {
+                  nama: ref.nama || h.nama || '',
+                  kode_loinc: String(ref.kode_loinc || '').trim(),
+                  display_loinc: ref.display_loinc || ref.nama || h.nama || '',
+                  nilai: val,
+                  satuan: ref.satuan || h.satuan || '',
+                  rujukan: h.rujukan_teks || ref.teks_normal || '',
+                  kode_specimen: ref.kode_specimen || '119364003',
+                  nama_specimen: ref.nama_specimen || 'Serum specimen'
+                };
+              }).filter(x => Boolean(x.kode_loinc));
+
+              const r = await fetch('http://127.0.0.1:7119/api/satusehat/kirim-lab', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  no_lab: noLab,
+                  patient_ihs: pasien.satusehat_patient_id || '',
+                  patient_nik: pasien.nik || '',
+                  patient_name: pasien.nama || '-',
+                  encounter_id: kunjungan.satusehat_encounter_id || '',
+                  items: items,
+                  practitioner_name: p.verifikator || pengirim || 'Dokter Penanggung Jawab'
+                })
+              });
+              return await r.json();
+            })());
+
+            if (res && res.sukses) {
+              UI.toast(`✓ Sukses! DiagnosticReport ${res.diagnostic_report_id || '-'} (${res.total_loinc_terkirim || 0} parameter) terkirim ke SATUSEHAT.`, 'ok', 7000);
+              const encEl = kanan.querySelector('#dhEncId');
+              if (encEl && res.encounter_id) encEl.textContent = res.encounter_id;
+              const repEl = kanan.querySelector('#dhReportId');
+              if (repEl && res.diagnostic_report_id) repEl.textContent = res.diagnostic_report_id;
+
+              if (res.servicerequest_id) {
+                kanan.querySelectorAll('.cell-ss-srv').forEach(td => {
+                  td.textContent = res.servicerequest_id;
+                  td.style.color = '#15803d';
+                  td.style.fontWeight = '600';
+                });
+              }
+              if (res.specimen_id) {
+                kanan.querySelectorAll('.cell-ss-spec').forEach(td => {
+                  td.textContent = res.specimen_id;
+                  td.style.color = '#15803d';
+                  td.style.fontWeight = '600';
+                });
+              }
+            } else {
+              UI.toast('Gagal kirim ke SATUSEHAT: ' + ((res && res.pesan) || 'Periksa server bridge'), 'err', 6000);
+            }
+          } catch(errKirim) {
+            UI.toast('LIS Bridge (Port 7119) error: ' + errKirim.message, 'err', 5000);
+          } finally {
+            if (btnKirim) {
+              btnKirim.disabled = false;
+              btnKirim.textContent = '🚀 Kirim Hasil Lab ke SATUSEHAT';
+            }
+          }
+        };
+
+        const btnKirimSS = kanan.querySelector('#btnKirimLabSS');
+        if (btnKirimSS) btnKirimSS.onclick = prosesKirimLabSS;
+        kanan.querySelector('#btnSrv').onclick = prosesKirimLabSS;
+        kanan.querySelector('#btnSpec').onclick = prosesKirimLabSS;
 
       } catch (e) {
         kanan.innerHTML = `<div class="dh-empty" style="color:#c00">${UI.esc(e.message)}</div>`;
       }
     }
+
+    // Real-time synchronization: saat hasil lab diverifikasi di menu Laboratorium
+    const tanganiVerifikasi = (idLab) => {
+      if (!el || !el.isConnected) return;
+      if (idLab) {
+        const row = el.querySelector(`#dhDaftar tr.baris[data-id="${idLab}"]`);
+        if (row) {
+          row.classList.add('verified');
+          row.setAttribute('title', '✓ Hasil Lab Sudah Diverifikasi');
+        }
+        if (state.daftar) {
+          const item = state.daftar.find(d => d.id === idLab);
+          if (item) item.status = 'SELESAI';
+        }
+      }
+      muat(true);
+    };
+
+    const onLabSelesai = (e) => tanganiVerifikasi(e.detail?.id);
+    window.addEventListener('lab:selesai', onLabSelesai);
+    window.addEventListener('lab:status_berubah', onLabSelesai);
+
+    const onStorageSync = (e) => {
+      if (e.key === 'lmu_lab_selesai_sync' && e.newValue) {
+        try {
+          const p = JSON.parse(e.newValue);
+          tanganiVerifikasi(p.id);
+        } catch(_) {
+          tanganiVerifikasi();
+        }
+      }
+    };
+    window.addEventListener('storage', onStorageSync);
+
+    // Auto-polling background setiap 4 detik untuk menjamin sinkronisasi multi-PC/alat
+    const timerSync = setInterval(() => {
+      if (!el.isConnected) {
+        clearInterval(timerSync);
+        window.removeEventListener('lab:selesai', onLabSelesai);
+        window.removeEventListener('lab:status_berubah', onLabSelesai);
+        window.removeEventListener('storage', onStorageSync);
+        return;
+      }
+      muat(true);
+    }, 4000);
   }
 
 

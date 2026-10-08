@@ -631,15 +631,14 @@ const Antrian = (() => {
         ${a.kunjungan_id ? '' :
           '<button class="btn btn-danger btn-block" data-idx="2">Batalkan nomor ini</button>'}
         ${a.kunjungan_id
-          ? `<p class="hint mb-0">Nomor ini sudah menjadi kunjungan
-             ${a.status_kunjungan ? `(${UI.esc(a.status_kunjungan)})` : ''}, jadi tidak bisa
-             dibatalkan dari sini — batalkan kunjungannya lebih dulu.</p>` : ''}
+          ? `<p class="hint mb-0">Nomor ini terdaftar sebagai kunjungan
+             ${a.status_kunjungan ? `(${UI.esc(a.status_kunjungan)})` : ''}. Anda dapat menghapus pendaftaran kunjungan hari ini jika ingin membatalkannya.</p>` : ''}
       </div>`,
       tombol: [
         { teks: 'Tutup', nilai: null },
         { teks: 'Sedang dilayani', nilai: 'layan', kelas: 'btn-secondary' },
         { teks: 'Tidak hadir',     nilai: 'lewat', kelas: 'btn-secondary' },
-        ...(a.kunjungan_id ? [] : [{ teks: 'Batalkan', nilai: 'batal', kelas: 'btn-danger' }])
+        ...(a.kunjungan_id ? [{ teks: 'Hapus Pendaftaran Kunjungan', nilai: 'hapus_kunjungan', kelas: 'btn-danger' }] : [{ teks: 'Batalkan', nilai: 'batal', kelas: 'btn-danger' }])
       ]
     });
 
@@ -656,6 +655,23 @@ const Antrian = (() => {
       if (!await UI.konfirmasi('Tandai tidak hadir', pesan, 'Ya, lewati')) return;
       await DB.antreanLewat(a.id);
       UI.toast(`${a.nomor} dilewati.`, 'ok');
+    }
+    if (pilih === 'hapus_kunjungan' && a.kunjungan_id) {
+      const nama = a.nama_pasien || 'Pasien';
+      const yakin = await UI.konfirmasi(
+        'Hapus Pendaftaran Hari Ini',
+        `Yakin ingin menghapus pendaftaran & antrean nomor ${a.nomor} (${nama})?\n\n` +
+        `PENTING: Hanya pendaftaran hari ini yang akan dihapus. Data master pasien "${nama}" TIDAK akan terhapus.`,
+        'Ya, Hapus Pendaftaran',
+        true
+      );
+      if (!yakin) return;
+      try {
+        await DB.hapusKunjungan(a.kunjungan_id);
+        UI.toast(`Pendaftaran nomor ${a.nomor} berhasil dihapus. Data master pasien tetap aman.`, 'ok');
+      } catch (err) {
+        UI.toast('Gagal menghapus pendaftaran: ' + (err.message || err), 'err');
+      }
     }
     if (pilih === 'batal') {
       const alasan = await UI.modal({

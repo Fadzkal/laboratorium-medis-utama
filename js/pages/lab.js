@@ -515,6 +515,15 @@ const Lab = (() => {
         p.verifikator = verif.nama;
         p.tgl_verifikasi = verif.waktu;
         UI.toast(`Lembar hasil berhasil diverifikasi oleh ${verif.nama}.`);
+        if (typeof CONFIG !== 'undefined' && CONFIG.BRIDGING && CONFIG.BRIDGING.SATUSEHAT_AKTIF) {
+          if (typeof SatuSehat !== 'undefined' && SatuSehat.kirimHasilLab) {
+            SatuSehat.kirimHasilLab(p.id).then(resSS => {
+              if (resSS && resSS.sukses) {
+                UI.toast(`✓ Terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
+              }
+            }).catch(() => {});
+          }
+        }
         App.segarkan();
       } catch (e) { UI.toast(e.message || 'Gagal menutup lembar.', 'err'); }
     });
@@ -5118,7 +5127,7 @@ const Lab = (() => {
                 <button id="btnSpermaSky" style="background:#00897b; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Sperma</button>
                 <button id="btnWaHasil" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;" ${!terkunci?'disabled':''}>W.A</button>
                 <a href="#/laporan/prolanis" style="background:#16a34a; color:#fff; text-decoration:none; padding:4px 12px; font-size:12px; display:inline-flex; align-items:center; border-radius:2px; font-weight:600;" title="Buka Ekspor Rekap Prolanis">Prolanis</a>
-                ${!terkunci ? `<button id="btnHapusLembarSky" style="background:#dc2626; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Hapus seluruh lembar pemeriksaan pasien ini">${UI.ikon('hapus', 13)} Hapus Lembar</button>` : ''}
+                ${!terkunci ? `<button id="btnHapusLembarSky" style="background:#dc2626; color:#fff; border:none; padding:4px 12px; cursor:pointer; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;" title="Hapus lembar pemeriksaan & pendaftaran kunjungan hari ini (Data master pasien tetap aman)">${UI.ikon('hapus', 13)} Hapus Lembar</button>` : ''}
                 ${terkunci && adminSaja() ? `<button id="btnBukaKunci" style="font-size:11px; margin-left:12px; color:#333; padding:4px 10px; cursor:pointer; font-weight:600;">Buka Kunci</button>` : ''}
               </div>
             </div>
@@ -5456,6 +5465,23 @@ const Lab = (() => {
               p.verifikator = verif.nama;
               p.tgl_verifikasi = verif.waktu;
               UI.toast('Lembar berhasil diverifikasi oleh ' + verif.nama);
+
+              // Auto-sync ke SATUSEHAT jika bridging aktif
+              if (typeof CONFIG !== 'undefined' && CONFIG.BRIDGING && CONFIG.BRIDGING.SATUSEHAT_AKTIF) {
+                if (typeof SatuSehat !== 'undefined' && SatuSehat.kirimHasilLab) {
+                  SatuSehat.kirimHasilLab(p.id).then(resSS => {
+                    if (resSS && resSS.sukses) {
+                      UI.toast(`✓ Otomatis terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
+                    } else if (resSS && !resSS.sukses) {
+                      console.warn('SATUSEHAT auto-sync info:', resSS.pesan);
+                      if (resSS.pesan && !resSS.pesan.includes('Belum ada parameter lab dengan kode LOINC')) {
+                        UI.toast(`SATUSEHAT Info: ${resSS.pesan}`, 'warn', 5000);
+                      }
+                    }
+                  }).catch(errSS => console.warn('SATUSEHAT background error:', errSS));
+                }
+              }
+
               await muat();
               await bukaHasil(p.id);
             } catch(e) { UI.toast('Gagal: ' + e.message, 'err'); }
@@ -5649,7 +5675,7 @@ const Lab = (() => {
           });
         });
 
-        // CRUD: Hapus / Batalkan Seluruh Lembar Lab dengan Verifikasi 2 Langkah
+        // CRUD: Hapus / Batalkan Seluruh Lembar Lab & Pendaftaran dengan Verifikasi 2 Langkah
         const btnHL = kanan.querySelector('#btnHapusLembarSky');
         if (btnHL) {
           btnHL.onclick = async () => {
@@ -5657,18 +5683,18 @@ const Lab = (() => {
             const namaPasien = p.pasien?.nama || '-';
 
             const yakin = await UI.konfirmasiGanda({
-              judul: 'Hapus Seluruh Lembar Hasil Lab',
-              pesan1: `Apakah Anda yakin ingin menghapus seluruh lembar hasil ${noLab} untuk pasien "${namaPasien}"? Seluruh daftar parameter pemeriksaan (${p.hasil?.length || 0} item) akan dihapus.`,
-              pesan2: `PERINGATAN TERAKHIR: Lembar ${noLab} atas nama "${namaPasien}" akan dihapus permanen dari antrean dan database laboratorium. Tindakan ini TIDAK DAPAT DIBATALKAN. Anda benar-benar yakin?`,
-              tombolLanjut: 'Lanjutkan Hapus Lembar',
-              tombolFinal: 'Ya, Hapus Lembar Permanen'
+              judul: 'Hapus Lembar & Pendaftaran Lab',
+              pesan1: `Apakah Anda yakin ingin menghapus lembar hasil ${noLab} dan pendaftaran pemeriksaan hari ini untuk pasien "${namaPasien}"? Seluruh antrean dan daftar parameter pemeriksaan (${p.hasil?.length || 0} item) pada hari ini akan dihapus.\n\nCatatan: Data master pasien tetap tersimpan aman dan tidak akan terhapus.`,
+              pesan2: `PERINGATAN TERAKHIR: Pendaftaran ${noLab} atas nama "${namaPasien}" akan dihapus dari antrean dan laporan registrasi. Data master pasien ("${namaPasien}") TIDAK akan terhapus. Anda benar-benar yakin?`,
+              tombolLanjut: 'Lanjutkan Hapus',
+              tombolFinal: 'Ya, Hapus Pendaftaran Hari Ini'
             });
 
             if (!yakin) return;
 
             try {
-              await DB.labHapusPermintaan(p.id);
-              UI.toast(`Lembar ${noLab} berhasil dihapus.`);
+              await DB.labHapusPermintaan(p.id, true);
+              UI.toast(`Pendaftaran & lembar ${noLab} berhasil dihapus. Data master pasien tetap tersimpan.`, 'ok');
               skylabState.terpilih = null;
               await muat();
             } catch (err) {

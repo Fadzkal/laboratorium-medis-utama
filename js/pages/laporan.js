@@ -2294,7 +2294,7 @@ const Laporan = (() => {
           (r.no_hp || '').toLowerCase().includes(q)
         );
       }
-      gambarRegister(w.querySelector('#rgIsi'), tampil);
+      gambarRegister(w.querySelector('#rgIsi'), tampil, muat);
     };
 
     w.querySelector('#rgTampil').addEventListener('click', muat);
@@ -2327,7 +2327,7 @@ const Laporan = (() => {
     await muat();
   }
 
-  function gambarRegister(w, rows) {
+  function gambarRegister(w, rows, onMuatUlang) {
     if (!rows.length) {
       w.innerHTML = UI.kosong('Tidak ada pendaftaran', 'Tidak ada data registrasi pasien pada periode dan filter ini.');
       return;
@@ -2370,6 +2370,7 @@ const Laporan = (() => {
                 <th>Cara Bayar</th>
                 <th>Dokter / Pengirim</th>
                 <th>Status</th>
+                <th style="width:75px; text-align:center;">Aksi</th>
               </tr></thead>
               <tbody>${cuplikan.map((r, i) => {
                 const jamTeks = r.jam_daftar != null
@@ -2399,6 +2400,11 @@ const Laporan = (() => {
                   <td>${UI.badgeBayar(r.cara_bayar)}</td>
                   <td>${dokterTeks}</td>
                   <td>${statusBadge}</td>
+                  <td style="text-align:center;">
+                    <button class="btn btn-sm btnHapusRegLab" data-id="${r.id}" data-nokunj="${UI.esc(r.no_kunjungan || '')}" data-nama="${UI.esc(r.nama_pasien || '')}" data-tgl="${UI.esc(r.tanggal || '')}" title="Hapus pendaftaran kunjungan ini saja (data master pasien tetap tersimpan)" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:3px 8px; font-size:11px; font-weight:600; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+                      ${UI.ikon('hapus', 12)} Hapus
+                    </button>
+                  </td>
                 </tr>`;
               }).join('')}</tbody>
             </table></div>
@@ -2414,6 +2420,37 @@ const Laporan = (() => {
             </div>
           ` : ''}
         </div>`;
+
+      // Pasang handler tombol hapus pendaftaran
+      w.querySelectorAll('.btnHapusRegLab').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const noKunj = btn.dataset.nokunj;
+          const nama = btn.dataset.nama;
+          const tgl = btn.dataset.tgl;
+
+          const yakin = await UI.konfirmasi(
+            'Hapus Pendaftaran Hari Ini',
+            `Yakin ingin menghapus pendaftaran ${noKunj} (${nama}) pada tanggal ${UI.tglPendek(tgl)}?\n\n` +
+            `PENTING: Hanya pendaftaran pemeriksaan dan antrean di tanggal ini yang akan dihapus. Data master pasien "${nama}" TIDAK akan terhapus.`,
+            'Ya, Hapus Pendaftaran',
+            true
+          );
+          if (!yakin) return;
+
+          try {
+            btn.disabled = true;
+            UI.toast('Menghapus pendaftaran kunjungan...', 'info');
+            await DB.hapusKunjungan(id);
+            UI.toast(`Pendaftaran ${noKunj} berhasil dihapus. Data master pasien tetap aman.`, 'ok');
+            if (typeof onMuatUlang === 'function') await onMuatUlang();
+          } catch (err) {
+            btn.disabled = false;
+            UI.toast('Gagal menghapus pendaftaran: ' + (err.message || err), 'err');
+          }
+        });
+      });
 
       if (rows.length > perHal) {
         const prev = () => { if (hal > 1) { hal--; renderTabel(); w.scrollIntoView({ behavior: 'smooth' }); } };

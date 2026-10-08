@@ -1311,6 +1311,54 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 self._send_json({"sukses": True, "data": BUFFER_RIWAYAT[:limit]})
             return
 
+        # 6. Endpoint SATUSEHAT: Cek Status / Config
+        if path in ("/api/satusehat/config", "/api/satusehat/status"):
+            try:
+                from bridge import satusehat_bridge
+                cfg = satusehat_bridge.muat_config()
+                has_secret = bool(cfg.get("client_secret"))
+                c_id = cfg.get("client_id", "")
+                masked_id = (c_id[:8] + "..." + c_id[-4:]) if len(c_id) > 12 else (c_id or "")
+                self._send_json({
+                    "sukses": True,
+                    "environment": cfg.get("environment", "SANDBOX"),
+                    "organization_id": cfg.get("organization_id", ""),
+                    "client_id": masked_id,
+                    "has_secret": has_secret,
+                    "configured": bool(c_id and has_secret)
+                })
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # 7. Endpoint SATUSEHAT: Cari Pasien by NIK
+        if path == "/api/satusehat/pasien":
+            nik = params.get("nik", [None])[0]
+            if not nik:
+                self._send_json({"sukses": False, "pesan": "Parameter 'nik' wajib diisi"}, 400)
+                return
+            try:
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.cari_pasien_nik(nik)
+                self._send_json({"sukses": True, "data": res})
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # 8. Endpoint SATUSEHAT: Cari Nakes by NIK
+        if path == "/api/satusehat/nakes":
+            nik = params.get("nik", [None])[0]
+            if not nik:
+                self._send_json({"sukses": False, "pesan": "Parameter 'nik' wajib diisi"}, 400)
+                return
+            try:
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.cari_nakes_nik(nik)
+                self._send_json({"sukses": True, "data": res})
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
         self._send_json({"sukses": False, "pesan": "Endpoint tidak ditemukan"}, 404)
 
     def do_POST(self):
@@ -1483,6 +1531,100 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 else:
                     self._send_json({"sukses": True, "pesan": "Riwayat berhasil dihapus dari buffer"})
             except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # Endpoint SATUSEHAT: Simpan Konfigurasi Kredensial
+        if path == "/api/satusehat/config":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+
+                from bridge import satusehat_bridge
+                ok = satusehat_bridge.simpan_config(payload)
+                self._send_json({
+                    "sukses": ok,
+                    "pesan": "Konfigurasi SATUSEHAT berhasil disimpan" if ok else "Gagal menyimpan konfigurasi"
+                })
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # Endpoint SATUSEHAT: Tes Koneksi Sandbox (OAuth Token & Org ID)
+        if path == "/api/satusehat/tes-koneksi":
+            try:
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.uji_koneksi()
+                self._send_json(res)
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # Endpoint SATUSEHAT: Buat / Kirim Encounter
+        if path == "/api/satusehat/encounter":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+
+                no_lab = payload.get("no_lab")
+                patient_ihs = payload.get("patient_ihs")
+                patient_name = payload.get("patient_name", "-")
+                practitioner_ihs = payload.get("practitioner_ihs", "")
+                practitioner_name = payload.get("practitioner_name", "")
+
+                if not no_lab or not patient_ihs:
+                    self._send_json({"sukses": False, "pesan": "no_lab dan patient_ihs wajib diisi"}, 400)
+                    return
+
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.kirim_encounter_lab(
+                    no_lab=no_lab,
+                    patient_ihs=patient_ihs,
+                    patient_name=patient_name,
+                    practitioner_ihs=practitioner_ihs,
+                    practitioner_name=practitioner_name
+                )
+                self._send_json(res)
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
+        # Endpoint SATUSEHAT: Kirim Seluruh Paket Hasil Lab (ServiceRequest, Specimen, Observation, DiagnosticReport)
+        if path == "/api/satusehat/kirim-lab":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+
+                no_lab = payload.get("no_lab")
+                patient_ihs = payload.get("patient_ihs", "")
+                patient_nik = payload.get("patient_nik", "")
+                patient_name = payload.get("patient_name", "-")
+                encounter_id = payload.get("encounter_id", "")
+                items = payload.get("items", [])
+                practitioner_ihs = payload.get("practitioner_ihs", "")
+                practitioner_name = payload.get("practitioner_name", "")
+
+                if not no_lab:
+                    self._send_json({"sukses": False, "pesan": "Parameter 'no_lab' wajib diisi"}, 400)
+                    return
+
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.kirim_hasil_lab_lengkap(
+                    no_lab=no_lab,
+                    patient_ihs=patient_ihs,
+                    patient_nik=patient_nik,
+                    patient_name=patient_name,
+                    encounter_id=encounter_id,
+                    items=items,
+                    practitioner_ihs=practitioner_ihs,
+                    practitioner_name=practitioner_name
+                )
+                self._send_json(res, 200 if res.get("sukses") else 400)
+            except Exception as e:
+                logger.error(f"Error pada /api/satusehat/kirim-lab: {e}")
                 self._send_json({"sukses": False, "pesan": str(e)}, 500)
             return
 

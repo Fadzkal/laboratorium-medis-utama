@@ -3753,7 +3753,7 @@ const DB = (() => {
   return { sb, masuk, keluar, sesi, saya, bolehTulis, hakAksesSaya, faskes, simpanFaskes,
            daftarPoli, daftarDokter, daftarPegawai, cariIcd, cariObat, cariObatJual, daftarSigna,
            cariPasien, pasien, simpanPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
-           antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
+           antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan, hapusKunjungan: async (id) => true,
            kajian, simpanKajian, pemeriksaan, simpanPemeriksaan, finalisasi,
            tambahAddendum, daftarAddendum, diagnosa, simpanDiagnosa, resep, simpanResep,
            rekamMedisLengkap, statistikHariIni, diagnosaTeratas,

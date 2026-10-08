@@ -19,7 +19,7 @@ const CONFIG = {
   // Nyalakan setelah kredensial bridging tersedia dan Edge Function terpasang
   BRIDGING: {
     PCARE_AKTIF: false,
-    SATUSEHAT_AKTIF: false
+    SATUSEHAT_AKTIF: true
   },
 
   // Ambang tanda vital untuk menandai nilai tidak normal (dewasa)

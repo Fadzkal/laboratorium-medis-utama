@@ -867,6 +867,62 @@ const DB = (() => {
     const { data, error } = await sb.from('kunjungan').update(patch).eq('id', id).select().single();
     if (error) throw error; return data;
   }
+  async function hapusKunjungan(id) {
+    if (!id) throw new Error('ID kunjungan tidak valid');
+
+    // 1. Bersihkan permintaan lab & seluruh item hasil, fisik, anamnesa, sperma
+    try {
+      const { data: labs } = await sb.from('lab_permintaan').select('id').eq('kunjungan_id', id);
+      if (labs && labs.length > 0) {
+        const labIds = labs.map(l => l.id);
+        await sb.from('lab_hasil').delete().in('permintaan_id', labIds);
+        await sb.from('lab_fisik').delete().in('permintaan_id', labIds);
+        await sb.from('lab_anamnesa').delete().in('permintaan_id', labIds);
+        await sb.from('lab_sperma').delete().in('permintaan_id', labIds);
+        await sb.from('lab_permintaan').delete().in('id', labIds);
+      }
+    } catch (eLab) {
+      console.warn('Gagal bersihkan lab saat hapus kunjungan:', eLab);
+    }
+
+    // 2. Bersihkan antrean
+    try {
+      await sb.from('antrean').delete().eq('kunjungan_id', id);
+    } catch (eAnt) {}
+
+    // 3. Bersihkan transaksi kasir jika ada
+    try {
+      await sb.from('kasir_item').delete().eq('kunjungan_id', id);
+      await sb.from('kasir_pembayaran').delete().eq('kunjungan_id', id);
+      await sb.from('kasir_tagihan').delete().eq('kunjungan_id', id);
+    } catch (eKas) {}
+
+    // 4. Bersihkan resep, surat, kajian awal, pemeriksaan, penunjang, odontogram
+    try {
+      await sb.from('resep_item').delete().eq('kunjungan_id', id).catch(() => {});
+      await sb.from('resep').delete().eq('kunjungan_id', id);
+      await sb.from('surat').delete().eq('kunjungan_id', id);
+      await sb.from('penunjang').delete().eq('kunjungan_id', id);
+      await sb.from('kajian_awal').delete().eq('kunjungan_id', id);
+      await sb.from('pemeriksaan').delete().eq('kunjungan_id', id);
+      await sb.from('diagnosa').delete().eq('kunjungan_id', id);
+      await sb.from('tindakan').delete().eq('kunjungan_id', id);
+      await sb.from('odontogram').delete().eq('kunjungan_id', id);
+      await sb.from('pemeriksaan_gigi').delete().eq('kunjungan_id', id);
+    } catch (eRel) {}
+
+    // 5. Hapus kunjungan utama
+    const { error } = await sb.from('kunjungan').delete().eq('id', id);
+    if (error) throw error;
+
+    // 6. Broadcast event agar seluruh UI (antrean, lab, laporan) sinkron
+    try {
+      window.dispatchEvent(new CustomEvent('kunjungan:hapus', { detail: { id } }));
+      localStorage.setItem('lmu_kunjungan_hapus_sync', JSON.stringify({ id, waktu: Date.now() }));
+    } catch (_) {}
+
+    return true;
+  }
 
   /* --------------------------- Kajian awal ------------------------------ */
   async function kajian(kunjunganId) {
@@ -2436,14 +2492,27 @@ const DB = (() => {
         }
       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('lab:selesai', { detail: { id, verifikator } }));
+      localStorage.setItem('lmu_lab_selesai_sync', JSON.stringify({ id, t: Date.now() }));
+    } catch (_) {}
   }
   async function labBukaKunci(id, alasan) {
     const { error } = await sb.rpc('lab_buka_kunci', { p_permintaan_id: id, p_alasan: alasan });
     if (error) throw error;
+    try {
+      window.dispatchEvent(new CustomEvent('lab:status_berubah', { detail: { id, status: 'DIKERJAKAN' } }));
+      localStorage.setItem('lmu_lab_selesai_sync', JSON.stringify({ id, t: Date.now(), status: 'DIKERJAKAN' }));
+    } catch (_) {}
   }
   async function labBatalkan(id, alasan) {
     const { error } = await sb.rpc('lab_batalkan', { p_permintaan_id: id, p_alasan: alasan });
     if (error) throw error;
+    try {
+      window.dispatchEvent(new CustomEvent('lab:status_berubah', { detail: { id, status: 'BATAL' } }));
+      localStorage.setItem('lmu_lab_selesai_sync', JSON.stringify({ id, t: Date.now(), status: 'BATAL' }));
+    } catch (_) {}
   }
   async function labTambahItem(permintaanId, labId) {
     const { data: ref, error: errRef } = await sb.from('ref_lab').select('*').eq('id', labId).single();
@@ -2465,12 +2534,16 @@ const DB = (() => {
     if (error) throw error;
     return true;
   }
-  async function labHapusPermintaan(id) {
+  async function labHapusPermintaan(id, hapusKunjunganJuga = false) {
+    const { data: lp } = await sb.from('lab_permintaan').select('kunjungan_id').eq('id', id).maybeSingle();
     await sb.from('lab_hasil').delete().eq('permintaan_id', id);
     await sb.from('lab_fisik').delete().eq('permintaan_id', id);
     await sb.from('lab_anamnesa').delete().eq('permintaan_id', id);
     const { error } = await sb.from('lab_permintaan').delete().eq('id', id);
     if (error) throw error;
+    if (hapusKunjunganJuga && lp && lp.kunjungan_id) {
+      try { await hapusKunjungan(lp.kunjungan_id); } catch (_) {}
+    }
     return true;
   }
   async function labTren(pasienId, labId, batas = 12) {
@@ -4808,7 +4881,7 @@ const DB = (() => {
     tambahPengguna, hapusPengguna, resetPasswordPengguna, ubahProfilSaya, adminUbahPengguna,
     cariIcd, cariObat, cariObatJual, daftarSigna,
     cariPasien, daftarPasienLengkap, dataKronisBpjsPasien, pasien, simpanPasien, hapusPasien, alergiPasien, tambahAlergi, hapusAlergi, catatAkses,
-    antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan,
+    antrianHariIni, daftarKunjungan, buatKunjungan, kunjungan, ubahKunjungan, hapusKunjungan,
     kajian, simpanKajian,
     pemeriksaan, simpanPemeriksaan, finalisasi, tambahAddendum, daftarAddendum,
     diagnosa, simpanDiagnosa, resep, simpanResep, rekamMedisLengkap,

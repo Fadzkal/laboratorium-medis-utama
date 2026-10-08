@@ -1,0 +1,9 @@
+{
+  "environment": "SANDBOX",
+  "auth_url": "https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1",
+  "base_url": "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1",
+  "organization_id": "6a80f69d-2493-422a-b0ac-ca2b5bea38dd",
+  "client_id": "ucic84qmma8g8BFeQWvb2R432orMoMhukEroXLYfqF1ipNFs",
+  "client_secret": "kZBac8bqyjMesFAKyLwd0DQpvRbnLAnGA4zGdcMO5wdXdKT7sQVuxA0qfGKtpoXx",
+  "default_location_id": "87c39701-3904-4198-9306-283cb408a4bb"
+}
