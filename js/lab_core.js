@@ -260,6 +260,13 @@ const LabCore = (() => {
   function tandai(lab, ruj, nilaiAngka, nilaiTeks) {
     if (!lab) return 'BELUM';
     if (lab.jenis_nilai === 'ANGKA' || (nilaiAngka !== null && nilaiAngka !== undefined)) {
+      if (nilaiAngka !== null && nilaiAngka !== undefined) {
+        return tandaAngka(nilaiAngka, ruj);
+      }
+      if (nilaiTeks) {
+        const ev = evaluasiHasil(nilaiTeks, ruj?.teks || (ruj?.batas_bawah != null || ruj?.batas_atas != null ? `${ruj.batas_bawah || ''} - ${ruj.batas_atas || ''}` : ''), { ref: lab });
+        if (ev && ev.tanda && ev.tanda !== 'BELUM') return ev.tanda;
+      }
       return tandaAngka(nilaiAngka, ruj);
     }
     if (nilaiTeks && !isNaN(parseFloat(String(nilaiTeks).replace(',', '.'))) && (ruj && (ruj.batas_bawah != null || ruj.batas_atas != null || ruj.teks))) {
@@ -285,9 +292,20 @@ const LabCore = (() => {
     const isHba1c = (kode === 'K0335' || /hba\s*1\s*c|hba1c/i.test(nama));
 
     const rawStr = String(nilai).trim();
-    const valClean = rawStr.replace(/,/g, '.');
+    // Deteksi operator pembanding (> / <) dan flag/panah arah (↑ / ↓ / H / L)
+    const mOp = rawStr.match(/^([><]=?)\s*(-?\d+(?:[.,]\d+)?)/);
+    const mPanahTinggi = /[↑▲\^]|\bH\b|\bHIGH\b/i.test(rawStr);
+    const mPanahRendah = /[↓▼]|\bL\b|\bLOW\b/i.test(rawStr);
+
+    let op = mOp ? mOp[1] : '';
+    let valClean = rawStr.replace(/,/g, '.');
+    if (mOp) {
+      valClean = mOp[2].replace(/,/g, '.');
+    } else {
+      valClean = valClean.replace(/[^\d.-]/g, '');
+    }
     const numVal = parseFloat(valClean);
-    const isNum = !isNaN(numVal) && /^-?\d+(?:[.,]\d+)?$/.test(rawStr.replace(/\s+/g, ''));
+    const isNum = !isNaN(numVal);
 
     const parsed = uraiTeksRujukan(teksRuj);
 
@@ -306,17 +324,27 @@ const LabCore = (() => {
     if (parsed) {
       if (parsed.tipe === 'RENTANG') {
         if (isNum) {
+          if (op.startsWith('>') && numVal >= parsed.max) return { abnormal: true, tanda: 'TINGGI' };
+          if (op.startsWith('<') && numVal <= parsed.min) return { abnormal: true, tanda: 'RENDAH' };
+          if (mPanahTinggi) return { abnormal: true, tanda: 'TINGGI' };
+          if (mPanahRendah) return { abnormal: true, tanda: 'RENDAH' };
           if (numVal < parsed.min) return { abnormal: true, tanda: 'RENDAH' };
           if (numVal > parsed.max) return { abnormal: true, tanda: 'TINGGI' };
           return { abnormal: false, tanda: 'NORMAL' };
         }
       } else if (parsed.tipe === 'KURANG_DARI') {
         if (isNum) {
+          if (op.startsWith('>') && numVal >= parsed.max) return { abnormal: true, tanda: 'TINGGI' };
+          if (mPanahTinggi) return { abnormal: true, tanda: 'TINGGI' };
+          if (mPanahRendah) return { abnormal: true, tanda: 'RENDAH' };
           if (numVal > parsed.max) return { abnormal: true, tanda: 'TINGGI' };
           return { abnormal: false, tanda: 'NORMAL' };
         }
       } else if (parsed.tipe === 'LEBIH_DARI') {
         if (isNum) {
+          if (op.startsWith('<') && numVal <= parsed.min) return { abnormal: true, tanda: 'RENDAH' };
+          if (mPanahTinggi) return { abnormal: true, tanda: 'TINGGI' };
+          if (mPanahRendah) return { abnormal: true, tanda: 'RENDAH' };
           if (numVal < parsed.min) return { abnormal: true, tanda: 'RENDAH' };
           return { abnormal: false, tanda: 'NORMAL' };
         }
@@ -339,6 +367,8 @@ const LabCore = (() => {
 
     // 3. Fallback nilai numerik tanpa rujukan atau nilai kualitatif bebas
     if (isNum) {
+      if (mPanahTinggi) return { abnormal: true, tanda: 'TINGGI' };
+      if (mPanahRendah) return { abnormal: true, tanda: 'RENDAH' };
       return { abnormal: false, tanda: 'NORMAL' };
     }
     const vLow = rawStr.toLowerCase();

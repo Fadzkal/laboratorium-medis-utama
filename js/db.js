@@ -4737,17 +4737,15 @@ const DB = (() => {
       let q = sb.from('lis_riwayat_sampel').select('*');
 
       if (filterDate && typeof filterDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(filterDate.trim())) {
-        const parts = filterDate.trim().split('-');
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        const awal = new Date(y, m, d, 0, 0, 0, 0).toISOString();
-        const akhir = new Date(y, m, d, 23, 59, 59, 999).toISOString();
+        const tglClean = filterDate.trim();
+        // Gunakan offset waktu lokal klinik (WIB/UTC+7) secara presisi
+        const awal = `${tglClean}T00:00:00.000+07:00`;
+        const akhir = `${tglClean}T23:59:59.999+07:00`;
         q = q.gte('waktu_terima', awal).lte('waktu_terima', akhir);
       }
 
       const { data, error } = await q
-        .order('waktu_terima', { ascending: false })
+        .order('waktu_terima', { ascending: false, nullsFirst: false })
         .limit(limit);
 
       if (error) throw error;

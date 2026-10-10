@@ -334,24 +334,30 @@ const LisDebug = (() => {
       } catch (_) {}
     } else {
       // Fallback: ambil dari Supabase lis_riwayat_sampel (dengan filter tanggal presisi)
-      try {
-        const dataSb = await DB.ambilRiwayatSampelLIS(100, filterTanggal);
-        daftarSampel = (dataSb || []).map(r => ({
-          id: r.id,
-          sample_id: r.sample_id,
-          nama_pasien: r.nama_pasien || 'Pasien',
-          alat: r.alat || '',
-          waktu: r.waktu_terima ? new Date(r.waktu_terima).toLocaleString('id-ID') : (r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-'),
-          waktu_terima: r.waktu_terima,
-          created_at: r.created_at,
-          hasil: Array.isArray(r.hasil_json) ? r.hasil_json : (typeof r.hasil_json === 'string' ? JSON.parse(r.hasil_json || '[]') : []),
-          raw_hl7: r.raw_data || '',
-          status_mapping: r.status_mapping || 'BELUM',
-          metadata: {}
-        }));
+      // Jika realtime aktif dan ini polling senyap berkala, jangan query ulang DB untuk mencegah connection exhaustion
+      const perluMuatDb = !senyap || daftarSampel.length === 0 || !langgananRealtime;
+      if (perluMuatDb) {
+        try {
+          const dataSb = await DB.ambilRiwayatSampelLIS(100, filterTanggal);
+          daftarSampel = (dataSb || []).map(r => ({
+            id: r.id,
+            sample_id: r.sample_id,
+            nama_pasien: r.nama_pasien || 'Pasien',
+            alat: r.alat || '',
+            waktu: r.waktu_terima ? new Date(r.waktu_terima).toLocaleString('id-ID') : (r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-'),
+            waktu_terima: r.waktu_terima,
+            created_at: r.created_at,
+            hasil: Array.isArray(r.hasil_json) ? r.hasil_json : (typeof r.hasil_json === 'string' ? JSON.parse(r.hasil_json || '[]') : []),
+            raw_hl7: r.raw_data || '',
+            status_mapping: r.status_mapping || 'BELUM',
+            metadata: {}
+          }));
+          sumberData = 'supabase';
+        } catch (eSb) {
+          tambahLog('WARN', `Gagal memuat riwayat dari database: ${eSb.message}`);
+        }
+      } else {
         sumberData = 'supabase';
-      } catch (eSb) {
-        tambahLog('WARN', `Gagal memuat riwayat dari database: ${eSb.message}`);
       }
     }
 
@@ -695,11 +701,11 @@ const LisDebug = (() => {
       });
 
       const isMapped = !!matched;
-      const namaRef = isMapped ? matched.nama : '<span style="color:#94a3b8; font-style:italic;">Belum Ada</span>';
+      const namaRef = isMapped ? UI.esc(matched.nama) : '<span style="color:#94a3b8; font-style:italic;">Belum Ada</span>';
       const kelompokRef = isMapped ? (matched.kelompok || 'Umum') : '-';
       const rujukanDb = isMapped && Array.isArray(matched.rujukan) && matched.rujukan.length
-        ? matched.rujukan.map(x => `${x.jenis_kelamin || '*'}: ${x.nilai_min || '0'} - ${x.nilai_max || '0'} ${matched.satuan || ''}`).join('<br>')
-        : (isMapped && matched.satuan ? matched.satuan : '-');
+        ? matched.rujukan.map(x => `${UI.esc(x.jenis_kelamin || '*')}: ${UI.esc(x.nilai_min || '0')} - ${UI.esc(x.nilai_max || '0')} ${UI.esc(matched.satuan || '')}`).join('<br>')
+        : (isMapped && matched.satuan ? UI.esc(matched.satuan) : '-');
 
       // Tentukan badge flag
       let badgeFlag = `<span class="flag-badge flag-n">NORMAL</span>`;
@@ -1102,7 +1108,27 @@ const LisDebug = (() => {
 
   // Membersihkan buffer riwayat di bridge
   async function bersihkanBufferBridge() {
-    if (!confirm('Bersihkan seluruh daftar riwayat sampel di memori bridge?')) return;
+    const yakin = await UI.modal({
+      judul: 'Konfirmasi Reset Buffer',
+      isi: `
+        <div style="font-size:12.5px; color:#334155; line-height:1.5;">
+          <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:12px; margin-bottom:12px;">
+            <div style="font-weight:700; color:#92400e; margin-bottom:3px; font-size:13px;">
+              Reset Buffer LIS Bridge
+            </div>
+            <div style="font-size:11.5px; color:#78350f;">
+              Apakah Anda yakin ingin mengosongkan antrean buffer sampel aktif pada LIS Bridge? Tindakan ini hanya mengosongkan memori sementara dan tidak menghapus database permanen.
+            </div>
+          </div>
+        </div>
+      `,
+      tombol: [
+        { teks: 'Batal', nilai: false, kelas: 'btn-secondary' },
+        { teks: 'Ya, Reset Buffer', nilai: true, kelas: 'btn-danger' }
+      ]
+    });
+
+    if (yakin !== true) return;
 
     try {
       const res = await fetch(`${BRIDGE_HOST}/api/clear`, { method: 'POST' });
@@ -1446,6 +1472,16 @@ const LisDebug = (() => {
     const newRec = payload?.new;
     if (!newRec) return;
 
+    // Periksa apakah ada filter tanggal aktif dan apakah tanggal record cocok
+    if (filterTanggal && (newRec.waktu_terima || newRec.created_at)) {
+      const dt = new Date(newRec.waktu_terima || newRec.created_at);
+      const tglRec = !isNaN(dt) ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}` : '';
+      if (tglRec && tglRec !== filterTanggal) {
+        // Record bukan untuk tanggal yang sedang difilter pengguna
+        return;
+      }
+    }
+
     const ada = daftarSampel.some(s =>
       (newRec.id && s.id === newRec.id) ||
       (newRec.sample_id && String(s.sample_id) === String(newRec.sample_id))
@@ -1500,6 +1536,14 @@ const LisDebug = (() => {
       const sb = DB.sb;
       if (!sb || typeof sb.channel !== 'function') return;
 
+      // Bersihkan channel yang mungkin tertinggal dari sesi sebelumnya untuk mencegah duplikasi
+      if (typeof sb.getChannels === 'function') {
+        const exist = sb.getChannels().find(c => c.topic === 'realtime:lis_samples_changes' || c.topic === 'lis_samples_changes');
+        if (exist) {
+          try { sb.removeChannel(exist); } catch (_) {}
+        }
+      }
+
       const ch = sb.channel('lis_samples_changes')
         // Event DELETE tabel lis_samples & lis_riwayat_sampel
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'lis_samples' }, payload => {
@@ -1542,6 +1586,13 @@ const LisDebug = (() => {
       langgananRealtime();
     }
     langgananRealtime = null;
+    try {
+      const sb = DB.sb;
+      if (sb && typeof sb.getChannels === 'function') {
+        const exist = sb.getChannels().find(c => c.topic === 'realtime:lis_samples_changes' || c.topic === 'lis_samples_changes');
+        if (exist) sb.removeChannel(exist);
+      }
+    } catch (_) {}
   }
 
   // Buka modal petunjuk konfigurasi Mindray BS-240

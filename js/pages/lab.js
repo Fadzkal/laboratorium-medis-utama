@@ -519,7 +519,7 @@ const Lab = (() => {
           if (typeof SatuSehat !== 'undefined' && SatuSehat.kirimHasilLab) {
             SatuSehat.kirimHasilLab(p.id).then(resSS => {
               if (resSS && resSS.sukses) {
-                UI.toast(`✓ Terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
+                UI.toast(`Terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
               }
             }).catch(() => {});
           }
@@ -624,10 +624,40 @@ const Lab = (() => {
     'PDW': ['PDW'],
     'MPV': ['MPV'],
     'P-LCR': ['P-LCR'],
-    'PCT': ['PCT'],
+    'PCT': ['Prokalsitonin (PCT)', 'Prokalsitonin', 'Procalcitonin', 'PCT'],
     'LED': ['LED', 'Laju Endap Darah', 'ESR'],
     'ESR': ['LED', 'Laju Endap Darah', 'ESR'],
-    'HBA1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c']
+    'HBA1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c', 'HBA1C'],
+    'A1C': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c', 'HBA1C'],
+    'GHB': ['HbA 1C', 'HbA1c', 'Hemoglobin A1c', 'HBA1C'],
+    'MAU': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU'],
+    'MICROALBUMIN': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU'],
+    'M-ALB': ['Mikroalbumin Urin (MAU)', 'Mikroalbumin Urin', 'Mikroalbumin', 'Microalbumin', 'MAU'],
+    'D-DIMER': ['D-Dimer', 'D Dimer', 'D-DIMER', 'DDIMER'],
+    'DDIMER': ['D-Dimer', 'D Dimer', 'D-DIMER', 'DDIMER'],
+    'D_DIMER': ['D-Dimer', 'D Dimer', 'D-DIMER', 'DDIMER'],
+    'CTNI': ['Troponin I', 'Troponin-I', 'cTnI', 'Troponin', 'TROPONIN I'],
+    'TNI': ['Troponin I', 'Troponin-I', 'cTnI', 'Troponin', 'TROPONIN I'],
+    'TROPONIN': ['Troponin I', 'Troponin-I', 'cTnI', 'Troponin', 'TROPONIN I'],
+    'TROPONIN I': ['Troponin I', 'Troponin-I', 'cTnI', 'Troponin', 'TROPONIN I'],
+    'PROCALCITONIN': ['Prokalsitonin (PCT)', 'Prokalsitonin', 'Procalcitonin', 'PCT'],
+    'CRP': ['C-Reactive Protein (CRP)', 'C-Reactive Protein', 'CRP', 'hs-CRP', 'hsCRP'],
+    'HS-CRP': ['C-Reactive Protein (CRP)', 'C-Reactive Protein', 'CRP', 'hs-CRP', 'hsCRP'],
+    'HSCRP': ['C-Reactive Protein (CRP)', 'C-Reactive Protein', 'CRP', 'hs-CRP', 'hsCRP'],
+    'NT-PROBNP': ['NT-proBNP', 'NT proBNP', 'NT-ProBNP', 'BNP'],
+    'PROBNP': ['NT-proBNP', 'NT proBNP', 'NT-ProBNP', 'BNP'],
+    'BNP': ['NT-proBNP', 'NT proBNP', 'NT-ProBNP', 'BNP'],
+    'FERRITIN': ['Ferritin', 'Feritin', 'FERRITIN'],
+    'FER': ['Ferritin', 'Feritin', 'FERRITIN'],
+    'BHCG': ['Beta hCG', 'Beta-hCG', 'b-hCG', 'HCG', 'Beta HCG'],
+    'B-HCG': ['Beta hCG', 'Beta-hCG', 'b-hCG', 'HCG', 'Beta HCG'],
+    'HCG': ['Beta hCG', 'Beta-hCG', 'b-hCG', 'HCG', 'Beta HCG'],
+    'PSA': ['PSA Total', 'Total PSA', 'PSA'],
+    'TPSA': ['PSA Total', 'Total PSA', 'PSA'],
+    'TSH': ['TSH', 'TSH Sensitif', 'TSH-s', 'TSHs'],
+    'FT4': ['FT4', 'Free T4', 'Free Thyroxine'],
+    'FT3': ['FT3', 'Free T3', 'Free Triiodothyronine'],
+    'MYO': ['Myoglobin', 'Mioglobin', 'MYO']
   };
 
   async function tarikHasilDariAlat(el, p, rujukanPakai, bTarikAlat) {
@@ -692,12 +722,13 @@ const Lab = (() => {
 
           const target = p.hasil.find(h => {
             const hNama = (h.nama || '').trim().toLowerCase();
-            return aliases.some(a => a.toLowerCase() === hNama) || hNama === rawCode.toLowerCase();
+            return aliases.some(a => a.toLowerCase() === hNama || hNama.includes(a.toLowerCase())) || hNama === rawCode.toLowerCase();
           });
 
           if (target) {
             const m = target.ref || {};
-            const numVal = parseFloat(String(rawVal).replace(',', '.'));
+            const numStr = String(rawVal).replace(',', '.').replace(/[^\d.-]/g, '');
+            const numVal = parseFloat(numStr);
             const isAngka = !isNaN(numVal) && m.jenis_nilai === 'ANGKA';
             const patch = {
               nilai_angka: isAngka ? numVal : null,
@@ -5114,7 +5145,7 @@ const Lab = (() => {
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap;">
-                ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                ${!terkunci ? `<button id="btnVerify" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px;display:inline-flex;align-items:center;gap:4px;">${UI.ikon('centang', 12)} Sudah Diverifikasi</span>`}
                 <select id="selFormatCetakExt" style="flex: 1; min-width: 140px; max-width: 200px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
@@ -5471,7 +5502,7 @@ const Lab = (() => {
                 if (typeof SatuSehat !== 'undefined' && SatuSehat.kirimHasilLab) {
                   SatuSehat.kirimHasilLab(p.id).then(resSS => {
                     if (resSS && resSS.sukses) {
-                      UI.toast(`✓ Otomatis terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
+                      UI.toast(`Otomatis terkirim ke SATUSEHAT (DiagReport: ${resSS.diagnostic_report_id || '-'})`, 'ok', 7000);
                     } else if (resSS && !resSS.sukses) {
                       console.warn('SATUSEHAT auto-sync info:', resSS.pesan);
                       if (resSS.pesan && !resSS.pesan.includes('Belum ada parameter lab dengan kode LOINC')) {
@@ -5550,14 +5581,15 @@ const Lab = (() => {
 
                   const target = p.hasil.find(h => {
                     const hNama = (h.nama || '').trim().toLowerCase();
-                    return aliases.some(a => a.toLowerCase() === hNama) || hNama === rawCode.toLowerCase();
+                    return aliases.some(a => a.toLowerCase() === hNama || hNama.includes(a.toLowerCase())) || hNama === rawCode.toLowerCase();
                   });
 
                   if (target) {
                     const inp = kanan.querySelector(`.hasil-val[data-hid="${target.id}"]`);
                     const mRef = target.ref || {};
                     const harusAngka = inp ? inp.dataset.angka === '1' : cekHarusAngka(target, mRef, rujukanPakai[target.id]);
-                    const numVal = parseFloat(String(rawVal).replace(',', '.'));
+                    const numStr = String(rawVal).replace(',', '.').replace(/[^\d.-]/g, '');
+                    const numVal = parseFloat(numStr);
                     const isAngka = !isNaN(numVal) && (harusAngka || mRef.jenis_nilai === 'ANGKA');
 
                     const patch = {
@@ -6014,7 +6046,7 @@ const Lab = (() => {
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
-                ${!terkunci ? `<button id="btnVerifyFisik" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                ${!terkunci ? `<button id="btnVerifyFisik" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px;display:inline-flex;align-items:center;gap:4px;">${UI.ikon('centang', 12)} Sudah Diverifikasi</span>`}
                 <select id="selFormatCetakFisik" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
@@ -6363,7 +6395,7 @@ const Lab = (() => {
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px;">
-                ${!terkunci ? `<button id="btnVerifyAnamnesa" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                ${!terkunci ? `<button id="btnVerifyAnamnesa" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px;display:inline-flex;align-items:center;gap:4px;">${UI.ikon('centang', 12)} Sudah Diverifikasi</span>`}
                 <select id="selFormatCetakAnamnesa" style="flex: 1; max-width: 250px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
@@ -6708,7 +6740,7 @@ const Lab = (() => {
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap;">
-                ${!terkunci ? `<button id="btnVerifySperma" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px">✓ Sudah Diverifikasi</span>`}
+                ${!terkunci ? `<button id="btnVerifySperma" style="background:#ff7b00; color:#fff; border:none; padding:4px 16px; cursor:pointer; font-size:12px; font-weight:600;">Verify</button>` : `<span style="color:#fff;font-weight:700;font-size:12px;padding:4px;display:inline-flex;align-items:center;gap:4px;">${UI.ikon('centang', 12)} Sudah Diverifikasi</span>`}
                 <select id="selFormatCetakSperma" style="flex: 1; min-width: 140px; max-width: 200px; font-size:12px; padding:2px; border:1px solid #ccc;">
                   ${opsiFormat(skylabState.formatCetak)}
                 </select>
@@ -6844,7 +6876,7 @@ const Lab = (() => {
               await DB.labSpermaSimpan(p.id, items);
               if (ind) {
                 ind.style.background = '#4caf50';
-                ind.textContent = '✓ Tersimpan';
+                ind.textContent = 'Tersimpan';
                 setTimeout(() => { if (ind) ind.style.display = 'none'; }, 1500);
               }
               if (elTarget) {
