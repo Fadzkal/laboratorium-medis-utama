@@ -24,6 +24,8 @@ const Kasir = (() => {
   let tab = 'menunggu';
   let menunggu = [], daftar = [], rekap = [];
   let filter = { dari: UI.hariIni(), sampai: UI.hariIni(), status: '' };
+  let filterMenunggu = { tanggal: UI.hariIni() };
+  let galatMenunggu = null;
   let templateSiap = false;
 
   const bolehTulis = () => App.boleh('kasir');
@@ -58,13 +60,40 @@ const Kasir = (() => {
      MUAT
      ------------------------------------------------------------------ */
   async function muat() {
-    const [m, d] = await Promise.all([
-      DB.kasirMenunggu({}),
-      DB.kasirDaftarTagihan({ dari: filter.dari, sampai: filter.sampai,
-                              status: filter.status || null })
-    ]);
-    menunggu = m.filter(x => !x.nama_poli.toLowerCase().includes('histori / impor')); 
-    daftar = d;
+    let m = [];
+    let d = [];
+
+    // Mengambil antrean menunggu dengan tanggal default (hari ini) agar tidak full scan
+    try {
+      m = await DB.kasirMenunggu({ tanggal: filterMenunggu.tanggal || null });
+      galatMenunggu = null;
+    } catch (e) {
+      console.warn('Gagal memuat kasir menunggu:', e);
+      if (e && (e.code === '57014' || (e.message && e.message.toLowerCase().includes('timeout')))) {
+        galatMenunggu = 'Kueri melebihi batas waktu (statement timeout). Silakan pilih tanggal spesifik untuk membatasi pencarian.';
+        UI.toast('Timeout saat memuat antrean menunggu. Gunakan filter tanggal.', 'warn');
+      } else {
+        galatMenunggu = 'Gagal memuat antrean menunggu: ' + (e ? e.message : 'Kesalahan server');
+        UI.toast(galatMenunggu, 'err');
+      }
+      m = [];
+    }
+
+    try {
+      d = await DB.kasirDaftarTagihan({
+        dari: filter.dari,
+        sampai: filter.sampai,
+        status: filter.status || null
+      });
+    } catch (e) {
+      console.warn('Gagal memuat daftar tagihan:', e);
+      UI.toast('Gagal memuat daftar tagihan: ' + (e ? e.message : 'Kesalahan server'), 'err');
+      d = [];
+    }
+
+    menunggu = Array.isArray(m) ? m.filter(x => !x.nama_poli.toLowerCase().includes('histori / impor')) : [];
+    daftar = Array.isArray(d) ? d : [];
+
     if (!templateSiap) {
       try { await DB.templateInvoice(); } catch (e) { console.warn('template invoice:', e.message); }
       templateSiap = true;
@@ -123,13 +152,14 @@ const Kasir = (() => {
     const bpjs = hariIni.filter(t => t.penjamin === 'BPJS')
       .reduce((s, t) => s + Number(t.subtotal), 0);
 
+    const labelTgl = filterMenunggu.tanggal ? UI.tglPendek(filterMenunggu.tanggal) : '7 hari terakhir';
     el.innerHTML = `
       <div class="stat accent"><div class="lbl">Uang masuk (rentang terpilih)</div>
         <div class="val">${rp(masuk)}</div>
         <div class="hint">${hariIni.length} tagihan</div></div>
       <div class="stat"><div class="lbl">Menunggu ditagih</div>
-        <div class="val">${menunggu.length}</div>
-        <div class="hint">kunjungan belum punya tagihan</div></div>
+        <div class="val">${galatMenunggu ? '—' : menunggu.length}</div>
+        <div class="hint">${galatMenunggu ? 'gagal memuat' : `${labelTgl} · belum ditagih`}</div></div>
       <div class="stat"><div class="lbl">Belum lunas</div>
         <div class="val text-warn">${rp(piutang)}</div>
         <div class="hint">${daftar.filter(t => t.status_bayar !== 'lunas').length} tagihan</div></div>
@@ -137,7 +167,7 @@ const Kasir = (() => {
         <div class="val">${rp(bpjs)}</div>
         <div class="hint">tercatat, tidak ditagihkan</div></div>`;
     const h = document.getElementById('hitMenunggu');
-    if (h) h.textContent = menunggu.length;
+    if (h) h.textContent = galatMenunggu ? '!' : menunggu.length;
   }
 
   function gambarIsi() {
@@ -151,33 +181,106 @@ const Kasir = (() => {
   /* ------------------------------------------------------------------
      TAB 1 — MENUNGGU DITAGIH
      ------------------------------------------------------------------ */
+  function pasangEventFilterMenunggu(el) {
+    const inputTgl = el.querySelector('#fTglMenunggu');
+    if (inputTgl) {
+      inputTgl.addEventListener('change', async (e) => {
+        filterMenunggu.tanggal = e.target.value;
+        await muat();
+        gambarMenunggu(el);
+        gambarRingkasan();
+      });
+    }
+    const btnHariIni = el.querySelector('#btnHariIniMenunggu');
+    if (btnHariIni) {
+      btnHariIni.addEventListener('click', async () => {
+        filterMenunggu.tanggal = UI.hariIni();
+        await muat();
+        gambarMenunggu(el);
+        gambarRingkasan();
+      });
+    }
+    const btnSemua = el.querySelector('#btnSemuaAktifMenunggu');
+    if (btnSemua) {
+      btnSemua.addEventListener('click', async () => {
+        filterMenunggu.tanggal = '';
+        await muat();
+        gambarMenunggu(el);
+        gambarRingkasan();
+      });
+    }
+  }
+
   function gambarMenunggu(el) {
-    if (!menunggu.length) {
-      el.innerHTML = `<div class="card"><div class="card-body">
-        ${UI.kosong('Semua kunjungan sudah ditagih',
-          'Kunjungan yang selesai diperiksa akan muncul di sini.')}</div></div>`;
+    const filterBarHtml = `
+      <div class="filter-bar">
+        <div class="field"><label for="fTglMenunggu">Tanggal kunjungan</label>
+          <input type="date" id="fTglMenunggu" class="control-auto" value="${filterMenunggu.tanggal || ''}"></div>
+        <div class="field" style="align-self: flex-end;">
+          <button class="btn btn-secondary btn-sm" id="btnHariIniMenunggu" type="button">Hari Ini</button>
+        </div>
+        <div class="field" style="align-self: flex-end;">
+          <button class="btn btn-secondary btn-sm" id="btnSemuaAktifMenunggu" type="button" title="Kunjungan aktif 7 hari terakhir">7 Hari Terakhir</button>
+        </div>
+      </div>`;
+
+    if (galatMenunggu) {
+      el.innerHTML = `
+        ${filterBarHtml}
+        <div class="card"><div class="card-body">
+          <div class="banner err mb-16">
+            <div><strong>Gagal memuat antrean kasir</strong>
+              <div class="text-sm mt-4">${UI.esc(galatMenunggu)}</div>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btnCobaLagiMenunggu">Coba lagi</button>
+        </div></div>`;
+      pasangEventFilterMenunggu(el);
+      const btnRetry = el.querySelector('#btnCobaLagiMenunggu');
+      if (btnRetry) btnRetry.addEventListener('click', async () => {
+        await muat();
+        gambarMenunggu(el);
+        gambarRingkasan();
+      });
       return;
     }
-    el.innerHTML = `<div class="card">
-      <div class="card-head"><div><h2>Kunjungan menunggu ditagih</h2>
-        <div class="sub">Menyusun tagihan untuk kunjungan yang belum memiliki rincian biaya.</div></div></div>
-      <div class="card-body tight"><div class="table-wrap"><table class="tbl">
-        <thead><tr><th class="col-w56">No.</th><th>Pasien</th><th>Poli / dokter</th>
-          <th>Bayar</th><th>Isi</th><th>Status</th><th class="col-shrink"></th></tr></thead>
-        <tbody>${menunggu.map(m => `<tr>
-          <td><div class="queue-no">${m.no_antrian ?? '-'}</div></td>
-          <td><b>${UI.esc(m.nama_pasien)}</b>
-            <div class="text-xs text-muted">${UI.esc(m.no_rm)} · ${UI.tglPendek(m.tanggal)}</div></td>
-          <td class="text-xs">${UI.esc(m.nama_poli)}
-            <div class="text-muted">${UI.esc(m.nama_dokter || '—')}</div></td>
-          <td>${UI.badgeBayar(m.cara_bayar)}</td>
-          <td class="text-xs text-muted">Belum ada tagihan</td>
-          <td>${m.resep_belum_diserahkan
-            ? '<span class="badge b-warn">Resep belum diserahkan</span>'
-            : UI.badgeStatus(m.status_kunjungan)}</td>
-          <td class="nowrap">${bolehTulis()
-            ? `<button class="btn btn-primary btn-sm" data-susun="${m.kunjungan_id}">Susun tagihan</button>`
-            : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+
+    if (!menunggu.length) {
+      el.innerHTML = `
+        ${filterBarHtml}
+        <div class="card"><div class="card-body">
+          ${UI.kosong('Semua kunjungan sudah ditagih',
+            filterMenunggu.tanggal
+              ? `Tidak ada antrean menunggu ditagih pada tanggal ${UI.tglPendek(filterMenunggu.tanggal)}.`
+              : 'Tidak ada kunjungan aktif yang menunggu ditagih.')}</div></div>`;
+      pasangEventFilterMenunggu(el);
+      return;
+    }
+
+    el.innerHTML = `
+      ${filterBarHtml}
+      <div class="card">
+        <div class="card-head"><div><h2>Kunjungan menunggu ditagih</h2>
+          <div class="sub">Menyusun tagihan untuk kunjungan yang belum memiliki rincian biaya.</div></div></div>
+        <div class="card-body tight"><div class="table-wrap"><table class="tbl">
+          <thead><tr><th class="col-w56">No.</th><th>Pasien</th><th>Poli / dokter</th>
+            <th>Bayar</th><th>Isi</th><th>Status</th><th class="col-shrink"></th></tr></thead>
+          <tbody>${menunggu.map(m => `<tr>
+            <td><div class="queue-no">${m.no_antrian ?? '-'}</div></td>
+            <td><b>${UI.esc(m.nama_pasien)}</b>
+              <div class="text-xs text-muted">${UI.esc(m.no_rm)} · ${UI.tglPendek(m.tanggal)}</div></td>
+            <td class="text-xs">${UI.esc(m.nama_poli)}
+              <div class="text-muted">${UI.esc(m.nama_dokter || '—')}</div></td>
+            <td>${UI.badgeBayar(m.cara_bayar)}</td>
+            <td class="text-xs text-muted">Belum ada tagihan</td>
+            <td>${m.resep_belum_diserahkan
+              ? '<span class="badge b-warn">Resep belum diserahkan</span>'
+              : UI.badgeStatus(m.status_kunjungan)}</td>
+            <td class="nowrap">${bolehTulis()
+              ? `<button class="btn btn-primary btn-sm" data-susun="${m.kunjungan_id}">Susun tagihan</button>`
+              : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+
+    pasangEventFilterMenunggu(el);
 
     el.querySelectorAll('[data-susun]').forEach(b =>
       b.addEventListener('click', () => susunTagihan(b.dataset.susun)));
@@ -447,11 +550,11 @@ const Kasir = (() => {
         <td class="text-right">${Number(i.diskon_pct) ? i.diskon_pct + '%' : '—'}</td>
         <td class="text-right"><b>${rp(i.total_baris)}</b></td>
         <td class="text-center">${terkunci || !bolehTulis()
-          ? (i.ditanggung_penjamin ? '<span class="badge b-info">penjamin</span>' : '✓')
+          ? (i.ditanggung_penjamin ? '<span class="badge b-info">penjamin</span>' : '<span class="badge b-ok">Pasien</span>')
           : `<input type="checkbox" data-tagih="${i.id}" ${i.ditanggung_penjamin ? '' : 'checked'}
                  title="Hilangkan centang bila ditanggung penjamin">`}</td>
         ${!terkunci && bolehTulis()
-          ? `<td><button class="btn btn-secondary btn-sm" data-hapus-item="${i.id}">×</button></td>` : ''}
+          ? `<td><button class="btn btn-secondary btn-sm" data-hapus-item="${i.id}" title="Hapus baris">${UI.ikon('hapus', 14)}</button></td>` : ''}
       </tr>`).join('')}
       <tr class="row-tint summary">
         <td colspan="4">Nilai seluruh layanan</td>

@@ -2064,9 +2064,10 @@ const DB = (() => {
       jumlah_item: TAGIHAN_ITEM.filter(i => i.tagihan_id === t.id).length };
   }
 
-  async function kasirMenunggu() {
+  async function kasirMenunggu({ tanggal = null } = {}) {
     await tunggu(50);
     return KUNJUNGAN.filter(k => k.status !== 'BATAL'
+        && (!tanggal || k.tanggal === tanggal)
         && !TAGIHAN.some(t => t.kunjungan_id === k.id))
       .map(k => {
         const p = PASIEN.find(x => x.id === k.pasien_id) || {};

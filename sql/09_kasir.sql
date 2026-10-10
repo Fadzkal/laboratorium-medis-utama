@@ -635,6 +635,9 @@ select k.id            as kunjungan_id,
   join poli po  on po.id = k.poli_id
   left join pegawai d on d.id = k.dokter_id
  where k.status not in ('BATAL')
+   and k.tanggal >= (current_date - interval '7 days')
+   and lower(coalesce(po.nama, '')) not like '%impor%'
+   and lower(coalesce(po.nama, '')) not like '%histori%'
    and not exists (select 1 from kasir_tagihan tg where tg.kunjungan_id = k.id);
 
 -- H2. Tagihan lengkap dengan identitas pasien.

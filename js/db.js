@@ -2065,10 +2065,15 @@ const DB = (() => {
 
   /* ========================= KASIR ================================== */
 
-  async function kasirMenunggu({ tanggal = null } = {}) {
+  async function kasirMenunggu({ tanggal = null, dari = null, sampai = null } = {}) {
     let q = sb.from('v_kasir_menunggu').select('*')
       .order('tanggal', { ascending: false }).order('no_antrian');
-    if (tanggal) q = q.eq('tanggal', tanggal);
+    if (tanggal) {
+      q = q.eq('tanggal', tanggal);
+    } else {
+      if (dari)   q = q.gte('tanggal', dari);
+      if (sampai) q = q.lte('tanggal', sampai);
+    }
     const { data, error } = await q.limit(300);
     if (error) throw error; return data;
   }
