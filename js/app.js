@@ -144,12 +144,12 @@ const App = (() => {
     const nama = bagian[0] || 'beranda';
     const param = bagian.slice(1);
 
-    let judul = JUDUL[nama] || 'RME';
+    let judul = JUDUL[nama] || 'Utama Lab System';
     if (nama === 'hris' && profil?.peran === 'karyawan') {
       judul = 'Kinerja & Bonus Saya';
     }
     document.getElementById('judulHalaman').textContent = judul;
-    document.title = judul + ' — ' + CONFIG.NAMA_KLINIK;
+    document.title = judul + ' — Utama Lab System';
     document.getElementById('sidebar').classList.remove('open');
     gambarMenu();
 
@@ -217,7 +217,7 @@ const App = (() => {
     try { f = await DB.faskes(); } catch (e) { /* pakai CONFIG saja */ }
     const nama = f?.nama || CONFIG.NAMA_KLINIK;
     document.getElementById('brandTeks').innerHTML =
-      `${UI.esc(nama.replace(/^Klinik (Pratama )?/i, ''))}<small>Rekam Medis</small>`;
+      `Utama Lab System<small>${UI.esc(nama.replace(/^Klinik (Pratama )?/i, ''))}</small>`;
     document.getElementById('brandMark').textContent = CONFIG.SINGKATAN;
     const namaUser = profil.nama || (profil.peran === 'developer' ? 'IT MEDIS UTAMA' : (profil.peran === 'master' ? 'Master' : 'Pegawai'));
     const peranTeks = profil.peran === 'developer' ? 'IT & Sistem Administrator' : (profil.peran === 'master' ? 'Master / Pimpinan' : (profil.peran || 'Pegawai'));

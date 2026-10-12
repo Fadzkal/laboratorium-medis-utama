@@ -96,13 +96,13 @@ Berdasarkan dokumentasi resmi Kementerian Kesehatan RI pada laman:
 2. **Langkah 2 (Pilih Kategori Institusi):**  
    Pada menu *Registrasi Institusi*, pilih opsi **Penyedia sistem RME** → **Sistem RME Mandiri**.
 3. **Langkah 3 (Pengisian Data & Unggah Berkas):**  
-   Isi data profil sistem (misal: *RME Laboratorium Medis Utama*), masukkan nomor PSE, nomor afiliasi SNOMED CT, dan unggah dokumen PDF persyaratan di atas.
+   Isi data profil sistem (*Utama Lab System*), masukkan nomor PSE, nomor afiliasi SNOMED CT, dan unggah dokumen PDF persyaratan di atas.
 4. **Langkah 4 (Survei Keamanan):**  
    Lengkapi kuesioner survei keamanan sistem RME.
 5. **Langkah 5 (Verifikasi Kemenkes):**  
    Kemenkes melakukan verifikasi data (estimasi 1–3 hari kerja). Jika perlu percepatan, dapat menghubungi `helpdesk@kemkes.go.id`.
 6. **Langkah 6 (Pemutakhiran di DFO):**  
-   Setelah sistem terverifikasi di SSP, login ke portal **DFO** ([dfo.kemkes.go.id](https://dfo.kemkes.go.id/login)) menggunakan akun fasyankes lama, lalu di menu **Pemutakhiran Data Sistem RME**, pilih nama sistem mandiri baru.
+   Setelah sistem terverifikasi di SSP, login ke portal **DFO** ([dfo.kemkes.go.id](https://dfo.kemkes.go.id/login)) menggunakan akun fasyankes lama, lalu di menu **Pemutakhiran Data Sistem RME**, pilih nama sistem mandiri baru: **Utama Lab System**.
 7. **Langkah 7 (Selesai):**  
    Sistem mandiri telah resmi terdata oleh Kemenkes RI, dan nama vendor Skylab otomatis tidak lagi terikat dengan fasyankes.
 
@@ -117,3 +117,44 @@ Berdasarkan dokumentasi resmi Kementerian Kesehatan RI pada laman:
 - **Nomor Induk Berusaha (NIB):** `2706220025565`
 - **Email Bantuan Kemenkes:** `helpdesk@kemkes.go.id`
 - **Portal SATUSEHAT Platform:** [satusehat.kemkes.go.id/platform](https://satusehat.kemkes.go.id/platform)
+
+---
+
+## 6. Riwayat & Parameter Registrasi PSE Kominfo/Komdigi (9-10 Oktober 2026)
+
+Seluruh riwayat proses registrasi perizinan berusaha dan data teknis PSE dicatat secara permanen di bawah ini agar terpelihara pada sesi kerja manapun:
+
+### A. Penyesuaian KBLI 2020 ke KBLI 2025 (OSS)
+- **Status:** Berhasil disimpan dan disesuaikan di portal OSS tanpa mengganggu izin dasar NIB.
+- **Data KBLI Lama 2020:** `86903` - *Aktivitas Pelayanan Penunjang Kesehatan* (Laboratorium Medis Kelas Pratama).
+- **Data KBLI Baru 2025:** `86993` - *Aktivitas Pelayanan Penunjang Kesehatan* (Laboratorium Medis Kelas Pratama).
+- **NIB Tetap:** `2706220025565` (*LABORATORIUM UTAMA MANDIRI*).
+
+### B. Formulir PB-UMKU PSE Lingkup Privat
+- **Nama Perizinan Berusaha UMKU:** Pendaftaran Penyelenggara Sistem Elektronik (PSE) Lingkup Privat.
+- **ID Izin Permohonan PB-UMKU:** `I-202610091349542872272`.
+- **Tanggal Pengajuan:** `09/10/2026`.
+- **Kewenangan Penerbitan:** Menteri Komunikasi dan Digital (Komdigi).
+- **Status:** Formulir pemenuhan persyaratan dialihkan ke sistem portal Komdigi (`pse.komdigi.go.id`).
+
+### C. Detail Isian Data Teknis PSE di Portal Komdigi (`pse.komdigi.go.id`)
+- **Tautan Formulir Permohonan:** `https://pse.komdigi.go.id/sistem-elektronik/form?id=I-202610091349542872272`
+- **Nama Sistem Elektronik:** `Utama Lab System`.
+- **Sektor Sistem Elektronik:** `Kesehatan`.
+- **Sub Sektor Sistem Elektronik:** `PORTAL (KESEHATAN)`.
+- **Kode KBLI Layanan:** `86903`.
+- **Lokasi Memproses Data:** `Dalam Wilayah Indonesia`.
+- **Alamat Lokasi Memproses Data:** `Jalan D.I. Panjaitan No. 94, Purbalingga Lor, Kec. Purbalingga, Kabupaten Purbalingga, Jawa Tengah`.
+- **Nama Penyedia PSE:** `Laboratorium Utama Mandiri`.
+- **Jenis Sistem Elektronik:** `Website`.
+- **Memiliki Website dan/atau Aplikasi:** `Website`.
+- **Tautan / URL Website:** `http://187.53.142.245:5100/`.
+- **Alamat IP Server:** `187.53.142.245`.
+- **Aktivitas Bisnis Sistem Elektronik:** `Pemroses data pribadi`.
+- **Emerging Technology:** `Tidak Ada`.
+- **Deskripsi Model Bisnis (min. 50 karakter):**  
+  *"Utama Lab System adalah sistem Rekam Medis Elektronik mandiri internal untuk melayani operasional pemeriksaan laboratorium medis pasien, pencatatan hasil lab, billing, dan integrasi SATUSEHAT Kemenkes."*
+- **Deskripsi Singkat Fungsi (maks. 200 karakter untuk sertifikat PSE):**  
+  *"Utama Lab System adalah sistem Rekam Medis Elektronik (RME) dan LIS untuk registrasi pasien, validasi hasil pemeriksaan laboratorium medis, dan bridging data ke platform SATUSEHAT Kemenkes."*
+- **Deskripsi Lengkap Fungsi Sistem:**  
+  *"Utama Lab System berfungsi mengelola pelayanan laboratorium secara digital, meliputi: registrasi pasien, integrasi alat analyzer laboratorium, validasi hasil pemeriksaan, pencetakan barcode spesimen dan hasil uji, serta interoperabilitas pertukaran data medis ke SATUSEHAT Kementerian Kesehatan RI."*
