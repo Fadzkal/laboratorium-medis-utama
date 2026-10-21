@@ -13,11 +13,8 @@ Dokumen ini berisi prinsip arsitektur dan batasan operasional yang **WAJIB dipat
 
 ## 2. RUANG LINGKUP TUGAS: HANYA EDIT FILE LOKAL
 - **Fokus pekerjaan AI Agent HANYA memodifikasi kode pada berkas lokal** yang relevan di workspace proyek.
-- **Dilarang menjalankan perintah deployment otomatis**, seperti:
-  - `git commit` / `git push`
-  - Koneksi SSH / Plink ke server VPS produksi (`187.53.142.245`)
-  - Eksekusi skrip Python / Bash runner deployment
-- Semua urusan commit, push GitHub, dan deployment ke VPS menjadi wewenang pengguna secara manual. AI Agent cukup melaporkan berkas yang diubah beserta ringkasan kodenya.
+- **Pengecualian Otorisasi Pengguna:** Perintah deployment otomatis (`git commit`, `git push`, atau sinkronisasi ke server VPS `187.53.142.245`) diperbolehkan jika pengguna memberikan instruksi eksplisit tertulis dalam percakapan aktif.
+- Tanpa instruksi eksplisit tersebut, urusan commit, push GitHub, dan deployment ke VPS menjadi wewenang pengguna secara manual. AI Agent wajib melaporkan berkas yang diubah beserta ringkasan kodenya.
 
 ---
 
