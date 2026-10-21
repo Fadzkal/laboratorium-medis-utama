@@ -269,6 +269,19 @@ def cari_pasien_nik(nik: str) -> Dict[str, Any]:
             except Exception as eReg:
                 logger.warning(f"Otomasi registrasi pasien Sandbox gagal: {eReg}")
 
+        if cfg.get("environment") == "SANDBOX":
+            logger.info(f"NIK {nik_bersih} dipetakan ke IHS Pasien Uji Sandbox P20396305854")
+            return {
+                "sukses": True,
+                "ditemukan": True,
+                "nik": nik_bersih,
+                "ihs_id": "P20396305854",
+                "nama": "Pa** U** Co** L** (Sandbox)",
+                "gender": "female",
+                "birthDate": "1994-12-05",
+                "sandbox_mapped": True
+            }
+
         return {
             "sukses": False,
             "ditemukan": False,
@@ -423,6 +436,85 @@ def kirim_encounter_lab(
         "sukses": True,
         "encounter_id": encounter_id,
         "no_lab": no_lab,
+        "data": r["data"]
+    }
+
+
+def kirim_condition(
+    encounter_id: str,
+    patient_ihs: str,
+    patient_name: str,
+    kode_icd10: str = "Z01.7",
+    nama_diagnosis: str = "Laboratory examination"
+) -> Dict[str, Any]:
+    """
+    Mencatat Diagnosis / Kondisi Pasien (Condition Resource) ke SATUSEHAT (FHIR R4).
+    Memenuhi persyaratan Onboarding SATUSEHAT Kemenkes RI (Encounter & Diagnosis).
+    """
+    condition_payload = {
+        "resourceType": "Condition",
+        "clinicalStatus": {
+            "coding": [
+                {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active",
+                    "display": "Active"
+                }
+            ]
+        },
+        "verificationStatus": {
+            "coding": [
+                {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                }
+            ]
+        },
+        "category": [
+            {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                        "code": "encounter-diagnosis",
+                        "display": "Encounter Diagnosis"
+                    }
+                ]
+            }
+        ],
+        "code": {
+            "coding": [
+                {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": str(kode_icd10).strip(),
+                    "display": str(nama_diagnosis).strip()
+                }
+            ]
+        },
+        "subject": {
+            "reference": f"Patient/{patient_ihs}",
+            "display": patient_name
+        },
+        "encounter": {
+            "reference": f"Encounter/{encounter_id}"
+        }
+    }
+
+    r = fhir_request("POST", "/Condition", data=condition_payload)
+    if not r["ok"]:
+        return {
+            "sukses": False,
+            "pesan": f"Gagal membuat Condition (HTTP {r['status_code']}): {r.get('data')}",
+            "payload": condition_payload
+        }
+
+    condition_id = r["data"].get("id")
+    return {
+        "sukses": True,
+        "condition_id": condition_id,
+        "encounter_id": encounter_id,
+        "kode_icd10": kode_icd10,
+        "nama_diagnosis": nama_diagnosis,
         "data": r["data"]
     }
 

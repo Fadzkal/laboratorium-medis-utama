@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SATUSEHAT Sandbox API Tester - Utama Lab System</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, monospace;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background-color: #252526;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #333;
+      background-color: #1f1f20;
+    }
+    .sidebar-header h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ff6c37; /* Postman Orange */
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .env-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #0d3b66;
+      color: #60a5fa;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .endpoint-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .endpoint-btn {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: #cccccc;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      transition: all 0.15s;
+    }
+    .endpoint-btn:hover { background-color: #2a2d2e; }
+    .endpoint-btn.active {
+      background-color: #37373d;
+      border-color: #4fc1ff;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .badge-method {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .badge-post { background: #492a54; color: #f472b6; }
+    .badge-get { background: #1b3d2f; color: #4ade80; }
+
+    /* Main Panel */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #181818;
+    }
+    .top-bar {
+      padding: 12px 20px;
+      background-color: #1f1f20;
+      border-bottom: 1px solid #333;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .req-box {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background-color: #2b2b2b;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .req-method {
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #f472b6;
+      background-color: #222;
+      border-right: 1px solid #3f3f46;
+    }
+    .req-url {
+      flex: 1;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: #f4f4f5;
+      font-size: 13px;
+      font-family: monospace;
+      outline: none;
+    }
+    .btn-send {
+      padding: 8px 24px;
+      background: #0284c7;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-send:hover { background: #0369a1; }
+    .btn-send:disabled { background: #475569; cursor: not-allowed; }
+
+    /* Content Area */
+    .content-split {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .pane-req {
+      width: 45%;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+    }
+    .pane-res {
+      width: 55%;
+      display: flex;
+      flex-direction: column;
+      background-color: #141414;
+    }
+    .pane-title {
+      padding: 10px 16px;
+      background: #252526;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-badge {
+      display: none;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .status-200, .status-201 {
+      display: inline-block;
+      background-color: #059669;
+      color: #ffffff;
+    }
+    .status-error {
+      display: inline-block;
+      background-color: #dc2626;
+      color: #ffffff;
+    }
+    .editor-box {
+      flex: 1;
+      padding: 14px;
+      font-family: "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .editor-req { background: #1e1e1e; color: #a5f3fc; }
+    .editor-res { background: #121212; color: #86efac; }
+    .meta-time { font-size: 11px; color: #94a3b8; margin-left: 8px; }
+
+    /* Header Nav */
+    .btn-back-app {
+      padding: 6px 12px;
+      border-radius: 4px;
+      background: #334155;
+      color: #f8fafc;
+      font-size: 11px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .btn-back-app:hover { background: #475569; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>🚀 SATUSEHAT TESTER</h2>
+      <div class="env-badge">SANDBOX ENVIRONMENT (FHIR R4)</div>
+    </div>
+    <div class="endpoint-list">
+      <button class="endpoint-btn active" onclick="pilihEndpoint(0)">
+        <span class="badge-method badge-post">POST</span>
+        <span>1. OAuth2 Access Token</span>
+      </button>
+      <button class="endpoint-btn" onclick="pilihEndpoint(1)">
+        <span class="badge-method badge-get">GET</span>
+        <span>2. Cari Pasien by NIK</span>
+      </button>
+      <button class="endpoint-btn" onclick="pilihEndpoint(2)">
+        <span class="badge-method badge-get">GET</span>
+        <span>3. Cari Nakes / Practitioner</span>
+      </button>
+      <button class="endpoint-btn" onclick="pilihEndpoint(3)">
+        <span class="badge-method badge-post">POST</span>
+        <span>4. Buat Encounter (201)</span>
+      </button>
+      <button class="endpoint-btn" onclick="pilihEndpoint(4)">
+        <span class="badge-method badge-post">POST</span>
+        <span>5. Buat Diagnosis ICD-10 (201)</span>
+      </button>
+      <button class="endpoint-btn" onclick="pilihEndpoint(5)">
+        <span class="badge-method badge-post">POST</span>
+        <span>6. DiagnosticReport Lab (201)</span>
+      </button>
+    </div>
+    <div style="padding: 12px; border-top: 1px solid #333;">
+      <a href="/app.html" class="btn-back-app" style="display:block; text-align:center;">&larr; Kembali ke RME Web Utama</a>
+    </div>
+  </div>
+
+  <!-- Main View -->
+  <div class="main">
+    <div class="top-bar">
+      <div class="req-box">
+        <span class="req-method" id="reqMethod">POST</span>
+        <input type="text" class="req-url" id="reqUrl" readonly value="https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken">
+      </div>
+      <button class="btn-send" id="btnSend" onclick="eksekusi()">
+        <span id="sendText">Send</span>
+      </button>
+    </div>
+
+    <div class="content-split">
+      <!-- Request Pane -->
+      <div class="pane-req">
+        <div class="pane-title">
+          <span>Request Payload / Parameter</span>
+          <span style="font-size: 11px; color:#64748b;">Bridge Port 7119</span>
+        </div>
+        <div class="editor-box editor-req" id="reqBody"></div>
+      </div>
+
+      <!-- Response Pane -->
+      <div class="pane-res">
+        <div class="pane-title">
+          <span>Response Status &amp; Body</span>
+          <div>
+            <span class="status-badge" id="statusBadge">200 OK</span>
+            <span class="meta-time" id="resTime"></span>
+          </div>
+        </div>
+        <div class="editor-box editor-res" id="resBody">// Klik tombol "Send" di atas untuk mengirim request live ke Kemenkes SATUSEHAT...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BRIDGE = 'http://127.0.0.1:7119';
+    let activeIndex = 0;
+    let savedEncounterId = "428e4caa-e890-4860-b06f-6f2ceb308abd";
+    let savedPatientIhs = "P20396305854";
+
+    const ENDPOINTS = [
+      {
+        method: "POST",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken?grant_type=client_credentials",
+        bridgeUrl: `${BRIDGE}/api/satusehat/tes-koneksi`,
+        body: { grant_type: "client_credentials", client_id: "7aa334f7-fasyankes", client_secret: "******" }
+      },
+      {
+        method: "GET",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Patient?identifier=https://fhir.kemkes.go.id/id/nik|3303045512940002",
+        bridgeUrl: `${BRIDGE}/api/satusehat/pasien?nik=3303045512940002`,
+        body: null
+      },
+      {
+        method: "GET",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Practitioner?identifier=https://fhir.kemkes.go.id/id/nik|3171010101900001",
+        bridgeUrl: `${BRIDGE}/api/satusehat/nakes?nik=3171010101900001`,
+        body: null
+      },
+      {
+        method: "POST",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter",
+        bridgeUrl: `${BRIDGE}/api/satusehat/encounter`,
+        body: {
+          no_lab: "LAB-" + Date.now(),
+          patient_ihs: "P20396305854",
+          patient_name: "Pasien Uji Coba Lab",
+          practitioner_ihs: "N10000001",
+          practitioner_name: "dr. Minto Rahaju, Sp.PK"
+        }
+      },
+      {
+        method: "POST",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Condition",
+        bridgeUrl: `${BRIDGE}/api/satusehat/condition`,
+        body: {
+          encounter_id: "428e4caa-e890-4860-b06f-6f2ceb308abd",
+          patient_ihs: "P20396305854",
+          patient_name: "Pasien Uji Coba Lab",
+          kode_icd10: "Z01.7",
+          nama_diagnosis: "Laboratory examination"
+        }
+      },
+      {
+        method: "POST",
+        displayUrl: "https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/DiagnosticReport",
+        bridgeUrl: `${BRIDGE}/api/satusehat/kirim-lab`,
+        body: {
+          no_lab: "TEST-" + Date.now(),
+          patient_ihs: "P20396305854",
+          patient_name: "Pasien Uji Coba Lab",
+          practitioner_name: "dr. Minto Rahaju, Sp.PK",
+          items: [
+            { nama: "Hemoglobin", kode_loinc: "718-7", display_loinc: "Hemoglobin [Mass/volume] in Blood", nilai: "14.2", satuan: "g/dl" },
+            { nama: "Leukosit", kode_loinc: "6690-2", display_loinc: "Leukocytes [#/volume] in Blood", nilai: "7800", satuan: "/uL" },
+            { nama: "Cholesterol Total", kode_loinc: "2093-3", display_loinc: "Cholesterol [Mass/volume] in Serum", nilai: "175", satuan: "mg/dL" }
+          ]
+        }
+      }
+    ];
+
+    function pilihEndpoint(idx) {
+      activeIndex = idx;
+      document.querySelectorAll('.endpoint-btn').forEach((b, i) => {
+        b.classList.toggle('active', i === idx);
+      });
+      const item = ENDPOINTS[idx];
+      document.getElementById('reqMethod').innerText = item.method;
+      document.getElementById('reqMethod').style.color = item.method === 'POST' ? '#f472b6' : '#4ade80';
+      document.getElementById('reqUrl').value = item.displayUrl;
+      document.getElementById('reqBody').innerText = item.body ? JSON.stringify(item.body, null, 2) : "// Tidak ada body (GET request query params)";
+
+      // Reset response pane
+      document.getElementById('statusBadge').style.display = 'none';
+      document.getElementById('resTime').innerText = '';
+      document.getElementById('resBody').innerText = '// Klik "Send" untuk mengeksekusi...';
+    }
+
+    async function eksekusi() {
+      const item = ENDPOINTS[activeIndex];
+      const btn = document.getElementById('btnSend');
+      const badge = document.getElementById('statusBadge');
+      const timeSpan = document.getElementById('resTime');
+      const resBox = document.getElementById('resBody');
+
+      btn.disabled = true;
+      document.getElementById('sendText').innerText = 'Mengirim...';
+      badge.style.display = 'none';
+      resBox.innerText = '// Menghubungi SATUSEHAT Sandbox API...';
+
+      const t0 = performance.now();
+      try {
+        let opts = { method: item.method, headers: {} };
+        if (item.method === 'POST') {
+          opts.headers['Content-Type'] = 'application/json';
+          // Perbarui encounter ID jika sebelumnya sudah dibuat
+          if (activeIndex === 4 && savedEncounterId) {
+            item.body.encounter_id = savedEncounterId;
+            document.getElementById('reqBody').innerText = JSON.stringify(item.body, null, 2);
+          }
+          opts.body = JSON.stringify(item.body);
+        }
+
+        const res = await fetch(item.bridgeUrl, opts);
+        const data = await res.json();
+        const duration = Math.round(performance.now() - t0);
+
+        timeSpan.innerText = `${duration} ms`;
+
+        // Tentukan kode status HTTP tampilan Postman
+        let statusText = "200 OK";
+        let isSuccess = data.sukses !== false;
+
+        if (activeIndex === 3 || activeIndex === 4 || activeIndex === 5) {
+          statusText = "201 Created";
+        }
+
+        if (data.encounter_id) savedEncounterId = data.encounter_id;
+        if (data.ihs_id) savedPatientIhs = data.ihs_id;
+
+        badge.className = isSuccess ? 'status-badge status-200' : 'status-badge status-error';
+        badge.innerText = isSuccess ? statusText : (data.pesan || 'Error');
+        badge.style.display = 'inline-block';
+
+        resBox.innerText = JSON.stringify(data, null, 2);
+      } catch(err) {
+        badge.className = 'status-badge status-error';
+        badge.innerText = 'Offline / Error';
+        badge.style.display = 'inline-block';
+        resBox.innerText = "// Terjadi kesalahan: " + err.message + "\nPastikan LIS Bridge (Port 7119) aktif.";
+      } finally {
+        btn.disabled = false;
+        document.getElementById('sendText').innerText = 'Send';
+      }
+    }
+
+    // Inisialisasi awal
+    pilihEndpoint(0);
+  </script>
+</body>
+</html>

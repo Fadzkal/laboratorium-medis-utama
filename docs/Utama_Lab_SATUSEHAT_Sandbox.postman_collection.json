@@ -1,0 +1,223 @@
+{
+  "info": {
+    "_postman_id": "7aa334f7-7837-4c0a-8a64-satusehat-lab",
+    "name": "SATUSEHAT Sandbox - Utama Lab System (Encounter & Diagnosis)",
+    "description": "Koleksi Uji Coba Resmi Integrasi Kemenkes SATUSEHAT (FHIR R4) untuk Onboarding SSRME Fasyankes Laboratorium Medis Utama",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. OAuth2 - Generate Access Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var jsonData = pm.response.json();",
+              "pm.environment.set(\"access_token\", jsonData.access_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "{{client_id}}",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "{{client_secret}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{auth_url}}/accesstoken?grant_type=client_credentials",
+          "host": ["{{auth_url}}"],
+          "path": ["accesstoken"],
+          "query": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Patient - Get Patient by NIK",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var jsonData = pm.response.json();",
+              "if (jsonData.entry && jsonData.entry.length > 0) {",
+              "    pm.environment.set(\"patient_ihs\", jsonData.entry[0].resource.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/Patient?identifier=https://fhir.kemkes.go.id/id/nik|{{test_nik}}",
+          "host": ["{{base_url}}"],
+          "path": ["Patient"],
+          "query": [
+            {
+              "key": "identifier",
+              "value": "https://fhir.kemkes.go.id/id/nik|{{test_nik}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Practitioner - Get Practitioner by NIK",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var jsonData = pm.response.json();",
+              "if (jsonData.entry && jsonData.entry.length > 0) {",
+              "    pm.environment.set(\"practitioner_ihs\", jsonData.entry[0].resource.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/Practitioner?identifier=https://fhir.kemkes.go.id/id/nik|{{test_nakes_nik}}",
+          "host": ["{{base_url}}"],
+          "path": ["Practitioner"],
+          "query": [
+            {
+              "key": "identifier",
+              "value": "https://fhir.kemkes.go.id/id/nik|{{test_nakes_nik}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Encounter - Create Encounter (Rawat Jalan/Lab)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "var jsonData = pm.response.json();",
+              "pm.environment.set(\"encounter_id\", jsonData.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"resourceType\": \"Encounter\",\n  \"status\": \"arrived\",\n  \"class\": {\n    \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\n    \"code\": \"AMB\",\n    \"display\": \"ambulatory\"\n  },\n  \"subject\": {\n    \"reference\": \"Patient/{{patient_ihs}}\",\n    \"display\": \"Pasien Uji Coba\"\n  },\n  \"participant\": [\n    {\n      \"type\": [\n        {\n          \"coding\": [\n            {\n              \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ParticipationType\",\n              \"code\": \"ATND\",\n              \"display\": \"attender\"\n            }\n          ]\n        }\n      ],\n      \"individual\": {\n        \"reference\": \"Practitioner/{{practitioner_ihs}}\",\n        \"display\": \"dr. Minto Rahaju, Sp.PK\"\n      }\n    }\n  ],\n  \"period\": {\n    \"start\": \"2026-10-21T07:30:00+00:00\"\n  },\n  \"location\": [\n    {\n      \"location\": {\n        \"reference\": \"Location/{{location_id}}\",\n        \"display\": \"Laboratorium Medis Utama\"\n      }\n    }\n  ],\n  \"statusHistory\": [\n    {\n      \"status\": \"arrived\",\n      \"period\": {\n        \"start\": \"2026-10-21T07:30:00+00:00\"\n      }\n    }\n  ],\n  \"serviceProvider\": {\n    \"reference\": \"Organization/{{organization_id}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/Encounter",
+          "host": ["{{base_url}}"],
+          "path": ["Encounter"]
+        }
+      }
+    },
+    {
+      "name": "5. Condition - Create Diagnosis (ICD-10 Z01.7)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "var jsonData = pm.response.json();",
+              "pm.environment.set(\"condition_id\", jsonData.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"resourceType\": \"Condition\",\n  \"clinicalStatus\": {\n    \"coding\": [\n      {\n        \"system\": \"http://terminology.hl7.org/CodeSystem/condition-clinical\",\n        \"code\": \"active\",\n        \"display\": \"Active\"\n      }\n    ]\n  },\n  \"verificationStatus\": {\n    \"coding\": [\n      {\n        \"system\": \"http://terminology.hl7.org/CodeSystem/condition-ver-status\",\n        \"code\": \"confirmed\",\n        \"display\": \"Confirmed\"\n      }\n    ]\n  },\n  \"category\": [\n    {\n      \"coding\": [\n        {\n          \"system\": \"http://terminology.hl7.org/CodeSystem/condition-category\",\n          \"code\": \"encounter-diagnosis\",\n          \"display\": \"Encounter Diagnosis\"\n        }\n      ]\n    }\n  ],\n  \"code\": {\n    \"coding\": [\n      {\n        \"system\": \"http://hl7.org/fhir/sid/icd-10\",\n        \"code\": \"Z01.7\",\n        \"display\": \"Laboratory examination\"\n      }\n    ]\n  },\n  \"subject\": {\n    \"reference\": \"Patient/{{patient_ihs}}\",\n    \"display\": \"Pasien Uji Coba\"\n  },\n  \"encounter\": {\n    \"reference\": \"Encounter/{{encounter_id}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/Condition",
+          "host": ["{{base_url}}"],
+          "path": ["Condition"]
+        }
+      }
+    }
+  ]
+}

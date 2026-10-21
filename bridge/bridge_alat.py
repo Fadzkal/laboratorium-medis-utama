@@ -1591,6 +1591,36 @@ class LocalApiHandler(BaseHTTPRequestHandler):
                 self._send_json({"sukses": False, "pesan": str(e)}, 500)
             return
 
+        # Endpoint SATUSEHAT: Kirim Diagnosis / Condition (ICD-10)
+        if path == "/api/satusehat/condition":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+                payload = json.loads(body) if body else {}
+
+                encounter_id = payload.get("encounter_id")
+                patient_ihs = payload.get("patient_ihs")
+                patient_name = payload.get("patient_name", "-")
+                kode_icd10 = payload.get("kode_icd10", "Z01.7")
+                nama_diagnosis = payload.get("nama_diagnosis", "Laboratory examination")
+
+                if not encounter_id or not patient_ihs:
+                    self._send_json({"sukses": False, "pesan": "encounter_id dan patient_ihs wajib diisi"}, 400)
+                    return
+
+                from bridge import satusehat_bridge
+                res = satusehat_bridge.kirim_condition(
+                    encounter_id=encounter_id,
+                    patient_ihs=patient_ihs,
+                    patient_name=patient_name,
+                    kode_icd10=kode_icd10,
+                    nama_diagnosis=nama_diagnosis
+                )
+                self._send_json(res)
+            except Exception as e:
+                self._send_json({"sukses": False, "pesan": str(e)}, 500)
+            return
+
         # Endpoint SATUSEHAT: Kirim Seluruh Paket Hasil Lab (ServiceRequest, Specimen, Observation, DiagnosticReport)
         if path == "/api/satusehat/kirim-lab":
             try:
