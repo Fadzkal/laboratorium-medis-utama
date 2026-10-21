@@ -331,7 +331,12 @@
       return;
     }
 
-    sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+    let supabaseUrl = CONFIG.SUPABASE_URL;
+    if (supabaseUrl.startsWith('http://187.53.142.245') || (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && supabaseUrl.startsWith('http://'))) {
+      supabaseUrl = 'https://utamalabsystem.cloud/api';
+    }
+
+    sb = window.supabase.createClient(supabaseUrl, CONFIG.SUPABASE_ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 

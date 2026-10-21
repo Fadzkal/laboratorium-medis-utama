@@ -9,7 +9,7 @@
    ===================================================================== */
 
 const CONFIG = {
-  SUPABASE_URL: 'http://187.53.142.245:8001',
+  SUPABASE_URL: 'https://utamalabsystem.cloud/api',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
 
   // Identitas yang tampil di aplikasi (bisa juga diambil dari tabel `faskes`)

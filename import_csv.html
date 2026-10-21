@@ -97,7 +97,11 @@
       // Karena kita hanya butuh token untuk fetch, kita bisa pakai REST murni
       // ATAU gunakan window.supabase global tapi dengan set session
       
-      const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+      let supabaseUrl = CONFIG.SUPABASE_URL;
+      if (supabaseUrl.startsWith('http://187.53.142.245') || (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && supabaseUrl.startsWith('http://'))) {
+        supabaseUrl = 'https://utamalabsystem.cloud/api';
+      }
+      const sb = window.supabase.createClient(supabaseUrl, CONFIG.SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${token}` } }
       });
       
@@ -298,7 +302,10 @@
         log("Mulai insert " + table + "...");
         for (let i = 0; i < dataArray.length; i += chunkSize) {
           const chunk = dataArray.slice(i, i + chunkSize);
-          const res = await fetch(CONFIG.SUPABASE_URL + '/rest/v1/' + table + '?on_conflict=' + onConflict, {
+          const apiUrl = (CONFIG.SUPABASE_URL.startsWith('http://187.53.142.245') || (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && CONFIG.SUPABASE_URL.startsWith('http://')))
+            ? 'https://utamalabsystem.cloud/api'
+            : CONFIG.SUPABASE_URL;
+          const res = await fetch(apiUrl + '/rest/v1/' + table + '?on_conflict=' + onConflict, {
             method: 'POST',
             headers: {
               'apikey': CONFIG.SUPABASE_ANON_KEY,

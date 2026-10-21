@@ -5,7 +5,17 @@
    ===================================================================== */
 const DB = (() => {
 
-  const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+  // Pastikan URL Supabase menggunakan protokol HTTPS valid (mencegah error Mixed Content di peramban)
+  let supabaseUrl = (typeof CONFIG !== 'undefined' && CONFIG.SUPABASE_URL)
+    ? CONFIG.SUPABASE_URL
+    : 'https://utamalabsystem.cloud/api';
+
+  // Proteksi otomatis: jika URL masih memakai protokol HTTP langsung atau IP VPS, arahkan ke domain HTTPS resmi
+  if (supabaseUrl.startsWith('http://187.53.142.245') || (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && supabaseUrl.startsWith('http://'))) {
+    supabaseUrl = 'https://utamalabsystem.cloud/api';
+  }
+
+  const sb = window.supabase.createClient(supabaseUrl, CONFIG.SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true }
   });
 
